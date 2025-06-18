@@ -15,6 +15,7 @@ import (
 	"github.com/daytonaio/runner/pkg/common"
 	"github.com/daytonaio/runner/pkg/models/enums"
 	"github.com/docker/docker/errdefs"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -90,7 +91,10 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		hostConfig.Runtime = ""
 	}
 
-	c, err := d.apiClient.ContainerCreate(ctx, containerConfig, hostConfig, networkingConfig, nil, sandboxDto.Id)
+	c, err := d.apiClient.ContainerCreate(ctx, containerConfig, hostConfig, networkingConfig, &v1.Platform{
+		Architecture: "amd64",
+		OS:           "linux",
+	}, sandboxDto.Id)
 	if err != nil {
 		if !strings.Contains(err.Error(), "OCI runtime create failed") {
 			return "", err
