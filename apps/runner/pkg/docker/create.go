@@ -19,7 +19,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxDTO) (string, error) {
+func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxDTO, noSysbox bool, didTryWithoutSysbox bool) (string, error) {
 	defer timer.Timer()()
 
 	startTime := time.Now()
@@ -42,6 +42,15 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 	if state == enums.SandboxStateStopped || state == enums.SandboxStateCreating {
 		err = d.Start(ctx, sandboxDto.Id)
 		if err != nil {
+			if strings.Contains(err.Error(), "OCI runtime create failed") {
+				if didTryWithoutSysbox {
+					return "", err
+				}
+				// Recreate without sysbox
+				d.Destroy(ctx, sandboxDto.Id)
+				return d.Create(ctx, sandboxDto, true, true)
+			}
+
 			return "", err
 		}
 
@@ -77,14 +86,27 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		return "", err
 	}
 
+	if noSysbox {
+		hostConfig.Runtime = ""
+	}
+
 	c, err := d.apiClient.ContainerCreate(ctx, containerConfig, hostConfig, networkingConfig, nil, sandboxDto.Id)
 	if err != nil {
-		return "", err
+		if !strings.Contains(err.Error(), "OCI runtime create failed") {
+			return "", err
+		}
 	}
 
 	err = d.Start(ctx, sandboxDto.Id)
 	if err != nil {
-		return "", err
+		if strings.Contains(err.Error(), "OCI runtime create failed") {
+			if didTryWithoutSysbox {
+				return "", err
+			}
+			// Recreate without sysbox
+			d.Destroy(ctx, sandboxDto.Id)
+			return d.Create(ctx, sandboxDto, true, true)
+		}
 	}
 
 	containerShortId := c.ID[:12]

@@ -40,7 +40,7 @@ func Create(ctx *gin.Context) {
 
 	runner := runner.GetInstance(nil)
 
-	containerId, err := runner.Docker.Create(ctx.Request.Context(), createSandboxDto)
+	containerId, err := runner.Docker.Create(ctx.Request.Context(), createSandboxDto, false, false)
 	if err != nil {
 		runner.Cache.SetSandboxState(ctx, createSandboxDto.Id, enums.SandboxStateError)
 		common.ContainerOperationCount.WithLabelValues("create", string(common.PrometheusOperationStatusFailure)).Inc()
