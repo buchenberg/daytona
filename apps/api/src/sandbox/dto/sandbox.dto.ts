@@ -316,9 +316,6 @@ export class SandboxDto {
           return SandboxState.CREATING
         }
         break
-      case SandboxState.PENDING_ARCHIVE:
-        // @ts-expect-error - this is a temporary state
-        return 'archiving'
     }
     return sandbox.state
   }
