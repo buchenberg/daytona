@@ -53,7 +53,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
 
   //  on init
   async onApplicationBootstrap() {
-    await this.adHocBackupCheck()
+    // await this.adHocBackupCheck()
   }
 
   async onApplicationShutdown() {
