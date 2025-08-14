@@ -110,10 +110,12 @@ export class UsageService implements TrackableJobExecutions, OnApplicationShutdo
     }
   }
 
-  //@Cron(CronExpression.EVERY_MINUTE, { name: 'close-and-reopen-usage-periods' })
+  @Cron(CronExpression.EVERY_MINUTE, { name: 'close-and-reopen-usage-periods' })
   @TrackJobExecution()
   async closeAndReopenUsagePeriods() {
+    console.time('close-and-reopen-usage-periods')
     if (!(await this.redisLockProvider.lock('close-and-reopen-usage-periods', 60))) {
+      console.timeEnd('close-and-reopen-usage-periods')
       return
     }
 
@@ -165,6 +167,7 @@ export class UsageService implements TrackableJobExecutions, OnApplicationShutdo
     }
 
     await this.redisLockProvider.unlock('close-and-reopen-usage-periods')
+    console.timeEnd('close-and-reopen-usage-periods')
   }
 
   @Cron(CronExpression.EVERY_MINUTE, { name: 'archive-usage-periods' })
