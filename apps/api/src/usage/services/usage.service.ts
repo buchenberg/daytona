@@ -31,7 +31,7 @@ export class UsageService implements TrackableJobExecutions, OnApplicationShutdo
     private readonly redisLockProvider: RedisLockProvider,
     @InjectRepository(Sandbox)
     private readonly sandboxRepository: Repository<Sandbox>,
-  ) {}
+  ) { }
 
   async onApplicationShutdown() {
     //  wait for all active jobs to finish
@@ -110,7 +110,7 @@ export class UsageService implements TrackableJobExecutions, OnApplicationShutdo
     }
   }
 
-  @Cron(CronExpression.EVERY_MINUTE, { name: 'close-and-reopen-usage-periods' })
+  //@Cron(CronExpression.EVERY_MINUTE, { name: 'close-and-reopen-usage-periods' })
   @TrackJobExecution()
   async closeAndReopenUsagePeriods() {
     if (!(await this.redisLockProvider.lock('close-and-reopen-usage-periods', 60))) {
