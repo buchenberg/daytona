@@ -28,6 +28,7 @@ import { SandboxBackupCreatedEvent } from '../events/sandbox-backup-created.even
 import { SandboxArchivedEvent } from '../events/sandbox-archived.event'
 import { RunnerAdapterFactory } from '../runner-adapter/runnerAdapter'
 import { TypedConfigService } from '../../config/typed-config.service'
+import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
 
 import { TrackJobExecution } from '../../common/decorators/track-job-execution.decorator'
 import { TrackableJobExecutions } from '../../common/interfaces/trackable-job-executions'
@@ -49,7 +50,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
     private readonly dockerProvider: DockerProvider,
     private readonly redisLockProvider: RedisLockProvider,
     private readonly configService: TypedConfigService,
-  ) { }
+  ) {}
 
   //  on init
   async onApplicationBootstrap() {
@@ -220,6 +221,9 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         .createQueryBuilder('sandbox')
         .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
         .where('sandbox.state IN (:...states)', { states: [SandboxState.ARCHIVING, SandboxState.STOPPED] })
+        // TODO: REMOVE WHEN AD HOC BACKUP IS STABLE
+        .andWhere('sandbox.desiredState = :desiredState', { desiredState: SandboxDesiredState.ARCHIVED })
+        // END REMOVE
         .andWhere('sandbox.backupState = :none', { none: BackupState.NONE })
         .andWhere('r.state = :ready', { ready: RunnerState.READY })
         .take(100)
