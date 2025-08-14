@@ -58,7 +58,7 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
     private readonly sandboxArchiveAction: SandboxArchiveAction,
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: TypedConfigService,
-  ) {}
+  ) { }
 
   async onApplicationShutdown() {
     //  wait for all active jobs to finish
@@ -135,7 +135,7 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
     }
   }
 
-  @Cron(CronExpression.EVERY_MINUTE, { name: 'auto-archive-check' })
+  // @Cron(CronExpression.EVERY_MINUTE, { name: 'auto-archive-check' })
   @TrackJobExecution()
   async autoArchiveCheck(): Promise<void> {
     const lockKey = 'auto-archive-check-worker-selected'

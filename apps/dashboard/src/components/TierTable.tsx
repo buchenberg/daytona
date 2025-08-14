@@ -211,7 +211,8 @@ function canUpgradeToTier(
     case 2:
       return creditCardLinked && githubConnected
     case 3:
-      return organizationTier.hasVerifiedBusinessEmail && phoneVerified
+      // return organizationTier.hasVerifiedBusinessEmail && phoneVerified
+      return organizationTier.hasVerifiedBusinessEmail
   }
 
   return true
@@ -340,7 +341,7 @@ function AdditionalTierRequirements({ tier, ...props }: AdditionalTierRequiremen
           label="Business email verified"
           link={RoutePath.BILLING_WALLET}
         />
-        <TierRequirementItem checked={props.phoneVerified} label="Phone verified" link={RoutePath.ACCOUNT_SETTINGS} />
+        {/* <TierRequirementItem checked={props.phoneVerified} label="Phone verified" link={RoutePath.ACCOUNT_SETTINGS} /> */}
       </>
     )
   }

@@ -64,6 +64,8 @@ import { AuditAction } from '../../audit/enums/audit-action.enum'
 import { AuditTarget } from '../../audit/enums/audit-target.enum'
 // import { UpdateSandboxNetworkSettingsDto } from '../dto/update-sandbox-network-settings.dto'
 import { SshAccessDto, SshAccessValidationDto } from '../dto/ssh-access.dto'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
 
 @ApiTags('sandbox')
 @Controller('sandbox')
@@ -79,7 +81,9 @@ export class SandboxController {
     private readonly sandboxService: SandboxService,
     private readonly configService: TypedConfigService,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+    @InjectRepository(SandboxEntity)
+    private readonly sandboxRepository: Repository<SandboxEntity>,
+  ) { }
 
   @Get()
   @ApiOperation({
@@ -178,6 +182,15 @@ export class SandboxController {
     const organization = authContext.organization
     let sandbox: SandboxDto
 
+    if (
+      createSandboxDto.public === true &&
+      organization.totalCpuQuota <= 10 &&
+      (!createSandboxDto.snapshot ||
+        (!createSandboxDto.snapshot.includes('kortix/') && !createSandboxDto.snapshot.includes('/all-hands-ai/')))
+    ) {
+      throw new BadRequestError('Public port previews are not available for Tier 1 organizations.')
+    }
+
     if (createSandboxDto.buildInfo) {
       if (createSandboxDto.snapshot) {
         throw new BadRequestError('Cannot specify a snapshot when using a build info entry')
@@ -192,7 +205,7 @@ export class SandboxController {
         return sandbox
       }
 
-      await this.waitForSandboxStarted(sandbox, 30)
+      await this.waitForSandboxStarted(sandbox, 60)
     }
 
     return sandbox

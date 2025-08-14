@@ -23,6 +23,12 @@ const AppDataSource = new DataSource({
   logging: process.env.DB_LOGGING === 'true',
   namingStrategy: new CustomNamingStrategy(),
   entities: [join(__dirname, '**/*.entity.ts')],
+  ssl: true,
+  extra: {
+    ssl: {
+      rejectUnauthorized: false,
+    },
+  },
 })
 
 export default AppDataSource

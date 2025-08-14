@@ -49,7 +49,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
     private readonly dockerProvider: DockerProvider,
     private readonly redisLockProvider: RedisLockProvider,
     private readonly configService: TypedConfigService,
-  ) {}
+  ) { }
 
   //  on init
   async onApplicationBootstrap() {
@@ -65,7 +65,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
   }
 
   //  todo: make frequency configurable or more efficient
-  @Cron(CronExpression.EVERY_5_MINUTES, { name: 'ad-hoc-backup-check' })
+  // @Cron(CronExpression.EVERY_5_MINUTES, { name: 'ad-hoc-backup-check' })
   @TrackJobExecution()
   async adHocBackupCheck(): Promise<void> {
     const lockKey = 'ad-hoc-backup-check'

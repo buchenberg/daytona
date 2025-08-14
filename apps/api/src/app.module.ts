@@ -52,6 +52,13 @@ import { HealthModule } from './health/health.module'
           migrationsRun: !configService.getOrThrow('production'),
           namingStrategy: new CustomNamingStrategy(),
           manualInitialization: configService.get('skipConnections'),
+          ssl: true,
+          extra: {
+            ssl: {
+              rejectUnauthorized: false,
+            },
+            max: 50,
+          },
         }
       },
     }),

@@ -229,7 +229,7 @@ export class SandboxStartAction extends SandboxAction {
       // If the sandbox is on a runner and its backupState is COMPLETED
       // but there are too many running sandboxes on that runner, move it to a less used runner
       if (sandbox.backupState === BackupState.COMPLETED) {
-        const usageThreshold = 35
+        const usageThreshold = 70
         const runningSandboxsCount = await this.sandboxRepository.count({
           where: {
             runnerId: originalRunnerId,
@@ -381,7 +381,18 @@ export class SandboxStartAction extends SandboxAction {
       await this.updateSandboxState(sandbox.id, SandboxState.RESTORING, runnerId)
 
       sandbox.snapshot = validBackup
-      await runnerAdapter.createSandbox(sandbox, registry)
+      //  workaround for CA restore issue
+      //  DO NOT COMMIT
+      let entrypoint = null
+      if (sandbox.organizationId === '26a8fb68-6fb1-4429-b766-5df6795a5ab0') {
+        entrypoint = [
+          '/bin/bash',
+          '-c',
+          'rm -f /var/run/docker.pid && /usr/local/bin/workspace-supervisor || (rm -rf /var/run/docker/containerd/daemon/io.containerd.runtime.v2.task/moby/* && /usr/local/bin/workspace-supervisor)',
+        ]
+      }
+
+      await runnerAdapter.createSandbox(sandbox, registry, entrypoint)
     } else {
       // if sandbox has runner, start sandbox
       const runner = await this.runnerService.findOne(sandbox.runnerId)

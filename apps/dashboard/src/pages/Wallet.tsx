@@ -236,7 +236,8 @@ const Wallet = () => {
                       </>
                     ) : (
                       <>
-                        Verify your email address to recieve $100 of credits.
+                        {/* Verify your email address to recieve $100 of credits. */}
+                        Verify your email address to continue.
                         <br />A verification email was sent to you.
                       </>
                     )}
@@ -245,7 +246,7 @@ const Wallet = () => {
                 {!wallet.creditCardConnected && user?.profile.email_verified && (
                   <div className="text-sm text-red-500">
                     {selectedOrganization?.personal ? (
-                      <>Connect a credit card to receive an additional $100 of credits.</>
+                      <>Connect a credit card to receive $100 of credits.</>
                     ) : (
                       <>Please connect your credit card to your account to continue using our service.</>
                     )}
