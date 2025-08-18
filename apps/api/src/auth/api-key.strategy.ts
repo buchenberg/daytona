@@ -66,8 +66,8 @@ export class ApiKeyStrategy extends PassportStrategy(Strategy, 'api-key') implem
         throw new UnauthorizedException('This API key has expired')
       }
 
-      this.logger.debug(`Updating last used timestamp for API key: ${token.substring(0, 8)}...`)
-      await this.apiKeyService.updateLastUsedAt(apiKey.organizationId, apiKey.userId, apiKey.name, new Date())
+      // this.logger.debug(`Updating last used timestamp for API key: ${token.substring(0, 8)}...`)
+      // await this.apiKeyService.updateLastUsedAt(apiKey.organizationId, apiKey.userId, apiKey.name, new Date())
 
       let userCache = await this.getUserCache(apiKey.userId)
       if (!userCache) {
