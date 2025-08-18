@@ -43,6 +43,9 @@ export class AuditInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest<RequestWithUser>()
     const response = context.switchToHttp().getResponse<Response>()
 
+    return next.handle()
+
+    // TODO: Re-enable after db cleaning
     const auditContext = this.reflector.get<AuditContext>(AUDIT_CONTEXT_KEY, context.getHandler())
 
     // Non-audited request
