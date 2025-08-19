@@ -135,7 +135,7 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
     }
   }
 
-  // @Cron(CronExpression.EVERY_MINUTE, { name: 'auto-archive-check' })
+  @Cron(CronExpression.EVERY_MINUTE, { name: 'auto-archive-check' })
   @TrackJobExecution()
   async autoArchiveCheck(): Promise<void> {
     const lockKey = 'auto-archive-check-worker-selected'
@@ -156,7 +156,7 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
         order: {
           lastBackupAt: 'ASC',
         },
-        take: 100,
+        take: 200,
       })
 
       await Promise.all(
