@@ -157,8 +157,6 @@ export class SandboxService {
   }
 
   async archive(sandboxId: string): Promise<void> {
-    return
-
     const sandbox = await this.sandboxRepository.findOne({
       where: {
         id: sandboxId,
