@@ -54,7 +54,7 @@ func main() {
 	}
 
 	// Initialize net rules manager
-	persistent := cfg.Environment == "production"
+	persistent := cfg.Environment == "production" || cfg.Environment == "prod"
 	netRulesManager, err := netrules.NewNetRulesManager(persistent)
 	if err != nil {
 		log.Error(err)
