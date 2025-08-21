@@ -9,7 +9,9 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"time"
 
+	common_errors "github.com/daytonaio/common-go/pkg/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/mssola/useragent"
 )
@@ -80,7 +82,7 @@ func (p *Proxy) browserWarningMiddleware() gin.HandlerFunc {
 		}
 
 		// Skip warning for the acceptance endpoint itself or auth callbacks
-		targetPort, _, err := p.parseHost(ctx.Request.Host)
+		targetPort, sandboxId, err := p.parseHost(ctx.Request.Host)
 		if err != nil {
 			switch ctx.Request.Method {
 			case "GET":
@@ -95,6 +97,18 @@ func (p *Proxy) browserWarningMiddleware() gin.HandlerFunc {
 		if ctx.Request.URL.Path == ACCEPT_PREVIEW_PAGE_WARNING_PATH || targetPort == TERMINAL_PORT {
 			ctx.Next()
 			return
+		}
+
+		if sandboxId != "" {
+			exempt, err := p.organizationIsExempt(ctx, sandboxId)
+			if err != nil {
+				ctx.Error(common_errors.NewBadRequestError(err))
+				return
+			}
+			if exempt {
+				ctx.Next()
+				return
+			}
 		}
 
 		// Serve the warning page
@@ -325,4 +339,56 @@ func isWebSocketRequest(req *http.Request) bool {
 	upgrade := strings.ToLower(req.Header.Get("Upgrade"))
 
 	return upgrade == "websocket" && connection == "upgrade"
+}
+
+func (p *Proxy) organizationIsExempt(ctx *gin.Context, sandboxId string) (bool, error) {
+	has, err := p.sandboxOrgIdCache.Has(ctx, sandboxId)
+	if err != nil {
+		return false, err
+	}
+
+	orgId := ""
+	orgCPUQuota := 0
+
+	if !has {
+		org, _, err := p.apiclient.OrganizationsAPI.GetOrganizationBySandboxId(ctx, sandboxId).Execute()
+		if err != nil {
+			return false, err
+		}
+
+		p.sandboxOrgIdCache.Set(ctx, sandboxId, org.Id, 1*time.Hour)
+		// CPU quota should have lower ttl since it's more likely to change
+		p.orgCPUQuotaCache.Set(ctx, org.Id, int(org.TotalCpuQuota), 5*time.Minute)
+		orgId = org.Id
+		orgCPUQuota = int(org.TotalCpuQuota)
+	}
+
+	if slices.Contains(p.config.PreviewWarningExceptions, orgId) {
+		return true, nil
+	}
+
+	if p.config.PreviewWarningCPUQuotaThreshold > 0 {
+		if orgCPUQuota == 0 {
+			// Fetch from cache first
+			if has, err := p.orgCPUQuotaCache.Has(ctx, orgId); err == nil && has {
+				c, err := p.orgCPUQuotaCache.Get(ctx, orgId)
+				if err != nil {
+					return false, err
+				}
+				orgCPUQuota = *c
+			} else {
+				// Fetch from API
+				org, _, err := p.apiclient.OrganizationsAPI.GetOrganizationBySandboxId(ctx, sandboxId).Execute()
+				if err != nil {
+					return false, err
+				}
+				orgCPUQuota = int(org.TotalCpuQuota)
+				p.orgCPUQuotaCache.Set(ctx, orgId, orgCPUQuota, 5*time.Minute)
+			}
+		}
+
+		return orgCPUQuota >= p.config.PreviewWarningCPUQuotaThreshold, nil
+	}
+
+	return false, nil
 }

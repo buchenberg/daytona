@@ -44,6 +44,8 @@ type Proxy struct {
 	runnerCache              cache.ICache[RunnerInfo]
 	sandboxPublicCache       cache.ICache[bool]
 	sandboxAuthKeyValidCache cache.ICache[bool]
+	sandboxOrgIdCache        cache.ICache[string]
+	orgCPUQuotaCache         cache.ICache[int]
 }
 
 func StartProxy(config *config.Config) error {
@@ -86,10 +88,20 @@ func StartProxy(config *config.Config) error {
 		if err != nil {
 			return err
 		}
+		proxy.sandboxOrgIdCache, err = cache.NewRedisCache[string](config.Redis, "proxy:sandbox-org-id:")
+		if err != nil {
+			return err
+		}
+		proxy.orgCPUQuotaCache, err = cache.NewRedisCache[int](config.Redis, "proxy:org-cpu-quota:")
+		if err != nil {
+			return err
+		}
 	} else {
 		proxy.runnerCache = cache.NewMapCache[RunnerInfo]()
 		proxy.sandboxPublicCache = cache.NewMapCache[bool]()
 		proxy.sandboxAuthKeyValidCache = cache.NewMapCache[bool]()
+		proxy.sandboxOrgIdCache = cache.NewMapCache[string]()
+		proxy.orgCPUQuotaCache = cache.NewMapCache[int]()
 	}
 
 	router := gin.New()
