@@ -79,9 +79,91 @@ export class SandboxService {
     private readonly organizationService: OrganizationService,
     private readonly runnerAdapterFactory: RunnerAdapterFactory,
     private readonly organizationUsageService: OrganizationUsageService,
-  ) { }
+  ) {}
 
   private async validateOrganizationQuotas(
+    organization: Organization,
+    cpu: number,
+    memory: number,
+    disk: number,
+    excludeSandboxId?: string,
+  ): Promise<void> {
+    this.organizationService.assertOrganizationIsNotSuspended(organization)
+
+    try {
+      await this.new_validateOrganizationQuotas(organization, cpu, memory, disk, excludeSandboxId)
+    } catch (error) {
+      this.logger.warn(`New quota validate error for org ${organization.id}. Error: ${error}`)
+    }
+
+    // Check per-sandbox resource limits
+    if (cpu > organization.maxCpuPerSandbox) {
+      throw new ForbiddenException(
+        `CPU request ${cpu} exceeds maximum allowed per sandbox (${organization.maxCpuPerSandbox})`,
+      )
+    }
+    if (memory > organization.maxMemoryPerSandbox) {
+      throw new ForbiddenException(
+        `Memory request ${memory}GB exceeds maximum allowed per sandbox (${organization.maxMemoryPerSandbox}GB)`,
+      )
+    }
+    if (disk > organization.maxDiskPerSandbox) {
+      throw new ForbiddenException(
+        `Disk request ${disk}GB exceeds maximum allowed per sandbox (${organization.maxDiskPerSandbox}GB)`,
+      )
+    }
+
+    if (organization.id === '6e82ed7c-1031-47d5-9ac2-3d511981e636') {
+      return
+    }
+
+    const ignoredStates = [SandboxState.DESTROYED, SandboxState.ARCHIVED, SandboxState.ERROR, SandboxState.BUILD_FAILED]
+
+    const inactiveStates = [...ignoredStates, SandboxState.STOPPED, SandboxState.ARCHIVING]
+
+    const resourceMetrics: {
+      used_disk: number
+      used_cpu: number
+      used_mem: number
+    } = await this.sandboxRepository
+      .createQueryBuilder('sandbox')
+      .select([
+        'SUM(CASE WHEN sandbox.state NOT IN (:...ignoredStates) THEN sandbox.disk ELSE 0 END) as used_disk',
+        'SUM(CASE WHEN sandbox.state NOT IN (:...inactiveStates) THEN sandbox.cpu ELSE 0 END) as used_cpu',
+        'SUM(CASE WHEN sandbox.state NOT IN (:...inactiveStates) THEN sandbox.mem ELSE 0 END) as used_mem',
+      ])
+      .where('sandbox.organizationId = :organizationId', { organizationId: organization.id })
+      .andWhere(
+        excludeSandboxId ? 'sandbox.id != :excludeSandboxId' : '1=1',
+        excludeSandboxId ? { excludeSandboxId } : {},
+      )
+      .setParameter('ignoredStates', ignoredStates)
+      .setParameter('inactiveStates', inactiveStates)
+      .getRawOne()
+
+    const usedDisk = Number(resourceMetrics.used_disk) || 0
+    const usedCpu = Number(resourceMetrics.used_cpu) || 0
+    const usedMem = Number(resourceMetrics.used_mem) || 0
+
+    if (usedDisk + disk > organization.totalDiskQuota) {
+      throw new ForbiddenException(
+        `Total disk quota exceeded (${usedDisk + disk}GB > ${organization.totalDiskQuota}GB)`,
+      )
+    }
+
+    // Check total resource quotas
+    if (usedCpu + cpu > organization.totalCpuQuota) {
+      throw new ForbiddenException(`Total CPU quota exceeded (${usedCpu + cpu} > ${organization.totalCpuQuota})`)
+    }
+
+    if (usedMem + memory > organization.totalMemoryQuota) {
+      throw new ForbiddenException(
+        `Total memory quota exceeded (${usedMem + memory}GB > ${organization.totalMemoryQuota}GB)`,
+      )
+    }
+  }
+
+  private async new_validateOrganizationQuotas(
     organization: Organization,
     cpu: number,
     memory: number,
