@@ -8,6 +8,7 @@ module.exports = {
     {
       name: 'daytona',
       script: './dist/apps/api/main.js',
+      node_args: '--env-file /home/ubuntu/daytona-ai-saas/.env.production --dns-result-order=ipv4first',
       instances: 4,
       exec_mode: 'cluster',
       watch: false,
