@@ -273,7 +273,7 @@ export class MetricsInterceptor implements NestInterceptor, OnApplicationShutdow
       case '/files':
         switch (request.method) {
           case 'GET':
-            this.captureToolboxCommand(props, request.params.sandboxId, 'files_list')
+            // this.captureToolboxCommand(props, request.params.sandboxId, 'files_list')
             break
           case 'DELETE':
             this.captureToolboxCommand(props, request.params.sandboxId, 'files_delete')
