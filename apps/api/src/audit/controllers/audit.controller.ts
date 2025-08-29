@@ -3,17 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Query,
-  UseGuards,
-  Request as Req,
-  ServiceUnavailableException,
-} from '@nestjs/common'
+import { Body, Controller, Get, Param, Post, Query, UseGuards, Request as Req } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiOAuth2, ApiParam, ApiQuery } from '@nestjs/swagger'
 import { Request } from 'express'
 import { AuditLogDto } from '../dto/audit-log.dto'
@@ -103,8 +93,6 @@ export class AuditController {
     @Query('page') page = 1,
     @Query('limit') limit = 10,
   ): Promise<PaginatedAuditLogsDto> {
-    throw new ServiceUnavailableException('Temporarily unavailable')
-
     const result = await this.auditService.getLogs(page, limit, organizationId)
     return {
       items: result.items.map(AuditLogDto.fromAuditLog),
@@ -126,12 +114,6 @@ export class AuditController {
   })
   @RequiredSystemRole(SystemRole.ADMIN)
   async createLog(@Req() req: Request, @Body() createAuditLogDto: CreateAuditLogDto): Promise<AuditLogDto> {
-    return {
-      ...createAuditLogDto,
-      id: '-',
-      createdAt: new Date(),
-    }
-
     const auditLog = await this.auditService.createLog({
       actorId: createAuditLogDto.actorId,
       actorEmail: createAuditLogDto.actorEmail,
