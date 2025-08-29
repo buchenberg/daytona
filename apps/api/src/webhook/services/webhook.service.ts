@@ -124,10 +124,12 @@ export class WebhookService implements OnModuleInit {
       const isInitialized = await this.getInitializationStatus(organizationId)
 
       if (!isInitialized) {
-        this.logger.log(`Webhooks not initialized for organization ${organizationId}, creating Svix application now...`)
+        this.logger.debug(
+          `Webhooks not initialized for organization ${organizationId}, creating Svix application now...`,
+        )
         // For now, we'll just log that initialization is needed
         // The actual initialization should be done through the API or event handler
-        this.logger.warn(
+        this.logger.debug(
           `Organization ${organizationId} needs webhook initialization. Please use the initialization API endpoint.`,
         )
         return
