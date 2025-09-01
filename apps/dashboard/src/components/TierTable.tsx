@@ -6,7 +6,7 @@
 import { RoutePath } from '@/enums/RoutePath'
 import { Button } from './ui/button'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
-import { PhoneCall, CheckCircle, Circle, Info, Loader2, ExternalLinkIcon } from 'lucide-react'
+import { PhoneCall, CheckCircle, Circle, Info, Loader2, ExternalLinkIcon, ShieldAlert } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { Tooltip } from './Tooltip'
@@ -46,7 +46,7 @@ export function TierTable({
               label={
                 <div className="flex items-center gap-2 max-w-80">
                   <Info size={16} />
-                  Available Compute (vCPU / RAM / Storage)
+                  Available Compute and Features
                 </div>
               }
               content={
@@ -78,8 +78,21 @@ export function TierTable({
                 <b>Tier {tier.tier}</b>
               </TableCell>
               <TableCell>
-                {tier.tierLimit.concurrentCPU} vCPU / {tier.tierLimit.concurrentRAMGiB} GiB /{' '}
-                {tier.tierLimit.concurrentDiskGiB} GiB
+                <div>
+                  {tier.tierLimit.concurrentCPU} vCPU / {tier.tierLimit.concurrentRAMGiB} GiB /{' '}
+                  {tier.tierLimit.concurrentDiskGiB} GiB
+                </div>
+                <div className="mt-2">
+                  {tier.tier < 3 ? (
+                    <ShieldAlert size={18} className="inline align-text-bottom text-red-500" />
+                  ) : (
+                    <span>
+                      <ShieldAlert size={18} className="inline align-text-bottom text-green-500 mr-1" />
+                      No
+                    </span>
+                  )}{' '}
+                  Sandbox Preview Warning
+                </div>
               </TableCell>
               <TableCell>
                 <div className="grid grid-cols-1 gap-0 gap-y-2 py-2 [&>*]:flex [&>*]:items-center [&>*]:flex-wrap">
