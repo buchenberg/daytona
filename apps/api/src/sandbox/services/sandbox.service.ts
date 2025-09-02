@@ -81,7 +81,7 @@ export class SandboxService {
     private readonly organizationUsageService: OrganizationUsageService,
   ) {}
 
-  private async old_validateOrganizationQuotas(
+  private async validateOrganizationQuotas(
     organization: Organization,
     cpu: number,
     memory: number,
@@ -91,7 +91,7 @@ export class SandboxService {
     this.organizationService.assertOrganizationIsNotSuspended(organization)
 
     try {
-      await this.validateOrganizationQuotas(organization, cpu, memory, disk, excludeSandboxId)
+      await this.new_validateOrganizationQuotas(organization, cpu, memory, disk, excludeSandboxId)
     } catch (error) {
       this.logger.warn(`New quota validate error for org ${organization.id}. Error: ${error}`)
     }
@@ -163,7 +163,7 @@ export class SandboxService {
     }
   }
 
-  private async validateOrganizationQuotas(
+  private async new_validateOrganizationQuotas(
     organization: Organization,
     cpu: number,
     memory: number,
