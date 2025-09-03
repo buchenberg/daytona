@@ -404,25 +404,25 @@ export class SandboxService {
 
     let runner: Runner | undefined
 
-    if (organization.id === '9187b39a-b22a-4207-be3b-c67b42ae10d0') {
-      try {
-        runner = await this.runnerService.getRandomAvailableRunner({
-          region: "browser-use",
-          sandboxClass,
-          snapshotRef: snapshot.internalName,
-        })
-      } catch(error) {
-        this.logger.error(`Region "browser-use" is full: ${error}`)             
-      }
-    }
+    // if (organization.id === '9187b39a-b22a-4207-be3b-c67b42ae10d0') {
+    //   try {
+    //     runner = await this.runnerService.getRandomAvailableRunner({
+    //       region: "browser-use",
+    //       sandboxClass,
+    //       snapshotRef: snapshot.internalName,
+    //     })
+    //   } catch(error) {
+    //     this.logger.error(`Region "browser-use" is full: ${error}`)
+    //   }
+    // }
 
-    if (!runner) {      
+    if (!runner) {
       runner = await this.runnerService.getRandomAvailableRunner({
         region,
         sandboxClass,
         snapshotRef: snapshot.internalName,
       })
-    } 
+    }
 
     const sandbox = new Sandbox()
 
