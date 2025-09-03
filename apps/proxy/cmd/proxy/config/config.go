@@ -24,6 +24,7 @@ type Config struct {
 	Redis                           *RedisConfig `envconfig:"REDIS"`
 	PreviewWarningExceptions        []string     `envconfig:"PREVIEW_WARNING_EXCEPTIONS"`
 	PreviewWarningCPUQuotaThreshold int          `envconfig:"PREVIEW_WARNING_CPU_QUOTA_THRESHOLD"`
+	PreviewWarningEnabled           bool         `envconfig:"PREVIEW_WARNING_ENABLED"`
 }
 
 type OidcConfig struct {

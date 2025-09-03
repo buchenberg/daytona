@@ -361,6 +361,12 @@ func (p *Proxy) organizationIsExempt(ctx *gin.Context, sandboxId string) (bool, 
 		p.orgCPUQuotaCache.Set(ctx, org.Id, int(org.TotalCpuQuota), 5*time.Minute)
 		orgId = org.Id
 		orgCPUQuota = int(org.TotalCpuQuota)
+	} else {
+		id, err := p.sandboxOrgIdCache.Get(ctx, sandboxId)
+		if err != nil {
+			return false, err
+		}
+		orgId = *id
 	}
 
 	if slices.Contains(p.config.PreviewWarningExceptions, orgId) {

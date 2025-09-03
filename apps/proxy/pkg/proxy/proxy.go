@@ -49,6 +49,11 @@ type Proxy struct {
 }
 
 func StartProxy(config *config.Config) error {
+	fmt.Println("Proxy preview warning config:")
+	fmt.Println("PreviewWarningEnabled:", config.PreviewWarningEnabled)
+	fmt.Println("PreviewWarningExceptions:", config.PreviewWarningExceptions)
+	fmt.Println("PreviewWarningCPUQuotaThreshold:", config.PreviewWarningCPUQuotaThreshold)
+
 	proxy := &Proxy{
 		config: config,
 	}
@@ -112,9 +117,11 @@ func StartProxy(config *config.Config) error {
 			StatusCode: http.StatusInternalServerError,
 			Message:    err.Error(),
 		}
-	}))
+	}, false))
 
-	router.Use(proxy.browserWarningMiddleware())
+	if config.PreviewWarningEnabled {
+		router.Use(proxy.browserWarningMiddleware())
+	}
 
 	router.Use(func(ctx *gin.Context) {
 		if ctx.Request.Header.Get("X-Daytona-Disable-CORS") == "true" {

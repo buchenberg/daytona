@@ -14,7 +14,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func NewErrorMiddleware(defaultErrorHandler func(ctx *gin.Context, err error) ErrorResponse) gin.HandlerFunc {
+func NewErrorMiddleware(defaultErrorHandler func(ctx *gin.Context, err error) ErrorResponse, logErrors bool) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		ctx.Next()
 
@@ -82,18 +82,20 @@ func NewErrorMiddleware(defaultErrorHandler func(ctx *gin.Context, err error) Er
 				errorResponse = defaultErrorHandler(ctx, err)
 			}
 
-			if errorResponse.StatusCode == http.StatusInternalServerError {
-				log.WithError(err).WithFields(log.Fields{
-					"path":   ctx.Request.URL.Path,
-					"method": ctx.Request.Method,
-				}).Error("Internal Server Error")
-			} else {
-				log.WithFields(log.Fields{
-					"method": ctx.Request.Method,
-					"URI":    ctx.Request.URL.Path,
-					"status": errorResponse.StatusCode,
-					"error":  errorResponse.Message,
-				}).Error("API ERROR")
+			if logErrors {
+				if errorResponse.StatusCode == http.StatusInternalServerError {
+					log.WithError(err).WithFields(log.Fields{
+						"path":   ctx.Request.URL.Path,
+						"method": ctx.Request.Method,
+					}).Error("Internal Server Error")
+				} else {
+					log.WithFields(log.Fields{
+						"method": ctx.Request.Method,
+						"URI":    ctx.Request.URL.Path,
+						"status": errorResponse.StatusCode,
+						"error":  errorResponse.Message,
+					}).Error("API ERROR")
+				}
 			}
 
 			// Set explicit content type header
