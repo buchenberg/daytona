@@ -700,6 +700,10 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         snapshot.internalName = internalSnapshotName
       }
       const customRegions = CUSTOM_REGIONS_PER_ORGANIZATION[snapshot.organizationId]
+      // =================
+      this.logger.warn('customRegions', customRegions, 'organizationId', snapshot.organizationId)
+      // =================
+
       const runner = await this.runnerRepository.findOne({
         where: {
           state: RunnerState.READY,
@@ -708,6 +712,10 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
           region: customRegions ? In(customRegions) : undefined,
         },
       })
+      // =================
+      this.logger.warn('runnerId', runner?.id)
+      // =================
+
       // Propagate snapshot to one runner so it can be used immediately
       if (runner) {
         await this.propagateSnapshotToRunner(snapshot.internalName, runner)
