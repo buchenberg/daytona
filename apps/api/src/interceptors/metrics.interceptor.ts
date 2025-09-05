@@ -800,6 +800,12 @@ export class MetricsInterceptor implements NestInterceptor, OnApplicationShutdow
     command: string,
     extraProps?: Record<string, any>,
   ) {
+    // Disable toolbox command metrics for now
+    // Only capture error events
+    if (!props.error) {
+      return
+    }
+
     this.capture('api_toolbox_command', props, 'api_toolbox_command_failed', {
       sandbox_id: sandboxId,
       toolbox_command: command,
