@@ -718,6 +718,11 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
       // Propagate snapshot to one runner so it can be used immediately
       if (runner) {
+        const snapshotRunner = new SnapshotRunner()
+        snapshotRunner.snapshotRef = snapshot.internalName
+        snapshotRunner.runnerId = runner.id
+        snapshotRunner.state = SnapshotRunnerState.PULLING_SNAPSHOT
+        await this.snapshotRunnerRepository.save(snapshotRunner)
         await this.propagateSnapshotToRunner(snapshot.internalName, runner)
       }
       await this.updateSnapshotState(snapshot.id, SnapshotState.ACTIVE)
