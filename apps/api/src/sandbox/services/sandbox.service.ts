@@ -50,6 +50,8 @@ import { SshAccess } from '../entities/ssh-access.entity'
 import { nanoid } from 'nanoid'
 import { SshAccessValidationDto } from '../dto/ssh-access.dto'
 import { VolumeService } from './volume.service'
+import { GLOBAL_REGIONS } from '../constants/global-regions.constant'
+import { CUSTOM_REGIONS_PER_ORGANIZATION } from '../constants/custom-regions.constant'
 
 const DEFAULT_CPU = 1
 const DEFAULT_MEMORY = 1
@@ -79,7 +81,7 @@ export class SandboxService {
     private readonly organizationService: OrganizationService,
     private readonly runnerAdapterFactory: RunnerAdapterFactory,
     private readonly organizationUsageService: OrganizationUsageService,
-  ) {}
+  ) { }
 
   private async validateOrganizationQuotas(
     organization: Organization,
@@ -316,7 +318,7 @@ export class SandboxService {
     organization: Organization,
     useSandboxResourceParams_deprecated?: boolean,
   ): Promise<SandboxDto> {
-    const region = this.getValidatedOrDefaultRegion(createSandboxDto.target)
+    const region = this.getValidatedOrDefaultRegion(organization.id, createSandboxDto.target)
     const sandboxClass = this.getValidatedOrDefaultClass(createSandboxDto.class)
 
     let snapshotIdOrName = createSandboxDto.snapshot
@@ -384,7 +386,7 @@ export class SandboxService {
       const warmPoolSandbox = await this.warmPoolService.fetchWarmPoolSandbox({
         organizationId: organization.id,
         snapshot: snapshotIdOrName,
-        target: createSandboxDto.target,
+        target: region,
         class: createSandboxDto.class,
         cpu: cpu,
         mem: mem,
@@ -529,7 +531,7 @@ export class SandboxService {
   }
 
   async createFromBuildInfo(createSandboxDto: CreateSandboxDto, organization: Organization): Promise<SandboxDto> {
-    const region = this.getValidatedOrDefaultRegion(createSandboxDto.target)
+    const region = this.getValidatedOrDefaultRegion(organization.id, createSandboxDto.target)
     const sandboxClass = this.getValidatedOrDefaultClass(createSandboxDto.class)
 
     const cpu = createSandboxDto.cpu || DEFAULT_CPU
@@ -848,12 +850,24 @@ export class SandboxService {
     await this.sandboxRepository.save(sandbox)
   }
 
-  private getValidatedOrDefaultRegion(region?: string): string {
+  private getValidatedOrDefaultRegion(organizationId: string, region?: string): string {
     if (!region || region.trim().length === 0) {
       return 'us'
     }
 
-    return region.trim()
+    region = region.trim()
+
+    if (GLOBAL_REGIONS.includes(region)) {
+      return region
+    }
+
+    if (CUSTOM_REGIONS_PER_ORGANIZATION[organizationId]?.includes(region)) {
+      return region
+    }
+
+    this.logger.warn(`Invalid region ${region} for organization ${organizationId}`)
+
+    throw new BadRequestError('No available runners')
   }
 
   private getValidatedOrDefaultClass(sandboxClass: SandboxClass): SandboxClass {

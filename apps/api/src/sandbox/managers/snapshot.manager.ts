@@ -31,6 +31,7 @@ import { RunnerAdapterFactory } from '../runner-adapter/runnerAdapter'
 import { TrackableJobExecutions } from '../../common/interfaces/trackable-job-executions'
 import { TrackJobExecution } from '../../common/decorators/track-job-execution.decorator'
 import { setTimeout as sleep } from 'timers/promises'
+import { CUSTOM_REGIONS_PER_ORGANIZATION } from '../constants/custom-regions.constant'
 
 @Injectable()
 export class SnapshotManager implements TrackableJobExecutions, OnApplicationShutdown {
@@ -698,11 +699,13 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         const internalSnapshotName = await this.pushSnapshotToInternalRegistry(snapshot.id)
         snapshot.internalName = internalSnapshotName
       }
+      const customRegions = CUSTOM_REGIONS_PER_ORGANIZATION[snapshot.organizationId]
       const runner = await this.runnerRepository.findOne({
         where: {
           state: RunnerState.READY,
           unschedulable: Not(true),
           used: Raw((alias) => `${alias} < capacity`),
+          region: customRegions ? In(customRegions) : undefined,
         },
       })
       // Propagate snapshot to one runner so it can be used immediately
