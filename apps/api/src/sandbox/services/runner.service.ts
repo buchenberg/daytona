@@ -396,7 +396,7 @@ export class RunnerService {
     await this.snapshotRunnerRepository.save(snapshotRunner)
   }
 
-  async getRunnersWithMultipleSnapshotsBuilding(maxSnapshotCount = 5): Promise<string[]> {
+  async getRunnersWithMultipleSnapshotsBuilding(maxSnapshotCount = 6): Promise<string[]> {
     const runners = await this.sandboxRepository
       .createQueryBuilder('sandbox')
       .select('sandbox.runnerId')
