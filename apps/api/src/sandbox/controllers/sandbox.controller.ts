@@ -83,7 +83,7 @@ export class SandboxController {
     private readonly eventEmitter: EventEmitter2,
     @InjectRepository(SandboxEntity)
     private readonly sandboxRepository: Repository<SandboxEntity>,
-  ) {}
+  ) { }
 
   @Get()
   @ApiOperation({
@@ -181,15 +181,6 @@ export class SandboxController {
   ): Promise<SandboxDto> {
     const organization = authContext.organization
     let sandbox: SandboxDto
-
-    if (
-      createSandboxDto.public === true &&
-      organization.totalCpuQuota <= 10 &&
-      (!createSandboxDto.snapshot ||
-        (!createSandboxDto.snapshot.includes('kortix/') && !createSandboxDto.snapshot.includes('/all-hands-ai/')))
-    ) {
-      throw new BadRequestError('Public port previews are not available for Tier 1 organizations.')
-    }
 
     if (createSandboxDto.buildInfo) {
       if (createSandboxDto.snapshot) {
