@@ -406,17 +406,17 @@ export class SandboxService {
 
     let runner: Runner | undefined
 
-    // if (organization.id === '9187b39a-b22a-4207-be3b-c67b42ae10d0') {
-    //   try {
-    //     runner = await this.runnerService.getRandomAvailableRunner({
-    //       region: "browser-use",
-    //       sandboxClass,
-    //       snapshotRef: snapshot.internalName,
-    //     })
-    //   } catch(error) {
-    //     this.logger.error(`Region "browser-use" is full: ${error}`)
-    //   }
-    // }
+    if (organization.id === '19336c5f-4f0c-4431-89b0-f42311305913') {
+      try {
+        runner = await this.runnerService.getRandomAvailableRunner({
+          region: "writer627260",
+          sandboxClass,
+          snapshotRef: snapshot.internalName,
+        })
+      } catch(error) {
+        this.logger.error(`Region "writer627260" is full: ${error}`)
+      }
+    }
 
     if (!runner) {
       runner = await this.runnerService.getRandomAvailableRunner({
