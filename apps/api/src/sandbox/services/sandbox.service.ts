@@ -406,6 +406,23 @@ export class SandboxService {
 
     let runner: Runner | undefined
 
+    const writerOrgs = [
+      '815f0cf1-037d-4514-a7ec-2251b0b33596', // agent-builder-prod
+      '6780b872-df13-44b6-bc6a-59c56ca469c3', // agent-builder-dev
+    ];
+    
+    if (writerOrgs.includes(organization.id)) {
+      try {
+        runner = await this.runnerService.getRandomAvailableRunner({
+          region: "writer627260",
+          sandboxClass,
+          snapshotRef: snapshot.internalName,
+        });
+      } catch (error) {
+        this.logger.error(`Region "writer627260" is full: ${error}`);
+      }
+    }
+
     if (organization.id === 'd3df4094-226d-400b-804a-e4f9aa5a60d0') {
       try {
         runner = await this.runnerService.getRandomAvailableRunner({
