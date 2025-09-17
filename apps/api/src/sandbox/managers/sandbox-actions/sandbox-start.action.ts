@@ -405,9 +405,14 @@ export class SandboxStartAction extends SandboxAction {
         ]
       }
 
-      await runnerAdapter.createSandbox(sandbox, registry, entrypoint, {
-        limitNetworkEgress: String(organization.sandboxLimitedNetworkEgress),
-      })
+      let metadata: { [key: string]: string } | undefined = undefined
+      if (organization) {
+        metadata = {
+          limitNetworkEgress: String(organization.sandboxLimitedNetworkEgress),
+        }
+      }
+
+      await runnerAdapter.createSandbox(sandbox, registry, entrypoint, metadata)
     } else {
       // if sandbox has runner, start sandbox
       const runner = await this.runnerService.findOne(sandbox.runnerId)
