@@ -6,7 +6,7 @@
 import { RoutePath } from '@/enums/RoutePath'
 import { Button } from './ui/button'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/table'
-import { PhoneCall, CheckCircle, Circle, Info, Loader2, ExternalLinkIcon, ShieldAlert } from 'lucide-react'
+import { PhoneCall, CheckCircle, Circle, Info, Loader2, ExternalLinkIcon, ShieldAlert, GlobeLock } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { Tooltip } from './Tooltip'
@@ -92,6 +92,17 @@ export function TierTable({
                     </span>
                   )}{' '}
                   Sandbox Preview Warning
+                </div>
+                <div className="mt-2">
+                  {tier.tier < 3 ? (
+                    <GlobeLock size={18} className="inline align-text-bottom text-red-500" />
+                  ) : (
+                    <span>
+                      <GlobeLock size={18} className="inline align-text-bottom text-green-500 mr-1" />
+                      No
+                    </span>
+                  )}{' '}
+                  Sandbox Limited Internet Access
                 </div>
               </TableCell>
               <TableCell>
