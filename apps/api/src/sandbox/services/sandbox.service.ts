@@ -468,18 +468,6 @@ export class SandboxService {
         }
       }
 
-      if (organization.id === 'd3df4094-226d-400b-804a-e4f9aa5a60d0') {
-        try {
-          runner = await this.runnerService.getRandomAvailableRunner({
-            region: "writer627260",
-            sandboxClass,
-            snapshotRef: snapshot.internalName,
-          })
-        } catch (error) {
-          this.logger.error(`Region "writer627260" is full: ${error}`)
-        }
-      }
-
       if (!runner) {
         runner = await this.runnerService.getRandomAvailableRunner({
           region,
