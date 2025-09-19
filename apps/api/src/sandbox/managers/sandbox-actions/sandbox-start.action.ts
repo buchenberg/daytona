@@ -203,6 +203,8 @@ export class SandboxStartAction extends SandboxAction {
     if (organization) {
       metadata = {
         limitNetworkEgress: String(organization.sandboxLimitedNetworkEgress),
+        organizationId: organization.id,
+        organizationName: organization.name,
       }
     }
 
@@ -409,6 +411,8 @@ export class SandboxStartAction extends SandboxAction {
       if (organization) {
         metadata = {
           limitNetworkEgress: String(organization.sandboxLimitedNetworkEgress),
+          organizationId: organization.id,
+          organizationName: organization.name,
         }
       }
 
