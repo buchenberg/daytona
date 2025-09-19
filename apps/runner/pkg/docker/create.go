@@ -47,6 +47,14 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		}
 	}
 
+	d.cache.SetSandboxState(ctx, sandboxDto.Id, enums.SandboxStateCreating)
+
+	ctx = context.WithValue(ctx, constants.ID_KEY, sandboxDto.Id)
+	err = d.PullImage(ctx, sandboxDto.Snapshot, sandboxDto.Registry)
+	if err != nil {
+		return "", err
+	}
+
 	containerConfig, hostConfig, networkingConfig, err := d.getContainerConfigs(ctx, sandboxDto, volumeMountPathBinds)
 	if err != nil {
 		return "", err
@@ -72,14 +80,6 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		}
 
 		return sandboxDto.Id, nil
-	}
-
-	d.cache.SetSandboxState(ctx, sandboxDto.Id, enums.SandboxStateCreating)
-
-	ctx = context.WithValue(ctx, constants.ID_KEY, sandboxDto.Id)
-	err = d.PullImage(ctx, sandboxDto.Snapshot, sandboxDto.Registry)
-	if err != nil {
-		return "", err
 	}
 
 	d.cache.SetSandboxState(ctx, sandboxDto.Id, enums.SandboxStateCreating)
