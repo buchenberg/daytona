@@ -39,33 +39,8 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		return sandboxDto.Id, nil
 	}
 
-	volumeMountPathBinds := make([]string, 0)
-	if sandboxDto.Volumes != nil {
-		volumeMountPathBinds, err = d.getVolumesMountPathBinds(ctx, sandboxDto.Volumes)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	d.cache.SetSandboxState(ctx, sandboxDto.Id, enums.SandboxStateCreating)
-
-	ctx = context.WithValue(ctx, constants.ID_KEY, sandboxDto.Id)
-	err = d.PullImage(ctx, sandboxDto.Snapshot, sandboxDto.Registry)
-	if err != nil {
-		return "", err
-	}
-
-	containerConfig, hostConfig, networkingConfig, err := d.getContainerConfigs(ctx, sandboxDto, volumeMountPathBinds)
-	if err != nil {
-		return "", err
-	}
-
-	if noSysbox {
-		hostConfig.Runtime = ""
-	}
-
 	if state == enums.SandboxStateStopped || state == enums.SandboxStateCreating {
-		err = d.Start(ctx, sandboxDto.Id, sandboxDto.Metadata, containerConfig.WorkingDir)
+		err = d.Start(ctx, sandboxDto.Id, sandboxDto.Metadata)
 		if err != nil {
 			if strings.Contains(err.Error(), "OCI runtime create failed") {
 				if didTryWithoutSysbox {
@@ -84,10 +59,35 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 
 	d.cache.SetSandboxState(ctx, sandboxDto.Id, enums.SandboxStateCreating)
 
+	ctx = context.WithValue(ctx, constants.ID_KEY, sandboxDto.Id)
+	err = d.PullImage(ctx, sandboxDto.Snapshot, sandboxDto.Registry)
+	if err != nil {
+		return "", err
+	}
+
+	d.cache.SetSandboxState(ctx, sandboxDto.Id, enums.SandboxStateCreating)
+
 	err = d.validateImageArchitecture(ctx, sandboxDto.Snapshot)
 	if err != nil {
 		log.Errorf("ERROR: %s.\n", err.Error())
 		return "", err
+	}
+
+	volumeMountPathBinds := make([]string, 0)
+	if sandboxDto.Volumes != nil {
+		volumeMountPathBinds, err = d.getVolumesMountPathBinds(ctx, sandboxDto.Volumes)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	containerConfig, hostConfig, networkingConfig, err := d.getContainerConfigs(ctx, sandboxDto, volumeMountPathBinds)
+	if err != nil {
+		return "", err
+	}
+
+	if noSysbox {
+		hostConfig.Runtime = ""
 	}
 
 	c, err := d.apiClient.ContainerCreate(ctx, containerConfig, hostConfig, networkingConfig, nil, sandboxDto.Id)
@@ -97,7 +97,7 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		}
 	}
 
-	err = d.Start(ctx, sandboxDto.Id, sandboxDto.Metadata, containerConfig.WorkingDir)
+	err = d.Start(ctx, sandboxDto.Id, sandboxDto.Metadata)
 	if err != nil {
 		if strings.Contains(err.Error(), "OCI runtime create failed") {
 			if didTryWithoutSysbox {
