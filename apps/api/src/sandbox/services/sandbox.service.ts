@@ -350,7 +350,7 @@ export class SandboxService {
     let pendingDiskIncrement: number | undefined
 
     try {
-      const region = this.getValidatedOrDefaultRegion(createSandboxDto.target)
+      const region = this.getValidatedOrDefaultRegion(organization.id, createSandboxDto.target)
       const sandboxClass = this.getValidatedOrDefaultClass(createSandboxDto.class)
 
       let snapshotIdOrName = createSandboxDto.snapshot
@@ -600,7 +600,7 @@ export class SandboxService {
     let pendingDiskIncrement: number | undefined
 
     try {
-      const region = this.getValidatedOrDefaultRegion(createSandboxDto.target)
+      const region = this.getValidatedOrDefaultRegion(organization.id, createSandboxDto.target)
       const sandboxClass = this.getValidatedOrDefaultClass(createSandboxDto.class)
 
       const cpu = createSandboxDto.cpu || DEFAULT_CPU
