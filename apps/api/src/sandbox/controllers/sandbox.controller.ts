@@ -84,9 +84,7 @@ export class SandboxController {
     private readonly sandboxService: SandboxService,
     private readonly configService: TypedConfigService,
     private readonly eventEmitter: EventEmitter2,
-    @InjectRepository(SandboxEntity)
-    private readonly sandboxRepository: Repository<SandboxEntity>,
-  ) { }
+  ) {}
 
   @Get()
   @ApiOperation({
