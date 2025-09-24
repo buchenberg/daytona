@@ -83,7 +83,7 @@ export class SandboxService {
     private readonly runnerAdapterFactory: RunnerAdapterFactory,
     private readonly organizationUsageService: OrganizationUsageService,
     private readonly redisLockProvider: RedisLockProvider,
-  ) { }
+  ) {}
 
   private async old_validateOrganizationQuotas(
     organization: Organization,
@@ -196,7 +196,11 @@ export class SandboxService {
     }
 
     if (organization.id === '6e82ed7c-1031-47d5-9ac2-3d511981e636') {
-      return
+      return {
+        pendingCpuIncremented: false,
+        pendingMemoryIncremented: false,
+        pendingDiskIncremented: false,
+      }
     }
 
     // validate usage quotas
@@ -454,17 +458,17 @@ export class SandboxService {
       const writerOrgs = [
         '815f0cf1-037d-4514-a7ec-2251b0b33596', // agent-builder-prod
         '6780b872-df13-44b6-bc6a-59c56ca469c3', // agent-builder-dev
-      ];
+      ]
 
       if (writerOrgs.includes(organization.id)) {
         try {
           runner = await this.runnerService.getRandomAvailableRunner({
-            region: "writer627260",
+            region: 'writer627260',
             sandboxClass,
             snapshotRef: snapshot.internalName,
-          });
+          })
         } catch (error) {
-          this.logger.error(`Region "writer627260" is full: ${error}`);
+          this.logger.error(`Region "writer627260" is full: ${error}`)
         }
       }
 
