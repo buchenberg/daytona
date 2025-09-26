@@ -66,7 +66,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
   }
 
   //  todo: make frequency configurable or more efficient
-  // @Cron(CronExpression.EVERY_5_MINUTES, { name: 'ad-hoc-backup-check' })
+  @Cron(CronExpression.EVERY_5_MINUTES, { name: 'ad-hoc-backup-check' })
   @TrackJobExecution()
   async adHocBackupCheck(): Promise<void> {
     const lockKey = 'ad-hoc-backup-check'
@@ -95,7 +95,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
               lastBackupAt: 'ASC',
             },
             //  todo: increase this number when backup is stable
-            take: 10,
+            take: 1,
           })
 
           await Promise.all(
