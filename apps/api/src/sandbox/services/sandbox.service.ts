@@ -1079,7 +1079,7 @@ export class SandboxService {
   }
 
   @Cron(CronExpression.EVERY_10_MINUTES)
-  async cleanupDestroyedSandboxs() {
+  async cleanupDestroyedSandboxes() {
     const twentyFourHoursAgo = new Date()
     twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24)
 
@@ -1090,6 +1090,22 @@ export class SandboxService {
 
     if (destroyedSandboxs.affected > 0) {
       this.logger.debug(`Cleaned up ${destroyedSandboxs.affected} destroyed sandboxes`)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async cleanupBuildFailedSandboxes() {
+    const twentyFourHoursAgo = new Date()
+    twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24)
+
+    const destroyedSandboxs = await this.sandboxRepository.delete({
+      state: SandboxState.BUILD_FAILED,
+      desiredState: SandboxDesiredState.DESTROYED,
+      updatedAt: LessThan(twentyFourHoursAgo),
+    })
+
+    if (destroyedSandboxs.affected > 0) {
+      this.logger.debug(`Cleaned up ${destroyedSandboxs.affected} build failed sandboxes`)
     }
   }
 
