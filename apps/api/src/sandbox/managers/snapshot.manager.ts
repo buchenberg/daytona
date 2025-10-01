@@ -6,7 +6,7 @@
 import { Injectable, Logger, NotFoundException, OnApplicationShutdown } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Cron, CronExpression } from '@nestjs/schedule'
-import { In, IsNull, LessThan, Not, Or, Raw, Repository } from 'typeorm'
+import { In, LessThan, MoreThanOrEqual, Not, Repository } from 'typeorm'
 import { DockerRegistryService } from '../../docker-registry/services/docker-registry.service'
 import { Snapshot } from '../entities/snapshot.entity'
 import { SnapshotState } from '../enums/snapshot-state.enum'
@@ -32,6 +32,7 @@ import { TrackableJobExecutions } from '../../common/interfaces/trackable-job-ex
 import { TrackJobExecution } from '../../common/decorators/track-job-execution.decorator'
 import { setTimeout as sleep } from 'timers/promises'
 import { CUSTOM_REGIONS_PER_ORGANIZATION } from '../constants/custom-regions.constant'
+import { TypedConfigService } from '../../config/typed-config.service'
 
 @Injectable()
 export class SnapshotManager implements TrackableJobExecutions, OnApplicationShutdown {
@@ -58,6 +59,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     private readonly runnerAdapterFactory: RunnerAdapterFactory,
     private readonly redisLockProvider: RedisLockProvider,
     private readonly organizationService: OrganizationService,
+    private readonly configService: TypedConfigService,
   ) {}
 
   async onApplicationShutdown() {
@@ -707,7 +709,9 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         where: {
           state: RunnerState.READY,
           unschedulable: Not(true),
-          used: Raw((alias) => `${alias} < capacity`),
+          availabilityScore: MoreThanOrEqual(
+            this.configService.getOrThrow('runnerUsage.declarativeBuildScoreThreshold'),
+          ),
           region: customRegions ? In(customRegions) : undefined,
         },
       })
