@@ -101,7 +101,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     await Promise.all(
       snapshots.map((snapshot) => {
         // Calculate propagation factor based on organization's CPU quota
-        const propagationFactor = snapshot.org_totalCpuQuota >= 1000 ? 2 : 1
+        const propagationFactor = snapshot.org_total_cpu_quota >= 1000 ? 2 : 1
         
         this.propagateSnapshotToRunners(snapshot.internalName, propagationFactor).catch((err) => {
           this.logger.error(`Error propagating snapshot ${snapshot.id} to runners: ${err}`)
