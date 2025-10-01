@@ -83,12 +83,13 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     const snapshots = await this.snapshotRepository
       .createQueryBuilder('snapshot')
       .innerJoin('organization', 'org', 'org.id = snapshot.organizationId')
+      .select(['snapshot.*', 'org.totalCpuQuota'])
       .where('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
       .andWhere('org.suspended = false')
       .orderBy('snapshot.createdAt', 'ASC')
       .take(100)
       .skip(Number(skip))
-      .getMany()
+      .getRawMany()
 
     if (snapshots.length === 0) {
       await this.redis.set('sync-runner-snapshots-skip', 0)
@@ -99,7 +100,10 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     await Promise.all(
       snapshots.map((snapshot) => {
-        this.propagateSnapshotToRunners(snapshot.internalName).catch((err) => {
+        // Calculate propagation factor based on organization's CPU quota
+        const propagationFactor = snapshot.org_totalCpuQuota >= 1000 ? 2 : 1
+        
+        this.propagateSnapshotToRunners(snapshot.internalName, propagationFactor).catch((err) => {
           this.logger.error(`Error propagating snapshot ${snapshot.id} to runners: ${err}`)
         })
       }),
@@ -192,7 +196,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     }
   }
 
-  async propagateSnapshotToRunners(internalSnapshotName: string) {
+  async propagateSnapshotToRunners(internalSnapshotName: string, propagationFactor?: number) {
     //  todo: remove try catch block and implement error handling
     try {
       const runners = await this.runnerRepository.find({
@@ -214,7 +218,10 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         ...new Set(snapshotRunners.map((snapshotRunner) => snapshotRunner.runnerId)),
       ]
 
-      const propagateLimit = Math.ceil(runners.length / 3) - snapshotRunnersDistinctRunnersIds.length
+      // Use provided propagation factor or default to 1
+      const finalPropagationFactor = propagationFactor ?? 1
+
+      const propagateLimit = Math.ceil(finalPropagationFactor * (runners.length / 3)) - snapshotRunnersDistinctRunnersIds.length
       const unallocatedRunners = runners.filter(
         (runner) => !snapshotRunnersDistinctRunnersIds.some((snapshotRunnerId) => snapshotRunnerId === runner.id),
       )
