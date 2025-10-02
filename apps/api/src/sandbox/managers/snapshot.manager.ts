@@ -102,7 +102,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       snapshots.map((snapshot) => {
         // Calculate propagation factor based on organization's CPU quota
         const propagationFactor = snapshot.org_total_cpu_quota >= 1000 ? 2 : 1
-        
+
         this.propagateSnapshotToRunners(snapshot.internalName, propagationFactor).catch((err) => {
           this.logger.error(`Error propagating snapshot ${snapshot.id} to runners: ${err}`)
         })
@@ -221,7 +221,12 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       // Use provided propagation factor or default to 1
       const finalPropagationFactor = propagationFactor ?? 1
 
-      const propagateLimit = Math.ceil(finalPropagationFactor * (runners.length / 3)) - snapshotRunnersDistinctRunnersIds.length
+      const propagateLimit =
+        Math.ceil(finalPropagationFactor * (runners.length / 3)) - snapshotRunnersDistinctRunnersIds.length
+      if (propagateLimit <= 0) {
+        return
+      }
+
       const unallocatedRunners = runners.filter(
         (runner) => !snapshotRunnersDistinctRunnersIds.some((snapshotRunnerId) => snapshotRunnerId === runner.id),
       )
