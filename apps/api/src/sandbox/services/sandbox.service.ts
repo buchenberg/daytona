@@ -25,7 +25,6 @@ import { EventEmitter2, OnEvent } from '@nestjs/event-emitter'
 import { WarmPoolEvents } from '../constants/warmpool-events.constants'
 import { WarmPoolTopUpRequested } from '../events/warmpool-topup-requested.event'
 import { Runner } from '../entities/runner.entity'
-import { PortPreviewUrlDto } from '../dto/port-preview-url.dto'
 import { Organization } from '../../organization/entities/organization.entity'
 import { SandboxEvents } from '../constants/sandbox-events.constants'
 import { SandboxStateUpdatedEvent } from '../events/sandbox-state-updated.event'
@@ -61,6 +60,7 @@ import {
   DEFAULT_SANDBOX_SORT_DIRECTION,
 } from '../dto/list-sandboxes-query.dto'
 import { createRangeFilter } from '../../common/utils/range-filter'
+import { LogExecution } from '../../common/decorators/log-execution.decorator'
 
 const DEFAULT_CPU = 1
 const DEFAULT_MEMORY = 1
@@ -1184,7 +1184,8 @@ export class SandboxService {
     return sandbox.labels
   }
 
-  @Cron(CronExpression.EVERY_10_MINUTES)
+  @Cron(CronExpression.EVERY_10_MINUTES, { name: 'cleanup-destroyed-sandboxes' })
+  @LogExecution('cleanup-destroyed-sandboxes')
   async cleanupDestroyedSandboxes() {
     const twentyFourHoursAgo = new Date()
     twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24)
@@ -1199,7 +1200,8 @@ export class SandboxService {
     }
   }
 
-  @Cron(CronExpression.EVERY_10_MINUTES)
+  @Cron(CronExpression.EVERY_10_MINUTES, { name: 'cleanup-build-failed-sandboxes' })
+  @LogExecution('cleanup-build-failed-sandboxes')
   async cleanupBuildFailedSandboxes() {
     const twentyFourHoursAgo = new Date()
     twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24)
@@ -1310,7 +1312,8 @@ export class SandboxService {
     await this.createForWarmPool(event.warmPool)
   }
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_MINUTE, { name: 'handle-unschedulable-runners' })
+  @LogExecution('handle-unschedulable-runners')
   private async handleUnschedulableRunners() {
     const runners = await this.runnerRepository.find({ where: { unschedulable: true } })
 
