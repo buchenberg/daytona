@@ -1299,6 +1299,11 @@ export class SandboxService {
       return
     }
 
+    if (newState !== SandboxState.STOPPED) {
+      this.logger.warn(`Runner tried to set sandbox ${sandboxId} to invalid state: ${newState}`)
+      return
+    }
+
     sandbox.state = newState
     const desiredState = this.getDesiredStateForState(newState)
     if (desiredState) {
