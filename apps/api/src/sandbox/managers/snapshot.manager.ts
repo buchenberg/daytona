@@ -31,7 +31,7 @@ import { RunnerAdapterFactory } from '../runner-adapter/runnerAdapter'
 import { TrackableJobExecutions } from '../../common/interfaces/trackable-job-executions'
 import { TrackJobExecution } from '../../common/decorators/track-job-execution.decorator'
 import { setTimeout as sleep } from 'timers/promises'
-import { CUSTOM_REGIONS_PER_ORGANIZATION } from '../constants/custom-regions.constant'
+import { CUSTOM_REGIONS_PER_ORGANIZATION, getDedicatedRegion, WRITER_ORGS } from '../constants/custom-regions.constant'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { LogExecution } from '../../common/decorators/log-execution.decorator'
 
@@ -110,6 +110,82 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         })
       }),
     )
+
+    await this.redisLockProvider.unlock(lockKey)
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE, { name: 'sync-dedicated-runner-snapshots', waitForCompletion: true })
+  @TrackJobExecution()
+  @LogExecution('sync-dedicated-runner-snapshots')
+  async syncDedicatedRunnerSnapshots() {
+    const lockKey = 'sync-dedicated-runner-snapshots-lock'
+    if (!(await this.redisLockProvider.lock(lockKey, 30))) {
+      return
+    }
+
+    const snapshots = await this.snapshotRepository
+      .createQueryBuilder('snapshot')
+      .innerJoin('organization', 'org', 'org.id = snapshot.organizationId')
+      .select(['snapshot.*', 'org.totalCpuQuota'])
+      .where('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
+      .andWhere('org.suspended = false')
+      .andWhere('org.id IN (:...orgIds)', { orgIds: WRITER_ORGS })
+      .orderBy('RANDOM()')
+      .take(100)
+      .getRawMany()
+
+    if (snapshots.length === 0) {
+      return
+    }
+
+    const response = await Promise.allSettled(
+      snapshots.map((snapshot) => {
+        return Promise.allSettled(
+          ['us', 'eu'].map(async (region) => {
+            const dedicatedRegion = getDedicatedRegion(snapshot.organizationId, region)
+            if (dedicatedRegion === region) {
+              return
+            }
+
+            const runners = await this.runnerService.findAvailableRunners({ region: dedicatedRegion })
+            if (!runners.length) {
+              return
+            }
+
+            return Promise.allSettled(
+              runners.map(async (runner) => {
+                if (!snapshot.internalName) {
+                  return
+                }
+
+                let snapshotRunner = await this.snapshotRunnerRepository.findOne({
+                  where: {
+                    snapshotRef: snapshot.internalName,
+                    runnerId: runner.id,
+                  },
+                })
+                if (snapshotRunner) {
+                  return
+                }
+
+                snapshotRunner = new SnapshotRunner()
+                snapshotRunner.snapshotRef = snapshot.internalName
+                snapshotRunner.runnerId = runner.id
+                snapshotRunner.state = SnapshotRunnerState.PULLING_SNAPSHOT
+                await this.snapshotRunnerRepository.save(snapshotRunner)
+                return this.propagateSnapshotToRunner(snapshot.internalName, runner)
+              }),
+            )
+          }),
+        )
+      }),
+    )
+
+    response.forEach((res) => {
+      if (res.status === 'rejected') {
+        this.logger.error(`Error propagating snapshot to dedicated runner: ${res.reason}`)
+      }
+    })
 
     await this.redisLockProvider.unlock(lockKey)
   }

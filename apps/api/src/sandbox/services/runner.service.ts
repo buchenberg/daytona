@@ -25,6 +25,7 @@ import { RunnerAdapterFactory, RunnerInfo } from '../runner-adapter/runnerAdapte
 import { RedisLockProvider } from '../common/redis-lock.provider'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { LogExecution } from '../../common/decorators/log-execution.decorator'
+import { getFallbackRegion, isDedicatedRegion } from '../constants/custom-regions.constant'
 
 @Injectable()
 export class RunnerService {
@@ -155,6 +156,10 @@ export class RunnerService {
     const runners = await this.runnerRepository.find({
       where: runnerFilter,
     })
+
+    if (runners.length === 0 && params.region && isDedicatedRegion(params.region)) {
+      return this.findAvailableRunners({ ...params, region: getFallbackRegion(params.region) })
+    }
 
     return runners.sort((a, b) => b.availabilityScore - a.availabilityScore).slice(0, 10)
   }
@@ -322,6 +327,10 @@ export class RunnerService {
         runnerMemoryGiB: runner.memoryGiB,
         runnerDiskGiB: runner.diskGiB,
       })
+
+      if (isDedicatedRegion(runner.region)) {
+        updateData.availabilityScore = Math.max(0, updateData.availabilityScore - 20) // More conservative scoring for dedicated runners
+      }
     } else {
       this.logger.warn(`Runner ${runnerId} didn't send health metrics`)
     }

@@ -50,7 +50,7 @@ import { nanoid } from 'nanoid'
 import { SshAccessValidationDto } from '../dto/ssh-access.dto'
 import { VolumeService } from './volume.service'
 import { GLOBAL_REGIONS } from '../constants/global-regions.constant'
-import { CUSTOM_REGIONS_PER_ORGANIZATION } from '../constants/custom-regions.constant'
+import { CUSTOM_REGIONS_PER_ORGANIZATION, getDedicatedRegion } from '../constants/custom-regions.constant'
 import { RedisLockProvider } from '../common/redis-lock.provider'
 import { PaginatedList } from '../../common/interfaces/paginated-list.interface'
 import {
@@ -476,7 +476,7 @@ export class SandboxService {
 
       if (!runner) {
         runner = await this.runnerService.getRandomAvailableRunner({
-          region,
+          region: getDedicatedRegion(organization.id, region),
           sandboxClass,
           snapshotRef: snapshot.internalName,
         })
@@ -705,7 +705,7 @@ export class SandboxService {
 
       try {
         runner = await this.runnerService.getRandomAvailableRunner({
-          region: sandbox.region,
+          region: getDedicatedRegion(sandbox.organizationId, sandbox.region),
           sandboxClass: sandbox.class,
           snapshotRef: sandbox.buildInfo.snapshotRef,
         })

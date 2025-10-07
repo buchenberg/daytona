@@ -24,6 +24,7 @@ import { Snapshot } from '../../entities/snapshot.entity'
 import { OrganizationService } from '../../../organization/services/organization.service'
 import { TypedConfigService } from '../../../config/typed-config.service'
 import { Runner } from '../../entities/runner.entity'
+import { getDedicatedRegion } from '../../constants/custom-regions.constant'
 
 @Injectable()
 export class SandboxStartAction extends SandboxAction {
@@ -99,7 +100,7 @@ export class SandboxStartAction extends SandboxAction {
     let runnerId: string
     try {
       const runner = await this.runnerService.getRandomAvailableRunner({
-        region: sandbox.region,
+        region: getDedicatedRegion(sandbox.organizationId, sandbox.region),
         sandboxClass: sandbox.class,
         snapshotRef: sandbox.buildInfo.snapshotRef,
       })
@@ -133,7 +134,7 @@ export class SandboxStartAction extends SandboxAction {
 
     // Try to assign a new available runner
     const runner = await this.runnerService.getRandomAvailableRunner({
-      region: sandbox.region,
+      region: getDedicatedRegion(sandbox.organizationId, sandbox.region),
       sandboxClass: sandbox.class,
       excludedRunnerIds: excludedRunnerIds,
     })
@@ -250,7 +251,7 @@ export class SandboxStartAction extends SandboxAction {
       if (sandbox.backupState === BackupState.COMPLETED) {
         if (runner.availabilityScore < this.configService.getOrThrow('runnerUsage.availabilityScoreThreshold')) {
           const availableRunners = await this.runnerService.findAvailableRunners({
-            region: sandbox.region,
+            region: getDedicatedRegion(sandbox.organizationId, sandbox.region),
             sandboxClass: sandbox.class,
           })
           const lessUsedRunners = availableRunners.filter((runner) => runner.id !== originalRunnerId)
@@ -354,7 +355,7 @@ export class SandboxStartAction extends SandboxAction {
 
       const runnersWithBaseSnapshot: Runner[] = snapshotRef
         ? await this.runnerService.findAvailableRunners({
-            region: sandbox.region,
+            region: getDedicatedRegion(sandbox.organizationId, sandbox.region),
             sandboxClass: sandbox.class,
             snapshotRef,
           })
@@ -364,7 +365,7 @@ export class SandboxStartAction extends SandboxAction {
       } else {
         //  if no runner has the base snapshot, get all available runners
         availableRunners = await this.runnerService.findAvailableRunners({
-          region: sandbox.region,
+          region: getDedicatedRegion(sandbox.organizationId, sandbox.region),
           sandboxClass: sandbox.class,
         })
       }
