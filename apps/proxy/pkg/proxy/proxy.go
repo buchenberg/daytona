@@ -15,11 +15,11 @@ import (
 	apiclient "github.com/daytonaio/apiclient"
 	"github.com/daytonaio/proxy/cmd/proxy/config"
 	"github.com/daytonaio/proxy/internal"
-	"github.com/daytonaio/proxy/pkg/cache"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/securecookie"
 
+	common_cache "github.com/daytonaio/common-go/pkg/cache"
 	common_errors "github.com/daytonaio/common-go/pkg/errors"
 	common_proxy "github.com/daytonaio/common-go/pkg/proxy"
 
@@ -43,11 +43,11 @@ type Proxy struct {
 	cookieDomain string
 
 	apiclient                *apiclient.APIClient
-	runnerCache              cache.ICache[RunnerInfo]
-	sandboxPublicCache       cache.ICache[bool]
-	sandboxAuthKeyValidCache cache.ICache[bool]
-	sandboxOrgIdCache        cache.ICache[string]
-	orgCPUQuotaCache         cache.ICache[int]
+	runnerCache              common_cache.ICache[RunnerInfo]
+	sandboxPublicCache       common_cache.ICache[bool]
+	sandboxAuthKeyValidCache common_cache.ICache[bool]
+	orgCPUQuotaCache         common_cache.ICache[int]
+	sandboxOrgIdCache        common_cache.ICache[string]
 }
 
 func StartProxy(config *config.Config) error {
@@ -83,32 +83,32 @@ func StartProxy(config *config.Config) error {
 
 	if config.Redis != nil {
 		var err error
-		proxy.runnerCache, err = cache.NewRedisCache[RunnerInfo](config.Redis, "proxy:sandbox-runner-info:")
+		proxy.runnerCache, err = common_cache.NewRedisCache[RunnerInfo](config.Redis, "proxy:sandbox-runner-info:")
 		if err != nil {
 			return err
 		}
-		proxy.sandboxPublicCache, err = cache.NewRedisCache[bool](config.Redis, "proxy:sandbox-public:")
+		proxy.sandboxPublicCache, err = common_cache.NewRedisCache[bool](config.Redis, "proxy:sandbox-public:")
 		if err != nil {
 			return err
 		}
-		proxy.sandboxAuthKeyValidCache, err = cache.NewRedisCache[bool](config.Redis, "proxy:sandbox-auth-key-valid:")
+		proxy.sandboxAuthKeyValidCache, err = common_cache.NewRedisCache[bool](config.Redis, "proxy:sandbox-auth-key-valid:")
 		if err != nil {
 			return err
 		}
-		proxy.sandboxOrgIdCache, err = cache.NewRedisCache[string](config.Redis, "proxy:sandbox-org-id:")
+		proxy.sandboxOrgIdCache, err = common_cache.NewRedisCache[string](config.Redis, "proxy:sandbox-org-id:")
 		if err != nil {
 			return err
 		}
-		proxy.orgCPUQuotaCache, err = cache.NewRedisCache[int](config.Redis, "proxy:org-cpu-quota:")
+		proxy.orgCPUQuotaCache, err = common_cache.NewRedisCache[int](config.Redis, "proxy:org-cpu-quota:")
 		if err != nil {
 			return err
 		}
 	} else {
-		proxy.runnerCache = cache.NewMapCache[RunnerInfo]()
-		proxy.sandboxPublicCache = cache.NewMapCache[bool]()
-		proxy.sandboxAuthKeyValidCache = cache.NewMapCache[bool]()
-		proxy.sandboxOrgIdCache = cache.NewMapCache[string]()
-		proxy.orgCPUQuotaCache = cache.NewMapCache[int]()
+		proxy.runnerCache = common_cache.NewMapCache[RunnerInfo]()
+		proxy.sandboxPublicCache = common_cache.NewMapCache[bool]()
+		proxy.sandboxAuthKeyValidCache = common_cache.NewMapCache[bool]()
+		proxy.sandboxOrgIdCache = common_cache.NewMapCache[string]()
+		proxy.orgCPUQuotaCache = common_cache.NewMapCache[int]()
 	}
 
 	router := gin.New()
