@@ -208,6 +208,7 @@ export class SandboxStartAction extends SandboxAction {
         limitNetworkEgress: String(organization.sandboxLimitedNetworkEgress),
         organizationId: organization.id,
         organizationName: organization.name,
+        sandboxName: sandbox.name,
       }
     }
 
@@ -353,10 +354,10 @@ export class SandboxStartAction extends SandboxAction {
 
       const runnersWithBaseSnapshot: Runner[] = snapshotRef
         ? await this.runnerService.findAvailableRunners({
-          region: sandbox.region,
-          sandboxClass: sandbox.class,
-          snapshotRef,
-        })
+            region: sandbox.region,
+            sandboxClass: sandbox.class,
+            snapshotRef,
+          })
         : []
       if (runnersWithBaseSnapshot.length > 0) {
         availableRunners = runnersWithBaseSnapshot
@@ -406,6 +407,7 @@ export class SandboxStartAction extends SandboxAction {
           limitNetworkEgress: String(organization.sandboxLimitedNetworkEgress),
           organizationId: organization.id,
           organizationName: organization.name,
+          sandboxName: sandbox.name,
         }
       }
 
