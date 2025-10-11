@@ -33,6 +33,8 @@ export const CUSTOM_REGIONS_PER_ORGANIZATION: Record<string, string[]> = {
   'bf29e0f2-5fa9-48db-b80c-c7fae9c4e29c': [WRITER_DEDICATED_US, WRITER_DEDICATED_EU],
   // Toma
   '1db02bc5-acae-447b-b6ad-f5fa323d3cf6': [WRITER_DEDICATED_US, WRITER_DEDICATED_EU],
+  // Mirko
+  '99c32bbf-0ba0-4980-af71-22f50376032e': [WRITER_DEDICATED_US, WRITER_DEDICATED_EU],
 }
 
 export const WRITER_ORGS = [
@@ -53,6 +55,7 @@ const DAYTONA_MEMBERS_ORGS = [
   '3ae0ced2-f32b-4c06-ba3b-51e5bb22e6e6', // Internal Testing
   'bf29e0f2-5fa9-48db-b80c-c7fae9c4e29c', // Breja
   '1db02bc5-acae-447b-b6ad-f5fa323d3cf6', // Toma
+  '99c32bbf-0ba0-4980-af71-22f50376032e', // Mirko
 ]
 
 export function getDedicatedRegion(organizationId: string, baseRegion: string) {
