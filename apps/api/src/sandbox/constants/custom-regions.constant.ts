@@ -59,8 +59,8 @@ const DAYTONA_MEMBERS_ORGS = [
 ]
 
 export function getDedicatedRegion(organizationId: string, baseRegion: string) {
-  if (DAYTONA_MEMBERS_ORGS.includes(organizationId)) {
-    // if (WRITER_ORGS.includes(organizationId)) {
+  // if (DAYTONA_MEMBERS_ORGS.includes(organizationId)) {
+  if (WRITER_ORGS.includes(organizationId)) {
     if (baseRegion === 'us') {
       return WRITER_DEDICATED_US
     } else if (baseRegion === 'eu') {
