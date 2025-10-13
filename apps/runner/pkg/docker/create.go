@@ -48,7 +48,7 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 	}
 
 	if state == enums.SandboxStateStopped || state == enums.SandboxStateCreating {
-		daemonVersion, err := d.Start(ctx, sandboxDto.Id, sandboxDto.Metadata)
+		daemonVersion, err := d.Start(ctx, sandboxDto.Id, sandboxDto.AuthToken, sandboxDto.Metadata)
 		if err != nil {
 			if strings.Contains(err.Error(), "OCI runtime create failed") {
 				if didTryWithoutSysbox {
@@ -112,7 +112,7 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		}
 	}
 
-	daemonVersion, err := d.Start(ctx, sandboxDto.Id, sandboxDto.Metadata)
+	daemonVersion, err := d.Start(ctx, sandboxDto.Id, sandboxDto.AuthToken, sandboxDto.Metadata)
 	if err != nil {
 		if strings.Contains(err.Error(), "OCI runtime create failed") {
 			if didTryWithoutSysbox {

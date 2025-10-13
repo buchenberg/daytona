@@ -353,17 +353,18 @@ export class SandboxStartAction extends SandboxAction {
       entrypoint = this.snapshotService.getEntrypointFromDockerfile(sandbox.buildInfo.dockerfileContent)
     }
 
-    let metadata: { [key: string]: string } | undefined = undefined
-    if (organization) {
-      metadata = {
-        limitNetworkEgress: String(organization.sandboxLimitedNetworkEgress),
-        organizationId: organization.id,
-        organizationName: organization.name,
-        sandboxName: sandbox.name,
-      }
+    const metadata = {
+      ...organization?.sandboxMetadata,
+      sandboxName: sandbox.name,
     }
 
-    const result = await runnerAdapter.createSandbox(sandbox, internalRegistry, entrypoint, metadata)
+    const result = await runnerAdapter.createSandbox(
+      sandbox,
+      internalRegistry,
+      entrypoint,
+      metadata,
+      this.configService.get('sandboxOtel.endpointUrl'),
+    )
 
     await this.updateSandboxState(
       sandbox.id,
@@ -481,15 +482,10 @@ export class SandboxStartAction extends SandboxAction {
 
       const runnerAdapter = await this.runnerAdapterFactory.create(runner)
 
-      let metadata: { [key: string]: string } | undefined = undefined
-      if (organization) {
-        metadata = {
-          limitNetworkEgress: String(organization.sandboxLimitedNetworkEgress),
-        }
-      }
+      const metadata: { [key: string]: string } | undefined = organization?.sandboxMetadata
 
       try {
-        await runnerAdapter.startSandbox(sandbox.id, metadata)
+        await runnerAdapter.startSandbox(sandbox.id, sandbox.authToken, metadata)
       } catch (error) {
         // Check against a list of substrings that should trigger an automatic recovery
         if (error?.message) {
@@ -829,7 +825,7 @@ export class SandboxStartAction extends SandboxAction {
 
     //  workaround for CA restore issue
     //  DO NOT COMMIT
-    let entrypoint = null
+    let entrypoint = undefined
     if (sandbox.organizationId === '26a8fb68-6fb1-4429-b766-5df6795a5ab0') {
       entrypoint = [
         '/bin/bash',
@@ -838,17 +834,18 @@ export class SandboxStartAction extends SandboxAction {
       ]
     }
 
-    let metadata: { [key: string]: string } | undefined = undefined
-    if (organization) {
-      metadata = {
-        limitNetworkEgress: String(organization.sandboxLimitedNetworkEgress),
-        organizationId: organization.id,
-        organizationName: organization.name,
-        sandboxName: sandbox.name,
-      }
+    const metadata = {
+      ...organization?.sandboxMetadata,
+      sandboxName: sandbox.name,
     }
 
-    await runnerAdapter.createSandbox(sandbox, registry, entrypoint, metadata)
+    await runnerAdapter.createSandbox(
+      sandbox,
+      registry,
+      entrypoint,
+      metadata,
+      this.configService.get('sandboxOtel.endpointUrl'),
+    )
     return null
   }
 
