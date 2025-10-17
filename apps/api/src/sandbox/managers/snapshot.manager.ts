@@ -1018,6 +1018,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         .andWhere('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
         .andWhere('(snapshot."lastUsedAt" IS NULL OR snapshot."lastUsedAt" < :twoWeeksAgo)', { twoWeeksAgo })
         .andWhere('snapshot."createdAt" < :twoWeeksAgo', { twoWeeksAgo })
+        .andWhere('snapshot."organizationId" NOT IN (:...writerOrgs)', { writerOrgs: WRITER_ORGS })
         .andWhere(
           () => {
             const query = this.snapshotRepository
