@@ -34,6 +34,7 @@ import { setTimeout as sleep } from 'timers/promises'
 import { CUSTOM_REGIONS_PER_ORGANIZATION, getDedicatedRegion, WRITER_ORGS } from '../constants/custom-regions.constant'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { LogExecution } from '../../common/decorators/log-execution.decorator'
+import { PER_SANDBOX_LIMIT_MESSAGE } from '../../common/constants/error-messages'
 
 @Injectable()
 export class SnapshotManager implements TrackableJobExecutions, OnApplicationShutdown {
@@ -760,7 +761,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       await this.updateSnapshotState(
         snapshot.id,
         SnapshotState.ERROR,
-        `Snapshot size (${snapshotInfo.sizeGB.toFixed(2)}GB) exceeds maximum allowed size of ${MAX_SIZE_GB}GB`,
+        `Snapshot size (${snapshotInfo.sizeGB.toFixed(2)}GB) exceeds maximum allowed size of ${MAX_SIZE_GB}GB.\n${PER_SANDBOX_LIMIT_MESSAGE}`,
       )
       return
     }
