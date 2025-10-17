@@ -84,7 +84,7 @@ func (a *ApiServer) Start() error {
 	}
 
 	a.router.Use(middlewares.LoggingMiddleware())
-	a.router.Use(common_errors.NewErrorMiddleware(common.HandlePossibleDockerError))
+	a.router.Use(common_errors.NewErrorMiddleware(common.HandlePossibleDockerError, false))
 
 	public := a.router.Group("/")
 	public.GET("", controllers.HealthCheck)
