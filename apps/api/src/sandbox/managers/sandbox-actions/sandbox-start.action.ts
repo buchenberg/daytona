@@ -5,6 +5,7 @@
 
 import { Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { Repository } from 'typeorm'
+import { RECOVERY_ERROR_SUBSTRINGS } from '../../constants/errors-for-recovery'
 import { Sandbox } from '../../entities/sandbox.entity'
 import { SandboxState } from '../../enums/sandbox-state.enum'
 import { DONT_SYNC_AGAIN, SandboxAction, SYNC_AGAIN, SyncState } from './sandbox.action'
@@ -25,6 +26,8 @@ import { OrganizationService } from '../../../organization/services/organization
 import { TypedConfigService } from '../../../config/typed-config.service'
 import { Runner } from '../../entities/runner.entity'
 import { getDedicatedRegion } from '../../constants/custom-regions.constant'
+import { Organization } from '../../../organization/entities/organization.entity'
+import { RedisLockProvider } from '../../common/redis-lock.provider'
 
 @Injectable()
 export class SandboxStartAction extends SandboxAction {
@@ -40,6 +43,7 @@ export class SandboxStartAction extends SandboxAction {
     protected readonly dockerRegistryService: DockerRegistryService,
     protected readonly organizationService: OrganizationService,
     protected readonly configService: TypedConfigService,
+    private readonly redisLockProvider: RedisLockProvider,
   ) {
     super(runnerService, runnerAdapterFactory, sandboxRepository, toolboxService)
   }
@@ -291,128 +295,10 @@ export class SandboxStartAction extends SandboxAction {
         return DONT_SYNC_AGAIN
       }
 
-      if (!sandbox.backupRegistryId) {
-        throw new Error('No registry found for backup')
+      const syncCheck = await this.restoreSandboxOnNewRunner(sandbox, organization, sandbox.prevRunnerId)
+      if (syncCheck !== null) {
+        return syncCheck
       }
-
-      const registry = await this.dockerRegistryService.findOne(sandbox.backupRegistryId)
-      if (!registry) {
-        throw new Error('No registry found for backup')
-      }
-
-      const existingBackups = sandbox.existingBackupSnapshots
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .map((existingSnapshot) => existingSnapshot.snapshotName)
-
-      let validBackup: string | null = null
-      let exists = false
-
-      while (existingBackups.length > 0) {
-        try {
-          if (!validBackup) {
-            //  last snapshot is the current snapshot, so we don't need to check it
-            //  just in case, we'll use the value from the backupSnapshot property
-            validBackup = sandbox.backupSnapshot
-            existingBackups.pop()
-          } else {
-            validBackup = existingBackups.pop()
-          }
-          if (await this.dockerProvider.checkImageExistsInRegistry(validBackup, registry)) {
-            exists = true
-            break
-          }
-        } catch (error) {
-          this.logger.error(
-            `Failed to check if backup snapshot ${sandbox.backupSnapshot} exists in registry ${registry.id}:`,
-            error,
-          )
-        }
-      }
-
-      if (!exists) {
-        await this.updateSandboxState(sandbox.id, SandboxState.ERROR, undefined, 'No valid backup snapshot found')
-        return SYNC_AGAIN
-      }
-
-      //  make sure we pick a runner that has the base snapshot
-      let baseSnapshot: Snapshot | null = null
-      if (sandbox.snapshot) {
-        try {
-          baseSnapshot = await this.snapshotService.getSnapshotByName(sandbox.snapshot, sandbox.organizationId)
-        } catch (e) {
-          if (e instanceof NotFoundException) {
-            //  if the base snapshot is not found, we'll use any available runner later
-          } else {
-            //  for all other errors, throw them
-            throw e
-          }
-        }
-      }
-
-      const snapshotRef = baseSnapshot ? baseSnapshot.internalName : null
-
-      let availableRunners: Runner[] = []
-
-      const runnersWithBaseSnapshot: Runner[] = snapshotRef
-        ? await this.runnerService.findAvailableRunners({
-            region: getDedicatedRegion(sandbox.organizationId, sandbox.region),
-            sandboxClass: sandbox.class,
-            snapshotRef,
-          })
-        : []
-      if (runnersWithBaseSnapshot.length > 0) {
-        availableRunners = runnersWithBaseSnapshot
-      } else {
-        //  if no runner has the base snapshot, get all available runners
-        availableRunners = await this.runnerService.findAvailableRunners({
-          region: getDedicatedRegion(sandbox.organizationId, sandbox.region),
-          sandboxClass: sandbox.class,
-        })
-      }
-
-      //  check if we have any available runners after filtering
-      if (availableRunners.length === 0) {
-        // Sync state again later. Runners are unavailable
-        return DONT_SYNC_AGAIN
-      }
-
-      //  get random runner from available runners
-      const randomRunnerIndex = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1) + min)
-      const runner = availableRunners[randomRunnerIndex(0, availableRunners.length - 1)]
-
-      //  verify the runner is still available and ready
-      if (!runner || runner.state !== RunnerState.READY || runner.unschedulable) {
-        this.logger.warn(`Selected runner ${runner.id} is no longer available, retrying sandbox assignment`)
-        return SYNC_AGAIN
-      }
-
-      const runnerAdapter = await this.runnerAdapterFactory.create(runner)
-
-      await this.updateSandboxState(sandbox.id, SandboxState.RESTORING, runner.id)
-
-      sandbox.snapshot = validBackup
-      //  workaround for CA restore issue
-      //  DO NOT COMMIT
-      let entrypoint = null
-      if (sandbox.organizationId === '26a8fb68-6fb1-4429-b766-5df6795a5ab0') {
-        entrypoint = [
-          '/bin/bash',
-          '-c',
-          'rm -f /var/run/docker.pid && /usr/local/bin/workspace-supervisor || (rm -rf /var/run/docker/containerd/daemon/io.containerd.runtime.v2.task/moby/* && /usr/local/bin/workspace-supervisor)',
-        ]
-      }
-
-      let metadata: { [key: string]: string } | undefined = undefined
-      if (organization) {
-        metadata = {
-          limitNetworkEgress: String(organization.sandboxLimitedNetworkEgress),
-          organizationId: organization.id,
-          organizationName: organization.name,
-          sandboxName: sandbox.name,
-        }
-      }
-
-      await runnerAdapter.createSandbox(sandbox, registry, entrypoint, metadata)
     } else {
       // if sandbox has runner, start sandbox
       const runner = await this.runnerService.findOne(sandbox.runnerId)
@@ -430,10 +316,28 @@ export class SandboxStartAction extends SandboxAction {
         }
       }
 
-      await runnerAdapter.startSandbox(sandbox.id, metadata)
+      try {
+        await runnerAdapter.startSandbox(sandbox.id, metadata)
+      } catch (error) {
+        // Check against a list of substrings that should trigger an automatic recovery
+        if (error?.message) {
+          const matchesRecovery = RECOVERY_ERROR_SUBSTRINGS.some((substring) =>
+            error.message.toLowerCase().includes(substring.toLowerCase()),
+          )
+          if (matchesRecovery) {
+            try {
+              await this.restoreSandboxOnNewRunner(sandbox, organization, sandbox.runnerId, true)
+              this.logger.warn(`Sandbox ${sandbox.id} transferred to a new runner`)
+              return SYNC_AGAIN
+            } catch (restoreError) {
+              this.logger.warn(`Sandbox ${sandbox.id} recovery attempt failed:`, restoreError.message)
+            }
+          }
+        }
+        throw error
+      }
 
       await this.updateSandboxState(sandbox.id, SandboxState.STARTING)
-
       return SYNC_AGAIN
     }
 
@@ -651,5 +555,163 @@ export class SandboxStartAction extends SandboxAction {
     }
 
     await this.runnerService.createSnapshotRunner(runnerId, buildInfo.snapshotRef, state)
+  }
+
+  private async restoreSandboxOnNewRunner(
+    sandbox: Sandbox,
+    organization: Organization,
+    excludedRunnerId: string,
+    isRecovery?: boolean,
+  ): Promise<SyncState | null> {
+    let lockKey: string | null = null
+    // Recovery lock to prevent frequent automatic restore attempts
+    if (isRecovery) {
+      lockKey = `sandbox-${sandbox.id}-restored-cooldown`
+      const sixHoursInSeconds = 6 * 60 * 60
+      const acquired = await this.redisLockProvider.lock(lockKey, sixHoursInSeconds)
+      if (!acquired) {
+        return null
+      }
+    }
+
+    if (!sandbox.backupRegistryId) {
+      throw new Error('No registry found for backup')
+    }
+
+    const registry = await this.dockerRegistryService.findOne(sandbox.backupRegistryId)
+    if (!registry) {
+      throw new Error('No registry found for backup')
+    }
+
+    const existingBackups = sandbox.existingBackupSnapshots
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .map((existingSnapshot) => existingSnapshot.snapshotName)
+
+    let validBackup: string | null = null
+    let exists = false
+
+    while (existingBackups.length > 0) {
+      try {
+        if (!validBackup) {
+          //  last snapshot is the current snapshot, so we don't need to check it
+          //  just in case, we'll use the value from the backupSnapshot property
+          validBackup = sandbox.backupSnapshot
+          existingBackups.pop()
+        } else {
+          validBackup = existingBackups.pop()
+        }
+        if (await this.dockerProvider.checkImageExistsInRegistry(validBackup, registry)) {
+          exists = true
+          break
+        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to check if backup snapshot ${sandbox.backupSnapshot} exists in registry ${registry.id}:`,
+          error,
+        )
+      }
+    }
+
+    if (!exists) {
+      if (!isRecovery) {
+        await this.updateSandboxState(sandbox.id, SandboxState.ERROR, undefined, 'No valid backup snapshot found')
+      } else {
+        throw new Error('No valid backup snapshot found')
+      }
+      return SYNC_AGAIN
+    }
+
+    //  make sure we pick a runner that has the base snapshot
+    let baseSnapshot: Snapshot | null = null
+    if (sandbox.snapshot) {
+      try {
+        baseSnapshot = await this.snapshotService.getSnapshotByName(sandbox.snapshot, sandbox.organizationId)
+      } catch (e) {
+        if (e instanceof NotFoundException) {
+          //  if the base snapshot is not found, we'll use any available runner later
+        } else {
+          if (isRecovery) {
+            return SYNC_AGAIN
+          }
+          //  for all other errors, throw them
+          throw e
+        }
+      }
+    }
+
+    const snapshotRef = baseSnapshot ? baseSnapshot.internalName : null
+
+    let availableRunners: Runner[] = []
+
+    const runnersWithBaseSnapshot: Runner[] = snapshotRef
+      ? await this.runnerService.findAvailableRunners({
+          region: getDedicatedRegion(sandbox.organizationId, sandbox.region),
+          sandboxClass: sandbox.class,
+          snapshotRef,
+          excludedRunnerIds: [excludedRunnerId],
+        })
+      : []
+    if (runnersWithBaseSnapshot.length > 0) {
+      availableRunners = runnersWithBaseSnapshot
+    } else {
+      //  if no runner has the base snapshot, get all available runners
+      availableRunners = await this.runnerService.findAvailableRunners({
+        region: getDedicatedRegion(sandbox.organizationId, sandbox.region),
+        sandboxClass: sandbox.class,
+        excludedRunnerIds: [excludedRunnerId],
+      })
+    }
+
+    //  check if we have any available runners after filtering
+    if (availableRunners.length === 0) {
+      // Sync state again later. Runners are unavailable
+      if (isRecovery) {
+        await this.redisLockProvider.unlock(lockKey)
+      }
+      return DONT_SYNC_AGAIN
+    }
+
+    //  get random runner from available runners
+    const randomRunnerIndex = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1) + min)
+    const runner = availableRunners[randomRunnerIndex(0, availableRunners.length - 1)]
+
+    //  verify the runner is still available and ready
+    if (!runner || runner.state !== RunnerState.READY || runner.unschedulable) {
+      this.logger.warn(`Selected runner ${runner.id} is no longer available, retrying sandbox assignment`)
+      if (isRecovery) {
+        await this.redisLockProvider.unlock(lockKey)
+      }
+      return SYNC_AGAIN
+    }
+
+    const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+
+    await this.updateSandboxState(sandbox.id, SandboxState.RESTORING, runner.id)
+
+    sandbox.snapshot = validBackup
+
+    //  workaround for CA restore issue
+    //  DO NOT COMMIT
+    let entrypoint = null
+    if (sandbox.organizationId === '26a8fb68-6fb1-4429-b766-5df6795a5ab0') {
+      entrypoint = [
+        '/bin/bash',
+        '-c',
+        'rm -f /var/run/docker.pid && /usr/local/bin/workspace-supervisor || (rm -rf /var/run/docker/containerd/daemon/io.containerd.runtime.v2.task/moby/* && /usr/local/bin/workspace-supervisor)',
+      ]
+    }
+
+    let metadata: { [key: string]: string } | undefined = undefined
+    if (organization) {
+      metadata = {
+        limitNetworkEgress: String(organization.sandboxLimitedNetworkEgress),
+        organizationId: organization.id,
+        organizationName: organization.name,
+        sandboxName: sandbox.name,
+      }
+    }
+
+    await runnerAdapter.createSandbox(sandbox, registry, entrypoint, metadata)
+    return null
   }
 }
