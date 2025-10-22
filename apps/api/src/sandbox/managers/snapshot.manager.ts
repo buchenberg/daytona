@@ -124,13 +124,15 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       return
     }
 
+    let orgIds = [...new Set([...WRITER_ORGS, ...Object.keys(CUSTOM_REGIONS_PER_ORGANIZATION)])]
+
     const snapshots = await this.snapshotRepository
       .createQueryBuilder('snapshot')
       .innerJoin('organization', 'org', 'org.id = snapshot.organizationId')
       .select(['snapshot.*', 'org.totalCpuQuota'])
       .where('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
       .andWhere('org.suspended = false')
-      .andWhere('org.id IN (:...orgIds)', { orgIds: WRITER_ORGS })
+      .andWhere('org.id IN (:...orgIds)', { orgIds })
       .orderBy('RANDOM()')
       .take(100)
       .getRawMany()
@@ -141,14 +143,21 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     const response = await Promise.allSettled(
       snapshots.map((snapshot) => {
-        return Promise.allSettled(
-          ['us', 'eu'].map(async (region) => {
+        let regions = []
+        if (WRITER_ORGS.includes(snapshot.organizationId)) {
+          ['us', 'eu'].forEach(region => {
             const dedicatedRegion = getDedicatedRegion(snapshot.organizationId, region)
-            if (dedicatedRegion === region) {
-              return
+            if (dedicatedRegion !== region) {
+              regions.push(dedicatedRegion)
             }
+          })
+        } else {
+          regions = CUSTOM_REGIONS_PER_ORGANIZATION[snapshot.organizationId] || []
+        }
 
-            const runners = await this.runnerService.findAvailableRunners({ region: dedicatedRegion })
+        return Promise.allSettled(
+          regions.map(async (region) => {
+            const runners = await this.runnerService.findAvailableRunners({ region })
             if (!runners.length) {
               return
             }

@@ -69,6 +69,7 @@ import { AuditTarget } from '../../audit/enums/audit-target.enum'
 import { SshAccessDto, SshAccessValidationDto } from '../dto/ssh-access.dto'
 import { ListSandboxesQueryDto } from '../dto/list-sandboxes-query.dto'
 import { RegionDto } from '../dto/region.dto'
+import { KEPLER_DEDICATED_LARGE, KEPLER_DEDICATED_REGULAR, KEPLER_ORG_ID } from '../constants/custom-regions.constant'
 
 @ApiTags('sandbox')
 @Controller('sandbox')
@@ -270,6 +271,15 @@ export class SandboxController {
   ): Promise<SandboxDto> {
     const organization = authContext.organization
     let sandbox: SandboxDto
+
+    // Kepler dedicated sandboxes
+    if (organization.id === KEPLER_ORG_ID) {
+      createSandboxDto.autoArchiveInterval = 365 * 24 * 60 // One year auto-archive interval
+
+      if (![KEPLER_DEDICATED_REGULAR, KEPLER_DEDICATED_LARGE].includes(createSandboxDto.target)) {
+        throw new BadRequestError(`Only dedicated Kepler regions are supported: ${KEPLER_DEDICATED_REGULAR} or ${KEPLER_DEDICATED_LARGE}`)
+      }
+    }
 
     if (createSandboxDto.buildInfo) {
       if (createSandboxDto.snapshot) {
@@ -809,6 +819,11 @@ export class SandboxController {
     @AuthContext() authContext: OrganizationAuthContext,
     @Param('sandboxIdOrName') sandboxIdOrName: string,
   ): Promise<SandboxDto> {
+    // Kepler dedicated sandboxes
+    if (authContext.organizationId === KEPLER_ORG_ID) {
+      throw new BadRequestError('Archiving is disabled, contact support')
+    }
+
     const sandbox = await this.sandboxService.archive(sandboxIdOrName, authContext.organizationId)
     return SandboxDto.fromSandbox(sandbox)
   }

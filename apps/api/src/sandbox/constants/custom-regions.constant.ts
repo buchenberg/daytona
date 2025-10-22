@@ -1,6 +1,8 @@
 const WRITER_DEDICATED_US = 'writer-dedicated-us'
 const WRITER_DEDICATED_EU = 'writer-dedicated-eu'
 
+export const KEPLER_DEDICATED_REGULAR = 'kepler-dedicated-regular'
+export const KEPLER_DEDICATED_LARGE = 'kepler-dedicated-large'
 /**
  * List of custom regions per organization.
  *
@@ -26,15 +28,18 @@ export const CUSTOM_REGIONS_PER_ORGANIZATION: Record<string, string[]> = {
   // Writer-production
   'd3df4094-226d-400b-804a-e4f9aa5a60d0': [WRITER_DEDICATED_US, WRITER_DEDICATED_EU],
 
+  // Kepler
+  KEPLER_ORG_ID: [KEPLER_DEDICATED_REGULAR, KEPLER_DEDICATED_LARGE],
+
   // INTERNAL TESTING
   '3ae0ced2-f32b-4c06-ba3b-51e5bb22e6e6': ['custom-region-test'],
 
   // Breja
-  'bf29e0f2-5fa9-48db-b80c-c7fae9c4e29c': [WRITER_DEDICATED_US, WRITER_DEDICATED_EU],
+  'bf29e0f2-5fa9-48db-b80c-c7fae9c4e29c': ['custom-region-test'],
   // Toma
-  '1db02bc5-acae-447b-b6ad-f5fa323d3cf6': [WRITER_DEDICATED_US, WRITER_DEDICATED_EU],
+  '1db02bc5-acae-447b-b6ad-f5fa323d3cf6': ['custom-region-test'],
   // Mirko
-  '99c32bbf-0ba0-4980-af71-22f50376032e': [WRITER_DEDICATED_US, WRITER_DEDICATED_EU],
+  '99c32bbf-0ba0-4980-af71-22f50376032e': ['custom-region-test'],
 }
 
 export const WRITER_ORGS = [
@@ -50,6 +55,8 @@ export const WRITER_ORGS = [
   '6780b872-df13-44b6-bc6a-59c56ca469c3',
   'd3df4094-226d-400b-804a-e4f9aa5a60d0',
 ]
+
+export const KEPLER_ORG_ID = '83e127af-2de9-4549-903c-b7bf907ecb58'
 
 const DAYTONA_MEMBERS_ORGS = [
   '3ae0ced2-f32b-4c06-ba3b-51e5bb22e6e6', // Internal Testing
