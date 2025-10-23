@@ -4,4 +4,8 @@
  */
 
 // Substrings in an error message that should trigger an automatic restore
-export const RECOVERY_ERROR_SUBSTRINGS: string[] = ['Can not connect to the Docker daemon']
+export const RECOVERY_ERROR_SUBSTRINGS: string[] = [
+    'timeout waiting for daemon to start',
+    'sysbox',
+    'No such container'
+]
