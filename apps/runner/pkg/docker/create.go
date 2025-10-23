@@ -112,6 +112,8 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 			// Recreate without sysbox
 			d.Destroy(ctx, sandboxDto.Id)
 			return d.Create(ctx, sandboxDto, true, true)
+		} else {
+			return "", err
 		}
 	}
 
