@@ -26,6 +26,7 @@ import { RedisLockProvider } from '../common/redis-lock.provider'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { LogExecution } from '../../common/decorators/log-execution.decorator'
 import { getFallbackRegion, isDedicatedRegion } from '../constants/custom-regions.constant'
+import { WithInstrumentation } from '../../common/decorators/otel.decorator'
 
 @Injectable()
 export class RunnerService {
@@ -196,6 +197,7 @@ export class RunnerService {
 
   @Cron(CronExpression.EVERY_10_SECONDS, { name: 'check-runners', waitForCompletion: true })
   @LogExecution('check-runners')
+  @WithInstrumentation()
   private async handleCheckRunners() {
     const lockKey = 'check-runners'
     const hasLock = await this.redisLockProvider.lock(lockKey, 60)
@@ -271,8 +273,7 @@ export class RunnerService {
               } else if (e.name === 'AbortError') {
                 this.logger.error(`Runner ${runner.id} health check was aborted due to timeout`)
               } else {
-                this.logger.error(`Error checking runner ${runner.id}: ${e.message}`)
-                this.logger.error(e)
+                this.logger.error(`Error checking runner ${runner.id}`, e)
               }
 
               // If last attempt, mark as unresponsive
