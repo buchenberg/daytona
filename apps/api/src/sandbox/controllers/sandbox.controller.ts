@@ -177,7 +177,10 @@ export class SandboxController {
       {
         id,
         name,
-        labels: labels ? JSON.parse(labels) : undefined,
+        labels:
+          labels && authContext.organizationId !== 'febf2c2a-8287-4de2-bb6c-7362a188fa09'
+            ? JSON.parse(labels)
+            : undefined,
         includeErroredDestroyed,
         states,
         snapshots,
@@ -277,7 +280,9 @@ export class SandboxController {
       createSandboxDto.autoArchiveInterval = 365 * 24 * 60 // One year auto-archive interval
 
       if (![KEPLER_DEDICATED_REGULAR, KEPLER_DEDICATED_LARGE].includes(createSandboxDto.target)) {
-        throw new BadRequestError(`Only dedicated Kepler regions are supported: ${KEPLER_DEDICATED_REGULAR} or ${KEPLER_DEDICATED_LARGE}`)
+        throw new BadRequestError(
+          `Only dedicated Kepler regions are supported: ${KEPLER_DEDICATED_REGULAR} or ${KEPLER_DEDICATED_LARGE}`,
+        )
       }
     }
 
@@ -440,7 +445,7 @@ export class SandboxController {
     let sandbox = SandboxDto.fromSandbox(sbx)
 
     if (![SandboxState.ARCHIVED, SandboxState.RESTORING, SandboxState.STARTED].includes(sandbox.state)) {
-      sandbox = await this.waitForSandboxStarted(sandbox, 30)
+      sandbox = await this.waitForSandboxStarted(sandbox, 15)
     }
 
     return sandbox
