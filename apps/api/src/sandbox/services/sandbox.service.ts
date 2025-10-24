@@ -103,7 +103,7 @@ export class SandboxService extends LockableEntity {
   }
 
   protected getLockKey(id: string): string {
-    return `sandbox:${id}:state-change`
+    return `sandbox:${id}:state-change-sync`
   }
 
   private async old_validateOrganizationQuotas(
@@ -1340,11 +1340,6 @@ export class SandboxService extends LockableEntity {
     }
 
     try {
-      if (newState !== SandboxState.STOPPED) {
-        this.logger.warn(`Runner tried to set sandbox ${sandboxId} to invalid state: ${newState}`)
-        return
-      }
-
       const sandbox = await this.sandboxRepository.findOne({
         where: { id: sandboxId },
       })
@@ -1353,8 +1348,10 @@ export class SandboxService extends LockableEntity {
         throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
       }
 
-      if (sandbox.state === newState) {
-        this.logger.debug(`Sandbox ${sandboxId} is already in state ${newState}`)
+      if (!(newState == SandboxState.STOPPED && sandbox.state == SandboxState.STARTED)) {
+        this.logger.warn(
+          `Runner tried to set sandbox ${sandboxId} to invalid state: ${newState} from state ${sandbox.state}`,
+        )
         return
       }
 
