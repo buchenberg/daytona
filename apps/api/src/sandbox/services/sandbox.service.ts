@@ -5,7 +5,7 @@
 
 import { ForbiddenException, Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Not, Repository, LessThan, In, JsonContains, FindOptionsWhere, ILike } from 'typeorm'
+import { Not, Repository, LessThan, In, JsonContains, FindOptionsWhere, ILike, MoreThanOrEqual } from 'typeorm'
 import { Sandbox } from '../entities/sandbox.entity'
 import { CreateSandboxDto } from '../dto/create-sandbox.dto'
 import { SandboxState } from '../enums/sandbox-state.enum'
@@ -790,6 +790,11 @@ export class SandboxService extends LockableEntity {
     const baseFindOptions: FindOptionsWhere<Sandbox> = {
       organizationId,
       ...(labels ? { labels: JsonContains(labels) } : {}),
+    }
+
+    // [KORTIX] show only sandboxes that have been active in the last 14 days
+    if (organizationId === 'febf2c2a-8287-4de2-bb6c-7362a188fa09') {
+      baseFindOptions.lastActivityAt = MoreThanOrEqual(new Date(Date.now() - 14 * 24 * 60 * 60 * 1000))
     }
 
     const where: FindOptionsWhere<Sandbox>[] = [
