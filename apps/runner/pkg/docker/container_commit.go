@@ -50,29 +50,26 @@ func (d *DockerClient) commitContainer(ctx context.Context, containerId, imageNa
 				containerConfig.Image = imageName
 
 				// Start the container from that image
-				c, err := d.apiClient.ContainerCreate(ctx, containerConfig, containerInspect.HostConfig, nil, nil, fmt.Sprintf("socket-fix-%s", containerId))
+				sockFixContainer := fmt.Sprintf("socket-fix-%s", containerId)
+				c, err := d.apiClient.ContainerCreate(ctx, containerConfig, containerInspect.HostConfig, nil, nil, sockFixContainer)
 				if err != nil {
 					log.Warnf("Failed to start container from image %s: %v", imageName, err)
 					return fmt.Errorf("failed to start container from image %s: %w", imageName, err)
 				}
-				defer d.apiClient.ContainerRemove(ctx, c.ID, container.RemoveOptions{
+				defer d.apiClient.ContainerRemove(ctx, sockFixContainer, container.RemoveOptions{
 					RemoveVolumes: true,
 					RemoveLinks:   false,
 					Force:         true,
 				})
-				if err != nil {
-					log.Warnf("Failed to remove container %s: %v", c.ID, err)
-					return fmt.Errorf("failed to remove container %s: %w", c.ID, err)
-				}
 
 				// Start the container
-				if err := d.apiClient.ContainerStart(ctx, c.ID, container.StartOptions{}); err != nil {
-					log.Warnf("Failed to start container %s: %v", c.ID, err)
+				if err := d.apiClient.ContainerStart(ctx, sockFixContainer, container.StartOptions{}); err != nil {
+					log.Warnf("Failed to start container %s: %v", sockFixContainer, err)
 					return fmt.Errorf("failed to start container %s: %w", c.ID, err)
 				}
 
 				// Remove all sock files from the container
-				if _, err := d.execSync(ctx, c.ID, container.ExecOptions{
+				if _, err := d.execSync(ctx, sockFixContainer, container.ExecOptions{
 					Cmd: []string{"find", "/", "-type", "s", "-delete"},
 				}, container.ExecStartOptions{}); err != nil {
 					log.Warnf("Failed to remove sock files from container %s: %v", c.ID, err)
@@ -88,7 +85,7 @@ func (d *DockerClient) commitContainer(ctx context.Context, containerId, imageNa
 				}
 
 				// Use export/import method to create a clean image
-				err = d.exportImportContainer(ctx, c.ID, imageName)
+				err = d.exportImportContainer(ctx, sockFixContainer, imageName)
 				if err == nil {
 					log.Infof("Container %s successfully backed up using export/import method after socket cleanup", containerId)
 					return nil
@@ -247,7 +244,7 @@ func (d *DockerClient) exportImportContainer(ctx context.Context, containerId, i
 	// Preserve environment variables
 	if len(containerInfo.Config.Env) > 0 {
 		for _, env := range containerInfo.Config.Env {
-			changes = append(changes, fmt.Sprintf("ENV %s", env))
+			changes = append(changes, fmt.Sprintf(`ENV "%s"`, env))
 		}
 	}
 
