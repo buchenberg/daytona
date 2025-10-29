@@ -250,7 +250,7 @@ func (d *DockerClient) exportImportContainer(ctx context.Context, containerId, i
 			}
 			// Quote the value to handle spaces and special characters
 			env = fmt.Sprintf(`%s="%s"`, splitEnv[0], splitEnv[1])
-			changes = append(changes, fmt.Sprintf(`ENV "%s"`, env))
+			changes = append(changes, fmt.Sprintf(`ENV %s`, env))
 		}
 	}
 
