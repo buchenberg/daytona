@@ -40,7 +40,7 @@ import { OrganizationEvents } from '../../organization/constants/organization-ev
 import { OrganizationSuspendedSandboxStoppedEvent } from '../../organization/events/organization-suspended-sandbox-stopped.event'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { WarmPool } from '../entities/warm-pool.entity'
-import { SandboxDto } from '../dto/sandbox.dto'
+import { SandboxDto, SandboxVolume } from '../dto/sandbox.dto'
 import { isValidUuid } from '../../common/utils/uuid'
 import { RunnerAdapterFactory } from '../runner-adapter/runnerAdapter'
 import { validateNetworkAllowList } from '../utils/network-validation.util'
@@ -68,6 +68,7 @@ import {
 import { LockableEntity } from '../../common/services/lockable-entity.service'
 import { customAlphabet as customNanoid, urlAlphabet } from 'nanoid'
 import { WithInstrumentation } from '../../common/decorators/otel.decorator'
+import { validateMountPaths } from '../utils/volume-mount-path-validation.util'
 
 const DEFAULT_CPU = 1
 const DEFAULT_MEMORY = 1
@@ -517,7 +518,6 @@ export class SandboxService extends LockableEntity {
       sandbox.osUser = createSandboxDto.user || 'daytona'
       sandbox.env = createSandboxDto.env || {}
       sandbox.labels = createSandboxDto.labels || {}
-      sandbox.volumes = createSandboxDto.volumes || []
 
       sandbox.cpu = cpu
       sandbox.gpu = gpu
@@ -544,6 +544,10 @@ export class SandboxService extends LockableEntity {
 
       if (createSandboxDto.autoDeleteInterval !== undefined) {
         sandbox.autoDeleteInterval = createSandboxDto.autoDeleteInterval
+      }
+
+      if (createSandboxDto.volumes !== undefined) {
+        sandbox.volumes = this.resolveVolumes(createSandboxDto.volumes)
       }
 
       sandbox.runnerId = runner.id
@@ -675,7 +679,6 @@ export class SandboxService extends LockableEntity {
       sandbox.osUser = createSandboxDto.user || 'daytona'
       sandbox.env = createSandboxDto.env || {}
       sandbox.labels = createSandboxDto.labels || {}
-      sandbox.volumes = createSandboxDto.volumes || []
 
       sandbox.cpu = cpu
       sandbox.gpu = gpu
@@ -701,6 +704,10 @@ export class SandboxService extends LockableEntity {
 
       if (createSandboxDto.autoDeleteInterval !== undefined) {
         sandbox.autoDeleteInterval = createSandboxDto.autoDeleteInterval
+      }
+
+      if (createSandboxDto.volumes !== undefined) {
+        sandbox.volumes = this.resolveVolumes(createSandboxDto.volumes)
       }
 
       const buildInfoSnapshotRef = generateBuildSnapshotRef(
@@ -1457,6 +1464,16 @@ export class SandboxService extends LockableEntity {
     validateNetworkAllowList(networkAllowList)
 
     return networkAllowList
+  }
+
+  private resolveVolumes(volumes: SandboxVolume[]): SandboxVolume[] {
+    try {
+      validateMountPaths(volumes)
+    } catch (error) {
+      throw new BadRequestError(error instanceof Error ? error.message : 'Invalid volume mount paths')
+    }
+
+    return volumes
   }
 
   async createSshAccess(sandboxIdOrName: string, expiresInMinutes = 60, organizationId?: string): Promise<SshAccess> {
