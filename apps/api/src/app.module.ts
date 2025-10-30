@@ -74,13 +74,11 @@ import { getPinoTransport, swapMessageAndObject } from './common/utils/pino.util
           migrationsRun: configService.get('runMigrations') || !configService.getOrThrow('production'),
           namingStrategy: new CustomNamingStrategy(),
           manualInitialization: configService.get('skipConnections'),
-          ssl: true,
-          extra: {
-            ssl: {
-              rejectUnauthorized: false,
-            },
-            max: 50,
-          },
+          ssl: configService.get('database.tls.enabled')
+            ? {
+                rejectUnauthorized: configService.get('database.tls.rejectUnauthorized'),
+              }
+            : undefined,
         }
       },
     }),
