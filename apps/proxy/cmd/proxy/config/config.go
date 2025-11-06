@@ -25,6 +25,7 @@ type Config struct {
 	PreviewWarningExceptions        []string     `envconfig:"PREVIEW_WARNING_EXCEPTIONS"`
 	PreviewWarningCPUQuotaThreshold int          `envconfig:"PREVIEW_WARNING_CPU_QUOTA_THRESHOLD"`
 	PreviewWarningEnabled           bool         `envconfig:"PREVIEW_WARNING_ENABLED"`
+	ToolboxOnlyMode                 bool         `envconfig:"TOOLBOX_ONLY_MODE"`
 }
 
 type OidcConfig struct {
