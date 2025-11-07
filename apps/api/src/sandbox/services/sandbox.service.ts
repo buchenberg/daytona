@@ -324,11 +324,10 @@ export class SandboxService {
   }
 
   async createForWarmPool(warmPoolItem: WarmPool): Promise<Sandbox> {
-    const sandbox = new Sandbox()
+    const sandbox = new Sandbox(warmPoolItem.target)
 
     sandbox.organizationId = SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION
 
-    sandbox.region = warmPoolItem.target
     sandbox.class = warmPoolItem.class
     sandbox.snapshot = warmPoolItem.snapshot
     //  TODO: default user should be configurable
@@ -373,7 +372,7 @@ export class SandboxService {
     let pendingDiskIncrement: number | undefined
 
     try {
-      const region = this.getValidatedOrDefaultRegion(organization.id, createSandboxDto.target)
+      const region = this.getValidatedOrDefaultRegion(organization, createSandboxDto.target)
       const sandboxClass = this.getValidatedOrDefaultClass(createSandboxDto.class)
 
       let snapshotIdOrName = createSandboxDto.snapshot
@@ -499,12 +498,11 @@ export class SandboxService {
         })
       }
 
-      const sandbox = new Sandbox(createSandboxDto.name)
+      const sandbox = new Sandbox(region, createSandboxDto.name)
 
       sandbox.organizationId = organization.id
 
       //  TODO: make configurable
-      sandbox.region = region
       sandbox.class = sandboxClass
       sandbox.snapshot = snapshot.name
       //  TODO: default user should be configurable
@@ -636,7 +634,7 @@ export class SandboxService {
     let pendingDiskIncrement: number | undefined
 
     try {
-      const region = this.getValidatedOrDefaultRegion(organization.id, createSandboxDto.target)
+      const region = this.getValidatedOrDefaultRegion(organization, createSandboxDto.target)
       const sandboxClass = this.getValidatedOrDefaultClass(createSandboxDto.class)
 
       const cpu = createSandboxDto.cpu || DEFAULT_CPU
@@ -664,11 +662,10 @@ export class SandboxService {
         await this.volumeService.validateVolumes(organization.id, volumeIdOrNames)
       }
 
-      const sandbox = new Sandbox(createSandboxDto.name)
+      const sandbox = new Sandbox(region, createSandboxDto.name)
 
       sandbox.organizationId = organization.id
 
-      sandbox.region = region
       sandbox.class = sandboxClass
       sandbox.osUser = createSandboxDto.user || 'daytona'
       sandbox.env = createSandboxDto.env || {}
@@ -1200,9 +1197,9 @@ export class SandboxService {
     }
   }
 
-  private getValidatedOrDefaultRegion(organizationId: string, region?: string): string {
+  private getValidatedOrDefaultRegion(organization: Organization, region?: string): string {
     if (!region || region.trim().length === 0) {
-      return 'us'
+      return organization.defaultRegion
     }
 
     region = region.trim()
@@ -1211,11 +1208,11 @@ export class SandboxService {
       return region
     }
 
-    if (CUSTOM_REGIONS_PER_ORGANIZATION[organizationId]?.includes(region)) {
+    if (CUSTOM_REGIONS_PER_ORGANIZATION[organization.id]?.includes(region)) {
       return region
     }
 
-    this.logger.warn(`Invalid region ${region} for organization ${organizationId}`)
+    this.logger.warn(`Invalid region ${region} for organization ${organization.id}`)
 
     throw new BadRequestError('No available runners')
   }
