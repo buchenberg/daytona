@@ -377,7 +377,13 @@ export class SandboxStartAction extends SandboxAction {
     if (sandboxInfo.state === SandboxState.PULLING_SNAPSHOT) {
       await this.updateSandboxState(sandbox.id, SandboxState.PULLING_SNAPSHOT, lockCode)
     } else if (sandboxInfo.state === SandboxState.ERROR) {
-      await this.updateSandboxState(sandbox.id, SandboxState.ERROR, lockCode)
+      await this.updateSandboxState(
+        sandbox.id,
+        SandboxState.ERROR,
+        lockCode,
+        undefined,
+        'Sandbox is in error state on runner',
+      )
     } else if (sandboxInfo.state === SandboxState.UNKNOWN) {
       await this.updateSandboxState(sandbox.id, SandboxState.UNKNOWN, lockCode)
     } else {
@@ -439,13 +445,25 @@ export class SandboxStartAction extends SandboxAction {
         break
       }
       case SandboxState.ERROR: {
-        await this.updateSandboxState(sandbox.id, SandboxState.ERROR, lockCode)
+        await this.updateSandboxState(
+          sandbox.id,
+          SandboxState.ERROR,
+          lockCode,
+          undefined,
+          'Sandbox entered error state on runner during startup wait loop',
+        )
         break
       }
       // also any other state that is not STARTED
       default: {
         console.error(`Sandbox ${sandbox.id} is in unexpected state ${sandboxInfo.state}`)
-        await this.updateSandboxState(sandbox.id, SandboxState.ERROR, lockCode)
+        await this.updateSandboxState(
+          sandbox.id,
+          SandboxState.ERROR,
+          lockCode,
+          undefined,
+          `Sandbox is in unexpected state: ${sandboxInfo.state}`,
+        )
         break
       }
     }
