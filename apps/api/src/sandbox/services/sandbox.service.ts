@@ -49,7 +49,7 @@ import { SshAccess } from '../entities/ssh-access.entity'
 import { SshAccessValidationDto } from '../dto/ssh-access.dto'
 import { VolumeService } from './volume.service'
 import { GLOBAL_REGIONS } from '../constants/global-regions.constant'
-import { CUSTOM_REGIONS_PER_ORGANIZATION, getDedicatedRegion } from '../constants/custom-regions.constant'
+import { CUSTOM_REGIONS_PER_ORGANIZATION, resolveEffectiveRegion } from '../constants/custom-regions.constant'
 import { PaginatedList } from '../../common/interfaces/paginated-list.interface'
 import {
   SandboxSortField,
@@ -492,7 +492,7 @@ export class SandboxService {
 
       if (!runner) {
         runner = await this.runnerService.getRandomAvailableRunner({
-          region: getDedicatedRegion(organization.id, region),
+          region: resolveEffectiveRegion(organization.id, region, this.configService, { cpu, memory: mem, disk }),
           sandboxClass,
           snapshotRef: snapshot.internalName,
         })
@@ -726,7 +726,11 @@ export class SandboxService {
 
       try {
         runner = await this.runnerService.getRandomAvailableRunner({
-          region: getDedicatedRegion(sandbox.organizationId, sandbox.region),
+          region: resolveEffectiveRegion(sandbox.organizationId, sandbox.region, this.configService, {
+            cpu,
+            memory: mem,
+            disk,
+          }),
           sandboxClass: sandbox.class,
           snapshotRef: sandbox.buildInfo.snapshotRef,
         })

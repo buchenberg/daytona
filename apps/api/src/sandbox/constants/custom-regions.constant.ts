@@ -1,8 +1,24 @@
+import { TypedConfigService } from '../../config/typed-config.service'
+import { areResourcesLargerThanDefault, Resources } from '../utils/resources'
+
 const WRITER_DEDICATED_US = 'writer-dedicated-us'
 const WRITER_DEDICATED_EU = 'writer-dedicated-eu'
 
 export const KEPLER_DEDICATED_REGULAR = 'kepler-dedicated-regular'
 export const KEPLER_DEDICATED_LARGE = 'kepler-dedicated-large'
+
+export const LARGE_SANDBOX_SHARED_REGION = 'large-sandbox-shared'
+
+// Orgs with higher per-sandbox quotas go here so their larger sandboxes use
+// the shared large-sandbox region
+export const LARGE_SANDBOX_ORGS = new Set([
+  '9dfa1b82-302b-4b0f-9dfe-f0b435d9647e', // Allie Howe personal org
+  'e490abee-8eb7-45be-b0a9-d85800ecdcb5', // cline
+  '50071d40-742e-4d9d-be5c-b857493148f7', // idler
+  '2f116a7c-d116-45db-9863-faa2ba6171a0', // Finarth.AI
+  '287d67b2-f117-49b9-8ae6-50df214ab964', // Gel
+])
+
 /**
  * List of custom regions per organization.
  *
@@ -30,6 +46,8 @@ export const CUSTOM_REGIONS_PER_ORGANIZATION: Record<string, string[]> = {
 
   // Kepler
   '83e127af-2de9-4549-903c-b7bf907ecb58': [KEPLER_DEDICATED_REGULAR, KEPLER_DEDICATED_LARGE],
+
+  ...Object.fromEntries([...LARGE_SANDBOX_ORGS].map((orgId) => [orgId, [LARGE_SANDBOX_SHARED_REGION]])),
 
   // INTERNAL TESTING
   '3ae0ced2-f32b-4c06-ba3b-51e5bb22e6e6': ['custom-region-test'],
@@ -65,13 +83,24 @@ const DAYTONA_MEMBERS_ORGS = [
   '99c32bbf-0ba0-4980-af71-22f50376032e', // Mirko
 ]
 
-export function getDedicatedRegion(organizationId: string, baseRegion: string) {
+export function resolveEffectiveRegion(
+  organizationId: string,
+  baseRegion: string,
+  configService: TypedConfigService,
+  resources: Resources,
+) {
   // if (DAYTONA_MEMBERS_ORGS.includes(organizationId)) {
   if (WRITER_ORGS.includes(organizationId)) {
     if (baseRegion === 'us') {
       return WRITER_DEDICATED_US
     } else if (baseRegion === 'eu') {
       return WRITER_DEDICATED_EU
+    }
+  }
+
+  if (LARGE_SANDBOX_ORGS.has(organizationId)) {
+    if (areResourcesLargerThanDefault(configService, resources)) {
+      return LARGE_SANDBOX_SHARED_REGION
     }
   }
 

@@ -6,7 +6,7 @@
 import { Injectable, Logger, NotFoundException, OnApplicationShutdown } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Cron, CronExpression } from '@nestjs/schedule'
-import { In, LessThan, MoreThanOrEqual, Not, Repository } from 'typeorm'
+import { FindOptionsWhere, In, LessThan, MoreThanOrEqual, Not, Repository } from 'typeorm'
 import { DockerRegistryService } from '../../docker-registry/services/docker-registry.service'
 import { Snapshot } from '../entities/snapshot.entity'
 import { SnapshotState } from '../enums/snapshot-state.enum'
@@ -31,7 +31,14 @@ import { RunnerAdapterFactory } from '../runner-adapter/runnerAdapter'
 import { TrackableJobExecutions } from '../../common/interfaces/trackable-job-executions'
 import { TrackJobExecution } from '../../common/decorators/track-job-execution.decorator'
 import { setTimeout as sleep } from 'timers/promises'
-import { CUSTOM_REGIONS_PER_ORGANIZATION, getDedicatedRegion, WRITER_ORGS } from '../constants/custom-regions.constant'
+import {
+  CUSTOM_REGIONS_PER_ORGANIZATION,
+  resolveEffectiveRegion,
+  LARGE_SANDBOX_ORGS,
+  LARGE_SANDBOX_SHARED_REGION,
+  WRITER_ORGS,
+} from '../constants/custom-regions.constant'
+import { areResourcesLargerThanDefault } from '../utils/resources'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { LogExecution } from '../../common/decorators/log-execution.decorator'
 import { PER_SANDBOX_LIMIT_MESSAGE } from '../../common/constants/error-messages'
@@ -85,15 +92,35 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     const skip = (await this.redis.get('sync-runner-snapshots-skip')) || 0
 
+    const defaultOrganizationQuota = this.configService.getOrThrow('defaultOrganizationQuota')
+
     const snapshots = await this.snapshotRepository
       .createQueryBuilder('snapshot')
       .innerJoin('organization', 'org', 'org.id = snapshot.organizationId')
       .select(['snapshot.*', 'org.totalCpuQuota'])
       .where('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
       .andWhere('org.suspended = false')
+      .andWhere(
+        `
+        NOT (
+          org.id = ANY(:largeSbxSharedOrgs)
+          AND (
+            snapshot.cpu > :defaultMaxCpuPerSandbox OR
+            snapshot.mem > :defaultMaxMemoryPerSandbox OR
+            snapshot.disk > :defaultMaxDiskPerSandbox
+          )
+        )
+      `,
+      )
       .orderBy('snapshot.createdAt', 'ASC')
       .take(100)
       .skip(Number(skip))
+      .setParameters({
+        largeSbxSharedOrgs: [...LARGE_SANDBOX_ORGS],
+        defaultMaxCpuPerSandbox: defaultOrganizationQuota.maxCpuPerSandbox,
+        defaultMaxMemoryPerSandbox: defaultOrganizationQuota.maxMemoryPerSandbox,
+        defaultMaxDiskPerSandbox: defaultOrganizationQuota.maxDiskPerSandbox,
+      })
       .getRawMany()
 
     if (snapshots.length === 0) {
@@ -108,7 +135,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         // Calculate propagation factor based on organization's CPU quota
         const propagationFactor = snapshot.org_total_cpu_quota >= 1000 ? 2 : 1
 
-        this.propagateSnapshotToRunners(snapshot.internalName, propagationFactor).catch((err) => {
+        this.propagateSnapshotToRunners(snapshot, propagationFactor).catch((err) => {
           this.logger.error(`Error propagating snapshot ${snapshot.id} to runners: ${err}`)
         })
       }),
@@ -117,7 +144,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     await this.redisLockProvider.unlock(lockKey)
   }
 
-  @Cron(CronExpression.EVERY_MINUTE, { name: 'sync-dedicated-runner-snapshots', waitForCompletion: true })
+  @Cron(CronExpression.EVERY_30_SECONDS, { name: 'sync-dedicated-runner-snapshots', waitForCompletion: true })
   @TrackJobExecution()
   @LogExecution('sync-dedicated-runner-snapshots')
   async syncDedicatedRunnerSnapshots() {
@@ -148,13 +175,28 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         let regions = []
         if (WRITER_ORGS.includes(snapshot.organizationId)) {
           ;['us', 'eu'].forEach((region) => {
-            const dedicatedRegion = getDedicatedRegion(snapshot.organizationId, region)
+            const dedicatedRegion = resolveEffectiveRegion(snapshot.organizationId, region, this.configService, {
+              cpu: snapshot.cpu,
+              memory: snapshot.mem,
+              disk: snapshot.disk,
+            })
             if (dedicatedRegion !== region) {
               regions.push(dedicatedRegion)
             }
           })
         } else {
           regions = CUSTOM_REGIONS_PER_ORGANIZATION[snapshot.organizationId] || []
+        }
+
+        if (
+          LARGE_SANDBOX_ORGS.has(snapshot.organizationId) &&
+          !areResourcesLargerThanDefault(this.configService, {
+            cpu: snapshot.cpu,
+            memory: snapshot.mem,
+            disk: snapshot.disk,
+          })
+        ) {
+          regions = regions.filter((region) => region !== LARGE_SANDBOX_SHARED_REGION)
         }
 
         return Promise.allSettled(
@@ -288,20 +330,34 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     }
   }
 
-  async propagateSnapshotToRunners(internalSnapshotName: string, propagationFactor?: number) {
+  async propagateSnapshotToRunners(snapshot: Snapshot, propagationFactor?: number) {
+    const where: FindOptionsWhere<Runner> = {
+      state: RunnerState.READY,
+      unschedulable: false,
+    }
+
+    if (!LARGE_SANDBOX_ORGS.has(snapshot.organizationId)) {
+      // If snapshot organization is not in the LARGE_SANDBOX_ORGS set, skip runners with region LARGE_SANDBOX_SHARED_REGION
+      where.region = Not(LARGE_SANDBOX_SHARED_REGION)
+    } else if (
+      !areResourcesLargerThanDefault(this.configService, {
+        cpu: snapshot.cpu,
+        memory: snapshot.mem,
+        disk: snapshot.disk,
+      })
+    ) {
+      // If snapshot resources aren’t above default, skip runners with region LARGE_SANDBOX_SHARED_REGION
+      where.region = Not(LARGE_SANDBOX_SHARED_REGION)
+    }
+
     //  todo: remove try catch block and implement error handling
     try {
-      const runners = await this.runnerRepository.find({
-        where: {
-          state: RunnerState.READY,
-          unschedulable: false,
-        },
-      })
+      const runners = await this.runnerRepository.find({ where })
 
       //  get all runners that have the snapshot in their base image
       const snapshotRunners = await this.snapshotRunnerRepository.find({
         where: {
-          snapshotRef: internalSnapshotName,
+          snapshotRef: snapshot.internalName,
           state: In([SnapshotRunnerState.READY, SnapshotRunnerState.PULLING_SNAPSHOT]),
         },
       })
@@ -331,7 +387,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         runnersToPropagateTo.map(async (runner) => {
           let snapshotRunner = await this.snapshotRunnerRepository.findOne({
             where: {
-              snapshotRef: internalSnapshotName,
+              snapshotRef: snapshot.internalName,
               runnerId: runner.id,
             },
           })
@@ -345,11 +401,11 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
             if (!snapshotRunner) {
               snapshotRunner = new SnapshotRunner()
-              snapshotRunner.snapshotRef = internalSnapshotName
+              snapshotRunner.snapshotRef = snapshot.internalName
               snapshotRunner.runnerId = runner.id
               snapshotRunner.state = SnapshotRunnerState.PULLING_SNAPSHOT
               await this.snapshotRunnerRepository.save(snapshotRunner)
-              await this.propagateSnapshotToRunner(internalSnapshotName, runner)
+              await this.propagateSnapshotToRunner(snapshot.internalName, runner)
             } else if (snapshotRunner.state === SnapshotRunnerState.PULLING_SNAPSHOT) {
               await this.handleSnapshotRunnerStatePullingSnapshot(snapshotRunner)
             }
@@ -809,7 +865,19 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         // Snapshots that have gone through the build process are already in the internal registry
         snapshot.internalName = await this.pushSnapshotToInternalRegistry(snapshot.id)
       }
-      const customRegions = CUSTOM_REGIONS_PER_ORGANIZATION[snapshot.organizationId]
+      let customRegions = CUSTOM_REGIONS_PER_ORGANIZATION[snapshot.organizationId]
+
+      // If the organization is in LARGE_SANDBOX_ORGS and the resources are not larger than the default, remove the LARGE_SANDBOX_SHARED_REGION
+      if (
+        LARGE_SANDBOX_ORGS.has(snapshot.organizationId) &&
+        !areResourcesLargerThanDefault(this.configService, {
+          cpu: snapshot.cpu,
+          memory: snapshot.mem,
+          disk: snapshot.disk,
+        })
+      ) {
+        customRegions = customRegions.filter((region) => region !== LARGE_SANDBOX_SHARED_REGION)
+      }
       // =================
       this.logger.warn('customRegions', customRegions, 'organizationId', snapshot.organizationId)
       // =================
@@ -821,7 +889,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
           availabilityScore: MoreThanOrEqual(
             this.configService.getOrThrow('runnerUsage.declarativeBuildScoreThreshold'),
           ),
-          region: customRegions ? In(customRegions) : undefined,
+          region: customRegions?.length ? In(customRegions) : undefined,
         },
       })
       // =================
