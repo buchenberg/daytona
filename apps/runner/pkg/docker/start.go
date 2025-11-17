@@ -42,7 +42,7 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, metadata m
 			return err
 		}
 
-		err = d.waitForDaemonRunning(ctx, containerIP, 10*time.Second)
+		err = d.waitForDaemonRunning(ctx, containerIP, 30*time.Second)
 		if err != nil {
 			return err
 		}
@@ -79,7 +79,7 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, metadata m
 		}
 	}()
 
-	err = d.waitForDaemonRunning(ctx, containerIP, 10*time.Second)
+	err = d.waitForDaemonRunning(ctx, containerIP, 30*time.Second)
 	if err != nil {
 		return err
 	}
