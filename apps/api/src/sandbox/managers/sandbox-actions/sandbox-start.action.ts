@@ -26,6 +26,8 @@ import { Runner } from '../../entities/runner.entity'
 import { resolveEffectiveRegion } from '../../constants/custom-regions.constant'
 import { Organization } from '../../../organization/entities/organization.entity'
 import { LockCode, RedisLockProvider } from '../../common/redis-lock.provider'
+import { InjectRedis } from '@nestjs-modules/ioredis'
+import Redis from 'ioredis'
 
 @Injectable()
 export class SandboxStartAction extends SandboxAction {
@@ -40,6 +42,7 @@ export class SandboxStartAction extends SandboxAction {
     protected readonly organizationService: OrganizationService,
     protected readonly configService: TypedConfigService,
     protected readonly redisLockProvider: RedisLockProvider,
+    @InjectRedis() private readonly redis: Redis,
   ) {
     super(runnerService, runnerAdapterFactory, sandboxRepository, redisLockProvider)
   }
@@ -519,6 +522,10 @@ export class SandboxStartAction extends SandboxAction {
 
     switch (sandboxInfo.state) {
       case SandboxState.STARTED: {
+        // Clear any DESTROYED retry key since sandbox is now started
+        const destroyedRetryKey = `destroyed-retry-${sandbox.id}`
+        await this.redis.del(destroyedRetryKey)
+
         let daemonVersion: string | undefined
         try {
           daemonVersion = await runnerAdapter.getSandboxDaemonVersion(sandbox.id)
@@ -565,9 +572,34 @@ export class SandboxStartAction extends SandboxAction {
           SandboxState.ERROR,
           lockCode,
           undefined,
-          'Sandbox entered error state on runner during startup wait loop',
+          'Sandbox is in error state on runner while starting',
         )
         break
+      }
+      case SandboxState.DESTROYED: {
+        // Retry up to 3 times since the sandbox might not have started spinning up on the runner yet
+        const destroyedRetryKey = `destroyed-retry-${sandbox.id}`
+        const retryCountRaw = await this.redis.get(destroyedRetryKey)
+        const retryCount = retryCountRaw ? parseInt(retryCountRaw) : 0
+
+        if (retryCount < 3) {
+          // Increment retry count and set expiration (5 minutes should be enough for retries)
+          await this.redis.setex(destroyedRetryKey, 300, String(retryCount + 1))
+          this.logger.warn(
+            `Sandbox ${sandbox.id} is in DESTROYED state on runner, retrying (attempt ${retryCount + 1}/3)`,
+          )
+          break // Continue to return SYNC_AGAIN
+        } else {
+          // Max retries reached, clear the retry key and handle as error
+          await this.redis.del(destroyedRetryKey)
+          await this.updateSandboxState(
+            sandbox.id,
+            SandboxState.ERROR,
+            undefined,
+            'Sandbox is in an unexpected state on runner',
+          )
+          return DONT_SYNC_AGAIN
+        }
       }
       // also any other state that is not STARTED
       default: {
