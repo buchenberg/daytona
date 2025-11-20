@@ -353,7 +353,7 @@ export class SandboxService {
     const runner = await this.runnerService.getRandomAvailableRunner({
       region: sandbox.region,
       sandboxClass: sandbox.class,
-      snapshotRef: snapshot.internalName,
+      snapshotRef: snapshot.ref,
     })
 
     sandbox.runnerId = runner.id
@@ -484,7 +484,7 @@ export class SandboxService {
           runner = await this.runnerService.getRandomAvailableRunner({
             region: 'writer627260',
             sandboxClass,
-            snapshotRef: snapshot.internalName,
+            snapshotRef: snapshot.ref,
           })
         } catch (error) {
           this.logger.error(`Region "writer627260" is full: ${error}`)
@@ -495,7 +495,7 @@ export class SandboxService {
         runner = await this.runnerService.getRandomAvailableRunner({
           region: resolveEffectiveRegion(organization.id, region, this.configService, { cpu, memory: mem, disk }),
           sandboxClass,
-          snapshotRef: snapshot.internalName,
+          snapshotRef: snapshot.ref,
         })
       }
 
