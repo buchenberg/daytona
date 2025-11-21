@@ -435,7 +435,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
   @OnEvent(SandboxEvents.DESTROYED)
   @TrackJobExecution()
   private async handleSandboxDestroyedEvent(event: SandboxDestroyedEvent) {
-    this.deleteSandboxBackupRepositoryFromRegistry(event.sandbox)
+    // this.deleteSandboxBackupRepositoryFromRegistry(event.sandbox)
   }
 
   @OnEvent(SandboxEvents.BACKUP_CREATED)
