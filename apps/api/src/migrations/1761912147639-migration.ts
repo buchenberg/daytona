@@ -9,38 +9,21 @@ export class Migration1761912147639 implements MigrationInterface {
   name = 'Migration1761912147639'
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.renameColumn('snapshot', 'internalName', 'ref')
-    await queryRunner.renameColumn('snapshot', 'buildRunnerId', 'initialRunnerId')
-    await queryRunner.query(`ALTER TABLE "snapshot" ADD "skipValidation" boolean NOT NULL DEFAULT false`)
+    await queryRunner.query(`
+      ALTER TABLE "snapshot" ADD "ref" character varying;
+      ALTER TABLE "snapshot" ADD "initialRunnerId" character varying;
 
-    // Update snapshot states
-    await queryRunner.query(`ALTER TYPE "public"."snapshot_state_enum" RENAME TO "snapshot_state_enum_old"`)
-    await queryRunner.query(
-      `CREATE TYPE "public"."snapshot_state_enum" AS ENUM('pending', 'pulling', 'pending_validation', 'validating', 'active', 'inactive', 'building', 'error', 'build_failed', 'removing')`,
-    )
-    await queryRunner.query(`ALTER TABLE "snapshot" ALTER COLUMN "state" DROP DEFAULT`)
-    await queryRunner.query(
-      `ALTER TABLE "snapshot" ALTER COLUMN "state" TYPE "public"."snapshot_state_enum" USING "state"::"text"::"public"."snapshot_state_enum"`,
-    )
-    await queryRunner.query(`ALTER TABLE "snapshot" ALTER COLUMN "state" SET DEFAULT 'pending'`)
-    await queryRunner.query(`DROP TYPE "public"."snapshot_state_enum_old"`)
+      UPDATE "snapshot"
+      SET
+        "ref" = "internalName",
+        "initialRunnerId" = "buildRunnerId";
+    `)
+    await queryRunner.query(`ALTER TABLE "snapshot" ADD "skipValidation" boolean NOT NULL DEFAULT false`)
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Revert snapshot states
-    await queryRunner.query(`ALTER TYPE "public"."snapshot_state_enum" RENAME TO "snapshot_state_enum_old"`)
-    await queryRunner.query(
-      `CREATE TYPE "public"."snapshot_state_enum" AS ENUM('build_pending', 'pending', 'pulling', 'pending_validation', 'validating', 'active', 'inactive', 'building', 'error', 'build_failed', 'removing')`,
-    )
-    await queryRunner.query(`ALTER TABLE "snapshot" ALTER COLUMN "state" DROP DEFAULT`)
-    await queryRunner.query(
-      `ALTER TABLE "snapshot" ALTER COLUMN "state" TYPE "public"."snapshot_state_enum" USING "state"::"text"::"public"."snapshot_state_enum"`,
-    )
-    await queryRunner.query(`ALTER TABLE "snapshot" ALTER COLUMN "state" SET DEFAULT 'pending'`)
-    await queryRunner.query(`DROP TYPE "public"."snapshot_state_enum_old"`)
-
-    await queryRunner.query(`ALTER TABLE "snapshot" DROP COLUMN "skipValidation"`)
-    await queryRunner.renameColumn('snapshot', 'initialRunnerId', 'buildRunnerId')
-    await queryRunner.renameColumn('snapshot', 'ref', 'internalName')
+    await queryRunner.dropColumn('snapshot', 'skipValidation')
+    await queryRunner.dropColumn('snapshot', 'initialRunnerId')
+    await queryRunner.dropColumn('snapshot', 'ref')
   }
 }
