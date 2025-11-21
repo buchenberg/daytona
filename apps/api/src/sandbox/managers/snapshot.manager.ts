@@ -946,7 +946,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
           availabilityScore: MoreThanOrEqual(
             this.configService.getOrThrow('runnerUsage.declarativeBuildScoreThreshold'),
           ),
-          region: customRegions?.length ? In(customRegions) : undefined,
+          region: customRegions?.length ? In(customRegions) : defaultRegion,
         },
       })
       // =================
