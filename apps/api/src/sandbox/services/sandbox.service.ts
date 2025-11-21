@@ -796,9 +796,9 @@ export class SandboxService {
       ...(labels ? { labels: JsonContains(labels) } : {}),
     }
 
-    // [KORTIX] show only sandboxes that have been active in the last 14 days
+    // [KORTIX] show only sandboxes that have been active in the last 7 days
     if (organizationId === 'febf2c2a-8287-4de2-bb6c-7362a188fa09') {
-      baseFindOptions.lastActivityAt = MoreThanOrEqual(new Date(Date.now() - 14 * 24 * 60 * 60 * 1000))
+      baseFindOptions.lastActivityAt = MoreThanOrEqual(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
     }
 
     const where: FindOptionsWhere<Sandbox>[] = [
