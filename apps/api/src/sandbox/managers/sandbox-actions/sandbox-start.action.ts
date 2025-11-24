@@ -558,8 +558,19 @@ export class SandboxStartAction extends SandboxAction {
         break
       }
       case SandboxState.STARTING:
+        if (await this.checkTimeoutError(sandbox, 5, 'Timeout while starting sandbox')) {
+          return DONT_SYNC_AGAIN
+        }
+        break
       case SandboxState.RESTORING:
+        if (await this.checkTimeoutError(sandbox, 30, 'Timeout while starting sandbox')) {
+          return DONT_SYNC_AGAIN
+        }
+        break
       case SandboxState.CREATING: {
+        if (await this.checkTimeoutError(sandbox, 15, 'Timeout while creating sandbox')) {
+          return DONT_SYNC_AGAIN
+        }
         break
       }
       case SandboxState.UNKNOWN: {
@@ -577,33 +588,19 @@ export class SandboxStartAction extends SandboxAction {
         break
       }
       case SandboxState.DESTROYED: {
-        // Retry up to 3 times since the sandbox might not have started spinning up on the runner yet
-        const destroyedRetryKey = `destroyed-retry-${sandbox.id}`
-        const retryCountRaw = await this.redis.get(destroyedRetryKey)
-        const retryCount = retryCountRaw ? parseInt(retryCountRaw) : 0
-
-        if (retryCount < 3) {
-          // Increment retry count and set expiration (5 minutes should be enough for retries)
-          await this.redis.setex(destroyedRetryKey, 300, String(retryCount + 1))
-          this.logger.warn(
-            `Sandbox ${sandbox.id} is in DESTROYED state on runner, retrying (attempt ${retryCount + 1}/3)`,
-          )
-          break // Continue to return SYNC_AGAIN
-        } else {
-          // Max retries reached, clear the retry key and handle as error
-          await this.redis.del(destroyedRetryKey)
-          await this.updateSandboxState(
-            sandbox.id,
-            SandboxState.ERROR,
-            undefined,
-            'Sandbox is in an unexpected state on runner',
-          )
-          return DONT_SYNC_AGAIN
-        }
+        this.logger.warn(
+          `Sandbox ${sandbox.id} is in destroyed state while starting on runner ${sandbox.runnerId}, prev runner ${sandbox.prevRunnerId}`,
+        )
+        await this.checkTimeoutError(
+          sandbox,
+          15,
+          'Timeout while starting sandbox: Sandbox is in unknown state on runner',
+        )
+        return DONT_SYNC_AGAIN
       }
       // also any other state that is not STARTED
       default: {
-        console.error(`Sandbox ${sandbox.id} is in unexpected state ${sandboxInfo.state}`)
+        this.logger.error(`Sandbox ${sandbox.id} is in unexpected state ${sandboxInfo.state}`)
         await this.updateSandboxState(
           sandbox.id,
           SandboxState.ERROR,
@@ -618,39 +615,17 @@ export class SandboxStartAction extends SandboxAction {
     return SYNC_AGAIN
   }
 
-  // TODO: revise/cleanup
-  private getEntrypointFromDockerfile(dockerfileContent: string): string[] {
-    // Match ENTRYPOINT with either a string or JSON array
-    const entrypointMatch = dockerfileContent.match(/ENTRYPOINT\s+(.*)/)
-    if (entrypointMatch) {
-      const rawEntrypoint = entrypointMatch[1].trim()
-      try {
-        // Try parsing as JSON array
-        const parsed = JSON.parse(rawEntrypoint)
-        if (Array.isArray(parsed)) {
-          return parsed
-        }
-      } catch {
-        // Fallback: it's probably a plain string
-        return [rawEntrypoint.replace(/["']/g, '')]
-      }
+  private async checkTimeoutError(sandbox: Sandbox, timeoutMinutes: number, errorReason: string): Promise<boolean> {
+    if (
+      sandbox.lastActivityAt &&
+      new Date(sandbox.lastActivityAt).getTime() < Date.now() - 1000 * 60 * timeoutMinutes
+    ) {
+      sandbox.state = SandboxState.ERROR
+      sandbox.errorReason = errorReason
+      await this.sandboxRepository.save(sandbox)
+      return true
     }
-
-    // Match CMD with either a string or JSON array
-    const cmdMatch = dockerfileContent.match(/CMD\s+(.*)/)
-    if (cmdMatch) {
-      const rawCmd = cmdMatch[1].trim()
-      try {
-        const parsed = JSON.parse(rawCmd)
-        if (Array.isArray(parsed)) {
-          return parsed
-        }
-      } catch {
-        return [rawCmd.replace(/["']/g, '')]
-      }
-    }
-
-    return ['sleep', 'infinity']
+    return false
   }
 
   private async restoreSandboxOnNewRunner(
@@ -661,6 +636,7 @@ export class SandboxStartAction extends SandboxAction {
     isRecovery?: boolean,
   ): Promise<SyncState | null> {
     let lockKey: string | null = null
+
     // Recovery lock to prevent frequent automatic restore attempts
     if (isRecovery) {
       lockKey = `sandbox-${sandbox.id}-restored-cooldown`
@@ -752,12 +728,14 @@ export class SandboxStartAction extends SandboxAction {
 
     let availableRunners: Runner[] = []
 
+    const excludedRunnerIds: string[] = excludedRunnerId ? [excludedRunnerId] : []
+
     const runnersWithBaseSnapshot: Runner[] = snapshotRef
       ? await this.runnerService.findAvailableRunners({
           region: effectiveRegion,
           sandboxClass: sandbox.class,
           snapshotRef,
-          excludedRunnerIds: [excludedRunnerId],
+          excludedRunnerIds,
         })
       : []
     if (runnersWithBaseSnapshot.length > 0) {
@@ -767,7 +745,7 @@ export class SandboxStartAction extends SandboxAction {
       availableRunners = await this.runnerService.findAvailableRunners({
         region: effectiveRegion,
         sandboxClass: sandbox.class,
-        excludedRunnerIds: [excludedRunnerId],
+        excludedRunnerIds,
       })
     }
 
@@ -786,7 +764,7 @@ export class SandboxStartAction extends SandboxAction {
 
     //  verify the runner is still available and ready
     if (!runner || runner.state !== RunnerState.READY || runner.unschedulable) {
-      this.logger.warn(`Selected runner ${runner.id} is no longer available, retrying sandbox assignment`)
+      this.logger.warn(`Selected runner ${runner?.id || 'null'} is no longer available, retrying sandbox assignment`)
       if (isRecovery) {
         await this.redisLockProvider.unlock(lockKey)
       }
