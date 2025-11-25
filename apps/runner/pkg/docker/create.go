@@ -98,6 +98,10 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		OS:           "linux",
 	}, sandboxDto.Id)
 	if err != nil {
+		// Container already exists and is being created by another process
+		if errdefs.IsConflict(err) {
+			return sandboxDto.Id, nil
+		}
 		if !strings.Contains(err.Error(), "OCI runtime create failed") {
 			return "", err
 		}
