@@ -91,7 +91,8 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
   @WithInstrumentation()
   async syncRunnerSnapshots() {
     const lockKey = 'sync-runner-snapshots-lock'
-    if (!(await this.redisLockProvider.lock(lockKey, 30))) {
+    const lockTtl = 10 * 60 // seconds (10 min)
+    if (!(await this.redisLockProvider.lock(lockKey, lockTtl))) {
       return
     }
 
@@ -135,7 +136,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     await this.redis.set('sync-runner-snapshots-skip', Number(skip) + snapshots.length)
 
-    await Promise.all(
+    const results = await Promise.allSettled(
       snapshots.map((snapshot) => {
         // Calculate propagation factor based on organization's CPU quota
         const propagationFactor = snapshot.org_total_cpu_quota >= 1000 ? 2 : 1
@@ -145,6 +146,13 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         })
       }),
     )
+
+    // Log all promise errors
+    results.forEach((result) => {
+      if (result.status === 'rejected') {
+        this.logger.error(`Error propagating snapshot to runners: ${fromAxiosError(result.reason)}`)
+      }
+    })
 
     await this.redisLockProvider.unlock(lockKey)
   }
@@ -339,7 +347,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
   async propagateSnapshotToRunners(snapshot: Snapshot, propagationFactor?: number) {
     const where: FindOptionsWhere<Runner> = {
       state: RunnerState.READY,
-      unschedulable: false,
+      unschedulable: Not(true),
     }
 
     if (!LARGE_SANDBOX_ORGS.has(snapshot.organizationId)) {
@@ -540,7 +548,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     await this.redisLockProvider.unlock(lockKey)
   }
 
-  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'check-snapshot-state', waitForCompletion: true })
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'check-snapshot-state' })
   @TrackJobExecution()
   @LogExecution('check-snapshot-state')
   @WithInstrumentation()
