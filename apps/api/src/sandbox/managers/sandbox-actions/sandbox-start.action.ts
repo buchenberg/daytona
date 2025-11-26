@@ -192,7 +192,7 @@ export class SandboxStartAction extends SandboxAction {
           await this.updateSandboxState(sandbox.id, targetSandboxState, lockCode, runner.id)
           return SYNC_AGAIN
         } else if (snapshotRunner.state === SnapshotRunnerState.ERROR) {
-          await this.updateSandboxState(sandbox.id, errorSandboxState, lockCode, snapshotRunner.errorReason)
+          await this.updateSandboxState(sandbox.id, errorSandboxState, lockCode, runner.id, snapshotRunner.errorReason)
           return DONT_SYNC_AGAIN
         }
       }
