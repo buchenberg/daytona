@@ -978,16 +978,10 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       this.logger.warn('customRegions', customRegions, 'organizationId', snapshot.organizationId)
       // =================
 
-      initialRunner = await this.runnerRepository.findOne({
-        where: {
-          id: Not(In(excludedRunnerIds)),
-          state: RunnerState.READY,
-          unschedulable: Not(true),
-          availabilityScore: MoreThanOrEqual(
-            this.configService.getOrThrow('runnerUsage.declarativeBuildScoreThreshold'),
-          ),
-          region: customRegions?.length ? In(customRegions) : defaultRegion,
-        },
+      initialRunner = await this.runnerService.getRandomAvailableRunner({
+        regions: customRegions?.length ? customRegions : [defaultRegion],
+        snapshotRef: snapshot.ref,
+        excludedRunnerIds: excludedRunnerIds,
       })
       // =================
       this.logger.warn('runnerId', initialRunner?.id)
