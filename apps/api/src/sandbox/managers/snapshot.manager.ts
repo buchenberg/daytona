@@ -980,7 +980,6 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
       initialRunner = await this.runnerService.getRandomAvailableRunner({
         regions: customRegions?.length ? customRegions : [defaultRegion],
-        snapshotRef: snapshot.ref,
         excludedRunnerIds: excludedRunnerIds,
       })
       // =================
