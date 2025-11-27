@@ -127,3 +127,7 @@ export function getFallbackRegion(region: string) {
       return region
   }
 }
+
+export function getFallbackRegions(regions: string[]) {
+  return regions.map((region) => getFallbackRegion(region))
+}

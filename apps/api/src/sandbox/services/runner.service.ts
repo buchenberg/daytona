@@ -25,7 +25,7 @@ import { RunnerAdapterFactory, RunnerInfo } from '../runner-adapter/runnerAdapte
 import { RedisLockProvider } from '../common/redis-lock.provider'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { LogExecution } from '../../common/decorators/log-execution.decorator'
-import { getFallbackRegion, isDedicatedRegion } from '../constants/custom-regions.constant'
+import { getFallbackRegion, getFallbackRegions, isDedicatedRegion } from '../constants/custom-regions.constant'
 import { WithInstrumentation } from '../../common/decorators/otel.decorator'
 
 @Injectable()
@@ -162,8 +162,8 @@ export class RunnerService {
       where: runnerFilter,
     })
 
-    if (runners.length === 0 && params.region && isDedicatedRegion(params.region)) {
-      return this.findAvailableRunners({ ...params, region: getFallbackRegion(params.region) })
+    if (runners.length === 0 && params.regions && params.regions.some(isDedicatedRegion)) {
+      return this.findAvailableRunners({ ...params, regions: getFallbackRegions(params.regions) })
     }
 
     return runners.sort((a, b) => b.availabilityScore - a.availabilityScore).slice(0, 10)
