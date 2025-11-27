@@ -350,7 +350,7 @@ export class SandboxService {
     }
 
     const runner = await this.runnerService.getRandomAvailableRunner({
-      region: sandbox.region,
+      regions: [sandbox.region],
       sandboxClass: sandbox.class,
       snapshotRef: snapshot.ref,
     })
@@ -481,7 +481,7 @@ export class SandboxService {
       if (writerOrgs.includes(organization.id)) {
         try {
           runner = await this.runnerService.getRandomAvailableRunner({
-            region: 'writer627260',
+            regions: ['writer627260'],
             sandboxClass,
             snapshotRef: snapshot.ref,
           })
@@ -492,7 +492,7 @@ export class SandboxService {
 
       if (!runner) {
         runner = await this.runnerService.getRandomAvailableRunner({
-          region: resolveEffectiveRegion(organization.id, region, this.configService, { cpu, memory: mem, disk }),
+          regions: [resolveEffectiveRegion(organization.id, region, this.configService, { cpu, memory: mem, disk })],
           sandboxClass,
           snapshotRef: snapshot.ref,
         })
@@ -726,11 +726,13 @@ export class SandboxService {
 
       try {
         runner = await this.runnerService.getRandomAvailableRunner({
-          region: resolveEffectiveRegion(sandbox.organizationId, sandbox.region, this.configService, {
-            cpu,
-            memory: mem,
-            disk,
-          }),
+          regions: [
+            resolveEffectiveRegion(sandbox.organizationId, sandbox.region, this.configService, {
+              cpu,
+              memory: mem,
+              disk,
+            }),
+          ],
           sandboxClass: sandbox.class,
           snapshotRef: sandbox.buildInfo.snapshotRef,
         })
