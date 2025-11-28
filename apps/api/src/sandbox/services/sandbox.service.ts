@@ -47,7 +47,7 @@ import { OrganizationUsageService } from '../../organization/services/organizati
 import { SshAccess } from '../entities/ssh-access.entity'
 import { SshAccessValidationDto } from '../dto/ssh-access.dto'
 import { VolumeService } from './volume.service'
-import { resolveEffectiveRegion } from '../constants/custom-regions.constant'
+import { resolveEffectiveRegion } from '../constants/dedicated-regions.constant'
 import { PaginatedList } from '../../common/interfaces/paginated-list.interface'
 import {
   SandboxSortField,
@@ -421,7 +421,7 @@ export class SandboxService {
       }
 
       const runner = await this.runnerService.getRandomAvailableRunner({
-        regions: [regionId],
+        regions: [resolveEffectiveRegion(organization.id, regionId, this.configService, { cpu, memory: mem, disk })],
         sandboxClass,
         snapshotRef: snapshot.ref,
       })

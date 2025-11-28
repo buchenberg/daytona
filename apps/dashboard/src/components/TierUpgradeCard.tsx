@@ -89,6 +89,12 @@ export function TierUpgradeCard({ tiers, organizationTier, requirementsState, or
               <div className="text-lg font-medium">Upgrade to Tier {nextTier?.tier}</div>
               <div className="text-muted-foreground text-sm">
                 Unlock more resources and higher rate limits by completing the verification steps.
+                <br />
+                Note: For access to resources in other regions, please contact{' '}
+                <a href="mailto:sales@daytona.io" className="text-primary underline">
+                  sales@daytona.io
+                </a>
+                .
               </div>
             </div>
             <div className="sm:border-l border-border p-4 flex flex-col gap-2">

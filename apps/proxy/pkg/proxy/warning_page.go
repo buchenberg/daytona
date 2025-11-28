@@ -100,7 +100,7 @@ func (p *Proxy) browserWarningMiddleware() gin.HandlerFunc {
 		}
 
 		if sandboxId != "" {
-			exempt, err := p.organizationIsExempt(ctx, sandboxId)
+			exempt, err := p.sandboxIsExempt(ctx, sandboxId)
 			if err != nil {
 				ctx.Error(common_errors.NewBadRequestError(err))
 				return
@@ -341,32 +341,53 @@ func isWebSocketRequest(req *http.Request) bool {
 	return upgrade == "websocket" && connection == "upgrade"
 }
 
-func (p *Proxy) organizationIsExempt(ctx *gin.Context, sandboxId string) (bool, error) {
-	has, err := p.sandboxOrgIdCache.Has(ctx, sandboxId)
+// sandboxIsExempt checks if the sandbox is exempt from the preview warning by checking if its organization is in the exceptions list or if the CPU quota allocated in the sandbox region is above the threshold
+func (p *Proxy) sandboxIsExempt(ctx *gin.Context, sandboxId string) (bool, error) {
+	orgId := ""
+	regionId := ""
+	CPUQuotaCacheKey := ""
+	CPUQuota := 0
+
+	hasOrgId, err := p.sandboxOrgIdCache.Has(ctx, sandboxId)
 	if err != nil {
 		return false, err
 	}
 
-	orgId := ""
-	orgCPUQuota := 0
+	hasRegionId, err := p.sandboxRegionIdCache.Has(ctx, sandboxId)
+	if err != nil {
+		return false, err
+	}
 
-	if !has {
-		org, _, err := p.apiclient.OrganizationsAPI.GetOrganizationBySandboxId(ctx, sandboxId).Execute()
+	if !hasOrgId || !hasRegionId {
+		regionQuota, _, err := p.apiclient.OrganizationsAPI.GetRegionQuotaBySandboxId(ctx, sandboxId).Execute()
 		if err != nil {
 			return false, err
 		}
 
-		p.sandboxOrgIdCache.Set(ctx, sandboxId, org.Id, 1*time.Hour)
+		orgId = regionQuota.OrganizationId
+		regionId = regionQuota.RegionId
+		CPUQuotaCacheKey = getCPUQuotaCacheKey(orgId, regionId)
+		CPUQuota = int(regionQuota.TotalCpuQuota)
+
+		p.sandboxOrgIdCache.Set(ctx, sandboxId, orgId, 1*time.Hour)
+		p.sandboxRegionIdCache.Set(ctx, sandboxId, regionId, 1*time.Hour)
+
 		// CPU quota should have lower ttl since it's more likely to change
-		p.orgCPUQuotaCache.Set(ctx, org.Id, int(org.TotalCpuQuota), 5*time.Minute)
-		orgId = org.Id
-		orgCPUQuota = int(org.TotalCpuQuota)
+		p.CPUQuotaCache.Set(ctx, CPUQuotaCacheKey, CPUQuota, 5*time.Minute)
 	} else {
-		id, err := p.sandboxOrgIdCache.Get(ctx, sandboxId)
+		orgIdCache, err := p.sandboxOrgIdCache.Get(ctx, sandboxId)
 		if err != nil {
 			return false, err
 		}
-		orgId = *id
+		orgId = *orgIdCache
+
+		regionIdCache, err := p.sandboxRegionIdCache.Get(ctx, sandboxId)
+		if err != nil {
+			return false, err
+		}
+		regionId = *regionIdCache
+
+		CPUQuotaCacheKey = getCPUQuotaCacheKey(orgId, regionId)
 	}
 
 	if slices.Contains(p.config.PreviewWarningExceptions, orgId) {
@@ -374,26 +395,26 @@ func (p *Proxy) organizationIsExempt(ctx *gin.Context, sandboxId string) (bool, 
 	}
 
 	if p.config.PreviewWarningCPUQuotaThreshold > 0 {
-		if orgCPUQuota == 0 {
+		if CPUQuota == 0 {
 			// Fetch from cache first
-			if has, err := p.orgCPUQuotaCache.Has(ctx, orgId); err == nil && has {
-				c, err := p.orgCPUQuotaCache.Get(ctx, orgId)
+			if has, err := p.CPUQuotaCache.Has(ctx, CPUQuotaCacheKey); err == nil && has {
+				c, err := p.CPUQuotaCache.Get(ctx, CPUQuotaCacheKey)
 				if err != nil {
 					return false, err
 				}
-				orgCPUQuota = *c
+				CPUQuota = *c
 			} else {
 				// Fetch from API
-				org, _, err := p.apiclient.OrganizationsAPI.GetOrganizationBySandboxId(ctx, sandboxId).Execute()
+				regionQuota, _, err := p.apiclient.OrganizationsAPI.GetRegionQuotaBySandboxId(ctx, sandboxId).Execute()
 				if err != nil {
 					return false, err
 				}
-				orgCPUQuota = int(org.TotalCpuQuota)
-				p.orgCPUQuotaCache.Set(ctx, orgId, orgCPUQuota, 5*time.Minute)
+				CPUQuota = int(regionQuota.TotalCpuQuota)
+				p.CPUQuotaCache.Set(ctx, CPUQuotaCacheKey, CPUQuota, 5*time.Minute)
 			}
 		}
 
-		return orgCPUQuota >= p.config.PreviewWarningCPUQuotaThreshold, nil
+		return CPUQuota >= p.config.PreviewWarningCPUQuotaThreshold, nil
 	}
 
 	return false, nil

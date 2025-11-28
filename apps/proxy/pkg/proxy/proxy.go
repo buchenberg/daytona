@@ -39,6 +39,10 @@ const SKIP_LAST_ACTIVITY_UPDATE_HEADER = "X-Daytona-Skip-Last-Activity-Update"
 const TERMINAL_PORT = "22222"
 const TOOLBOX_PORT = "2280"
 
+func getCPUQuotaCacheKey(orgId, regionId string) string {
+	return fmt.Sprintf("%s:%s", orgId, regionId)
+}
+
 type Proxy struct {
 	config       *config.Config
 	secureCookie *securecookie.SecureCookie
@@ -48,8 +52,9 @@ type Proxy struct {
 	runnerCache                    common_cache.ICache[RunnerInfo]
 	sandboxPublicCache             common_cache.ICache[bool]
 	sandboxAuthKeyValidCache       common_cache.ICache[bool]
-	orgCPUQuotaCache               common_cache.ICache[int]
 	sandboxOrgIdCache              common_cache.ICache[string]
+	sandboxRegionIdCache           common_cache.ICache[string]
+	CPUQuotaCache                  common_cache.ICache[int]
 	sandboxLastActivityUpdateCache common_cache.ICache[bool]
 }
 
@@ -105,7 +110,11 @@ func StartProxy(config *config.Config) error {
 		if err != nil {
 			return err
 		}
-		proxy.orgCPUQuotaCache, err = common_cache.NewRedisCache[int](config.Redis, "proxy:org-cpu-quota:")
+		proxy.sandboxRegionIdCache, err = common_cache.NewRedisCache[string](config.Redis, "proxy:sandbox-region-id:")
+		if err != nil {
+			return err
+		}
+		proxy.CPUQuotaCache, err = common_cache.NewRedisCache[int](config.Redis, "proxy:cpu-quota:")
 		if err != nil {
 			return err
 		}
@@ -118,7 +127,8 @@ func StartProxy(config *config.Config) error {
 		proxy.sandboxPublicCache = common_cache.NewMapCache[bool]()
 		proxy.sandboxAuthKeyValidCache = common_cache.NewMapCache[bool]()
 		proxy.sandboxOrgIdCache = common_cache.NewMapCache[string]()
-		proxy.orgCPUQuotaCache = common_cache.NewMapCache[int]()
+		proxy.sandboxRegionIdCache = common_cache.NewMapCache[string]()
+		proxy.CPUQuotaCache = common_cache.NewMapCache[int]()
 		proxy.sandboxLastActivityUpdateCache = common_cache.NewMapCache[bool]()
 	}
 

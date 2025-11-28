@@ -29,12 +29,12 @@ import { TrackableJobExecutions } from '../../common/interfaces/trackable-job-ex
 import { TrackJobExecution } from '../../common/decorators/track-job-execution.decorator'
 import { setTimeout as sleep } from 'timers/promises'
 import {
-  CUSTOM_REGIONS_PER_ORGANIZATION,
+  DEDICATED_REGIONS_PER_ORGANIZATION,
   resolveEffectiveRegion,
   LARGE_SANDBOX_ORGS,
   LARGE_SANDBOX_SHARED_REGION,
   WRITER_ORGS,
-} from '../constants/custom-regions.constant'
+} from '../constants/dedicated-regions.constant'
 import { areResourcesLargerThanDefault } from '../utils/resources'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { LogExecution } from '../../common/decorators/log-execution.decorator'
@@ -164,7 +164,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     const results = await Promise.allSettled(
       snapshots.map((snapshot) => {
         // Calculate propagation factor based on organization's CPU quota
-        const propagationFactor = snapshot.org_total_cpu_quota >= 1000 ? 2 : 1
+        const propagationFactor = snapshot.total_cpu_quota >= 1000 ? 2 : 1
 
         const organizationId = snapshot.organizationId
         const sharedRegionIds = organizationId ? sharedRegionsMap.get(organizationId) || [] : []
@@ -193,17 +193,17 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       return
     }
 
-    const orgIds = [...new Set([...WRITER_ORGS, ...Object.keys(CUSTOM_REGIONS_PER_ORGANIZATION)])]
+    const orgIds = [...new Set(Object.keys(DEDICATED_REGIONS_PER_ORGANIZATION))]
 
     const snapshots = await this.snapshotRepository
       .createQueryBuilder('snapshot')
       .innerJoin('organization', 'org', 'org.id = snapshot.organizationId')
-      .select(['snapshot.*', 'org.totalCpuQuota'])
+      .select(['snapshot.*'])
       .where('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
       .andWhere('org.suspended = false')
       .andWhere('org.id IN (:...orgIds)', { orgIds })
       .orderBy('RANDOM()')
-      .take(100)
+      .limit(100)
       .getRawMany()
 
     if (snapshots.length === 0) {
@@ -225,7 +225,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
             }
           })
         } else {
-          regions = CUSTOM_REGIONS_PER_ORGANIZATION[snapshot.organizationId] || []
+          regions = DEDICATED_REGIONS_PER_ORGANIZATION[snapshot.organizationId] || []
         }
 
         if (
@@ -377,20 +377,6 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     organizationRegionIds: string[],
     propagationFactor?: number,
   ) {
-    const regionIds = [...sharedRegionIds, ...organizationRegionIds]
-
-    // If the organization is in LARGE_SANDBOX_ORGS and the resources are larger than the default, add the LARGE_SANDBOX_SHARED_REGION
-    if (
-      LARGE_SANDBOX_ORGS.has(snapshot.organizationId) &&
-      areResourcesLargerThanDefault(this.configService, {
-        cpu: snapshot.cpu,
-        memory: snapshot.mem,
-        disk: snapshot.disk,
-      })
-    ) {
-      regionIds.push(LARGE_SANDBOX_SHARED_REGION)
-    }
-
     //  todo: remove try catch block and implement error handling
     try {
       //  get all runners in the regions to propagate to
@@ -398,7 +384,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         where: {
           state: RunnerState.READY,
           unschedulable: Not(true),
-          region: In(regionIds),
+          region: In([...sharedRegionIds, ...organizationRegionIds]),
         },
       })
 
@@ -1021,7 +1007,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         throw new Error('Default region not found for organization')
       }
 
-      let customRegions = CUSTOM_REGIONS_PER_ORGANIZATION[snapshot.organizationId]
+      let dedicatedRegions = DEDICATED_REGIONS_PER_ORGANIZATION[snapshot.organizationId]
 
       // If the organization is in LARGE_SANDBOX_ORGS and the resources are not larger than the default, remove the LARGE_SANDBOX_SHARED_REGION
       if (
@@ -1032,14 +1018,14 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
           disk: snapshot.disk,
         })
       ) {
-        customRegions = customRegions.filter((region) => region !== LARGE_SANDBOX_SHARED_REGION)
+        dedicatedRegions = dedicatedRegions.filter((region) => region !== LARGE_SANDBOX_SHARED_REGION)
       }
       // =================
-      this.logger.warn('customRegions', customRegions, 'organizationId', snapshot.organizationId)
+      this.logger.warn('dedicatedRegions', dedicatedRegions, 'organizationId', snapshot.organizationId)
       // =================
 
       initialRunner = await this.runnerService.getRandomAvailableRunner({
-        regions: customRegions?.length ? customRegions : [defaultRegionId],
+        regions: dedicatedRegions?.length ? dedicatedRegions : [defaultRegionId],
         excludedRunnerIds: excludedRunnerIds,
       })
       // =================

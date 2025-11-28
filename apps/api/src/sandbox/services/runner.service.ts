@@ -25,7 +25,7 @@ import { RunnerAdapterFactory, RunnerInfo } from '../runner-adapter/runnerAdapte
 import { RedisLockProvider } from '../common/redis-lock.provider'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { LogExecution } from '../../common/decorators/log-execution.decorator'
-import { getFallbackRegion, getFallbackRegions, isDedicatedRegion } from '../constants/custom-regions.constant'
+import { getFallbackRegions, hasFallbackRegion, isHighReliabilityRegion } from '../constants/dedicated-regions.constant'
 import { WithInstrumentation } from '../../common/decorators/otel.decorator'
 
 @Injectable()
@@ -166,7 +166,7 @@ export class RunnerService {
       where: runnerFilter,
     })
 
-    if (runners.length === 0 && params.regions && params.regions.some(isDedicatedRegion)) {
+    if (runners.length === 0 && params.regions && params.regions.some(hasFallbackRegion)) {
       return this.findAvailableRunners({ ...params, regions: getFallbackRegions(params.regions) })
     }
 
@@ -341,7 +341,7 @@ export class RunnerService {
         runnerDiskGiB: runner.diskGiB,
       })
 
-      if (isDedicatedRegion(runner.region)) {
+      if (isHighReliabilityRegion(runner.region)) {
         updateData.availabilityScore = Math.max(0, updateData.availabilityScore - 20) // More conservative scoring for dedicated runners
       }
     } else {
