@@ -18,7 +18,7 @@ import { useConfig } from '@/hooks/useConfig'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import { cn } from '@/lib/utils'
 import { keepPreviousData } from '@tanstack/react-query'
-import { RefreshCcw } from 'lucide-react'
+import { RefreshCcw, ShieldAlert, ExternalLinkIcon, Globe } from 'lucide-react'
 import { useMemo } from 'react'
 import { useAuth } from 'react-oidc-context'
 import { UserProfileIdentity } from './LinkedAccounts'
@@ -175,6 +175,7 @@ export default function Limits() {
                         currentTier={organizationTier}
                       />
                     )}
+                    <AdditionalFeatures />
                   </CardContent>
                 </Card>
               </>
@@ -223,6 +224,49 @@ function RateLimitItem({ label, value }: { label: string; value?: number | null 
     <div className="flex flex-col">
       <div className="text-muted-foreground text-xs">{label}</div>
       <div className="text-foreground text-sm font-medium">{value?.toLocaleString()}</div>
+    </div>
+  )
+}
+
+function AdditionalFeatures({ className }: { className?: string }) {
+  return (
+    <div className={cn('grid grid-cols-[auto_1fr] grid-rows-2 text-xs gap-4 p-4', className)}>
+      <div className="flex items-center gap-2 font-medium">
+        <ShieldAlert size={14} className="text-amber-500" />
+        <span>Preview Warning</span>
+      </div>
+
+      <div className="text-muted-foreground flex-1">
+        Shown on <span className="text-foreground">Tier 1 & 2</span>. Removed for{' '}
+        <span className="text-foreground">Tier 3+</span>.{' '}
+        <a
+          href="https://www.daytona.io/docs/en/preview-and-authentication"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline inline-flex items-center gap-1 hover:text-foreground"
+        >
+          Learn more
+          <ExternalLinkIcon size={14} />
+        </a>
+      </div>
+
+      <div className="flex items-center gap-2 font-medium">
+        <Globe size={14} className="text-green-500" />
+        <span>Internet Access</span>
+      </div>
+      <div className="text-muted-foreground flex-1">
+        Restricted on <span className="text-foreground">Tier 1 & 2</span>. Full access for{' '}
+        <span className="text-foreground">Tier 3+</span>.{' '}
+        <a
+          href="https://www.daytona.io/docs/en/network-limits"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline inline-flex items-center gap-1 hover:text-foreground"
+        >
+          Learn more
+          <ExternalLinkIcon size={14} />
+        </a>
+      </div>
     </div>
   )
 }
