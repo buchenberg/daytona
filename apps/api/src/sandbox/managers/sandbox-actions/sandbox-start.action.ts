@@ -611,7 +611,7 @@ export class SandboxStartAction extends SandboxAction {
         )
         await this.checkTimeoutError(
           sandbox,
-          15,
+          30,
           'Timeout while starting sandbox: Sandbox is in unknown state on runner',
         )
         return DONT_SYNC_AGAIN
