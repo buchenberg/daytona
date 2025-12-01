@@ -700,7 +700,7 @@ export class Daytona {
         } else {
           errorMessage = error.response?.data?.message || error.response?.data || error.message || String(error)
         }
-        
+
         if (typeof errorMessage === 'object') {
           try {
             errorMessage = JSON.stringify(errorMessage)
@@ -709,13 +709,16 @@ export class Daytona {
           }
         }
 
-        switch (error.response?.data?.statusCode) {
+        const statusCode = error.response?.status
+        const headers = error.response?.headers
+
+        switch (statusCode) {
           case 404:
-            throw new DaytonaNotFoundError(errorMessage)
+            throw new DaytonaNotFoundError(errorMessage, statusCode, headers)
           case 429:
-            throw new DaytonaRateLimitError(errorMessage)
+            throw new DaytonaRateLimitError(errorMessage, statusCode, headers)
           default:
-            throw new DaytonaError(errorMessage)
+            throw new DaytonaError(errorMessage, statusCode, headers)
         }
       },
     )
