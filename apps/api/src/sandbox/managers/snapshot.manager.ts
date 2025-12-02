@@ -6,7 +6,7 @@
 import { Injectable, Logger, NotFoundException, OnApplicationShutdown } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Cron, CronExpression } from '@nestjs/schedule'
-import { FindOptionsWhere, In, LessThan, MoreThanOrEqual, Not, Repository } from 'typeorm'
+import { In, LessThan, Not, Repository } from 'typeorm'
 import { DockerRegistryService } from '../../docker-registry/services/docker-registry.service'
 import { Snapshot } from '../entities/snapshot.entity'
 import { SnapshotState } from '../enums/snapshot-state.enum'
@@ -45,6 +45,7 @@ import { SnapshotEvents } from '../constants/snapshot-events'
 import { SnapshotCreatedEvent } from '../events/snapshot-created.event'
 import { Sandbox } from '../entities/sandbox.entity'
 import { SandboxState } from '../enums/sandbox-state.enum'
+import { SnapshotService } from '../services/snapshot.service'
 
 const SYNC_AGAIN = 'sync-again'
 const DONT_SYNC_AGAIN = 'dont-sync-again'
@@ -75,6 +76,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     private readonly redisLockProvider: RedisLockProvider,
     private readonly organizationService: OrganizationService,
     private readonly configService: TypedConfigService,
+    private readonly snapshotService: SnapshotService,
   ) {}
 
   async onApplicationShutdown() {
@@ -103,7 +105,8 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     const snapshots = await this.snapshotRepository
       .createQueryBuilder('snapshot')
       .innerJoin('organization', 'org', 'org.id = snapshot.organizationId')
-      .select(['snapshot.*', 'org.totalCpuQuota'])
+      .innerJoin('region_quota', 'rq', 'rq."organizationId" = org.id AND rq."regionId" = org."defaultRegionId"')
+      .select(['snapshot.*', 'rq.total_cpu_quota'])
       .where('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
       .andWhere('org.suspended = false')
       .andWhere(
@@ -119,8 +122,8 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       `,
       )
       .orderBy('snapshot.createdAt', 'ASC')
-      .take(100)
-      .skip(Number(skip))
+      .limit(100)
+      .offset(Number(skip))
       .setParameters({
         largeSbxSharedOrgs: [...LARGE_SANDBOX_ORGS],
         defaultMaxCpuPerSandbox: defaultOrganizationQuota.maxCpuPerSandbox,
@@ -137,14 +140,37 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     await this.redis.set('sync-runner-snapshots-skip', Number(skip) + snapshots.length)
 
+    // get organization regions and shared regions for snapshot propagation for each organization
+    const organizationRegionsMap = new Map<string, string[]>()
+    const sharedRegionsMap = new Map<string, string[]>()
+
+    const organizationIds = [...new Set(snapshots.map((snapshot) => snapshot.organizationId).filter(Boolean))]
+
+    for (const organizationId of organizationIds) {
+      const regions = await this.snapshotService.getRegionsForSnapshotPropagation(organizationId)
+      const organizationRegions = regions.filter((region) => region.organizationId === organizationId)
+      const sharedRegions = regions.filter((region) => region.organizationId === null)
+
+      organizationRegionsMap.set(
+        organizationId,
+        organizationRegions.map((region) => region.id),
+      )
+      sharedRegionsMap.set(
+        organizationId,
+        sharedRegions.map((region) => region.id),
+      )
+    }
+
     const results = await Promise.allSettled(
       snapshots.map((snapshot) => {
         // Calculate propagation factor based on organization's CPU quota
         const propagationFactor = snapshot.org_total_cpu_quota >= 1000 ? 2 : 1
 
-        this.propagateSnapshotToRunners(snapshot, propagationFactor).catch((err) => {
-          this.logger.error(`Error propagating snapshot ${snapshot.id} to runners: ${err}`)
-        })
+        const organizationId = snapshot.organizationId
+        const sharedRegionIds = organizationId ? sharedRegionsMap.get(organizationId) || [] : []
+        const organizationRegionIds = organizationId ? organizationRegionsMap.get(organizationId) || [] : []
+
+        return this.propagateSnapshotToRunners(snapshot, sharedRegionIds, organizationRegionIds, propagationFactor)
       }),
     )
 
@@ -345,58 +371,92 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     }
   }
 
-  async propagateSnapshotToRunners(snapshot: Snapshot, propagationFactor?: number) {
-    const where: FindOptionsWhere<Runner> = {
-      state: RunnerState.READY,
-      unschedulable: Not(true),
-    }
+  async propagateSnapshotToRunners(
+    snapshot: Snapshot,
+    sharedRegionIds: string[],
+    organizationRegionIds: string[],
+    propagationFactor?: number,
+  ) {
+    const regionIds = [...sharedRegionIds, ...organizationRegionIds]
 
-    if (!LARGE_SANDBOX_ORGS.has(snapshot.organizationId)) {
-      // If snapshot organization is not in the LARGE_SANDBOX_ORGS set, skip runners with region LARGE_SANDBOX_SHARED_REGION
-      where.region = Not(LARGE_SANDBOX_SHARED_REGION)
-    } else if (
-      !areResourcesLargerThanDefault(this.configService, {
+    // If the organization is in LARGE_SANDBOX_ORGS and the resources are larger than the default, add the LARGE_SANDBOX_SHARED_REGION
+    if (
+      LARGE_SANDBOX_ORGS.has(snapshot.organizationId) &&
+      areResourcesLargerThanDefault(this.configService, {
         cpu: snapshot.cpu,
         memory: snapshot.mem,
         disk: snapshot.disk,
       })
     ) {
-      // If snapshot resources aren’t above default, skip runners with region LARGE_SANDBOX_SHARED_REGION
-      where.region = Not(LARGE_SANDBOX_SHARED_REGION)
+      regionIds.push(LARGE_SANDBOX_SHARED_REGION)
     }
 
     //  todo: remove try catch block and implement error handling
     try {
-      const runners = await this.runnerRepository.find({ where })
+      //  get all runners in the regions to propagate to
+      const runners = await this.runnerRepository.find({
+        where: {
+          state: RunnerState.READY,
+          unschedulable: Not(true),
+          region: In(regionIds),
+        },
+      })
 
-      //  get all runners that have the snapshot in their base image
-      const snapshotRunners = await this.snapshotRunnerRepository.find({
+      const sharedRunners = runners.filter((runner) => sharedRegionIds.includes(runner.region))
+      const sharedRunnerIds = sharedRunners.map((runner) => runner.id)
+
+      const organizationRunners = runners.filter((runner) => organizationRegionIds.includes(runner.region))
+      const organizationRunnerIds = organizationRunners.map((runner) => runner.id)
+
+      //  get all runners where the snapshot is already propagated to (or in progress)
+      const sharedSnapshotRunners = await this.snapshotRunnerRepository.find({
         where: {
           snapshotRef: snapshot.ref,
           state: In([SnapshotRunnerState.READY, SnapshotRunnerState.PULLING_SNAPSHOT]),
+          runnerId: In(sharedRunnerIds),
         },
       })
-      //  filter duplicate snapshot runner records
-      const snapshotRunnersDistinctRunnersIds = [
-        ...new Set(snapshotRunners.map((snapshotRunner) => snapshotRunner.runnerId)),
-      ]
+      const sharedSnapshotRunnersDistinctRunnersIds = new Set(
+        sharedSnapshotRunners.map((snapshotRunner) => snapshotRunner.runnerId),
+      )
 
-      // Use provided propagation factor or default to 1
+      const organizationSnapshotRunners = await this.snapshotRunnerRepository.find({
+        where: {
+          snapshotRef: snapshot.ref,
+          state: In([SnapshotRunnerState.READY, SnapshotRunnerState.PULLING_SNAPSHOT]),
+          runnerId: In(organizationRunnerIds),
+        },
+      })
+      const organizationSnapshotRunnersDistinctRunnersIds = new Set(
+        organizationSnapshotRunners.map((snapshotRunner) => snapshotRunner.runnerId),
+      )
+
+      //  get all runners where the snapshot is not propagated to
+      const unallocatedSharedRunners = sharedRunners.filter(
+        (runner) => !sharedSnapshotRunnersDistinctRunnersIds.has(runner.id),
+      )
+      const unallocatedOrganizationRunners = organizationRunners.filter(
+        (runner) => !organizationSnapshotRunnersDistinctRunnersIds.has(runner.id),
+      )
+
+      const runnersToPropagateTo: Runner[] = []
+
+      // propagate the snapshot to all organization runners
+      runnersToPropagateTo.push(...unallocatedOrganizationRunners)
+
+      // respect the propagation limit for shared runners
       const finalPropagationFactor = propagationFactor ?? 1
+      const sharedRunnersPropagateLimit = Math.max(
+        0,
+        Math.ceil(finalPropagationFactor * (sharedRunners.length / 3)) - sharedSnapshotRunnersDistinctRunnersIds.size,
+      )
+      runnersToPropagateTo.push(
+        ...unallocatedSharedRunners.sort(() => Math.random() - 0.5).slice(0, sharedRunnersPropagateLimit),
+      )
 
-      const propagateLimit =
-        Math.ceil(finalPropagationFactor * (runners.length / 3)) - snapshotRunnersDistinctRunnersIds.length
-      if (propagateLimit <= 0) {
+      if (runnersToPropagateTo.length === 0) {
         return
       }
-
-      const unallocatedRunners = runners.filter(
-        (runner) => !snapshotRunnersDistinctRunnersIds.some((snapshotRunnerId) => snapshotRunnerId === runner.id),
-      )
-      //  shuffle the runners to propagate to
-      unallocatedRunners.sort(() => Math.random() - 0.5)
-      //  limit the number of runners to propagate to
-      const runnersToPropagateTo = unallocatedRunners.slice(0, propagateLimit)
 
       let dockerRegistry = await this.dockerRegistryService.findOneBySnapshotImageName(snapshot.ref)
 
@@ -441,7 +501,6 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       this.logger.error(err)
     }
   }
-
   async pullSnapshotRunnerWithRetries(
     runner: Runner,
     snapshotRef: string,
@@ -957,8 +1016,8 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         throw new NotFoundException(`Organization with ID ${snapshot.organizationId} not found`)
       }
 
-      const defaultRegion = organization.defaultRegion
-      if (!defaultRegion) {
+      const defaultRegionId = organization.defaultRegionId
+      if (!defaultRegionId) {
         throw new Error('Default region not found for organization')
       }
 
@@ -980,7 +1039,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       // =================
 
       initialRunner = await this.runnerService.getRandomAvailableRunner({
-        regions: customRegions?.length ? customRegions : [defaultRegion],
+        regions: customRegions?.length ? customRegions : [defaultRegionId],
         excludedRunnerIds: excludedRunnerIds,
       })
       // =================
