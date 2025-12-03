@@ -61,6 +61,7 @@ export const LARGE_SANDBOX_ORGS = new Set([
   '50071d40-742e-4d9d-be5c-b857493148f7', // idler
   '2f116a7c-d116-45db-9863-faa2ba6171a0', // Finarth.AI
   '287d67b2-f117-49b9-8ae6-50df214ab964', // Gel
+  '9f4f4bb5-a521-47a2-9263-462dc409db1d', // fabjan@daytona.io personal org
 ])
 
 /*
