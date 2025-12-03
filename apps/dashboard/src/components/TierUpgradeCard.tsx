@@ -258,11 +258,11 @@ function getTierRequirementItems(
         isChecked: requirementsState.businessEmailVerified,
         link: RoutePath.BILLING_WALLET,
       },
-      {
-        label: 'Phone verified',
-        isChecked: requirementsState.phoneVerified,
-        link: RoutePath.ACCOUNT_SETTINGS,
-      },
+      // {
+      //   label: 'Phone verified',
+      //   isChecked: requirementsState.phoneVerified,
+      //   link: RoutePath.ACCOUNT_SETTINGS,
+      // },
     )
   }
 
