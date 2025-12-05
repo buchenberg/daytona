@@ -60,6 +60,8 @@ export class SandboxStopAction extends SandboxAction {
             return DONT_SYNC_AGAIN
           }
           case SandboxState.ERROR: {
+            this.logger.error(`Unexpected state ERROR on sandbox STOP`)
+
             await this.updateSandboxState(
               sandbox.id,
               SandboxState.ERROR,

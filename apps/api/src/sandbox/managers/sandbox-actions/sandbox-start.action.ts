@@ -79,6 +79,8 @@ export class SandboxStartAction extends SandboxAction {
         return this.handleRunnerSandboxStartedStateCheck(sandbox, lockCode)
       }
       case SandboxState.ERROR: {
+        this.logger.error(`Unexpected state ERROR on sandbox START`)
+
         const runner = await this.runnerService.findOne(sandbox.runnerId)
         const runnerAdapter = await this.runnerAdapterFactory.create(runner)
 
