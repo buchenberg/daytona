@@ -4,6 +4,7 @@
 package proxy
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"maps"
@@ -12,6 +13,8 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
+	"time"
 
 	apiclient "github.com/daytonaio/apiclient"
 	"github.com/daytonaio/proxy/cmd/proxy/config"
@@ -58,12 +61,7 @@ type Proxy struct {
 	sandboxLastActivityUpdateCache common_cache.ICache[bool]
 }
 
-func StartProxy(config *config.Config) error {
-	fmt.Println("Proxy preview warning config:")
-	fmt.Println("PreviewWarningEnabled:", config.PreviewWarningEnabled)
-	fmt.Println("PreviewWarningExceptions:", config.PreviewWarningExceptions)
-	fmt.Println("PreviewWarningCPUQuotaThreshold:", config.PreviewWarningCPUQuotaThreshold)
-
+func StartProxy(ctx context.Context, config *config.Config) error {
 	proxy := &Proxy{
 		config: config,
 	}
@@ -132,8 +130,17 @@ func StartProxy(config *config.Config) error {
 		proxy.sandboxLastActivityUpdateCache = common_cache.NewMapCache[bool]()
 	}
 
+	shutdownWg := &sync.WaitGroup{}
+
 	router := gin.New()
-	router.Use(common_errors.Recovery())
+	router.Use(func(ctx *gin.Context) {
+		shutdownWg.Add(1)
+		defer func() {
+			shutdownWg.Done()
+		}()
+
+		common_errors.Recovery()(ctx)
+	})
 
 	router.Use(common_errors.NewErrorMiddleware(func(ctx *gin.Context, err error) common_errors.ErrorResponse {
 		return common_errors.ErrorResponse{
@@ -239,11 +246,49 @@ func StartProxy(config *config.Config) error {
 
 	log.Infof("Proxy server is running on port %d", config.ProxyPort)
 
-	if config.EnableTLS {
-		err = httpServer.ServeTLS(listener, config.TLSCertFile, config.TLSKeyFile)
-	} else {
-		err = httpServer.Serve(listener)
-	}
+	serveErr := make(chan error, 1)
+	go func() {
+		if config.EnableTLS {
+			serveErr <- httpServer.ServeTLS(listener, config.TLSCertFile, config.TLSKeyFile)
+		} else {
+			serveErr <- httpServer.Serve(listener)
+		}
+	}()
 
-	return err
+	select {
+	case err := <-serveErr:
+		return err
+	case <-ctx.Done():
+		errChan := make(chan error, 1)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Duration(config.ShutdownTimeoutSec)*time.Second)
+		defer cancel()
+
+		go func() {
+			err := httpServer.Shutdown(shutdownCtx)
+			if err != nil {
+				errChan <- err
+				return
+			}
+
+			wgChan := make(chan struct{})
+
+			go func() {
+				log.Info("Waiting for active requests to finish...")
+				shutdownWg.Wait()
+				log.Info("All active requests finished, shutting down proxy")
+				close(wgChan)
+			}()
+
+			select {
+			case <-shutdownCtx.Done():
+				errChan <- fmt.Errorf("shutdown timeout reached, forcing exit")
+			case <-wgChan:
+				errChan <- nil
+			}
+
+			errChan <- nil
+		}()
+
+		return <-errChan
+	}
 }
