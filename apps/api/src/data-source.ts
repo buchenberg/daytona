@@ -29,6 +29,7 @@ const AppDataSource = new DataSource({
       rejectUnauthorized: false,
     },
   },
+  entitySkipConstructor: true,
 })
 
 export default AppDataSource

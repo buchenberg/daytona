@@ -189,7 +189,7 @@ export class SandboxController {
         includeErroredDestroyed,
         states,
         snapshots,
-        regions,
+        regionIds: regions,
         minCpu,
         maxCpu,
         minMemoryGiB,

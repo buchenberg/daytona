@@ -38,6 +38,9 @@ import { DockerRegistryService, ImageDetails } from '../../docker-registry/servi
 import { DefaultRegionRequiredException } from '../../organization/exceptions/DefaultRegionRequiredException'
 import { Region } from '../../region/entities/region.entity'
 import { RunnerState } from '../enums/runner-state.enum'
+import { OnAsyncEvent } from '../../common/decorators/on-async-event.decorator'
+import { RunnerEvents } from '../constants/runner-events'
+import { RunnerDeletedEvent } from '../events/runner-deleted.event'
 
 const IMAGE_NAME_REGEX = /^[a-zA-Z0-9_.\-:]+(\/[a-zA-Z0-9_.\-:]+)*(@sha256:[a-f0-9]{64})?$/
 @Injectable()
@@ -647,8 +650,8 @@ export class SnapshotService {
    * Get all regions for snapshot propagation for an organization.
    *
    * Regions are considered for snapshot propagation if:
-   * - they are organization regions
-   * - they are shared regions with quotas allocated for the organization
+   * - the region is associated with the organization
+   * - the region is not associated with an organization, but the organization has quotas allocated for the region
    *
    * @param organizationId - The ID of the organization.
    * @returns The regions for snapshot propagation.
@@ -673,5 +676,16 @@ export class SnapshotService {
         error,
       )
     })
+  }
+
+  @OnAsyncEvent({
+    event: RunnerEvents.DELETED,
+  })
+  async handleRunnerDeletedEvent(payload: RunnerDeletedEvent): Promise<void> {
+    await payload.entityManager.update(
+      SnapshotRunner,
+      { runnerId: payload.runnerId },
+      { state: SnapshotRunnerState.REMOVING },
+    )
   }
 }
