@@ -36,13 +36,13 @@ import { LogExecution } from '../../common/decorators/log-execution.decorator'
 import { getFallbackRegions, hasFallbackRegion, isHighReliabilityRegion } from '../constants/dedicated-regions.constant'
 import { WithInstrumentation } from '../../common/decorators/otel.decorator'
 import { RegionService } from '../../region/services/region.service'
-import * as crypto from 'crypto'
 import { RUNNER_NAME_REGEX } from '../constants/runner-name-regex.constant'
 import { RegionType } from '../../region/enums/region-type.enum'
 import { RunnerDto } from '../dto/runner.dto'
 import { RunnerEvents } from '../constants/runner-events'
 import { RunnerStateUpdatedEvent } from '../events/runner-state-updated.event'
 import { RunnerDeletedEvent } from '../events/runner-deleted.event'
+import { generateApiKeyValue } from '../../common/utils/api-key'
 
 @Injectable()
 export class RunnerService {
@@ -64,10 +64,6 @@ export class RunnerService {
     private readonly dataSource: DataSource,
   ) {}
 
-  private generateRunnerToken(): string {
-    return `dtn_${crypto.randomBytes(32).toString('hex')}`
-  }
-
   /**
    * @throws {BadRequestException} If the runner name or class is invalid.
    * @throws {NotFoundException} If the region is not found.
@@ -88,7 +84,7 @@ export class RunnerService {
       throw new BadRequestException('Invalid class')
     }
 
-    const apiKey = createRunnerDto.apiKey ?? this.generateRunnerToken()
+    const apiKey = createRunnerDto.apiKey ?? generateApiKeyValue()
 
     const runner = new Runner()
     runner.domain = createRunnerDto.domain
@@ -190,6 +186,22 @@ export class RunnerService {
     }
 
     return this.runnerRepository.findOneBy({ id: sandbox.runnerId })
+  }
+
+  async getRegionId(runnerId: string): Promise<string> {
+    const runner = await this.runnerRepository.findOne({
+      where: {
+        id: runnerId,
+      },
+      select: ['region'],
+      loadEagerRelations: false,
+    })
+
+    if (!runner || !runner.region) {
+      throw new NotFoundException('Runner not found')
+    }
+
+    return runner.region
   }
 
   async findAvailableRunners(params: GetRunnerParams): Promise<Runner[]> {
