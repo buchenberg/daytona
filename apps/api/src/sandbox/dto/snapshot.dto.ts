@@ -66,6 +66,9 @@ export class SnapshotDto {
   })
   buildInfo?: BuildInfoDto
 
+  @ApiProperty()
+  skipValidation: boolean
+
   static fromSnapshot(snapshot: Snapshot): SnapshotDto {
     return {
       id: snapshot.id,
@@ -92,6 +95,7 @@ export class SnapshotDto {
             updatedAt: snapshot.buildInfo.updatedAt,
           }
         : undefined,
+      skipValidation: false,
     }
   }
 }
