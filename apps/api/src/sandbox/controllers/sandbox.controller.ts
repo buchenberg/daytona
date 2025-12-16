@@ -153,6 +153,8 @@ export class SandboxController {
     @AuthContext() authContext: OrganizationAuthContext,
     @Query() queryParams: ListSandboxesQueryDto,
   ): Promise<PaginatedSandboxesDto> {
+    this.logger.log(`SandboxController.listSandboxesPaginated, organizationId: ${authContext.organizationId}`)
+
     const {
       page,
       limit,
