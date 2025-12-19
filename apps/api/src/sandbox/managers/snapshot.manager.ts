@@ -43,8 +43,6 @@ import { RunnerAdapterFactory, RunnerSnapshotInfo } from '../runner-adapter/runn
 import { OnEvent } from '@nestjs/event-emitter'
 import { SnapshotEvents } from '../constants/snapshot-events'
 import { SnapshotCreatedEvent } from '../events/snapshot-created.event'
-import { Sandbox } from '../entities/sandbox.entity'
-import { SandboxState } from '../enums/sandbox-state.enum'
 import { SnapshotService } from '../services/snapshot.service'
 
 const SYNC_AGAIN = 'sync-again'
@@ -140,35 +138,17 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     await this.redis.set('sync-runner-snapshots-skip', Number(skip) + snapshots.length)
 
-    // get organization regions and shared regions for snapshot propagation for each organization
-    const organizationRegionsMap = new Map<string, string[]>()
-    const sharedRegionsMap = new Map<string, string[]>()
-
-    const organizationIds = [...new Set(snapshots.map((snapshot) => snapshot.organizationId).filter(Boolean))]
-
-    for (const organizationId of organizationIds) {
-      const regions = await this.snapshotService.getRegionsForSnapshotPropagation(organizationId)
-      const organizationRegions = regions.filter((region) => region.organizationId === organizationId)
-      const sharedRegions = regions.filter((region) => region.organizationId === null)
-
-      organizationRegionsMap.set(
-        organizationId,
-        organizationRegions.map((region) => region.id),
-      )
-      sharedRegionsMap.set(
-        organizationId,
-        sharedRegions.map((region) => region.id),
-      )
-    }
-
     const results = await Promise.allSettled(
-      snapshots.map((snapshot) => {
+      snapshots.map(async (snapshot) => {
         // Calculate propagation factor based on organization's CPU quota
         const propagationFactor = snapshot.total_cpu_quota >= 1000 ? 2 : 1
 
-        const organizationId = snapshot.organizationId
-        const sharedRegionIds = organizationId ? sharedRegionsMap.get(organizationId) || [] : []
-        const organizationRegionIds = organizationId ? organizationRegionsMap.get(organizationId) || [] : []
+        const regions = await this.snapshotService.getSnapshotRegions(snapshot.id)
+
+        const sharedRegionIds = regions.filter((r) => r.organizationId === null).map((r) => r.id)
+        const organizationRegionIds = regions
+          .filter((r) => r.organizationId === snapshot.organizationId)
+          .map((r) => r.id)
 
         return this.propagateSnapshotToRunners(snapshot, sharedRegionIds, organizationRegionIds, propagationFactor)
       }),
@@ -982,14 +962,9 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     let initialRunner: Runner | null = null
     try {
-      const organization = await this.organizationService.findOne(snapshot.organizationId)
-      if (!organization) {
-        throw new NotFoundException(`Organization with ID ${snapshot.organizationId} not found`)
-      }
-
-      const defaultRegionId = organization.defaultRegionId
-      if (!defaultRegionId) {
-        throw new Error('Default region not found for organization')
+      const regions = await this.snapshotService.getSnapshotRegions(snapshot.id)
+      if (!regions.length) {
+        throw new Error('No regions found for snapshot')
       }
 
       let dedicatedRegions = DEDICATED_REGIONS_PER_ORGANIZATION[snapshot.organizationId]
@@ -1010,7 +985,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       // =================
 
       initialRunner = await this.runnerService.getRandomAvailableRunner({
-        regions: dedicatedRegions?.length ? dedicatedRegions : [defaultRegionId],
+        regions: dedicatedRegions?.length ? dedicatedRegions : regions.map((region) => region.id),
         excludedRunnerIds: excludedRunnerIds,
       })
       // =================

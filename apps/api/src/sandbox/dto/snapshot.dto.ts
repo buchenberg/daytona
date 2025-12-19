@@ -69,6 +69,12 @@ export class SnapshotDto {
   @ApiProperty()
   skipValidation: boolean
 
+  @ApiPropertyOptional({
+    description: 'IDs of regions where the snapshot is available',
+    type: [String],
+  })
+  regionIds?: string[]
+
   static fromSnapshot(snapshot: Snapshot): SnapshotDto {
     return {
       id: snapshot.id,
@@ -96,6 +102,7 @@ export class SnapshotDto {
           }
         : undefined,
       skipValidation: false,
+      regionIds: snapshot.snapshotRegions?.map((sr) => sr.regionId) ?? undefined,
     }
   }
 }
