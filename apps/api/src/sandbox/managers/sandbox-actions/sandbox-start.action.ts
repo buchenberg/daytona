@@ -180,6 +180,7 @@ export class SandboxStartAction extends SandboxAction {
       memory: sandbox.mem,
       disk: sandbox.disk,
     })
+    const declarativeBuildScoreThreshold = this.configService.get('runnerUsage.declarativeBuildScoreThreshold')
 
     // Try to assign an available runner with the snapshot already available
     try {
@@ -187,6 +188,10 @@ export class SandboxStartAction extends SandboxAction {
         regions: [effectiveRegion],
         sandboxClass: sandbox.class,
         snapshotRef: snapshotRef,
+        ...(isBuild &&
+          declarativeBuildScoreThreshold !== undefined && {
+            availabilityScoreThreshold: declarativeBuildScoreThreshold,
+          }),
       })
       if (runner) {
         await this.updateSandboxState(sandbox.id, SandboxState.UNKNOWN, lockCode, runner.id)
@@ -205,7 +210,7 @@ export class SandboxStartAction extends SandboxAction {
     for (const snapshotRunner of snapshotRunners) {
       // Consider removing the runner usage rate check or improving it
       const runner = await this.runnerService.findOne(snapshotRunner.runnerId)
-      if (runner.availabilityScore >= this.configService.getOrThrow('runnerUsage.declarativeBuildScoreThreshold')) {
+      if (declarativeBuildScoreThreshold === undefined || runner.availabilityScore >= declarativeBuildScoreThreshold) {
         if (snapshotRunner.state === targetState) {
           await this.updateSandboxState(sandbox.id, targetSandboxState, lockCode, runner.id)
           return SYNC_AGAIN
@@ -229,6 +234,10 @@ export class SandboxStartAction extends SandboxAction {
         regions: [sandbox.region],
         sandboxClass: sandbox.class,
         excludedRunnerIds: excludedRunnerIds,
+        ...(isBuild &&
+          declarativeBuildScoreThreshold !== undefined && {
+            availabilityScoreThreshold: declarativeBuildScoreThreshold,
+          }),
       })
     } catch {
       // TODO: reconsider the timeout here
