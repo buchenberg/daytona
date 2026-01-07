@@ -427,6 +427,12 @@ export class SandboxController {
   })
   @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
   @UseGuards(SandboxAccessGuard)
+  @Audit({
+    action: AuditAction.RECOVER,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+  })
   async recoverSandbox(
     @AuthContext() authContext: OrganizationAuthContext,
     @Param('sandboxIdOrName') sandboxIdOrName: string,
