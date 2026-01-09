@@ -905,11 +905,13 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
   }
 
   async processBuildOnRunner(snapshot: Snapshot, runner: Runner) {
-    // todo: split dockerfile by FROM's and pass all docker registry creds to the building process
-
     try {
-      const sourceRegistry = await this.dockerRegistryService.getDefaultDockerHubRegistry()
       const registry = await this.dockerRegistryService.getDefaultInternalRegistry()
+
+      const sourceRegistries = await this.dockerRegistryService.getSourceRegistriesForDockerfile(
+        snapshot.buildInfo.dockerfileContent,
+        snapshot.organizationId,
+      )
 
       const runnerAdapter = await this.runnerAdapterFactory.create(runner)
 
@@ -917,7 +919,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       await runnerAdapter.buildSnapshot(
         snapshot.buildInfo,
         snapshot.organizationId,
-        sourceRegistry ? [sourceRegistry] : undefined,
+        sourceRegistries.length > 0 ? sourceRegistries : undefined,
         registry,
         true,
       )
