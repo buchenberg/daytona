@@ -917,6 +917,7 @@ export class SandboxService {
         ...(organizationId ? { organizationId: organizationId } : {}),
         ...(returnDestroyed ? {} : { state: Not(SandboxState.DESTROYED) }),
       },
+      relations: ['buildInfo'],
     })
 
     if (!sandbox && organizationId) {
@@ -926,6 +927,7 @@ export class SandboxService {
           organizationId: organizationId,
           ...(returnDestroyed ? {} : { state: Not(SandboxState.DESTROYED) }),
         },
+        relations: ['buildInfo'],
       })
     }
 
