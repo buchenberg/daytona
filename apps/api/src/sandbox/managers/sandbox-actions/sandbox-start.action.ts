@@ -181,6 +181,7 @@ export class SandboxStartAction extends SandboxAction {
       memory: sandbox.mem,
       disk: sandbox.disk,
     })
+
     const declarativeBuildScoreThreshold = this.configService.get('runnerUsage.declarativeBuildScoreThreshold')
 
     // Try to assign an available runner with the snapshot already available
