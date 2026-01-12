@@ -328,6 +328,7 @@ export class RunnerService {
       updateData.currentAllocatedMemoryGiB = metrics.currentAllocatedMemoryGiB || 0
       updateData.currentAllocatedDiskGiB = metrics.currentAllocatedDiskGiB || 0
       updateData.currentSnapshotCount = metrics.currentSnapshotCount || 0
+      updateData.currentStartedSandboxes = metrics.currentStartedSandboxes || 0
 
       updateData.availabilityScore = this.calculateAvailabilityScore(runnerId, {
         cpuUsage: updateData.currentCpuUsagePercentage,
@@ -336,6 +337,7 @@ export class RunnerService {
         allocatedCpu: updateData.currentAllocatedCpu,
         allocatedMemoryGiB: updateData.currentAllocatedMemoryGiB,
         allocatedDiskGiB: updateData.currentAllocatedDiskGiB,
+        startedSandboxes: updateData.currentStartedSandboxes,
         runnerCpu: runner.cpu,
         runnerMemoryGiB: runner.memoryGiB,
         runnerDiskGiB: runner.diskGiB,
@@ -489,10 +491,11 @@ export class RunnerService {
       params.diskUsage < 0 ||
       params.allocatedCpu < 0 ||
       params.allocatedMemoryGiB < 0 ||
-      params.allocatedDiskGiB < 0
+      params.allocatedDiskGiB < 0 ||
+      params.startedSandboxes < 0
     ) {
       this.logger.warn(
-        `Runner ${runnerId} has negative values for CPU, memory, disk, allocated CPU, allocated memory, or allocated disk`,
+        `Runner ${runnerId} has negative values for CPU, memory, disk, allocated CPU, allocated memory, allocated disk, or started sandboxes`,
       )
       return 0
     }
@@ -509,6 +512,7 @@ export class RunnerService {
       allocCpu: 100, // 100% means no overallocation
       allocMem: 100,
       allocDisk: 100,
+      startedSandboxes: 0,
     }
 
     const antiIdeal = {
@@ -518,6 +522,7 @@ export class RunnerService {
       allocCpu: 500, // 500% means severe overallocation
       allocMem: 500,
       allocDisk: 500,
+      startedSandboxes: 100,
     }
 
     // Weights based on your requirements
@@ -528,6 +533,7 @@ export class RunnerService {
       this.configService.getOrThrow('runnerUsage.allocatedCpuWeight'),
       this.configService.getOrThrow('runnerUsage.allocatedMemoryWeight'),
       this.configService.getOrThrow('runnerUsage.allocatedDiskWeight'),
+      this.configService.getOrThrow('runnerUsage.startedSandboxesWeight'),
     ]
 
     const cpuPenaltyExponent = this.configService.getOrThrow('runnerUsage.cpuPenaltyExponent')
@@ -551,10 +557,19 @@ export class RunnerService {
       allocatedCpuRatio,
       allocatedMemoryRatio,
       allocatedDiskRatio,
+      params.startedSandboxes, // Raw count, will be normalized against anti-ideal
     ]
 
     // Ideal and anti-ideal arrays
-    const idealValues = [ideal.cpu, ideal.memory, ideal.disk, ideal.allocCpu, ideal.allocMem, ideal.allocDisk]
+    const idealValues = [
+      ideal.cpu,
+      ideal.memory,
+      ideal.disk,
+      ideal.allocCpu,
+      ideal.allocMem,
+      ideal.allocDisk,
+      ideal.startedSandboxes,
+    ]
 
     const antiIdealValues = [
       antiIdeal.cpu,
@@ -563,6 +578,7 @@ export class RunnerService {
       antiIdeal.allocCpu,
       antiIdeal.allocMem,
       antiIdeal.allocDisk,
+      antiIdeal.startedSandboxes,
     ]
 
     // Calculate weighted Euclidean distances
@@ -621,6 +637,7 @@ interface AvailabilityScoreParams {
   allocatedCpu: number
   allocatedMemoryGiB: number
   allocatedDiskGiB: number
+  startedSandboxes: number
   runnerCpu: number
   runnerMemoryGiB: number
   runnerDiskGiB: number
