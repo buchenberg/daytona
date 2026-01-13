@@ -22,7 +22,7 @@ import (
 	common_errors "github.com/daytonaio/common-go/pkg/errors"
 )
 
-func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxDTO, noSysbox bool, didTryWithoutSysbox bool) (string, error) {
+func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxDTO, noSysbox bool, didTryWithoutSysbox bool) (string, string, error) {
 	defer timer.Timer()()
 
 	startTime := time.Now()
@@ -35,29 +35,34 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 
 	state, err := d.DeduceSandboxState(ctx, sandboxDto.Id)
 	if err != nil && state == enums.SandboxStateError {
-		return "", err
+		return "", "", err
 	}
 
 	if state == enums.SandboxStateStarted || state == enums.SandboxStatePullingSnapshot || state == enums.SandboxStateStarting {
-		return sandboxDto.Id, nil
+		daemonVersion, err := d.GetDaemonVersion(ctx, sandboxDto.Id)
+		if err != nil {
+			return "", "", err
+		}
+
+		return sandboxDto.Id, daemonVersion, nil
 	}
 
 	if state == enums.SandboxStateStopped || state == enums.SandboxStateCreating {
-		err = d.Start(ctx, sandboxDto.Id, sandboxDto.Metadata)
+		daemonVersion, err := d.Start(ctx, sandboxDto.Id, sandboxDto.Metadata)
 		if err != nil {
 			if strings.Contains(err.Error(), "OCI runtime create failed") {
 				if didTryWithoutSysbox {
-					return "", err
+					return "", "", err
 				}
 				// Recreate without sysbox
 				d.Destroy(ctx, sandboxDto.Id)
 				return d.Create(ctx, sandboxDto, true, true)
 			}
 
-			return "", err
+			return "", "", err
 		}
 
-		return sandboxDto.Id, nil
+		return sandboxDto.Id, daemonVersion, nil
 	}
 
 	d.statesCache.SetSandboxState(ctx, sandboxDto.Id, enums.SandboxStateCreating)
@@ -65,7 +70,7 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 	ctx = context.WithValue(ctx, constants.ID_KEY, sandboxDto.Id)
 	err = d.PullImage(ctx, sandboxDto.Snapshot, sandboxDto.Registry)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	d.statesCache.SetSandboxState(ctx, sandboxDto.Id, enums.SandboxStateCreating)
@@ -73,20 +78,20 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 	err = d.validateImageArchitecture(ctx, sandboxDto.Snapshot)
 	if err != nil {
 		log.Errorf("ERROR: %s.\n", err.Error())
-		return "", err
+		return "", "", err
 	}
 
 	volumeMountPathBinds := make([]string, 0)
 	if sandboxDto.Volumes != nil {
 		volumeMountPathBinds, err = d.getVolumesMountPathBinds(ctx, sandboxDto.Volumes)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 	}
 
 	containerConfig, hostConfig, networkingConfig, err := d.getContainerConfigs(ctx, sandboxDto, volumeMountPathBinds)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	if noSysbox {
@@ -100,24 +105,24 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 	if err != nil {
 		// Container already exists and is being created by another process
 		if errdefs.IsConflict(err) {
-			return sandboxDto.Id, nil
+			return sandboxDto.Id, "", nil
 		}
 		if !strings.Contains(err.Error(), "OCI runtime create failed") {
-			return "", err
+			return "", "", err
 		}
 	}
 
-	err = d.Start(ctx, sandboxDto.Id, sandboxDto.Metadata)
+	daemonVersion, err := d.Start(ctx, sandboxDto.Id, sandboxDto.Metadata)
 	if err != nil {
 		if strings.Contains(err.Error(), "OCI runtime create failed") {
 			if didTryWithoutSysbox {
-				return "", err
+				return "", "", err
 			}
 			// Recreate without sysbox
 			d.Destroy(ctx, sandboxDto.Id)
 			return d.Create(ctx, sandboxDto, true, true)
 		} else {
-			return "", err
+			return "", "", err
 		}
 	}
 
@@ -153,7 +158,7 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		}()
 	}
 
-	return c.ID, nil
+	return c.ID, daemonVersion, nil
 }
 
 func (p *DockerClient) validateImageArchitecture(ctx context.Context, image string) error {
