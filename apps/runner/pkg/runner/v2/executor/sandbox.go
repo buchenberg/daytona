@@ -21,7 +21,7 @@ func (e *Executor) createSandbox(ctx context.Context, job *apiclient.Job) (any, 
 		return nil, fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
-	_, daemonVersion, err := e.docker.Create(ctx, createSandboxDto)
+	_, daemonVersion, err := e.docker.Create(ctx, createSandboxDto, false, false)
 	if err != nil {
 		// TODO: is this needed?
 		// runner.StatesCache.SetSandboxState(ctx, createSandboxDto.Id, enums.SandboxStateError)
