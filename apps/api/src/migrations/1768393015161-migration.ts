@@ -293,6 +293,21 @@ export class Migration1768393015161 implements MigrationInterface {
     await queryRunner.query(`ALTER TABLE "runner" ALTER COLUMN "cpu" TYPE double precision`)
     await queryRunner.query(`ALTER TABLE "runner" ALTER COLUMN "memoryGiB" TYPE double precision`)
     await queryRunner.query(`ALTER TABLE "runner" ALTER COLUMN "diskGiB" TYPE double precision`)
+
+    /**
+     * ------------------------------------------------------------------------
+     * Section 13: new region indexes
+     * ------------------------------------------------------------------------
+     */
+    await queryRunner.query(
+      `CREATE INDEX "idx_region_custom" ON "region" ("organizationId") WHERE "regionType" = 'custom'`,
+    )
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "region_sshGatewayApiKeyHash_unique" ON "region" ("sshGatewayApiKeyHash") WHERE "sshGatewayApiKeyHash" IS NOT NULL`,
+    )
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "region_proxyApiKeyHash_unique" ON "region" ("proxyApiKeyHash") WHERE "proxyApiKeyHash" IS NOT NULL`,
+    )
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -420,5 +435,14 @@ export class Migration1768393015161 implements MigrationInterface {
     await queryRunner.query(`ALTER TABLE "runner" ALTER COLUMN "cpu" TYPE integer`)
     await queryRunner.query(`ALTER TABLE "runner" ALTER COLUMN "memoryGiB" TYPE integer`)
     await queryRunner.query(`ALTER TABLE "runner" ALTER COLUMN "diskGiB" TYPE integer`)
+
+    /**
+     * ------------------------------------------------------------------------
+     * Revert Section 13
+     * ------------------------------------------------------------------------
+     */
+    await queryRunner.query(`DROP INDEX "public"."region_proxyApiKeyHash_unique"`)
+    await queryRunner.query(`DROP INDEX "public"."region_sshGatewayApiKeyHash_unique"`)
+    await queryRunner.query(`DROP INDEX "public"."idx_region_custom"`)
   }
 }
