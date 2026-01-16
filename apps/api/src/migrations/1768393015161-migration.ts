@@ -35,7 +35,18 @@ export class Migration1768393015161 implements MigrationInterface {
         'writer-dedicated-us',
         'writer-dedicated-eu',
         'large-sandbox-shared',
-        'custom-region-test'
+        'custom-region-test',
+        'codeany',
+        'codeany-free',
+        'browser-use',
+        'us-ext-sandbox',
+        'us-ext-577151',
+        'us-ext-777185',
+        'us-ext-840021',
+        'kepler-dedicated-regular',
+        'kepler-dedicated-large',
+        'asia-magic',
+        'elementor-dedicated'
       )
     `)
     await queryRunner.query(`ALTER TABLE "region" ALTER COLUMN "regionType" SET NOT NULL`)
