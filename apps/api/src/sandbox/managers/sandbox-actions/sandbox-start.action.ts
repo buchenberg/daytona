@@ -29,6 +29,8 @@ import { LockCode, RedisLockProvider } from '../../common/redis-lock.provider'
 import { InjectRedis } from '@nestjs-modules/ioredis'
 import Redis from 'ioredis'
 import { checkRecoverable } from '../../utils/recoverable.util'
+import { InjectRedis } from '@nestjs-modules/ioredis'
+import Redis from 'ioredis'
 
 @Injectable()
 export class SandboxStartAction extends SandboxAction {
@@ -735,7 +737,24 @@ export class SandboxStartAction extends SandboxAction {
     }
 
     if (!exists) {
+      const restoreBackupSnapshotRetryKey = `restore-backup-snapshot-retry-${sandbox.id}`
+
       if (!isRecovery) {
+        // Check retry count - allow up to 3 attempts for transient issues
+        const retryCountRaw = await this.redis.get(restoreBackupSnapshotRetryKey)
+        const retryCount = retryCountRaw ? parseInt(retryCountRaw) : 0
+
+        if (retryCount < 3) {
+          // Increment retry count with 10 minute TTL, let syncStates cron pick up the retry later
+          await this.redis.setex(restoreBackupSnapshotRetryKey, 600, String(retryCount + 1))
+          this.logger.warn(
+            `No valid backup snapshot found for sandbox ${sandbox.id}, retry attempt ${retryCount + 1}/3`,
+          )
+          return DONT_SYNC_AGAIN
+        }
+
+        // After 3 retries, error out and clear the retry counter
+        await this.redis.del(restoreBackupSnapshotRetryKey)
         await this.updateSandboxState(
           sandbox.id,
           SandboxState.ERROR,
@@ -748,6 +767,9 @@ export class SandboxStartAction extends SandboxAction {
       }
       return SYNC_AGAIN
     }
+
+    // Clear the retry counter on success
+    await this.redis.del(`backup-snapshot-retry-${sandbox.id}`)
 
     //  make sure we pick a runner that has the base snapshot
     let baseSnapshot: Snapshot | null = null
