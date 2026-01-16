@@ -449,6 +449,6 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
   @OnEvent(SandboxEvents.BACKUP_CREATED)
   @TrackJobExecution()
   private async handleSandboxBackupCreatedEvent(event: SandboxBackupCreatedEvent) {
-    this.handlePendingBackup(event.sandbox)
+    this.setBackupPending(event.sandbox)
   }
 }
