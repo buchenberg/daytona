@@ -855,6 +855,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     let sourceRegistry = await this.dockerRegistryService.findSourceRegistryBySnapshotImageName(
       snapshot.imageName,
       runner.region,
+      snapshot.organizationId,
     )
     if (!sourceRegistry) {
       sourceRegistry = await this.dockerRegistryService.getDefaultDockerHubRegistry()
@@ -1007,10 +1008,11 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         const registry = await this.dockerRegistryService.findRegistryByImageName(
           snapshot.imageName,
           initialRunner.region,
+          snapshot.organizationId,
         )
 
         const image = parseDockerImage(snapshot.imageName)
-        if (registry) {
+        if (registry && !image.registry) {
           image.registry = registry.url.replace(/^(https?:\/\/)/, '')
         }
         const imageName = image.getFullName()
