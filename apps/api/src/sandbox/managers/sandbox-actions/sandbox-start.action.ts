@@ -29,8 +29,6 @@ import { LockCode, RedisLockProvider } from '../../common/redis-lock.provider'
 import { InjectRedis } from '@nestjs-modules/ioredis'
 import Redis from 'ioredis'
 import { checkRecoverable } from '../../utils/recoverable.util'
-import { InjectRedis } from '@nestjs-modules/ioredis'
-import Redis from 'ioredis'
 
 @Injectable()
 export class SandboxStartAction extends SandboxAction {
