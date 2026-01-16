@@ -281,7 +281,7 @@ export class SandboxService {
     sandbox.desiredState = SandboxDesiredState.ARCHIVED
     await this.sandboxRepository.saveWhere(sandbox, { pending: false, state: SandboxState.STOPPED })
 
-    await this.eventEmitter.emitAsync(SandboxEvents.ARCHIVED, new SandboxArchivedEvent(sandbox))
+    this.eventEmitter.emit(SandboxEvents.ARCHIVED, new SandboxArchivedEvent(sandbox))
     return sandbox
   }
 
@@ -497,7 +497,7 @@ export class SandboxService {
 
       await this.sandboxRepository.insert(sandbox)
 
-      await this.eventEmitter.emitAsync(SandboxEvents.CREATED, new SandboxCreatedEvent(sandbox))
+      this.eventEmitter.emit(SandboxEvents.CREATED, new SandboxCreatedEvent(sandbox))
 
       return SandboxDto.fromSandbox(sandbox)
     } catch (error) {
@@ -712,7 +712,7 @@ export class SandboxService {
 
       await this.sandboxRepository.insert(sandbox)
 
-      await this.eventEmitter.emitAsync(SandboxEvents.CREATED, new SandboxCreatedEvent(sandbox))
+      this.eventEmitter.emit(SandboxEvents.CREATED, new SandboxCreatedEvent(sandbox))
 
       return SandboxDto.fromSandbox(sandbox)
     } catch (error) {
@@ -1196,7 +1196,7 @@ export class SandboxService {
     sandbox.applyDesiredDestroyedState()
     await this.sandboxRepository.saveWhere(sandbox, { pending: false, state: sandbox.state })
 
-    await this.eventEmitter.emitAsync(SandboxEvents.DESTROYED, new SandboxDestroyedEvent(sandbox))
+    this.eventEmitter.emit(SandboxEvents.DESTROYED, new SandboxDestroyedEvent(sandbox))
     return sandbox
   }
 
@@ -1258,7 +1258,7 @@ export class SandboxService {
 
       await this.sandboxRepository.saveWhere(sandbox, { pending: false, state: sandbox.state })
 
-      await this.eventEmitter.emitAsync(SandboxEvents.STARTED, new SandboxStartedEvent(sandbox))
+      this.eventEmitter.emit(SandboxEvents.STARTED, new SandboxStartedEvent(sandbox))
 
       return sandbox
     } catch (error) {
@@ -1299,9 +1299,9 @@ export class SandboxService {
     await this.sandboxRepository.saveWhere(sandbox, { pending: false, state: sandbox.state })
 
     if (sandbox.autoDeleteInterval === 0) {
-      await this.eventEmitter.emitAsync(SandboxEvents.DESTROYED, new SandboxDestroyedEvent(sandbox))
+      this.eventEmitter.emit(SandboxEvents.DESTROYED, new SandboxDestroyedEvent(sandbox))
     } else {
-      await this.eventEmitter.emitAsync(SandboxEvents.STOPPED, new SandboxStoppedEvent(sandbox))
+      this.eventEmitter.emit(SandboxEvents.STOPPED, new SandboxStoppedEvent(sandbox))
     }
     return sandbox
   }
