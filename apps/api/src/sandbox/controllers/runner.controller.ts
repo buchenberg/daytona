@@ -138,6 +138,28 @@ export class RunnerController {
     return this.runnerService.findOneFullOrFail(runnerContext.runnerId)
   }
 
+  @Get('/by-snapshot-ref')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Get runners by snapshot ref',
+    operationId: 'getRunnersBySnapshotRef',
+  })
+  @ApiResponse({
+    status: 200,
+    type: [RunnerSnapshotDto],
+  })
+  @ApiQuery({
+    name: 'ref',
+    description: 'Snapshot ref',
+    type: String,
+    required: true,
+  })
+  @UseGuards(OrGuard([SystemActionGuard, ProxyGuard, SshGatewayGuard]))
+  @RequiredApiRole([SystemRole.ADMIN, 'proxy', 'ssh-gateway'])
+  async getRunnersBySnapshotRef(@Query('ref') ref: string): Promise<RunnerSnapshotDto[]> {
+    return this.runnerService.getRunnersBySnapshotRef(ref)
+  }
+
   @Get(':id')
   @HttpCode(200)
   @ApiOperation({
@@ -295,28 +317,6 @@ export class RunnerController {
     }
 
     return RunnerFullDto.fromRunner(runner)
-  }
-
-  @Get('/by-snapshot-ref')
-  @HttpCode(200)
-  @ApiOperation({
-    summary: 'Get runners by snapshot ref',
-    operationId: 'getRunnersBySnapshotRef',
-  })
-  @ApiResponse({
-    status: 200,
-    type: [RunnerSnapshotDto],
-  })
-  @ApiQuery({
-    name: 'ref',
-    description: 'Snapshot ref',
-    type: String,
-    required: true,
-  })
-  @UseGuards(OrGuard([SystemActionGuard, ProxyGuard, SshGatewayGuard]))
-  @RequiredApiRole([SystemRole.ADMIN, 'proxy', 'ssh-gateway'])
-  async getRunnersBySnapshotRef(@Query('ref') ref: string): Promise<RunnerSnapshotDto[]> {
-    return this.runnerService.getRunnersBySnapshotRef(ref)
   }
 
   @Post('healthcheck')
