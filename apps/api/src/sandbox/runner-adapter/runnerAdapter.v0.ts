@@ -103,7 +103,8 @@ export class RunnerAdapterV0 implements RunnerAdapter {
       headers: {
         Authorization: `Bearer ${runner.apiKey}`,
       },
-      timeout: 1 * 60 * 60 * 1000, // 1 hour
+      // timeout: 1 * 60 * 60 * 1000, // 1 hour
+      timeout: 10 * 60 * 1000, // 10 minutes
     })
 
     const retryErrorMap = new WeakMap<AxiosError, string>()
