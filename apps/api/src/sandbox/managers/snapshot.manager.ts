@@ -44,6 +44,7 @@ import { SnapshotCreatedEvent } from '../events/snapshot-created.event'
 import { SnapshotService } from '../services/snapshot.service'
 import { OnAsyncEvent } from '../../common/decorators/on-async-event.decorator'
 import { parseDockerImage } from '../../common/utils/docker-image.util'
+import { RegionType } from '../../region/enums/region-type.enum'
 
 const SYNC_AGAIN = 'sync-again'
 const DONT_SYNC_AGAIN = 'dont-sync-again'
@@ -968,8 +969,24 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         this.logger.warn('dedicatedRegions', dedicatedRegions, 'organizationId', snapshot.organizationId)
         // =================
 
+        // deduce regions for selecting the initial runner
+        let regionIdsForInitialRunner: string[] = []
+
+        const customSnapshotManagerRegions = regions.filter(
+          (region) => region.regionType === RegionType.CUSTOM && region.snapshotManagerUrl,
+        )
+
+        if (customSnapshotManagerRegions.length) {
+          // must use runner with access to the custom snapshot manager
+          regionIdsForInitialRunner = customSnapshotManagerRegions.map((region) => region.id)
+        } else if (dedicatedRegions?.length) {
+          regionIdsForInitialRunner = dedicatedRegions
+        } else {
+          regionIdsForInitialRunner = regions.map((region) => region.id)
+        }
+
         initialRunner = await this.runnerService.getRandomAvailableRunner({
-          regions: dedicatedRegions?.length ? dedicatedRegions : regions.map((region) => region.id),
+          regions: regionIdsForInitialRunner,
           excludedRunnerIds: excludedRunnerIds,
         })
         // =================
