@@ -131,7 +131,7 @@ func (s *Server) Start() error {
 			StatusCode: http.StatusInternalServerError,
 			Message:    err.Error(),
 		}
-	}))
+	}, false))
 	binding.Validator = new(DefaultValidator)
 
 	// Add swagger UI in development mode
