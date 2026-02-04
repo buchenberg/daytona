@@ -147,7 +147,7 @@
       "options": {
         "context": "{workspaceRoot}",
         "file": "{projectRoot}/Dockerfile",
-        "tags": ["daytonaio/daytona-{projectName}:$VERSION$ARCH"],
+        "tags": ["ghcr.io/daytonaio/daytona-{projectName}:$VERSION$ARCH"],
         "build-args": ["VERSION=$VERSION"]
       },
       "configurations": {
@@ -157,7 +157,7 @@
         "production-multi-platform": {
           "push": true,
           "platforms": ["linux/amd64", "linux/arm64"],
-          "tags": ["daytonaio/daytona-{projectName}:$VERSION"]
+          "tags": ["ghcr.io/daytonaio/daytona-{projectName}:$VERSION"]
         },
         "local-registry": {
           "push": true,
@@ -174,10 +174,10 @@
       "options": {
         "parallel": false,
         "commands": [
-          "docker manifest create daytonaio/daytona-{projectName}:$VERSION daytonaio/daytona-{projectName}:$VERSION-amd64 daytonaio/daytona-{projectName}:$VERSION-arm64",
-          "docker manifest push daytonaio/daytona-{projectName}:$VERSION",
-          "docker manifest create daytonaio/daytona-{projectName}:latest daytonaio/daytona-{projectName}:$VERSION-amd64 daytonaio/daytona-{projectName}:$VERSION-arm64",
-          "docker manifest push daytonaio/daytona-{projectName}:latest"
+          "docker manifest create ghcr.io/daytona-{projectName}:$VERSION ghcr.io/daytona-{projectName}:$VERSION-amd64 ghcr.io/daytona-{projectName}:$VERSION-arm64",
+          "docker manifest push ghcr.io/daytona-{projectName}:$VERSION",
+          "docker manifest create ghcr.io/daytona-{projectName}:latest ghcr.io/daytona-{projectName}:$VERSION-amd64 ghcr.io/daytona-{projectName}:$VERSION-arm64",
+          "docker manifest push ghcr.io/daytona-{projectName}:latest"
         ]
       }
     },
