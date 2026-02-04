@@ -160,17 +160,6 @@ jobs:
           yarn build:production
           yarn nx build-amd64 runner --configuration=production --nxBail=true
 
-      - name: Build CLI
-        run: |
-          cd ./apps/cli
-          GOOS=linux GOARCH=amd64 ./hack/build.sh --skip-env-file
-          GOOS=linux GOARCH=arm64 ./hack/build.sh --skip-env-file
-          GOOS=darwin GOARCH=amd64 ./hack/build.sh --skip-env-file
-          GOOS=darwin GOARCH=arm64 ./hack/build.sh --skip-env-file
-          GOOS=windows GOARCH=amd64 ./hack/build.sh --skip-env-file
-          GOOS=windows GOARCH=arm64 ./hack/build.sh --skip-env-file
-          cd ../..
-
       - name: Upload runner to release assets
         run: |
           gh release upload ${{ inputs.version }} dist/apps/runner-amd64#daytona-runner-${{ inputs.version }}-amd64 --clobber
@@ -178,15 +167,6 @@ jobs:
       - name: Upload daemon to release assets
         run: |
           gh release upload ${{ inputs.version }} dist/apps/daemon-amd64#daytona-daemon-${{ inputs.version }}-amd64 --clobber
-
-      - name: Upload CLI to release assets
-        run: |
-          gh release upload ${{ inputs.version }} dist/apps/cli/daytona-linux-amd64#daytona-cli-${{ inputs.version }}-linux-amd64 --clobber
-          gh release upload ${{ inputs.version }} dist/apps/cli/daytona-linux-arm64#daytona-cli-${{ inputs.version }}-linux-arm64 --clobber
-          gh release upload ${{ inputs.version }} dist/apps/cli/daytona-darwin-amd64#daytona-cli-${{ inputs.version }}-darwin-amd64 --clobber
-          gh release upload ${{ inputs.version }} dist/apps/cli/daytona-darwin-arm64#daytona-cli-${{ inputs.version }}-darwin-arm64 --clobber
-          gh release upload ${{ inputs.version }} dist/apps/cli/daytona-windows-amd64.exe#daytona-cli-${{ inputs.version }}-windows-amd64.exe --clobber
-          gh release upload ${{ inputs.version }} dist/apps/cli/daytona-windows-arm64.exe#daytona-cli-${{ inputs.version }}-windows-arm64.exe --clobber
 
       - name: Upload computer-use artifact
         uses: actions/upload-artifact@v4
