@@ -83,7 +83,7 @@ export class ApiKeyStrategy extends PassportStrategy(Strategy, 'api-key') implem
       }
 
       // this.logger.debug(`Updating last used timestamp for API key: ${token.substring(0, 8)}...`)
-      // await this.apiKeyService.updateLastUsedAt(apiKey.organizationId, apiKey.userId, apiKey.name, new Date())
+      await this.apiKeyService.updateLastUsedAt(apiKey.organizationId, apiKey.userId, apiKey.name, new Date())
 
       let userCache = await this.getUserCache(apiKey.userId)
       if (!userCache) {
