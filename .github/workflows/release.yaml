@@ -22,7 +22,7 @@ env:
 
 jobs:
   publish:
-    runs-on: release-runner
+    runs-on: [self-hosted, Linux, X64, github-actions-runner-amd64]
 
     steps:
       - name: Checkout code
@@ -103,7 +103,7 @@ jobs:
 
   build_projects:
     needs: publish
-    runs-on: release-runner
+    runs-on: [self-hosted, Linux, X64, github-actions-runner-amd64]
 
     steps:
       - name: Checkout code
