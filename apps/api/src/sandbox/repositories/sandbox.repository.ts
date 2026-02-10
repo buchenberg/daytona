@@ -136,6 +136,8 @@ export class SandboxRepository extends BaseRepository<Sandbox> {
    * @param id - The ID of the sandbox to update.
    * @param params.updateData - The partial data to update.
    * @param params.whereCondition - The where condition to use for the update.
+   * @param afterUpdate - A callback to be executed after the update is performed.
+   *   It receives the entity manager as an argument and can be used to perform additional operations after the update.
    *
    * @throws {SandboxConflictError} if the sandbox was modified by another operation
    */
@@ -145,6 +147,7 @@ export class SandboxRepository extends BaseRepository<Sandbox> {
       updateData: Partial<Sandbox>
       whereCondition: FindOptionsWhere<Sandbox>
     },
+    afterUpdate?: (em: EntityManager) => Promise<void>,
   ): Promise<Sandbox> {
     const { updateData, whereCondition } = params
 
@@ -177,6 +180,10 @@ export class SandboxRepository extends BaseRepository<Sandbox> {
       if (previousSandbox.state !== sandbox.state || previousSandbox.organizationId !== sandbox.organizationId) {
         await this.upsertLastActivity(entityManager, id, sandbox.updatedAt)
         sandbox.lastActivityAt = { sandboxId: id, lastActivityAt: sandbox.updatedAt }
+      }
+
+      if (afterUpdate) {
+        await afterUpdate(entityManager)
       }
 
       this.emitUpdateEvents(sandbox, previousSandbox)

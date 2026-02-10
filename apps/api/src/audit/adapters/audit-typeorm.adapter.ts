@@ -7,10 +7,11 @@ import { Logger } from '@nestjs/common'
 import { AuditLogStorageAdapter } from '../interfaces/audit-storage.interface'
 import { InjectRepository } from '@nestjs/typeorm'
 import { AuditLog } from '../entities/audit-log.entity'
-import { FindManyOptions, Repository } from 'typeorm'
+import { FindManyOptions, Not, Repository } from 'typeorm'
 import { PaginatedList } from '../../common/interfaces/paginated-list.interface'
 import { AuditLogFilter } from '../interfaces/audit-filter.interface'
 import { createRangeFilter } from '../../common/utils/range-filter'
+import { AUDIT_LOG_SYSTEM_ACTOR_ID } from '../constants/audit-log-system-actor.constant'
 
 export class AuditTypeormStorageAdapter implements AuditLogStorageAdapter {
   private readonly logger = new Logger(AuditTypeormStorageAdapter.name)
@@ -62,6 +63,7 @@ export class AuditTypeormStorageAdapter implements AuditLogStorageAdapter {
         {
           organizationId,
           createdAt: createRangeFilter(filters?.from, filters?.to),
+          actorId: Not(AUDIT_LOG_SYSTEM_ACTOR_ID),
         },
       ],
     }

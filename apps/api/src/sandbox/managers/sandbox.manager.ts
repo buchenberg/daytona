@@ -18,7 +18,7 @@ import { RedisLockProvider, LockCode } from '../common/redis-lock.provider'
 
 import { SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION } from '../constants/sandbox.constants'
 
-import { SandboxEvents } from '../constants/sandbox-events.constants'
+import { SandboxEvents, SandboxEvent } from '../constants/sandbox-events.constants'
 import { SandboxStoppedEvent } from '../events/sandbox-stopped.event'
 import { SandboxStartedEvent } from '../events/sandbox-started.event'
 import { SandboxArchivedEvent } from '../events/sandbox-archived.event'
@@ -57,6 +57,8 @@ import { BACKUP_DISABLED_REGIONS } from '../constants/dedicated-regions.constant
 import { InjectDataSource } from '@nestjs/typeorm'
 import { DataSource } from 'typeorm'
 import { RunnerState } from '../enums/runner-state.enum'
+import { EventEmitter2 } from '@nestjs/event-emitter'
+import { SandboxAutoActionEvent } from '../events/sandbox-auto-action.event'
 
 export const SYNC_INSTANCE_STATE_LOCK_KEY = 'sync-instance-state-'
 
@@ -84,6 +86,7 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
     private readonly backupManager: BackupManager,
     @InjectRedis() private readonly redis: Redis,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly eventEmitter: EventEmitter2,
   ) {
     this.logger.log(
       `Drain mode: ${this.configService.get('draining.mode')} (force=${this.configService.get('draining.force')})`,
@@ -143,19 +146,28 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
               }
 
               let updateData: Partial<Sandbox> = {}
+              let event: SandboxEvent
 
               if (isEphemeral(sandbox)) {
                 updateData = Sandbox.getSoftDeleteUpdate(sandbox)
+                event = SandboxEvents.AUTO_STOPPED_EPHEMERAL
               } else {
                 updateData.pending = true
                 updateData.desiredState = SandboxDesiredState.STOPPED
+                event = SandboxEvents.AUTO_STOPPED
               }
 
               try {
-                await this.sandboxRepository.updateWhere(sandbox.id, {
-                  updateData,
-                  whereCondition: { pending: false, state: sandbox.state },
-                })
+                await this.sandboxRepository.updateWhere(
+                  sandbox.id,
+                  {
+                    updateData,
+                    whereCondition: { pending: false, state: sandbox.state },
+                  },
+                  async (em) => {
+                    await this.eventEmitter.emitAsync(event, new SandboxAutoActionEvent(sandbox, em))
+                  },
+                )
 
                 this.syncInstanceState(sandbox.id).catch(this.logger.error)
               } catch (error) {
@@ -215,10 +227,16 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
             const updateData: Partial<Sandbox> = {
               desiredState: SandboxDesiredState.ARCHIVED,
             }
-            await this.sandboxRepository.updateWhere(sandbox.id, {
-              updateData,
-              whereCondition: { pending: false, state: sandbox.state },
-            })
+            await this.sandboxRepository.updateWhere(
+              sandbox.id,
+              {
+                updateData,
+                whereCondition: { pending: false, state: sandbox.state },
+              },
+              async (em) => {
+                await this.eventEmitter.emitAsync(SandboxEvents.AUTO_ARCHIVED, new SandboxAutoActionEvent(sandbox, em))
+              },
+            )
 
             this.syncInstanceState(sandbox.id).catch(this.logger.error)
           } catch (error) {
@@ -278,10 +296,19 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
 
               try {
                 const updateData = Sandbox.getSoftDeleteUpdate(sandbox)
-                await this.sandboxRepository.updateWhere(sandbox.id, {
-                  updateData,
-                  whereCondition: { pending: false, state: sandbox.state },
-                })
+                await this.sandboxRepository.updateWhere(
+                  sandbox.id,
+                  {
+                    updateData,
+                    whereCondition: { pending: false, state: sandbox.state },
+                  },
+                  async (em) => {
+                    await this.eventEmitter.emitAsync(
+                      SandboxEvents.AUTO_DELETED,
+                      new SandboxAutoActionEvent(sandbox, em),
+                    )
+                  },
+                )
 
                 this.syncInstanceState(sandbox.id).catch(this.logger.error)
               } catch (error) {

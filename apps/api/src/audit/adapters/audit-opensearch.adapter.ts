@@ -9,6 +9,7 @@ import { AuditLog } from '../entities/audit-log.entity'
 import { PaginatedList } from '../../common/interfaces/paginated-list.interface'
 import { AuditLogStorageAdapter } from '../interfaces/audit-storage.interface'
 import { AuditLogFilter } from '../interfaces/audit-filter.interface'
+import { AUDIT_LOG_SYSTEM_ACTOR_ID } from '../constants/audit-log-system-actor.constant'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { OpensearchClient } from 'nestjs-opensearch'
 import { PolicyEnvelope } from '@opensearch-project/opensearch/api/_types/ism._common.js'
@@ -356,6 +357,7 @@ export class AuditOpenSearchStorageAdapter implements AuditLogStorageAdapter, On
             },
           },
         ],
+        must_not: [{ term: { actorId: AUDIT_LOG_SYSTEM_ACTOR_ID } }],
       },
     }
   }
@@ -376,6 +378,7 @@ export class AuditOpenSearchStorageAdapter implements AuditLogStorageAdapter, On
             },
           },
         ],
+        must_not: [{ term: { actorId: AUDIT_LOG_SYSTEM_ACTOR_ID } }],
       },
     }
   }
