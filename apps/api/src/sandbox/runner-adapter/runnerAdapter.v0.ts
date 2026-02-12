@@ -186,6 +186,7 @@ export class RunnerAdapterV0 implements RunnerAdapter {
     entrypoint?: string[],
     metadata?: { [key: string]: string },
     otelEndpoint?: string,
+    skipStart?: boolean,
   ): Promise<StartSandboxResponse | undefined> {
     const createSandboxDto: CreateSandboxDTO = {
       id: sandbox.id,
@@ -216,6 +217,7 @@ export class RunnerAdapterV0 implements RunnerAdapter {
       metadata: metadata,
       authToken: sandbox.authToken,
       otelEndpoint,
+      skipStart: skipStart,
     }
 
     const response = await this.sandboxApiClient.create(createSandboxDto)
