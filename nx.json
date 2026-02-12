@@ -276,6 +276,12 @@
             "title": "Chores"
           }
         },
+        "hah": {
+          "semverBump": "patch",
+          "changelog": {
+            "title": "Hahs"
+          }
+        },
         "__INVALID__": {
           "semverBump": "patch",
           "changelog": {
