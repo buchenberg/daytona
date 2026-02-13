@@ -82,6 +82,16 @@ export const WRITER_ORGS = [
   'd3df4094-226d-400b-804a-e4f9aa5a60d0',
 ]
 
+/*
+ * Add here organization IDs that are blocked from creating sandboxes from build info
+ */
+export const BUILD_INFO_BLOCKED_ORGS = ['33c1c3f2-fa47-4951-8694-17e1b71083c4']
+
+/*
+ * Add here region IDs that are blocked from creating sandboxes from build info
+ */
+export const BUILD_INFO_BLOCKED_REGIONS = ['RL']
+
 /**
  * Add here organization IDs of Daytona engineers for testing purposes
  */
