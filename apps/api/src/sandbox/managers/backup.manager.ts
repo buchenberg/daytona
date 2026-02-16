@@ -414,7 +414,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
 
   private async checkBackupProgress(sandbox: Sandbox): Promise<void> {
     try {
-      const runner = await this.runnerService.findOne(sandbox.runnerId)
+      const runner = await this.runnerService.findOneOrFail(sandbox.runnerId)
       const runnerAdapter = await this.runnerAdapterFactory.create(runner)
 
       // Get sandbox info from runner
@@ -488,7 +488,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         throw new Error('Registry not found')
       }
 
-      const runner = await this.runnerService.findOne(sandbox.runnerId)
+      const runner = await this.runnerService.findOneOrFail(sandbox.runnerId)
       const runnerAdapter = await this.runnerAdapterFactory.create(runner)
 
       //  check if backup is already in progress on the runner

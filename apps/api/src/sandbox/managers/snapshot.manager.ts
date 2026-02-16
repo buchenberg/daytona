@@ -327,11 +327,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
   }
 
   async syncRunnerSnapshotState(snapshotRunner: SnapshotRunner): Promise<void> {
-    const runner = await this.runnerRepository.findOne({
-      where: {
-        id: snapshotRunner.runnerId,
-      },
-    })
+    const runner = await this.runnerService.findOne(snapshotRunner.runnerId)
     if (!runner) {
       //  cleanup the snapshot runner record if the runner is not found
       //  this can happen if the runner is deleted from the database without cleaning up the snapshot runners
@@ -880,12 +876,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       }
     }
 
-    const runner = await this.runnerRepository.findOneOrFail({
-      where: {
-        id: snapshot.initialRunnerId,
-      },
-    })
-
+    const runner = await this.runnerService.findOneOrFail(snapshot.initialRunnerId)
     const runnerAdapter = await this.runnerAdapterFactory.create(runner)
 
     const initialImageRefOnRunner = snapshot.buildInfo
@@ -1138,11 +1129,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       snapshot.initialRunnerId = initialRunner.id
       await this.snapshotRepository.save(snapshot)
     } else {
-      initialRunner = await this.runnerRepository.findOneOrFail({
-        where: {
-          id: snapshot.initialRunnerId,
-        },
-      })
+      initialRunner = await this.runnerService.findOneOrFail(snapshot.initialRunnerId)
     }
 
     if (snapshot.buildInfo) {

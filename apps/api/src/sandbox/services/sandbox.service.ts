@@ -610,11 +610,7 @@ export class SandboxService {
       createSandboxDto.networkAllowList !== undefined ||
       organization.sandboxLimitedNetworkEgress
     ) {
-      const runner = await this.runnerService.findOne(warmPoolSandbox.runnerId)
-      if (!runner) {
-        throw new NotFoundException(`Runner with ID ${warmPoolSandbox.runnerId} not found`)
-      }
-
+      const runner = await this.runnerService.findOneOrFail(warmPoolSandbox.runnerId)
       const runnerAdapter = await this.runnerAdapterFactory.create(runner)
       await runnerAdapter.updateNetworkSettings(
         warmPoolSandbox.id,
@@ -1404,10 +1400,7 @@ export class SandboxService {
     if (!sandbox.runnerId) {
       throw new NotFoundException(`Sandbox with ID ${sandbox.id} does not have a runner`)
     }
-    const runner = await this.runnerRepository.findOneBy({ id: sandbox.runnerId })
-    if (!runner) {
-      throw new NotFoundException(`Runner with ID ${sandbox.runnerId} not found`)
-    }
+    const runner = await this.runnerService.findOneOrFail(sandbox.runnerId)
 
     if (runner.apiVersion === '2') {
       // TODO: we need "recovering" state that can be set after calling recover
@@ -1549,10 +1542,7 @@ export class SandboxService {
         throw new BadRequestError('Sandbox has no runner assigned')
       }
 
-      const runner = await this.runnerService.findOne(sandbox.runnerId)
-      if (!runner) {
-        throw new NotFoundException(`Runner with ID ${sandbox.runnerId} not found`)
-      }
+      const runner = await this.runnerService.findOneOrFail(sandbox.runnerId)
 
       // Capture the previous state before transitioning to RESIZING (STARTED or STOPPED)
       const previousState =
@@ -2032,9 +2022,7 @@ export class SandboxService {
 
     // Get runner information if sandbox exists
     if (sshAccess.sandbox && sshAccess.sandbox.runnerId) {
-      const runner = await this.runnerRepository.findOne({
-        where: { id: sshAccess.sandbox.runnerId },
-      })
+      const runner = await this.runnerService.findOne(sshAccess.sandbox.runnerId)
 
       if (runner) {
         return {
