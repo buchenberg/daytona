@@ -867,7 +867,7 @@ export class SandboxService {
     const pageNum = Number(page)
     const limitNum = Number(limit)
     const offset = (pageNum - 1) * limitNum
-    const maxOffset = 20_000
+    const maxOffset = 5_000
     if (offset >= maxOffset) {
       throw new BadRequestError(`Deep pagination not allowed: offset ${offset} exceeds maximum ${maxOffset} items.`)
     }
