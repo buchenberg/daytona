@@ -85,7 +85,7 @@ export const WRITER_ORGS = [
 /*
  * Add here organization IDs that are blocked from creating sandboxes from build info
  */
-export const BUILD_INFO_BLOCKED_ORGS = ['33c1c3f2-fa47-4951-8694-17e1b71083c4']
+export const BUILD_INFO_BLOCKED_ORGS = ['33c1c3f2-fa47-4951-8694-17e1b71083c4', '6e9d049e-d6c3-44ed-abcc-41b6ea478dce']
 
 /*
  * Add here region IDs that are blocked from creating sandboxes from build info
