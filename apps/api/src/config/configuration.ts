@@ -26,6 +26,8 @@ const configuration = {
       idleTimeoutMillis: process.env.DB_POOL_IDLE_TIMEOUT_MS && parseInt(process.env.DB_POOL_IDLE_TIMEOUT_MS, 10),
       connectionTimeoutMillis:
         process.env.DB_POOL_CONNECTION_TIMEOUT_MS && parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT_MS, 10),
+      statementTimeout: parseInt(process.env.DB_STATEMENT_TIMEOUT_MS || '20000', 10),
+      queryTimeout: parseInt(process.env.DB_QUERY_TIMEOUT_MS || '25000', 10),
     },
   },
   redis: {

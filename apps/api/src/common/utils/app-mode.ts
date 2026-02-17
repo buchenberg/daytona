@@ -37,3 +37,13 @@ export function isWorkerEnabled(): boolean {
 export function getAppMode(): AppMode {
   return appMode
 }
+
+/**
+ * Return the app name
+ */
+export function getAppName(): string {
+  // Code from tracing.ts
+  const appMode = getAppMode()
+  const serviceNameSuffix = appMode === 'api' ? 'api' : appMode === 'worker' ? 'worker' : 'api'
+  return `daytona-${serviceNameSuffix}`
+}

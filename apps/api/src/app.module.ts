@@ -43,6 +43,7 @@ import { BodyParserErrorModule } from './common/modules/body-parser-error.module
 import { AdminModule } from './admin/admin.module'
 import { ClickHouseModule } from './clickhouse/clickhouse.module'
 import { SandboxTelemetryModule } from './sandbox-telemetry/sandbox-telemetry.module'
+import { getAppName } from './common/utils/app-mode'
 
 @Module({
   imports: [
@@ -92,6 +93,9 @@ import { SandboxTelemetryModule } from './sandbox-telemetry/sandbox-telemetry.mo
             min: configService.get('database.pool.min'),
             idleTimeoutMillis: configService.get('database.pool.idleTimeoutMillis'),
             connectionTimeoutMillis: configService.get('database.pool.connectionTimeoutMillis'),
+            statement_timeout: configService.getOrThrow('database.pool.statementTimeout'),
+            query_timeout: configService.getOrThrow('database.pool.queryTimeout'),
+            application_name: getAppName(),
           },
           cache: {
             type: 'ioredis',

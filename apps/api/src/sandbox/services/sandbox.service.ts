@@ -866,6 +866,11 @@ export class SandboxService {
   ): Promise<PaginatedList<Sandbox>> {
     const pageNum = Number(page)
     const limitNum = Number(limit)
+    const offset = (pageNum - 1) * limitNum
+    const maxOffset = 20_000
+    if (offset >= maxOffset) {
+      throw new BadRequestError(`Deep pagination not allowed: offset ${offset} exceeds maximum ${maxOffset} items.`)
+    }
 
     const {
       id,
