@@ -123,14 +123,14 @@ func StartProxy(ctx context.Context, config *config.Config) error {
 			return err
 		}
 	} else {
-		proxy.sandboxRunnerCache = common_cache.NewMapCache[RunnerInfo]()
-		proxy.runnerCache = common_cache.NewMapCache[RunnerInfo]()
-		proxy.sandboxPublicCache = common_cache.NewMapCache[bool]()
-		proxy.sandboxAuthKeyValidCache = common_cache.NewMapCache[bool]()
-		proxy.sandboxOrgIdCache = common_cache.NewMapCache[string]()
-		proxy.sandboxRegionIdCache = common_cache.NewMapCache[string]()
-		proxy.CPUQuotaCache = common_cache.NewMapCache[int]()
-		proxy.sandboxLastActivityUpdateCache = common_cache.NewMapCache[bool]()
+		proxy.sandboxRunnerCache = common_cache.NewMapCache[RunnerInfo](ctx)
+		proxy.runnerCache = common_cache.NewMapCache[RunnerInfo](ctx)
+		proxy.sandboxPublicCache = common_cache.NewMapCache[bool](ctx)
+		proxy.sandboxAuthKeyValidCache = common_cache.NewMapCache[bool](ctx)
+		proxy.sandboxOrgIdCache = common_cache.NewMapCache[string](ctx)
+		proxy.sandboxRegionIdCache = common_cache.NewMapCache[string](ctx)
+		proxy.CPUQuotaCache = common_cache.NewMapCache[int](ctx)
+		proxy.sandboxLastActivityUpdateCache = common_cache.NewMapCache[bool](ctx)
 	}
 
 	shutdownWg := &sync.WaitGroup{}
