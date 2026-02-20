@@ -155,7 +155,7 @@ export class SandboxWarmPoolService {
       return warmPoolSandbox
     } else {
       //  no warm pool config exists for this snapshot — cache it so callers can skip
-      await this.redis.set(`warm-pool:skip:${sandboxSnapshot}:${params.target}`, '1', 'EX', 60)
+      // await this.redis.set(`warm-pool:skip:${sandboxSnapshot}:${params.target}`, '1', 'EX', 60)
     }
 
     return null

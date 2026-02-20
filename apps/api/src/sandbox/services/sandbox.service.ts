@@ -475,7 +475,7 @@ export class SandboxService {
       }
 
       if (!createSandboxDto.volumes || createSandboxDto.volumes.length === 0) {
-        const skipWarmPool = (await this.redis.exists(`warm-pool:skip:${snapshotIdOrName}:${regionId}`)) === 1
+        const skipWarmPool = false
 
         if (!skipWarmPool) {
           const warmPoolSandbox = await this.warmPoolService.fetchWarmPoolSandbox({
