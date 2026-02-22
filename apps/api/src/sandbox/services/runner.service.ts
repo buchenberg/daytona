@@ -341,7 +341,7 @@ export class RunnerService {
       return this.findAvailableRunners({ ...params, regions: getFallbackRegions(params.regions) })
     }
 
-    const selectionPercentage = params.regions?.includes('RL') ? 0.5 : 0.33
+    const selectionPercentage = params.regions?.includes('RL') ? 0.66 : 0.33
 
     return runners
       .sort((a, b) => b.availabilityScore - a.availabilityScore)
