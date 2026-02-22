@@ -555,6 +555,12 @@ export class SandboxService {
 
       await this.sandboxRepository.insert(sandbox)
 
+      this.sandboxLookupCacheInvalidationService.invalidateOrgId({
+        sandboxId: sandbox.id,
+        organizationId: organization.id,
+        name: sandbox.name,
+      })
+
       this.eventEmitter.emit(SandboxEvents.CREATED, new SandboxCreatedEvent(sandbox))
 
       return SandboxDto.fromSandbox(sandbox)
@@ -782,6 +788,12 @@ export class SandboxService {
       sandbox.pending = true
 
       await this.sandboxRepository.insert(sandbox)
+
+      this.sandboxLookupCacheInvalidationService.invalidateOrgId({
+        sandboxId: sandbox.id,
+        organizationId: organization.id,
+        name: sandbox.name,
+      })
 
       this.eventEmitter.emit(SandboxEvents.CREATED, new SandboxCreatedEvent(sandbox))
 
