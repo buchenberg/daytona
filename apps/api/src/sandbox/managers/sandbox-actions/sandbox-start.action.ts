@@ -353,6 +353,8 @@ export class SandboxStartAction extends SandboxAction {
 
     const runnerAdapter = await this.runnerAdapterFactory.create(runner)
 
+    const originalSnapshot = sandbox.snapshot
+
     let internalRegistry: DockerRegistry
     let entrypoint: string[]
     if (!sandbox.buildInfo) {
@@ -384,6 +386,8 @@ export class SandboxStartAction extends SandboxAction {
       metadata,
       this.configService.get('sandboxOtel.endpointUrl'),
     )
+
+    sandbox.snapshot = originalSnapshot
 
     await this.updateSandboxState(sandbox, SandboxState.CREATING, lockCode, undefined, undefined, result?.daemonVersion)
     //  sync states again immediately for sandbox
@@ -840,6 +844,7 @@ export class SandboxStartAction extends SandboxAction {
 
     await this.updateSandboxState(sandbox, SandboxState.RESTORING, lockCode, runner.id)
 
+    const originalSnapshot = sandbox.snapshot
     sandbox.snapshot = validBackup
 
     //  workaround for CA restore issue
@@ -865,6 +870,9 @@ export class SandboxStartAction extends SandboxAction {
       metadata,
       this.configService.get('sandboxOtel.endpointUrl'),
     )
+
+    sandbox.snapshot = originalSnapshot
+
     return null
   }
 
