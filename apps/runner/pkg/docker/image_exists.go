@@ -9,7 +9,6 @@ import (
 
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
-	log "github.com/sirupsen/logrus"
 )
 
 func (d *DockerClient) ImageExists(ctx context.Context, imageName string, includeLatest bool) (bool, error) {
@@ -52,7 +51,7 @@ func (d *DockerClient) ImageExists(ctx context.Context, imageName string, includ
 	}
 
 	if found {
-		log.Infof("Image %s already pulled", imageName)
+		d.logger.InfoContext(ctx, "Image already pulled", "imageName", imageName)
 	}
 
 	return found, nil
