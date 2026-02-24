@@ -7,6 +7,7 @@ import { areResourcesLargerThanDefault, Resources } from '../utils/resources'
 const WRITER_DEDICATED_US = 'writer-dedicated-us'
 const WRITER_DEDICATED_EU = 'writer-dedicated-eu'
 export const LARGE_SANDBOX_SHARED_REGION = 'large-sandbox-shared'
+export const RL_REGION = 'RL'
 
 /**
  * @returns true if the region requires a higher availability score to be considered for runner assignment

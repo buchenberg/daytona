@@ -33,6 +33,7 @@ import {
   LARGE_SANDBOX_ORGS,
   LARGE_SANDBOX_SHARED_REGION,
   WRITER_ORGS,
+  RL_REGION,
 } from '../constants/dedicated-regions.constant'
 import { areResourcesLargerThanDefault } from '../utils/resources'
 import { TypedConfigService } from '../../config/typed-config.service'
@@ -55,9 +56,50 @@ import { SandboxRepository } from '../repositories/sandbox.repository'
 import { SnapshotInfoResponse } from '@daytonaio/runner-api-client'
 import { SnapshotActivatedEvent } from '../events/snapshot-activated.event'
 
+/**
+ * Propagation tiers keyed by regionId. Each entry maps a cpuQuota threshold to the percentage of shared runners to propagate to.
+ *
+ * Thresholds must be sorted descending. The first matching threshold is used.
+ *
+ * The "default" key is used as a fallback when no region-specific tiers are defined.
+ */
+const REGION_PROPAGATION_TIERS: Record<string, { threshold: number; percentage: number }[]> = {
+  RL: [
+    { threshold: 5000, percentage: 50 },
+    { threshold: 1000, percentage: 25 },
+    { threshold: 250, percentage: 12 },
+    { threshold: 0, percentage: 8 },
+  ],
+  default: [
+    { threshold: 5000, percentage: 66 },
+    { threshold: 1000, percentage: 33 },
+    { threshold: 250, percentage: 16 },
+    { threshold: 0, percentage: 12 },
+  ],
+}
+
+/**
+ * Get the propagation factor for a snapshot based on the CPU quota that the organization has in the snapshot region.
+ *
+ * The propagation factor is a number between 0 and 1 that represents the fraction of shared runners to propagate to.
+ *
+ * @param regionId Provide to use region-specific propagation tiers, otherwise the default tiers are used.
+ */
+function getSnapshotPropagationFactor(cpuQuota: number, regionId?: string): number {
+  const tiers = (regionId && REGION_PROPAGATION_TIERS[regionId]) ?? REGION_PROPAGATION_TIERS['default']
+  const tier = tiers.find((t) => cpuQuota >= t.threshold)
+
+  if (!tier) {
+    return 0.08
+  }
+
+  return Math.min(tier.percentage / 100, 1)
+}
+
 const SYNC_AGAIN = 'sync-again'
 const DONT_SYNC_AGAIN = 'dont-sync-again'
 const DEFAULT_SNAPSHOT_DEACTIVATION_TIMEOUT_MINUTES = 14 * 24 * 60 // 14 days
+const DEFAULT_RL_SNAPSHOT_DEACTIVATION_TIMEOUT_MINUTES = 6 * 60 // 6 hours
 type SyncState = typeof SYNC_AGAIN | typeof DONT_SYNC_AGAIN
 
 @Injectable()
@@ -152,8 +194,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     const results = await Promise.allSettled(
       snapshots.map(async (snapshot) => {
-        // Calculate propagation factor based on organization's CPU quota
-        const propagationFactor = snapshot.total_cpu_quota >= 1000 ? 2 : 1
+        const propagationFactor = getSnapshotPropagationFactor(snapshot.total_cpu_quota)
 
         const regions = await this.snapshotService.getSnapshotRegions(snapshot.id)
 
@@ -367,7 +408,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     snapshot: Snapshot,
     sharedRegionIds: string[],
     organizationRegionIds: string[],
-    propagationFactor?: number,
+    propagationFactor: number,
   ) {
     //  todo: remove try catch block and implement error handling
     try {
@@ -387,24 +428,28 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       const organizationRunnerIds = organizationRunners.map((runner) => runner.id)
 
       //  get all runners where the snapshot is already propagated to (or in progress)
-      const sharedSnapshotRunners = await this.snapshotRunnerRepository.find({
-        where: {
-          snapshotRef: snapshot.ref,
-          state: In([SnapshotRunnerState.READY, SnapshotRunnerState.PULLING_SNAPSHOT]),
-          runnerId: In(sharedRunnerIds),
-        },
-      })
+      const sharedSnapshotRunners = sharedRunnerIds.length
+        ? await this.snapshotRunnerRepository.find({
+            where: {
+              snapshotRef: snapshot.ref,
+              state: In([SnapshotRunnerState.READY, SnapshotRunnerState.PULLING_SNAPSHOT]),
+              runnerId: In(sharedRunnerIds),
+            },
+          })
+        : []
       const sharedSnapshotRunnersDistinctRunnersIds = new Set(
         sharedSnapshotRunners.map((snapshotRunner) => snapshotRunner.runnerId),
       )
 
-      const organizationSnapshotRunners = await this.snapshotRunnerRepository.find({
-        where: {
-          snapshotRef: snapshot.ref,
-          state: In([SnapshotRunnerState.READY, SnapshotRunnerState.PULLING_SNAPSHOT]),
-          runnerId: In(organizationRunnerIds),
-        },
-      })
+      const organizationSnapshotRunners = organizationRunnerIds.length
+        ? await this.snapshotRunnerRepository.find({
+            where: {
+              snapshotRef: snapshot.ref,
+              state: In([SnapshotRunnerState.READY, SnapshotRunnerState.PULLING_SNAPSHOT]),
+              runnerId: In(organizationRunnerIds),
+            },
+          })
+        : []
       const organizationSnapshotRunnersDistinctRunnersIds = new Set(
         organizationSnapshotRunners.map((snapshotRunner) => snapshotRunner.runnerId),
       )
@@ -423,10 +468,9 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       runnersToPropagateTo.push(...unallocatedOrganizationRunners)
 
       // respect the propagation limit for shared runners
-      const finalPropagationFactor = propagationFactor ?? 1
       const sharedRunnersPropagateLimit = Math.max(
         0,
-        Math.ceil(finalPropagationFactor * (sharedRunners.length / 3)) - sharedSnapshotRunnersDistinctRunnersIds.size,
+        Math.ceil(propagationFactor * sharedRunners.length) - sharedSnapshotRunnersDistinctRunnersIds.size,
       )
       runnersToPropagateTo.push(
         ...unallocatedSharedRunners.sort(() => Math.random() - 0.5).slice(0, sharedRunnersPropagateLimit),
@@ -872,8 +916,13 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       },
     })
 
+    const runner = await this.runnerService.findOneOrFail(snapshot.initialRunnerId)
+
     if (snapshot.ref && snapshotRunner) {
       if (snapshotRunner.state === SnapshotRunnerState.READY) {
+        if (runner.region === RL_REGION) {
+          await this.waitForRLRegionPropagation(snapshot)
+        }
         await this.updateSnapshotState(snapshot.id, SnapshotState.ACTIVE)
         return DONT_SYNC_AGAIN
       } else if (snapshotRunner.state === SnapshotRunnerState.ERROR) {
@@ -881,7 +930,6 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       }
     }
 
-    const runner = await this.runnerService.findOneOrFail(snapshot.initialRunnerId)
     const runnerAdapter = await this.runnerAdapterFactory.create(runner)
 
     const initialImageRefOnRunner = snapshot.buildInfo ? snapshot.buildInfo.snapshotRef : snapshot.ref
@@ -949,6 +997,10 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     } else {
       await this.runnerService.createSnapshotRunnerEntry(runner.id, snapshot.ref, SnapshotRunnerState.READY)
     }
+
+    if (runner.region === RL_REGION) {
+      await this.waitForRLRegionPropagation(snapshot)
+    }
     await this.updateSnapshotState(snapshot.id, SnapshotState.ACTIVE)
 
     // Best effort removal of old snapshot from transient registry
@@ -969,6 +1021,61 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     }
 
     return DONT_SYNC_AGAIN
+  }
+
+  /**
+   * Blocks until the snapshot is propagated to significant share of the target number of RL runners, or until timeout.
+   * E.g. if snapshot needs to be propagated to 100 runners, it will be marked as ACTIVE when it's propagated to at least 75 of them.
+   *
+   * Works on a best effort basis to propagate the snapshot to the target number of RL runners.
+   * If the snapshot is not propagated to the target number of RL runners, it will eventually be marked as ACTIVE with partial propagation by the caller.
+   */
+  private async waitForRLRegionPropagation(snapshot: Snapshot): Promise<void> {
+    const regionQuota = await this.organizationService.getRegionQuota(snapshot.organizationId, RL_REGION)
+    const cpuQuota = regionQuota?.totalCpuQuota ?? 0
+    const propagationFactor = getSnapshotPropagationFactor(cpuQuota, RL_REGION)
+
+    const runners = await this.runnerRepository.find({
+      where: {
+        state: RunnerState.READY,
+        unschedulable: Not(true),
+        region: RL_REGION,
+      },
+    })
+    const runnerIds = runners.map((r) => r.id)
+
+    const targetReadyPercentage = 0.75
+    const targetReadyCount = Math.ceil(targetReadyPercentage * propagationFactor * runners.length)
+
+    const startedAt = Date.now()
+    const waitTimeMs = 5 * 60 * 1000 // 5 minutes
+
+    while (Date.now() - startedAt < waitTimeMs) {
+      const currentReadyCount = await this.snapshotRunnerRepository.count({
+        where: {
+          snapshotRef: snapshot.ref,
+          state: SnapshotRunnerState.READY,
+          runnerId: In(runnerIds),
+        },
+      })
+
+      if (currentReadyCount >= targetReadyCount) {
+        this.logger.debug(
+          `Snapshot ${snapshot.id} propagated to ${currentReadyCount}/${targetReadyCount} RL runners, activating`,
+        )
+        return
+      }
+
+      this.logger.debug(
+        `Snapshot ${snapshot.id} propagated to ${currentReadyCount}/${targetReadyCount} RL runners, waiting...`,
+      )
+
+      await this.propagateSnapshotToRunners(snapshot, [RL_REGION], [], propagationFactor)
+
+      await sleep(10_000)
+    }
+
+    this.logger.warn(`Snapshot ${snapshot.id} RL propagation timed out, activating with partial propagation`)
   }
 
   async processPullOnInitialRunner(snapshot: Snapshot, runner: Runner) {
@@ -1283,6 +1390,68 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       }
     } catch (error) {
       this.logger.error(`Failed to deactivate old snapshots: ${fromAxiosError(error)}`)
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_MINUTES, { name: 'deactivate-old-snapshots-rl' })
+  @TrackJobExecution()
+  @LogExecution('deactivate-old-snapshots-rl')
+  @WithInstrumentation()
+  async deactivateOldSnapshots_RL() {
+    const lockKey = 'deactivate-old-snapshots-rl-lock'
+    if (!(await this.redisLockProvider.lock(lockKey, 300))) {
+      return
+    }
+
+    try {
+      const cutoff = `NOW() - INTERVAL '1 minute' * COALESCE(org."snapshot_deactivation_timeout_minutes", ${DEFAULT_RL_SNAPSHOT_DEACTIVATION_TIMEOUT_MINUTES})`
+
+      const oldSnapshots = await this.snapshotRepository
+        .createQueryBuilder('snapshot')
+        .innerJoin('snapshot_region', 'sr', 'sr."snapshotId" = snapshot.id')
+        .leftJoin('organization', 'org', `org."id" = snapshot."organizationId"`)
+        .where('snapshot.general = false')
+        .andWhere('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
+        .andWhere('sr."regionId" = :rlRegionId', { rlRegionId: RL_REGION })
+        .andWhere(`(snapshot."lastUsedAt" IS NULL OR snapshot."lastUsedAt" < ${cutoff})`)
+        .andWhere(`snapshot."createdAt" < ${cutoff}`)
+        .andWhere(
+          `NOT EXISTS (
+            SELECT 1 FROM snapshot s
+            WHERE s."ref" = snapshot."ref"
+            AND s.state = :activeState
+            AND (s."lastUsedAt" >= ${cutoff} OR s."createdAt" >= ${cutoff})
+          )`,
+          {
+            activeState: SnapshotState.ACTIVE,
+          },
+        )
+        .take(100)
+        .getMany()
+
+      if (oldSnapshots.length === 0) {
+        return
+      }
+
+      const snapshotIds = oldSnapshots.map((snapshot) => snapshot.id)
+      await this.snapshotRepository.update({ id: In(snapshotIds) }, { state: SnapshotState.INACTIVE })
+
+      const refs = oldSnapshots.map((snapshot) => snapshot.ref).filter((name) => name)
+
+      if (refs.length > 0) {
+        const result = await this.snapshotRunnerRepository.update(
+          { snapshotRef: In(refs) },
+          { state: SnapshotRunnerState.REMOVING },
+        )
+
+        this.logger.debug(
+          `Deactivated ${oldSnapshots.length} RL snapshots and marked ${result.affected} SnapshotRunners for removal`,
+        )
+      }
+    } catch (error) {
+      this.logger.error(`Failed to deactivate old RL snapshots: ${fromAxiosError(error)}`)
     } finally {
       await this.redisLockProvider.unlock(lockKey)
     }
