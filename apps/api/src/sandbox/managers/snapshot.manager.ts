@@ -53,6 +53,7 @@ import { BackupState } from '../enums/backup-state.enum'
 import { BadRequestError } from '../../exceptions/bad-request.exception'
 import { SandboxRepository } from '../repositories/sandbox.repository'
 import { SnapshotInfoResponse } from '@daytonaio/runner-api-client'
+import { SnapshotActivatedEvent } from '../events/snapshot-activated.event'
 
 const SYNC_AGAIN = 'sync-again'
 const DONT_SYNC_AGAIN = 'dont-sync-again'
@@ -1403,6 +1404,13 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     event: SnapshotEvents.CREATED,
   })
   private async handleSnapshotCreatedEvent(event: SnapshotCreatedEvent) {
+    await this.syncSnapshotState(event.snapshot.id)
+  }
+
+  @OnAsyncEvent({
+    event: SnapshotEvents.ACTIVATED,
+  })
+  private async handleSnapshotActivatedEvent(event: SnapshotActivatedEvent) {
     await this.syncSnapshotState(event.snapshot.id)
   }
 }
