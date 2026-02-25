@@ -48,11 +48,7 @@ import { OrganizationUsageService } from '../../organization/services/organizati
 import { SshAccess } from '../entities/ssh-access.entity'
 import { SshAccessDto, SshAccessValidationDto } from '../dto/ssh-access.dto'
 import { VolumeService } from './volume.service'
-import {
-  resolveEffectiveRegion,
-  BUILD_INFO_BLOCKED_ORGS,
-  BUILD_INFO_BLOCKED_REGIONS,
-} from '../constants/dedicated-regions.constant'
+import { resolveEffectiveRegion, BUILD_INFO_BLOCKED_ORGS } from '../constants/dedicated-regions.constant'
 import { PaginatedList } from '../../common/interfaces/paginated-list.interface'
 import {
   SandboxSortField,
@@ -627,10 +623,7 @@ export class SandboxService {
   }
 
   async createFromBuildInfo(createSandboxDto: CreateSandboxDto, organization: Organization): Promise<SandboxDto> {
-    if (
-      BUILD_INFO_BLOCKED_ORGS.includes(organization.id) ||
-      BUILD_INFO_BLOCKED_REGIONS.includes(createSandboxDto.target)
-    ) {
+    if (BUILD_INFO_BLOCKED_ORGS.includes(organization.id)) {
       throw new BadRequestError('declarative builds are not allowed')
     }
 

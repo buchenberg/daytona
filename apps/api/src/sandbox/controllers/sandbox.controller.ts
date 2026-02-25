@@ -67,6 +67,7 @@ import { AuditTarget } from '../../audit/enums/audit-target.enum'
 import { SshAccessDto, SshAccessValidationDto } from '../dto/ssh-access.dto'
 import { ListSandboxesQueryDto } from '../dto/list-sandboxes-query.dto'
 import { KEPLER_DEDICATED_LARGE, KEPLER_DEDICATED_REGULAR, KEPLER_ORG_ID } from '../constants/kepler.constant'
+import { RESTRICTED_REGIONS } from '../constants/dedicated-regions.constant'
 import { ProxyGuard } from '../guards/proxy.guard'
 import { OrGuard } from '../../auth/or.guard'
 import { AuthenticatedRateLimitGuard } from '../../common/guards/authenticated-rate-limit.guard'
@@ -298,6 +299,8 @@ export class SandboxController {
         )
       }
     }
+
+    assertRLRegionRequirements(createSandboxDto)
 
     if (createSandboxDto.buildInfo) {
       if (createSandboxDto.snapshot) {
@@ -1321,5 +1324,25 @@ export class SandboxController {
     if (callback) {
       callback(event)
     }
+  }
+}
+
+function assertRLRegionRequirements(dto: CreateSandboxDto): void {
+  if (!RESTRICTED_REGIONS.includes(dto.target)) {
+    return
+  }
+
+  if (dto.volumes && dto.volumes.length > 0) {
+    throw new BadRequestError(`Volumes are not supported in the ${dto.target} region`)
+  }
+
+  if (dto.buildInfo) {
+    throw new BadRequestError(`Sandbox creation from build info is not supported in the ${dto.target} region`)
+  }
+
+  if (dto.autoDeleteInterval !== 0) {
+    throw new BadRequestError(
+      `Sandboxes must be ephemeral in the ${dto.target} region - pass ephemeral=True in the creation params: https://www.daytona.io/docs/sandboxes#ephemeral-sandboxes`,
+    )
   }
 }
