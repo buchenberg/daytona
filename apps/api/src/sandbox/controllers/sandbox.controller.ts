@@ -156,9 +156,7 @@ export class SandboxController {
       includeErroredDeleted,
     )
 
-    return sandboxes.map((sandbox) => {
-      return SandboxDto.fromSandbox(sandbox)
-    })
+    return this.sandboxService.toSandboxDtos(sandboxes)
   }
 
   @Get('paginated')
@@ -228,9 +226,7 @@ export class SandboxController {
     )
 
     return {
-      items: result.items.map((sandbox) => {
-        return SandboxDto.fromSandbox(sandbox)
-      }),
+      items: await this.sandboxService.toSandboxDtos(result.items),
       total: result.total,
       page: result.page,
       totalPages: result.totalPages,
@@ -362,7 +358,7 @@ export class SandboxController {
     const skip = skipReconcilingSandboxes === 'true'
     const sandboxes = await this.sandboxService.findByRunnerId(runnerContext.runnerId, stateArray, skip)
 
-    return sandboxes.map((sandbox) => SandboxDto.fromSandbox(sandbox))
+    return this.sandboxService.toSandboxDtos(sandboxes)
   }
 
   @Get(':sandboxIdOrName')
@@ -395,7 +391,7 @@ export class SandboxController {
   ): Promise<SandboxDto> {
     const sandbox = await this.sandboxService.findOneByIdOrName(sandboxIdOrName, authContext.organizationId)
 
-    return SandboxDto.fromSandbox(sandbox)
+    return this.sandboxService.toSandboxDto(sandbox)
   }
 
   @Delete(':sandboxIdOrName')
@@ -428,7 +424,7 @@ export class SandboxController {
     @Param('sandboxIdOrName') sandboxIdOrName: string,
   ): Promise<SandboxDto> {
     const sandbox = await this.sandboxService.destroy(sandboxIdOrName, authContext.organizationId)
-    return SandboxDto.fromSandbox(sandbox)
+    return this.sandboxService.toSandboxDto(sandbox)
   }
 
   @Post(':sandboxIdOrName/recover')
@@ -462,7 +458,7 @@ export class SandboxController {
     @Param('sandboxIdOrName') sandboxIdOrName: string,
   ): Promise<SandboxDto> {
     const recoveredSandbox = await this.sandboxService.recover(sandboxIdOrName, authContext.organization)
-    let sandboxDto = SandboxDto.fromSandbox(recoveredSandbox)
+    let sandboxDto = await this.sandboxService.toSandboxDto(recoveredSandbox)
 
     if (sandboxDto.state !== SandboxState.STARTED) {
       sandboxDto = await this.waitForSandboxStarted(sandboxDto, 30)
@@ -502,7 +498,7 @@ export class SandboxController {
     @Param('sandboxIdOrName') sandboxIdOrName: string,
   ): Promise<SandboxDto> {
     const sbx = await this.sandboxService.start(sandboxIdOrName, authContext.organization)
-    let sandbox = SandboxDto.fromSandbox(sbx)
+    let sandbox = await this.sandboxService.toSandboxDto(sbx)
 
     if (![SandboxState.ARCHIVED, SandboxState.RESTORING, SandboxState.STARTED].includes(sandbox.state)) {
       sandbox = await this.waitForSandboxStarted(sandbox, 15)
@@ -542,7 +538,7 @@ export class SandboxController {
     @Param('sandboxIdOrName') sandboxIdOrName: string,
   ): Promise<SandboxDto> {
     const sandbox = await this.sandboxService.stop(sandboxIdOrName, authContext.organizationId)
-    return SandboxDto.fromSandbox(sandbox)
+    return this.sandboxService.toSandboxDto(sandbox)
   }
 
   @Post(':sandboxIdOrName/resize')
@@ -586,7 +582,7 @@ export class SandboxController {
     @Body() resizeSandboxDto: ResizeSandboxDto,
   ): Promise<SandboxDto> {
     const sandbox = await this.sandboxService.resize(sandboxIdOrName, resizeSandboxDto, authContext.organization)
-    return SandboxDto.fromSandbox(sandbox)
+    return this.sandboxService.toSandboxDto(sandbox)
   }
 
   @Put(':sandboxIdOrName/labels')
@@ -628,7 +624,7 @@ export class SandboxController {
       labelsDto.labels,
       authContext.organizationId,
     )
-    return SandboxDto.fromSandbox(sandbox)
+    return this.sandboxService.toSandboxDto(sandbox)
   }
 
   @Put(':sandboxId/state')
@@ -688,7 +684,7 @@ export class SandboxController {
     @Param('sandboxIdOrName') sandboxIdOrName: string,
   ): Promise<SandboxDto> {
     const sandbox = await this.sandboxService.createBackup(sandboxIdOrName, authContext.organizationId)
-    return SandboxDto.fromSandbox(sandbox)
+    return this.sandboxService.toSandboxDto(sandbox)
   }
 
   @Post(':sandboxIdOrName/public/:isPublic')
@@ -730,7 +726,7 @@ export class SandboxController {
     @Param('isPublic') isPublic: boolean,
   ): Promise<SandboxDto> {
     const sandbox = await this.sandboxService.updatePublicStatus(sandboxIdOrName, isPublic, authContext.organizationId)
-    return SandboxDto.fromSandbox(sandbox)
+    return this.sandboxService.toSandboxDto(sandbox)
   }
 
   @Post(':sandboxId/last-activity')
@@ -791,7 +787,7 @@ export class SandboxController {
     @Param('interval') interval: number,
   ): Promise<SandboxDto> {
     const sandbox = await this.sandboxService.setAutostopInterval(sandboxIdOrName, interval, authContext.organizationId)
-    return SandboxDto.fromSandbox(sandbox)
+    return this.sandboxService.toSandboxDto(sandbox)
   }
 
   @Post(':sandboxIdOrName/autoarchive/:interval')
@@ -837,7 +833,7 @@ export class SandboxController {
       interval,
       authContext.organizationId,
     )
-    return SandboxDto.fromSandbox(sandbox)
+    return this.sandboxService.toSandboxDto(sandbox)
   }
 
   @Post(':sandboxIdOrName/autodelete/:interval')
@@ -884,7 +880,7 @@ export class SandboxController {
       interval,
       authContext.organizationId,
     )
-    return SandboxDto.fromSandbox(sandbox)
+    return this.sandboxService.toSandboxDto(sandbox)
   }
 
   // TODO: Network settings endpoint will not be enabled for now
@@ -962,7 +958,7 @@ export class SandboxController {
     }
 
     const sandbox = await this.sandboxService.archive(sandboxIdOrName, authContext.organizationId)
-    return SandboxDto.fromSandbox(sandbox)
+    return this.sandboxService.toSandboxDto(sandbox)
   }
 
   @Get(':sandboxIdOrName/ports/:port/preview-url')
@@ -1236,7 +1232,7 @@ export class SandboxController {
     @Query('token') token?: string,
   ): Promise<SandboxDto> {
     const sandbox = await this.sandboxService.revokeSshAccess(sandboxIdOrName, token, authContext.organizationId)
-    return SandboxDto.fromSandbox(sandbox)
+    return this.sandboxService.toSandboxDto(sandbox)
   }
 
   @Get('ssh-access/validate')
@@ -1295,7 +1291,7 @@ export class SandboxController {
         if (event.sandbox.state === SandboxState.STARTED) {
           this.sandboxCallbacks.delete(sandbox.id)
           clearTimeout(timeout)
-          resolve(SandboxDto.fromSandbox(event.sandbox))
+          resolve(this.sandboxService.toSandboxDto(event.sandbox))
         }
         if (event.sandbox.state === SandboxState.ERROR || event.sandbox.state === SandboxState.BUILD_FAILED) {
           this.sandboxCallbacks.delete(sandbox.id)
@@ -1309,7 +1305,7 @@ export class SandboxController {
       timeout = setTimeout(() => {
         this.sandboxCallbacks.delete(sandbox.id)
         if (latestSandbox) {
-          resolve(SandboxDto.fromSandbox(latestSandbox))
+          resolve(this.sandboxService.toSandboxDto(latestSandbox))
         } else {
           resolve(sandbox)
         }
