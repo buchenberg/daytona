@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -100,7 +101,13 @@ func (p *Proxy) browserWarningMiddleware() gin.HandlerFunc {
 		}
 
 		if sandboxId != "" {
-			exempt, err := p.sandboxIsExempt(ctx, sandboxId)
+			portFloat, err := strconv.ParseFloat(targetPort, 64)
+			if err != nil {
+				ctx.Error(common_errors.NewBadRequestError(fmt.Errorf("failed to parse target port: %w", err)))
+				return
+			}
+
+			exempt, err := p.sandboxIsExempt(ctx, sandboxId, float32(portFloat), true)
 			if err != nil {
 				ctx.Error(common_errors.NewBadRequestError(err))
 				return
@@ -342,7 +349,7 @@ func isWebSocketRequest(req *http.Request) bool {
 }
 
 // sandboxIsExempt checks if the sandbox is exempt from the preview warning by checking if its organization is in the exceptions list or if the CPU quota allocated in the sandbox region is above the threshold
-func (p *Proxy) sandboxIsExempt(ctx *gin.Context, sandboxId string) (bool, error) {
+func (p *Proxy) sandboxIsExempt(ctx *gin.Context, sandboxId string, port float32, retryAsSignedUrl bool) (bool, error) {
 	orgId := ""
 	regionId := ""
 	CPUQuotaCacheKey := ""
@@ -359,8 +366,17 @@ func (p *Proxy) sandboxIsExempt(ctx *gin.Context, sandboxId string) (bool, error
 	}
 
 	if !hasOrgId || !hasRegionId {
-		regionQuota, _, err := p.apiclient.OrganizationsAPI.GetRegionQuotaBySandboxId(ctx, sandboxId).Execute()
+		regionQuota, res, err := p.apiclient.OrganizationsAPI.GetRegionQuotaBySandboxId(ctx, sandboxId).Execute()
 		if err != nil {
+			if retryAsSignedUrl && res != nil && res.StatusCode == http.StatusNotFound {
+				idFromToken, _, signedErr := p.apiclient.PreviewAPI.GetSandboxIdFromSignedPreviewUrlToken(ctx.Request.Context(), sandboxId, port).Execute()
+				if signedErr != nil {
+					// Return original error
+					return false, err
+				}
+
+				return p.sandboxIsExempt(ctx, idFromToken, port, false)
+			}
 			return false, err
 		}
 
