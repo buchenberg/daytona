@@ -1049,6 +1049,8 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     const startedAt = Date.now()
     const waitTimeMs = 5 * 60 * 1000 // 5 minutes
 
+    this.propagateSnapshotToRunners(snapshot, [RL_REGION], [], propagationFactor)
+
     while (Date.now() - startedAt < waitTimeMs) {
       const currentReadyCount = await this.snapshotRunnerRepository.count({
         where: {
@@ -1068,8 +1070,6 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       this.logger.debug(
         `Snapshot ${snapshot.id} propagated to ${currentReadyCount}/${targetReadyCount} RL runners, waiting...`,
       )
-
-      await this.propagateSnapshotToRunners(snapshot, [RL_REGION], [], propagationFactor)
 
       await sleep(10_000)
     }
