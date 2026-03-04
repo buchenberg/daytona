@@ -99,7 +99,6 @@ function getSnapshotPropagationFactor(cpuQuota: number, regionId?: string): numb
 const SYNC_AGAIN = 'sync-again'
 const DONT_SYNC_AGAIN = 'dont-sync-again'
 const DEFAULT_SNAPSHOT_DEACTIVATION_TIMEOUT_MINUTES = 14 * 24 * 60 // 14 days
-const DEFAULT_RL_SNAPSHOT_DEACTIVATION_TIMEOUT_MINUTES = 6 * 60 // 6 hours
 type SyncState = typeof SYNC_AGAIN | typeof DONT_SYNC_AGAIN
 
 @Injectable()
@@ -1390,68 +1389,6 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       }
     } catch (error) {
       this.logger.error(`Failed to deactivate old snapshots: ${fromAxiosError(error)}`)
-    } finally {
-      await this.redisLockProvider.unlock(lockKey)
-    }
-  }
-
-  @Cron(CronExpression.EVERY_10_MINUTES, { name: 'deactivate-old-snapshots-rl' })
-  @TrackJobExecution()
-  @LogExecution('deactivate-old-snapshots-rl')
-  @WithInstrumentation()
-  async deactivateOldSnapshots_RL() {
-    const lockKey = 'deactivate-old-snapshots-rl-lock'
-    if (!(await this.redisLockProvider.lock(lockKey, 300))) {
-      return
-    }
-
-    try {
-      const cutoff = `NOW() - INTERVAL '1 minute' * COALESCE(org."snapshot_deactivation_timeout_minutes", ${DEFAULT_RL_SNAPSHOT_DEACTIVATION_TIMEOUT_MINUTES})`
-
-      const oldSnapshots = await this.snapshotRepository
-        .createQueryBuilder('snapshot')
-        .innerJoin('snapshot_region', 'sr', 'sr."snapshotId" = snapshot.id')
-        .leftJoin('organization', 'org', `org."id" = snapshot."organizationId"`)
-        .where('snapshot.general = false')
-        .andWhere('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
-        .andWhere('sr."regionId" = :rlRegionId', { rlRegionId: RL_REGION })
-        .andWhere(`(snapshot."lastUsedAt" IS NULL OR snapshot."lastUsedAt" < ${cutoff})`)
-        .andWhere(`snapshot."createdAt" < ${cutoff}`)
-        .andWhere(
-          `NOT EXISTS (
-            SELECT 1 FROM snapshot s
-            WHERE s."ref" = snapshot."ref"
-            AND s.state = :activeState
-            AND (s."lastUsedAt" >= ${cutoff} OR s."createdAt" >= ${cutoff})
-          )`,
-          {
-            activeState: SnapshotState.ACTIVE,
-          },
-        )
-        .take(100)
-        .getMany()
-
-      if (oldSnapshots.length === 0) {
-        return
-      }
-
-      const snapshotIds = oldSnapshots.map((snapshot) => snapshot.id)
-      await this.snapshotRepository.update({ id: In(snapshotIds) }, { state: SnapshotState.INACTIVE })
-
-      const refs = oldSnapshots.map((snapshot) => snapshot.ref).filter((name) => name)
-
-      if (refs.length > 0) {
-        const result = await this.snapshotRunnerRepository.update(
-          { snapshotRef: In(refs) },
-          { state: SnapshotRunnerState.REMOVING },
-        )
-
-        this.logger.debug(
-          `Deactivated ${oldSnapshots.length} RL snapshots and marked ${result.affected} SnapshotRunners for removal`,
-        )
-      }
-    } catch (error) {
-      this.logger.error(`Failed to deactivate old RL snapshots: ${fromAxiosError(error)}`)
     } finally {
       await this.redisLockProvider.unlock(lockKey)
     }
