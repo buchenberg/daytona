@@ -1052,6 +1052,8 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     this.propagateSnapshotToRunners(snapshot, [RL_REGION], [], propagationFactor)
 
+    this.logger.warn('waitForRLRegionPropagation, snapshotId:', snapshot.id, 'startedAt:', startedAt)
+
     while (Date.now() - startedAt < waitTimeMs) {
       const currentReadyCount = await this.snapshotRunnerRepository.count({
         where: {
@@ -1061,16 +1063,18 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         },
       })
 
+      this.logger.warn(
+        'waitForRLRegionPropagation, snapshotId:',
+        snapshot.id,
+        'currentReadyCount:',
+        currentReadyCount,
+        'targetReadyCount:',
+        targetReadyCount,
+      )
+
       if (currentReadyCount >= targetReadyCount) {
-        this.logger.debug(
-          `Snapshot ${snapshot.id} propagated to ${currentReadyCount}/${targetReadyCount} RL runners, activating`,
-        )
         return
       }
-
-      this.logger.debug(
-        `Snapshot ${snapshot.id} propagated to ${currentReadyCount}/${targetReadyCount} RL runners, waiting...`,
-      )
 
       await sleep(10_000)
     }
