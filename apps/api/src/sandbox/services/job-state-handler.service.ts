@@ -20,8 +20,8 @@ import { sanitizeSandboxError } from '../utils/sanitize-error.util'
 import { OrganizationUsageService } from '../../organization/services/organization-usage.service'
 import { SandboxRepository } from '../repositories/sandbox.repository'
 import { Sandbox } from '../entities/sandbox.entity'
-import { RunnerService } from './runner.service'
 import { RL_REGION } from '../constants/dedicated-regions.constant'
+import { Runner } from '../entities/runner.entity'
 
 /**
  * Service for handling entity state updates based on job completion (v2 runners only).
@@ -38,7 +38,8 @@ export class JobStateHandlerService {
     @InjectRepository(SnapshotRunner)
     private readonly snapshotRunnerRepository: Repository<SnapshotRunner>,
     private readonly organizationUsageService: OrganizationUsageService,
-    private readonly runnerService: RunnerService,
+    @InjectRepository(Runner)
+    private readonly runnerRepository: Repository<Runner>,
   ) {}
 
   /**
@@ -273,7 +274,7 @@ export class JobStateHandlerService {
         snapshotRunner.state = SnapshotRunnerState.READY
         snapshotRunner.errorReason = null
 
-        const runner = await this.runnerService.findOne(runnerId)
+        const runner = await this.runnerRepository.findOne({ where: { id: runnerId } })
         if (!runner) {
           this.logger.warn(`Runner not found for snapshot ${snapshotRef} on runner ${runnerId}`)
           return
