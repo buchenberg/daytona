@@ -65,6 +65,7 @@ import { SnapshotActivatedEvent } from '../events/snapshot-activated.event'
  */
 const REGION_PROPAGATION_TIERS: Record<string, { threshold: number; percentage: number }[]> = {
   RL: [
+    { threshold: 10000, percentage: 90 },
     { threshold: 5000, percentage: 50 },
     { threshold: 1000, percentage: 25 },
     { threshold: 250, percentage: 12 },
