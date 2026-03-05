@@ -20,6 +20,8 @@ import { sanitizeSandboxError } from '../utils/sanitize-error.util'
 import { OrganizationUsageService } from '../../organization/services/organization-usage.service'
 import { SandboxRepository } from '../repositories/sandbox.repository'
 import { Sandbox } from '../entities/sandbox.entity'
+import { RunnerService } from './runner.service'
+import { RL_REGION } from '../constants/dedicated-regions.constant'
 
 /**
  * Service for handling entity state updates based on job completion (v2 runners only).
@@ -36,6 +38,7 @@ export class JobStateHandlerService {
     @InjectRepository(SnapshotRunner)
     private readonly snapshotRunnerRepository: Repository<SnapshotRunner>,
     private readonly organizationUsageService: OrganizationUsageService,
+    private readonly runnerService: RunnerService,
   ) {}
 
   /**
@@ -270,16 +273,24 @@ export class JobStateHandlerService {
         snapshotRunner.state = SnapshotRunnerState.READY
         snapshotRunner.errorReason = null
 
-        // Check if this is the initial runner for a snapshot and update the snapshot state
-        const snapshot = await this.snapshotRepository.findOne({
-          where: { initialRunnerId: runnerId, ref: snapshotRef },
-        })
-        if (snapshot && (snapshot.state === SnapshotState.PULLING || snapshot.state === SnapshotState.BUILDING)) {
-          this.logger.debug(`Marking snapshot ${snapshot.id} as ACTIVE after initial pull completed`)
-          snapshot.state = SnapshotState.ACTIVE
-          snapshot.errorReason = null
-          snapshot.lastUsedAt = new Date()
-          await this.snapshotRepository.save(snapshot)
+        const runner = await this.runnerService.findOne(runnerId)
+        if (!runner) {
+          this.logger.warn(`Runner not found for snapshot ${snapshotRef} on runner ${runnerId}`)
+          return
+        }
+
+        if (runner.region !== RL_REGION) {
+          // Check if this is the initial runner for a snapshot and update the snapshot state (outside RL region only)
+          const snapshot = await this.snapshotRepository.findOne({
+            where: { initialRunnerId: runnerId, ref: snapshotRef },
+          })
+          if (snapshot && (snapshot.state === SnapshotState.PULLING || snapshot.state === SnapshotState.BUILDING)) {
+            this.logger.debug(`Marking snapshot ${snapshot.id} as ACTIVE after initial pull completed`)
+            snapshot.state = SnapshotState.ACTIVE
+            snapshot.errorReason = null
+            snapshot.lastUsedAt = new Date()
+            await this.snapshotRepository.save(snapshot)
+          }
         }
       } else if (job.status === JobStatus.FAILED) {
         this.logger.error(`PULL_SNAPSHOT job ${job.id} failed for snapshot ${snapshotRef}: ${job.errorMessage}`)
