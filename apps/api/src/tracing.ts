@@ -28,12 +28,15 @@ import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino'
 import { RuntimeNodeInstrumentation } from '@opentelemetry/instrumentation-runtime-node'
 import { BatchLogRecordProcessor } from '@opentelemetry/sdk-logs'
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http'
+import Pyroscope from '@pyroscope/nodejs'
 
 // Enable OpenTelemetry diagnostics
 diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.WARN)
 
 const appMode = getAppMode()
 const serviceNameSuffix = appMode === 'api' ? 'api' : appMode === 'worker' ? 'worker' : 'api'
+
+const instanceId = process.env.NODE_APP_INSTANCE ? `${hostname()}-${process.env.NODE_APP_INSTANCE}` : hostname()
 
 const otlpExporterConfig: OTLPExporterNodeConfigBase = {
   compression: CompressionAlgorithm.GZIP,
@@ -44,9 +47,7 @@ const otelSdk = new NodeSDK({
   resource: resourceFromAttributes({
     [ATTR_SERVICE_NAME]: `daytona-${serviceNameSuffix}`,
     [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: process.env.ENVIRONMENT,
-    [ATTR_SERVICE_INSTANCE_ID]: process.env.NODE_APP_INSTANCE
-      ? `${hostname()}-${process.env.NODE_APP_INSTANCE}`
-      : hostname(),
+    [ATTR_SERVICE_INSTANCE_ID]: instanceId,
   }),
   instrumentations: [
     new PinoInstrumentation(),
@@ -67,6 +68,24 @@ const otelSdk = new NodeSDK({
     }),
   ],
 })
+
+if (process.env.PYROSCOPE_SERVER_ADDRESS) {
+  Pyroscope.init({
+    serverAddress: process.env.PYROSCOPE_SERVER_ADDRESS,
+    appName: `daytona-${serviceNameSuffix}`,
+    basicAuthUser: process.env.PYROSCOPE_BASIC_AUTH_USER,
+    basicAuthPassword: process.env.PYROSCOPE_BASIC_AUTH_PASSWORD,
+    // Enable CPU time collection for wall profiles
+    // This is required for CPU profiling functionality
+    wall: {
+      collectCpuTime: true,
+    },
+    tags: {
+      environment: process.env.ENVIRONMENT,
+      instance_id: instanceId,
+    },
+  })
+}
 
 export { otelSdk }
 

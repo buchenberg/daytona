@@ -27,6 +27,7 @@ import { Partitioners } from 'kafkajs'
 import { isApiEnabled, isWorkerEnabled } from './common/utils/app-mode'
 import cluster from 'node:cluster'
 import { Logger as PinoLogger, LoggerErrorInterceptor } from 'nestjs-pino'
+import Pyroscope from '@pyroscope/nodejs'
 
 // https options
 const httpsEnabled = process.env.CERT_PATH && process.env.CERT_KEY_PATH
@@ -36,8 +37,12 @@ const httpsOptions: HttpsOptions = {
 }
 
 async function bootstrap() {
+  if (process.env.PYROSCOPE_SERVER_ADDRESS) {
+    Pyroscope.start()
+  }
+
   if (process.env.OTEL_ENABLED === 'true') {
-    await otelSdk.start()
+    otelSdk.start()
   }
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
