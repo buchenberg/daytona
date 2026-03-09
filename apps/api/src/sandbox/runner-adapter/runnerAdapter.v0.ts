@@ -222,6 +222,8 @@ export class RunnerAdapterV0 implements RunnerAdapter {
       authToken: sandbox.authToken,
       otelEndpoint,
       skipStart: skipStart,
+      organizationId: sandbox.organizationId,
+      regionId: sandbox.region,
     }
 
     const response = await this.sandboxApiClient.create(createSandboxDto)
