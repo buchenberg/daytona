@@ -18,10 +18,10 @@ import { Audit, TypedRequest } from '../../audit/decorators/audit.decorator'
 import { AuditAction } from '../../audit/enums/audit-action.enum'
 import { AuditTarget } from '../../audit/enums/audit-target.enum'
 import { AuthenticatedRateLimitGuard } from '../../common/guards/authenticated-rate-limit.guard'
+import { CombinedAuthGuard } from '../../auth/combined-auth.guard'
 
 @ApiTags('organizations')
 @Controller('organizations/:organizationId/users')
-@UseGuards(AuthGuard('jwt'), AuthenticatedRateLimitGuard, OrganizationActionGuard)
 @ApiOAuth2(['openid', 'profile', 'email'])
 @ApiBearerAuth()
 export class OrganizationUserController {
@@ -42,6 +42,7 @@ export class OrganizationUserController {
     description: 'Organization ID',
     type: 'string',
   })
+  @UseGuards(CombinedAuthGuard, AuthenticatedRateLimitGuard, OrganizationActionGuard)
   async findAll(@Param('organizationId') organizationId: string): Promise<OrganizationUserDto[]> {
     return this.organizationUserService.findAll(organizationId)
   }
@@ -66,6 +67,7 @@ export class OrganizationUserController {
     description: 'User ID',
     type: 'string',
   })
+  @UseGuards(AuthGuard('jwt'), AuthenticatedRateLimitGuard, OrganizationActionGuard)
   @RequiredOrganizationMemberRole(OrganizationMemberRole.OWNER)
   @Audit({
     action: AuditAction.UPDATE_ACCESS,
@@ -110,6 +112,7 @@ export class OrganizationUserController {
     description: 'User ID',
     type: 'string',
   })
+  @UseGuards(AuthGuard('jwt'), AuthenticatedRateLimitGuard, OrganizationActionGuard)
   @RequiredOrganizationMemberRole(OrganizationMemberRole.OWNER)
   @Audit({
     action: AuditAction.DELETE,
