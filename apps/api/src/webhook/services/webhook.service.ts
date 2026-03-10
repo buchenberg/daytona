@@ -188,7 +188,7 @@ export class WebhookService implements OnModuleInit {
         url: appPortalAccess.url,
       }
     } catch (error) {
-      this.logger.error(`Failed to generate app portal access for organization ${organizationId}:`, error)
+      this.logger.debug(`Failed to generate app portal access for organization ${organizationId}:`, error)
       throw error
     }
   }
