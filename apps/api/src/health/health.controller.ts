@@ -10,6 +10,7 @@ import { AnonymousRateLimitGuard } from '../common/guards/anonymous-rate-limit.g
 import { AuthenticatedRateLimitGuard } from '../common/guards/authenticated-rate-limit.guard'
 import { CombinedAuthGuard } from '../auth/combined-auth.guard'
 import { HealthCheckGuard } from '../auth/health-check.guard'
+import { ApiExcludeEndpoint } from '@nestjs/swagger'
 
 @Controller('health')
 export class HealthController {
@@ -41,6 +42,7 @@ export class HealthController {
   }
 
   @Get('29875676-8e7b-47c5-a5e8-d47aed8375fa')
+  @ApiExcludeEndpoint(true)
   async k8sHealthcheck() {
     try {
       const result = await this.health.check([() => this.db.pingCheck('database'), () => this.redis.isHealthy('redis')])
