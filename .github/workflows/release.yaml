@@ -33,6 +33,9 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-toolchain
+        with:
+          run-go-work-sync: 'false'
+
       - uses: dev-hanz-ops/install-gh-cli-action@v0.2.1
 
       - name: Configure git
@@ -40,6 +43,11 @@ jobs:
           git config --global --add safe.directory $GITHUB_WORKSPACE
           git config --global user.name "Daytona Release Bot"
           git config --global user.email "daytona-release@users.noreply.github.com"
+
+      - name: Go work sync
+        run: |
+          GONOSUMDB=github.com/daytonaio/daytona go work sync
+          go env -w GOFLAGS="-buildvcs=false"
 
         # Write version to required folders so nx release can run
       - name: Write package.json to required folders
