@@ -125,7 +125,7 @@ export class SandboxStartAction extends SandboxAction {
     if (sandbox.updatedAt && Date.now() - sandbox.updatedAt.getTime() > timeoutMs) {
       await this.updateSandboxState(
         sandbox,
-        SandboxState.ERROR,
+        SandboxState.BUILD_FAILED,
         lockCode,
         undefined,
         'Timeout while building snapshot on runner',
