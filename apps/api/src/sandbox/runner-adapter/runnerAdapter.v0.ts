@@ -169,6 +169,7 @@ export class RunnerAdapterV0 implements RunnerAdapter {
   async runnerInfo(signal?: AbortSignal): Promise<RunnerInfo> {
     const response = await this.runnerApiClient.runnerInfo({ signal })
     return {
+      serviceHealth: response.data.serviceHealth,
       metrics: response.data.metrics,
       appVersion: response.data.appVersion,
     }
