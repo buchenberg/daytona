@@ -790,9 +790,9 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
 
         // Do not sync again for v2 runners
         // Job completion will update the sandbox state
-        // if (sandbox.runnerId && (await this.runnerService.getRunnerApiVersion(sandbox.runnerId)) === '2') {
-        //  break
-        // }
+        if (sandbox.runnerId && (await this.runnerService.getRunnerApiVersion(sandbox.runnerId)) === '2') {
+          break
+        }
 
         // Break sync loop if sandbox action returned DONT_SYNC_AGAIN.
         if (syncState !== SYNC_AGAIN) {
