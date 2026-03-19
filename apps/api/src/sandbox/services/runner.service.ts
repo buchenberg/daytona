@@ -450,7 +450,9 @@ export class RunnerService {
         .map((s) => `"${s.serviceName}"${s.errorReason ? ` (${s.errorReason})` : ''}`)
         .join(', ')
       this.logger.warn(`Runner ${runnerId} services reported unhealthy: ${unhealthySummary}`)
-      updateData.state = RunnerState.UNRESPONSIVE
+      if (process.env.RUNNER_UNHEALTHY_ON_SERVICE_UNHEALTHY === 'true') {
+        updateData.state = RunnerState.UNRESPONSIVE
+      }
     }
 
     if (metrics) {
