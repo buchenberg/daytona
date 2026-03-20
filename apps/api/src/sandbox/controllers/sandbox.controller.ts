@@ -81,6 +81,7 @@ import { Redis } from 'ioredis'
 import { SANDBOX_EVENT_CHANNEL } from '../../common/constants/constants'
 import { RequireFlagsEnabled } from '@openfeature/nestjs-sdk'
 import { FeatureFlags } from '../../common/constants/feature-flags'
+import { RegionSandboxAccessGuard } from '../guards/region-sandbox-access.guard'
 
 @ApiTags('sandbox')
 @Controller('sandbox')
@@ -382,7 +383,7 @@ export class SandboxController {
     description: 'Sandbox details',
     type: SandboxDto,
   })
-  @UseGuards(SandboxAccessGuard)
+  @UseGuards(OrGuard([SandboxAccessGuard, RegionSandboxAccessGuard]))
   async getSandbox(
     @AuthContext() authContext: OrganizationAuthContext,
     @Param('sandboxIdOrName') sandboxIdOrName: string,
@@ -743,7 +744,7 @@ export class SandboxController {
     status: 201,
     description: 'Last activity has been updated',
   })
-  @UseGuards(OrGuard([SandboxAccessGuard, ProxyGuard, SshGatewayGuard]))
+  @UseGuards(OrGuard([SandboxAccessGuard, ProxyGuard, SshGatewayGuard, RegionSandboxAccessGuard]))
   async updateLastActivity(@Param('sandboxId') sandboxId: string): Promise<void> {
     await this.sandboxService.updateLastActivityAt(sandboxId, new Date())
   }
