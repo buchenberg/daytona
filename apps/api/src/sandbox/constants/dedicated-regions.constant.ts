@@ -7,6 +7,7 @@ import { areResourcesLargerThanDefault, Resources } from '../utils/resources'
 const WRITER_DEDICATED_US = 'writer-dedicated-us'
 const WRITER_DEDICATED_EU = 'writer-dedicated-eu'
 export const LARGE_SANDBOX_SHARED_REGION = 'large-sandbox-shared'
+export const ELEMENTOR_DEDICATED_REGION = 'elementor-dedicated'
 export const RL_REGION = 'RL'
 
 /**
@@ -86,6 +87,12 @@ export const WRITER_ORGS = [
 /*
  * Add here organization IDs that are blocked from creating sandboxes from build info
  */
+export const LG_ORGS = new Set([
+  'ffd8d89a-126a-4154-ad8f-16c54c18522a', // idagelic
+  'bb738f7e-d7eb-47c1-847c-3154a308f1e5', // fabjanvucina
+  '7270a8f6-9e34-46a2-9254-466627e06bac', // LG
+])
+
 export const BUILD_INFO_BLOCKED_ORGS = ['33c1c3f2-fa47-4951-8694-17e1b71083c4', '6e9d049e-d6c3-44ed-abcc-41b6ea478dce']
 
 /*
@@ -114,6 +121,7 @@ export const DEDICATED_REGIONS_PER_ORGANIZATION: Record<string, string[]> = (() 
   const orgRegionMappings = [
     { orgs: WRITER_ORGS, regions: [WRITER_DEDICATED_US, WRITER_DEDICATED_EU] },
     { orgs: LARGE_SANDBOX_ORGS, regions: [LARGE_SANDBOX_SHARED_REGION] },
+    { orgs: LG_ORGS, regions: [ELEMENTOR_DEDICATED_REGION] },
   ]
 
   // orgId -> regions
@@ -152,6 +160,10 @@ export function resolveEffectiveRegion(
     } else if (baseRegionId === 'eu') {
       return WRITER_DEDICATED_EU
     }
+  }
+
+  if (LG_ORGS.has(organizationId)) {
+    return ELEMENTOR_DEDICATED_REGION
   }
 
   if (LARGE_SANDBOX_ORGS.has(organizationId)) {
