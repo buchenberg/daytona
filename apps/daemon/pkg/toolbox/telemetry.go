@@ -44,6 +44,7 @@ func (s *server) initTelemetry(ctx context.Context, serviceName, entrypointLogFi
 		Headers: map[string]string{
 			"sandbox-auth-token": s.authToken,
 		},
+		TLSConfig: telemetry.TLSConfigWithEmbeddedCerts(),
 	}
 
 	extraLabels := make(map[string]string)
