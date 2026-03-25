@@ -48,7 +48,11 @@ import { OrganizationUsageService } from '../../organization/services/organizati
 import { SshAccess } from '../entities/ssh-access.entity'
 import { SshAccessDto, SshAccessValidationDto } from '../dto/ssh-access.dto'
 import { VolumeService } from './volume.service'
-import { resolveEffectiveRegion, BUILD_INFO_BLOCKED_ORGS } from '../constants/dedicated-regions.constant'
+import {
+  resolveEffectiveRegion,
+  BUILD_INFO_BLOCKED_ORGS,
+  LARGE_SANDBOX_SHARED_REGION,
+} from '../constants/dedicated-regions.constant'
 import { PaginatedList } from '../../common/interfaces/paginated-list.interface'
 import {
   SandboxSortField,
@@ -280,6 +284,10 @@ export class SandboxService {
     const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
 
     this.assertSandboxNotErrored(sandbox)
+
+    if (sandbox.region === LARGE_SANDBOX_SHARED_REGION) {
+      throw new SandboxError('Sandboxes in the large sandbox shared region cannot be archived')
+    }
 
     if (String(sandbox.state) !== String(sandbox.desiredState)) {
       throw new SandboxError('State change in progress')

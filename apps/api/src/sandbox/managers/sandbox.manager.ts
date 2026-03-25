@@ -48,6 +48,7 @@ import { TypedConfigService } from '../../config/typed-config.service'
 import { BackupManager } from './backup.manager'
 import { InjectRedis } from '@nestjs-modules/ioredis'
 import Redis from 'ioredis'
+import { LARGE_SANDBOX_SHARED_REGION } from '../constants/dedicated-regions.constant'
 
 @Injectable()
 export class SandboxManager implements TrackableJobExecutions, OnApplicationShutdown {
@@ -170,6 +171,7 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
           state: SandboxState.STOPPED,
           desiredState: SandboxDesiredState.STOPPED,
           pending: Not(true),
+          region: Not(LARGE_SANDBOX_SHARED_REGION),
           lastActivityAt: Raw((alias) => `${alias} < NOW() - INTERVAL '1 minute' * "autoArchiveInterval"`),
         },
         order: {

@@ -35,6 +35,7 @@ import { WithInstrumentation } from '../../common/decorators/otel.decorator'
 import { DockerRegistry } from '../../docker-registry/entities/docker-registry.entity'
 import { SandboxService } from '../services/sandbox.service'
 import { SandboxRepository } from '../repositories/sandbox.repository'
+import { LARGE_SANDBOX_SHARED_REGION } from '../constants/dedicated-regions.constant'
 
 @Injectable()
 export class BackupManager implements TrackableJobExecutions, OnApplicationShutdown {
@@ -93,6 +94,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
               backupState: In([BackupState.NONE, BackupState.COMPLETED]),
               lastBackupAt: Or(IsNull(), LessThan(new Date(Date.now() - 1 * 60 * 60 * 1000))),
               autoDeleteInterval: Not(0),
+              region: Not(LARGE_SANDBOX_SHARED_REGION),
             },
             order: {
               lastBackupAt: 'ASC',
@@ -156,6 +158,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
           backupStates: [BackupState.PENDING, BackupState.IN_PROGRESS],
         })
         .andWhere('r.state = :ready', { ready: RunnerState.READY })
+        .andWhere('sandbox.region != :largeSharedRegion', { largeSharedRegion: LARGE_SANDBOX_SHARED_REGION })
         // Prioritize manual archival action, then auto-archive poller, then ad-hoc backup poller
         .addSelect(
           `
@@ -342,6 +345,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         .andWhere('sandbox.desiredState = :desiredState', { desiredState: SandboxDesiredState.ARCHIVED })
         // END REMOVE
         .andWhere('sandbox.backupState = :none', { none: BackupState.NONE })
+        .andWhere('sandbox.region != :largeSharedRegion', { largeSharedRegion: LARGE_SANDBOX_SHARED_REGION })
         .andWhere('r.state = :ready', { ready: RunnerState.READY })
         .take(100)
         .getMany()
