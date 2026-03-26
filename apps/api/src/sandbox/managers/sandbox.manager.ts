@@ -586,9 +586,6 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
     } catch (e) {
       this.logger.error(`Failed to create sandbox ${sandbox.id} on new runner ${newRunnerId}`, e)
       throw e
-    } finally {
-      // Restore original snapshot
-      sandbox.snapshot = originalSnapshot
     }
 
     // Re-fetch sandbox from DB to get fresh state (the in-memory entity may be stale)
