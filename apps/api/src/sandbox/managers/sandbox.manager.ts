@@ -571,12 +571,17 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
     const newRunner = await this.runnerService.findOneOrFail(newRunnerId)
     const newRunnerAdapter = await this.runnerAdapterFactory.create(newRunner)
 
-    const originalSnapshot = sandbox.snapshot
-    sandbox.snapshot = sandbox.backupSnapshot
-
     try {
       // Pass undefined for entrypoint as the backup snapshot already has it baked in and use skipStart
-      await newRunnerAdapter.createSandbox(sandbox, registry, undefined, metadata, undefined, true)
+      await newRunnerAdapter.createSandbox(
+        sandbox,
+        sandbox.backupSnapshot,
+        registry,
+        undefined,
+        metadata,
+        undefined,
+        true,
+      )
       this.logger.debug(`Created sandbox ${sandbox.id} on new runner ${newRunnerId} with skipStart`)
     } catch (e) {
       this.logger.error(`Failed to create sandbox ${sandbox.id} on new runner ${newRunnerId}`, e)

@@ -373,20 +373,20 @@ export class SandboxStartAction extends SandboxAction {
 
     let internalRegistry: DockerRegistry
     let entrypoint: string[]
+    let snapshotRef: string
     if (!sandbox.buildInfo) {
       //  get internal snapshot name
       const snapshot = await this.snapshotService.getSnapshotByName(sandbox.snapshot, sandbox.organizationId)
-      const snapshotRef = snapshot.ref
+      snapshotRef = snapshot.ref
 
       internalRegistry = await this.dockerRegistryService.findInternalRegistryBySnapshotRef(snapshotRef, runner.region)
       if (!internalRegistry) {
         throw new Error('No registry found for snapshot')
       }
 
-      sandbox.snapshot = snapshotRef
       entrypoint = snapshot.entrypoint
     } else {
-      sandbox.snapshot = sandbox.buildInfo.snapshotRef
+      snapshotRef = sandbox.buildInfo.snapshotRef
       entrypoint = this.snapshotService.getEntrypointFromDockerfile(sandbox.buildInfo.dockerfileContent)
     }
 
@@ -397,6 +397,7 @@ export class SandboxStartAction extends SandboxAction {
 
     const result = await runnerAdapter.createSandbox(
       sandbox,
+      snapshotRef,
       internalRegistry,
       entrypoint,
       metadata,
@@ -847,9 +848,6 @@ export class SandboxStartAction extends SandboxAction {
 
     await this.updateSandboxState(sandbox, SandboxState.RESTORING, lockCode, runner.id)
 
-    const originalSnapshot = sandbox.snapshot
-    sandbox.snapshot = validBackup
-
     //  workaround for CA restore issue
     //  DO NOT COMMIT
     let entrypoint = undefined
@@ -868,13 +866,12 @@ export class SandboxStartAction extends SandboxAction {
 
     await runnerAdapter.createSandbox(
       sandbox,
+      validBackup,
       registry,
       entrypoint,
       metadata,
       this.configService.get('sandboxOtel.endpointUrl'),
     )
-
-    sandbox.snapshot = originalSnapshot
 
     return null
   }
