@@ -79,15 +79,21 @@ const REGION_PROPAGATION_TIERS: Record<string, { threshold: number; percentage: 
   ],
 }
 
+const ORGANIZATION_PROPAGATION_OVERRIDES: Record<string, { threshold: number; percentage: number }[]> = {
+  '8c0f7497-8037-4515-89a3-992bb9230cbc': [{ threshold: 0, percentage: 7 }],
+}
+
 /**
  * Get the propagation factor for a snapshot based on the CPU quota that the organization has in the snapshot region.
  *
  * The propagation factor is a number between 0 and 1 that represents the fraction of shared runners to propagate to.
  *
  * @param regionId Provide to use region-specific propagation tiers, otherwise the default tiers are used.
+ * @param organizationId Provide to use organization-specific propagation overrides.
  */
-function getSnapshotPropagationFactor(cpuQuota: number, regionId?: string): number {
-  const tiers = (regionId && REGION_PROPAGATION_TIERS[regionId]) ?? REGION_PROPAGATION_TIERS['default']
+function getSnapshotPropagationFactor(cpuQuota: number, regionId?: string, organizationId?: string): number {
+  const orgTiers = organizationId && ORGANIZATION_PROPAGATION_OVERRIDES[organizationId]
+  const tiers = orgTiers ?? (regionId && REGION_PROPAGATION_TIERS[regionId]) ?? REGION_PROPAGATION_TIERS['default']
   const tier = tiers.find((t) => cpuQuota >= t.threshold)
 
   if (!tier) {
@@ -194,7 +200,11 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     const results = await Promise.allSettled(
       snapshots.map(async (snapshot) => {
-        const propagationFactor = getSnapshotPropagationFactor(snapshot.total_cpu_quota)
+        const propagationFactor = getSnapshotPropagationFactor(
+          snapshot.total_cpu_quota,
+          undefined,
+          snapshot.organizationId,
+        )
 
         const regions = await this.snapshotService.getSnapshotRegions(snapshot.id)
 
@@ -1033,7 +1043,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
   private async waitForRLRegionPropagation(snapshot: Snapshot): Promise<void> {
     const regionQuota = await this.organizationService.getRegionQuota(snapshot.organizationId, RL_REGION)
     const cpuQuota = regionQuota?.totalCpuQuota ?? 0
-    const propagationFactor = getSnapshotPropagationFactor(cpuQuota, RL_REGION)
+    const propagationFactor = getSnapshotPropagationFactor(cpuQuota, RL_REGION, snapshot.organizationId)
 
     const runners = await this.runnerRepository.find({
       where: {
