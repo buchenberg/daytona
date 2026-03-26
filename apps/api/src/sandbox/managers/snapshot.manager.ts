@@ -36,7 +36,6 @@ import {
   RL_REGION,
 } from '../constants/dedicated-regions.constant'
 import { areResourcesLargerThanDefault } from '../utils/resources'
-import { TypedConfigService } from '../../config/typed-config.service'
 import { LogExecution } from '../../common/decorators/log-execution.decorator'
 import { WithInstrumentation } from '../../common/decorators/otel.decorator'
 import { RunnerAdapterFactory } from '../runner-adapter/runnerAdapter'
