@@ -929,7 +929,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     const runner = await this.runnerService.findOneOrFail(snapshot.initialRunnerId)
 
     if (snapshot.ref && snapshotRunner) {
-      if (snapshotRunner.state === SnapshotRunnerState.READY) {
+      if (snapshotRunner.state === SnapshotRunnerState.READY && snapshot.size != null) {
         if (runner.region === RL_REGION) {
           await this.waitForRLRegionPropagation(snapshot)
         }
@@ -960,13 +960,17 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       throw new Error('No internal registry found for snapshot')
     }
 
-    await this.processSnapshotDigest(
+    const digestSyncState = await this.processSnapshotDigest(
       snapshot,
       internalRegistry,
       snapshotInfoResponse.hash,
       snapshotInfoResponse.sizeGB,
       snapshotInfoResponse.entrypoint,
     )
+
+    if (digestSyncState === DONT_SYNC_AGAIN) {
+      return DONT_SYNC_AGAIN
+    }
 
     try {
       await runnerAdapter.inspectSnapshotInRegistry(snapshot.ref, internalRegistry)
@@ -1257,12 +1261,17 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         }
 
         const snapshotDigestResponse = await runnerAdapter.inspectSnapshotInRegistry(imageName, registry)
-        await this.processSnapshotDigest(
+        const digestSyncState = await this.processSnapshotDigest(
           snapshot,
           internalRegistry,
           snapshotDigestResponse.hash,
           snapshotDigestResponse.sizeGB,
         )
+
+        if (digestSyncState === DONT_SYNC_AGAIN) {
+          return DONT_SYNC_AGAIN
+        }
+
         await this.snapshotRepository.save(snapshot)
       }
 
@@ -1278,7 +1287,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     return SYNC_AGAIN
   }
 
-  private async updateSnapshotState(snapshotId: string, state: SnapshotState, errorReason?: string) {
+  private async updateSnapshotState(snapshotId: string, state: SnapshotState, errorReason?: string, size?: number) {
     const partialUpdate: Partial<Snapshot> = {
       state,
     }
@@ -1289,6 +1298,10 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     if (errorReason !== undefined) {
       partialUpdate.errorReason = errorReason
+    }
+
+    if (size !== undefined) {
+      partialUpdate.size = size
     }
 
     const result = await this.snapshotRepository.update(
@@ -1497,16 +1510,17 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
       const MAX_SIZE_GB = organization.maxSnapshotSize
 
+      snapshot.size = sizeGB
+
       if (sizeGB > MAX_SIZE_GB) {
         await this.updateSnapshotState(
           snapshot.id,
           SnapshotState.ERROR,
           `Snapshot size (${sizeGB.toFixed(2)}GB) exceeds maximum allowed size of ${MAX_SIZE_GB}GB`,
+          sizeGB,
         )
         return DONT_SYNC_AGAIN
       }
-
-      snapshot.size = sizeGB
     }
 
     // If entrypoint is not explicitly set, set it from snapshotInfoResponse
