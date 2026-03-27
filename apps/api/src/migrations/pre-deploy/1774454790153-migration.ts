@@ -18,12 +18,14 @@ export class Migration1774454790153 implements MigrationInterface {
     )
 
     // Copy existing data from sandbox.lastActivityAt to new table
+    /* PROD: new table will be populated with a background backfill job after the pre-deploy migration is applied
     await queryRunner.query(`
       INSERT INTO "sandbox_last_activity" ("sandboxId", "lastActivityAt")
       SELECT "id", COALESCE("lastActivityAt", "createdAt", NOW())
       FROM "sandbox"
       WHERE "state" != 'destroyed'
     `)
+    */
 
     // Create sync function for dual-write
     await queryRunner.query(`
@@ -52,13 +54,16 @@ export class Migration1774454790153 implements MigrationInterface {
     `)
 
     // Create trigger on sandbox_last_activity table (new -> old)
+    /* PROD: trigger will be created after the background backfill job is completed to prevent redundant write-backs
     await queryRunner.query(`
       CREATE TRIGGER sandbox_activity_sync_to_old
       AFTER INSERT OR UPDATE OF "lastActivityAt" ON "sandbox_last_activity"
       FOR EACH ROW EXECUTE FUNCTION sync_sandbox_last_activity();
     `)
+    */
 
     // Re-sync any rows that were created or changed during the window between initial copy and trigger creation
+    /* PROD: no need for re-sync, order is reversed of seeding is reversed
     await queryRunner.query(`
       INSERT INTO "sandbox_last_activity" ("sandboxId", "lastActivityAt")
       SELECT "id", COALESCE("lastActivityAt", "createdAt", NOW())
@@ -68,6 +73,7 @@ export class Migration1774454790153 implements MigrationInterface {
         SET "lastActivityAt" = EXCLUDED."lastActivityAt"
         WHERE "sandbox_last_activity"."lastActivityAt" IS DISTINCT FROM EXCLUDED."lastActivityAt"
     `)
+    */
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
