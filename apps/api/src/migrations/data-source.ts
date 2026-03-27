@@ -22,10 +22,10 @@ export const baseDataSourceOptions: DataSourceOptions = {
   logging: process.env.DB_LOGGING === 'true',
   namingStrategy: new CustomNamingStrategy(),
   entities: [join(__dirname, '../**/*.entity.ts')],
-  ssl: true,
+  ssl: process.env.DB_TLS_ENABLED === 'true',
   extra: {
     ssl: {
-      rejectUnauthorized: false,
+      rejectUnauthorized: process.env.DB_TLS_REJECT_UNAUTHORIZED !== 'false',
     },
   },
   entitySkipConstructor: true,
