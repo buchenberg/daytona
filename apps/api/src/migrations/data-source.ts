@@ -28,6 +28,7 @@ export const baseDataSourceOptions: DataSourceOptions = {
           rejectUnauthorized: process.env.DB_TLS_REJECT_UNAUTHORIZED !== 'false',
         }
       : false,
+  entitySkipConstructor: true,
 }
 
 const AppDataSource = new DataSource({
