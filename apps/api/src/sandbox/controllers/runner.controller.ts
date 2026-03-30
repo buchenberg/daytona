@@ -139,6 +139,28 @@ export class RunnerController {
     return this.runnerService.findOneFullOrFail(runnerContext.runnerId)
   }
 
+  @Get('/by-sandbox/:sandboxId')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Get runner by sandbox ID',
+    operationId: 'getRunnerBySandboxId',
+  })
+  @ApiResponse({
+    status: 200,
+    type: RunnerFullDto,
+  })
+  @UseGuards(OrGuard([SystemActionGuard, ProxyGuard, SshGatewayGuard, RegionSandboxAccessGuard]))
+  @RequiredApiRole([SystemRole.ADMIN])
+  async getRunnerBySandboxId(@Param('sandboxId') sandboxId: string): Promise<RunnerFullDto> {
+    const runner = await this.runnerService.findBySandboxId(sandboxId)
+
+    if (!runner) {
+      throw new NotFoundException('Runner not found')
+    }
+
+    return RunnerFullDto.fromRunner(runner)
+  }
+
   @Get('/by-snapshot-ref')
   @HttpCode(200)
   @ApiOperation({
@@ -323,28 +345,6 @@ export class RunnerController {
   @RequireFlagsEnabled({ flags: [{ flagKey: FeatureFlags.ORGANIZATION_INFRASTRUCTURE, defaultValue: false }] })
   async delete(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.runnerService.remove(id)
-  }
-
-  @Get('/by-sandbox/:sandboxId')
-  @HttpCode(200)
-  @ApiOperation({
-    summary: 'Get runner by sandbox ID',
-    operationId: 'getRunnerBySandboxId',
-  })
-  @ApiResponse({
-    status: 200,
-    type: RunnerFullDto,
-  })
-  @UseGuards(OrGuard([SystemActionGuard, ProxyGuard, SshGatewayGuard, RegionSandboxAccessGuard]))
-  @RequiredApiRole([SystemRole.ADMIN])
-  async getRunnerBySandboxId(@Param('sandboxId') sandboxId: string): Promise<RunnerFullDto> {
-    const runner = await this.runnerService.findBySandboxId(sandboxId)
-
-    if (!runner) {
-      throw new NotFoundException('Runner not found')
-    }
-
-    return RunnerFullDto.fromRunner(runner)
   }
 
   @Post('healthcheck')
