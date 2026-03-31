@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r tls. /Users/tomapuljak/Projects/daytona/daytona/apps/daemon --include=*.go)",
+      "Bash(find /Users/tomapuljak/Projects/daytona/daytona -path */common-go/*telemetry* -type f)",
+      "Bash(grep -r \"http\\\\.Client\\\\|Transport\\\\|HTTPClient\" /Users/tomapuljak/Projects/daytona/daytona/apps/daemon/pkg --include=*.go)"
+    ]
+  }
+}

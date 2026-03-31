@@ -73,6 +73,14 @@ jobs:
             "name": "runner",
             "version": "0.0.0"
           }' > apps/runner/package.json
+          echo '{
+            "name": "runner",
+            "version": "0.0.0"
+          }' > apps/backoffice-api/package.json
+          echo '{
+            "name": "runner",
+            "version": "0.0.0"
+          }' > apps/backoffice-dashboard/package.json
 
       - name: Create release
         run: yarn nx release ${{ inputs.version }} --skip-publish --verbose
