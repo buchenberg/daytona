@@ -6,6 +6,7 @@
 import { HealthCheckAuthContextGuard } from './health-check-auth-context.guard'
 import { InvalidAuthenticationContextException } from '../../common/exceptions/invalid-authentication-context.exception'
 import {
+  createMockBillingAuthContext,
   createMockHealthCheckAuthContext,
   createMockOrganizationAuthContext,
   createMockOtelCollectorAuthContext,
@@ -39,6 +40,7 @@ describe('[AUTH] HealthCheckAuthContextGuard', () => {
     ['RegionProxy', createMockRegionProxyAuthContext],
     ['RegionSshGateway', createMockRegionSshGatewayAuthContext],
     ['OtelCollector', createMockOtelCollectorAuthContext],
+    ['Billing', createMockBillingAuthContext],
   ])('rejects %sAuthContext', async (_name, factory) => {
     const { context } = createMockExecutionContext({ user: factory() })
     await expect(guard.canActivate(context)).rejects.toThrow(InvalidAuthenticationContextException)

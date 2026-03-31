@@ -6,6 +6,7 @@
 import { OrganizationController } from './organization.controller'
 import { OrganizationMemberRole } from '../enums/organization-member-role.enum'
 import { OrganizationAuthContextGuard } from '../guards/organization-auth-context.guard'
+import { BillingAuthContextGuard } from '../guards/billing-auth-context.guard'
 import { OtelCollectorAuthContextGuard } from '../guards/otel-collector-auth-context.guard'
 import { AuthStrategyType } from '../../auth/enums/auth-strategy-type.enum'
 import {
@@ -14,10 +15,8 @@ import {
   getRequiredOrganizationMemberRole,
   getRequiredOrganizationResourcePermissions,
   expectArrayMatch,
-  getRequiredSystemRole,
   createCoverageTracker,
 } from '../../test/helpers/controller-metadata.helper'
-import { SystemRole } from '../../user/enums/system-role.enum'
 import { UserAuthContextGuard } from '../../user/guards/user-auth-context.guard'
 
 describe('[AUTH] OrganizationController', () => {
@@ -100,29 +99,25 @@ describe('[AUTH] OrganizationController', () => {
   it('updateOrganizationQuota', () => {
     const methodName = trackMethod('updateOrganizationQuota')
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
-    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [])
-    expect(getRequiredSystemRole(OrganizationController, methodName)).toBe(SystemRole.ADMIN)
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
   })
 
   it('updateOrganizationRegionQuota', () => {
     const methodName = trackMethod('updateOrganizationRegionQuota')
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
-    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [])
-    expect(getRequiredSystemRole(OrganizationController, methodName)).toBe(SystemRole.ADMIN)
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
   })
 
   it('suspend', () => {
     const methodName = trackMethod('suspend')
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
-    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [])
-    expect(getRequiredSystemRole(OrganizationController, methodName)).toBe(SystemRole.ADMIN)
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
   })
 
   it('unsuspend', () => {
     const methodName = trackMethod('unsuspend')
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
-    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [])
-    expect(getRequiredSystemRole(OrganizationController, methodName)).toBe(SystemRole.ADMIN)
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
   })
 
   it('getOtelConfigBySandboxAuthToken', () => {
@@ -134,8 +129,7 @@ describe('[AUTH] OrganizationController', () => {
   it('updateSandboxDefaultLimitedNetworkEgress', () => {
     const methodName = trackMethod('updateSandboxDefaultLimitedNetworkEgress')
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
-    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [])
-    expect(getRequiredSystemRole(OrganizationController, methodName)).toBe(SystemRole.ADMIN)
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
   })
 
   it('updateExperimentalConfig', () => {

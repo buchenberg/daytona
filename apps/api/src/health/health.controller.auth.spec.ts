@@ -27,4 +27,9 @@ describe('[AUTH] HealthController', () => {
     expectArrayMatch(getAllowedAuthStrategies(HealthController, methodName), [AuthStrategyType.API_KEY])
     expectArrayMatch(getAuthContextGuards(HealthController, methodName), [HealthCheckAuthContextGuard])
   })
+
+  it('k8sHealthcheck', () => {
+    const methodName = trackMethod('k8sHealthcheck')
+    // TODO
+  })
 })

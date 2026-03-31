@@ -15,6 +15,7 @@ import { RegionProxyAuthContext } from '../../common/interfaces/region-proxy-aut
 import { RegionSSHGatewayAuthContext } from '../../common/interfaces/region-ssh-gateway-auth-context.interface'
 import { HealthCheckAuthContext } from '../../common/interfaces/health-check-auth-context.interface'
 import { OtelCollectorAuthContext } from '../../common/interfaces/otel-collector-auth-context.interface'
+import { BillingAuthContext } from '../../common/interfaces/billing-auth-context.interface'
 import { MOCK_USER_ID, MOCK_USER_EMAIL, MOCK_ORGANIZATION_ID, MOCK_RUNNER_ID, MOCK_REGION_ID } from './constants'
 import { createMockOrganization, createMockOrganizationUser, createMockRunner } from './entity.factory'
 
@@ -130,6 +131,15 @@ export function createMockOtelCollectorAuthContext(
 ): OtelCollectorAuthContext {
   return {
     role: 'otel-collector',
+    ...overrides,
+  }
+}
+
+export function createMockBillingAuthContext(
+  overrides?: Partial<Omit<BillingAuthContext, 'role'>>,
+): BillingAuthContext {
+  return {
+    role: 'billing',
     ...overrides,
   }
 }

@@ -33,8 +33,7 @@ import { OrganizationUserService } from '../services/organization-user.service'
 import { OrganizationInvitationService } from '../services/organization-invitation.service'
 import { IsOrganizationAuthContext, IsUserAuthContext } from '../../common/decorators/auth-context.decorator'
 import { UserAuthContext } from '../../common/interfaces/user-auth-context.interface'
-import { RequiredSystemRole } from '../../user/decorators/required-system-role.decorator'
-import { SystemRole } from '../../user/enums/system-role.enum'
+import { BillingAuthContextGuard } from '../guards/billing-auth-context.guard'
 import { OrganizationSuspensionDto } from '../dto/organization-suspension.dto'
 import { UserService } from '../../user/user.service'
 import { Audit, TypedRequest } from '../../audit/decorators/audit.decorator'
@@ -349,7 +348,7 @@ export class OrganizationController {
     description: 'Organization quota updated successfully',
   })
   @AuthStrategy(AuthStrategyType.API_KEY)
-  @RequiredSystemRole(SystemRole.ADMIN)
+  @UseGuards(BillingAuthContextGuard)
   @Audit({
     action: AuditAction.UPDATE_QUOTA,
     targetType: AuditTarget.ORGANIZATION,
@@ -393,7 +392,7 @@ export class OrganizationController {
     description: 'Region quota updated successfully',
   })
   @AuthStrategy(AuthStrategyType.API_KEY)
-  @RequiredSystemRole(SystemRole.ADMIN)
+  @UseGuards(BillingAuthContextGuard)
   @Audit({
     action: AuditAction.UPDATE_REGION_QUOTA,
     targetType: AuditTarget.ORGANIZATION,
@@ -461,7 +460,7 @@ export class OrganizationController {
     description: 'Organization suspended successfully',
   })
   @AuthStrategy(AuthStrategyType.API_KEY)
-  @RequiredSystemRole(SystemRole.ADMIN)
+  @UseGuards(BillingAuthContextGuard)
   @Audit({
     action: AuditAction.SUSPEND,
     targetType: AuditTarget.ORGANIZATION,
@@ -500,7 +499,7 @@ export class OrganizationController {
     description: 'Organization unsuspended successfully',
   })
   @AuthStrategy(AuthStrategyType.API_KEY)
-  @RequiredSystemRole(SystemRole.ADMIN)
+  @UseGuards(BillingAuthContextGuard)
   @Audit({
     action: AuditAction.UNSUSPEND,
     targetType: AuditTarget.ORGANIZATION,
@@ -551,7 +550,7 @@ export class OrganizationController {
     description: 'Sandbox default limited network egress updated successfully',
   })
   @AuthStrategy(AuthStrategyType.API_KEY)
-  @RequiredSystemRole(SystemRole.ADMIN)
+  @UseGuards(BillingAuthContextGuard)
   @Audit({
     action: AuditAction.UPDATE_SANDBOX_DEFAULT_LIMITED_NETWORK_EGRESS,
     targetType: AuditTarget.ORGANIZATION,

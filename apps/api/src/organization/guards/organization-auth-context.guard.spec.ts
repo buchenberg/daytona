@@ -8,6 +8,7 @@ import { OrganizationMemberRole } from '../enums/organization-member-role.enum'
 import { InvalidAuthenticationContextException } from '../../common/exceptions/invalid-authentication-context.exception'
 import { AccessDeniedException } from '../../common/exceptions/access-denied.exception'
 import {
+  createMockBillingAuthContext,
   createMockUserAuthContext,
   createMockRunnerAuthContext,
   createMockProxyAuthContext,
@@ -68,6 +69,7 @@ describe('[AUTH] OrganizationAuthContextGuard', () => {
     ['RegionSshGateway', createMockRegionSshGatewayAuthContext],
     ['HealthCheck', createMockHealthCheckAuthContext],
     ['OtelCollector', createMockOtelCollectorAuthContext],
+    ['Billing', createMockBillingAuthContext],
   ])('should reject %sAuthContext', async (_name, factory) => {
     const { context } = createMockExecutionContext({ user: factory() })
     await expect(guard.canActivate(context)).rejects.toThrow(InvalidAuthenticationContextException)

@@ -6,6 +6,7 @@
 import { RunnerAuthContextGuard } from './runner-auth-context.guard'
 import { InvalidAuthenticationContextException } from '../../common/exceptions/invalid-authentication-context.exception'
 import {
+  createMockBillingAuthContext,
   createMockHealthCheckAuthContext,
   createMockOrganizationAuthContext,
   createMockOtelCollectorAuthContext,
@@ -41,6 +42,7 @@ describe('[AUTH] RunnerAuthContextGuard', () => {
     ['RegionSshGateway', createMockRegionSshGatewayAuthContext],
     ['HealthCheck', createMockHealthCheckAuthContext],
     ['OtelCollector', createMockOtelCollectorAuthContext],
+    ['Billing', createMockBillingAuthContext],
   ])('rejects %s', async (_name, factory) => {
     const { context } = createMockExecutionContext({ user: factory() })
     await expect(guard.canActivate(context)).rejects.toThrow(InvalidAuthenticationContextException)

@@ -6,6 +6,7 @@
 import { NotFoundException } from '@nestjs/common'
 import { VolumeAccessGuard } from './volume-access.guard'
 import {
+  createMockBillingAuthContext,
   createMockHealthCheckAuthContext,
   createMockOrganizationAuthContext,
   createMockOtelCollectorAuthContext,
@@ -52,6 +53,7 @@ describe('[AUTH] VolumeAccessGuard', () => {
     ['RegionSshGateway', createMockRegionSshGatewayAuthContext],
     ['HealthCheck', createMockHealthCheckAuthContext],
     ['OtelCollector', createMockOtelCollectorAuthContext],
+    ['Billing', createMockBillingAuthContext],
   ])('rejects %sAuthContext', async (_name, factory) => {
     const { context } = createMockExecutionContext({ user: factory(), params: { id: 'vol-1' } } as any)
     await expect(guard.canActivate(context)).rejects.toThrow(NotFoundException)

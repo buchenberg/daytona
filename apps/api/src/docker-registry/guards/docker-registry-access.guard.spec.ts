@@ -7,6 +7,7 @@ import { NotFoundException } from '@nestjs/common'
 import { DockerRegistryAccessGuard } from './docker-registry-access.guard'
 import { InvalidAuthenticationContextException } from '../../common/exceptions/invalid-authentication-context.exception'
 import {
+  createMockBillingAuthContext,
   createMockHealthCheckAuthContext,
   createMockOrganizationAuthContext,
   createMockOtelCollectorAuthContext,
@@ -61,6 +62,7 @@ describe('[AUTH] DockerRegistryAccessGuard', () => {
     ['RegionSshGateway', createMockRegionSshGatewayAuthContext],
     ['HealthCheck', createMockHealthCheckAuthContext],
     ['OtelCollector', createMockOtelCollectorAuthContext],
+    ['Billing', createMockBillingAuthContext],
   ])('rejects %sAuthContext', async (_name, factory) => {
     const { context } = createMockExecutionContext({ user: factory(), params: { id: 'reg-1' } })
     await expect(guard.canActivate(context)).rejects.toThrow(InvalidAuthenticationContextException)

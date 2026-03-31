@@ -21,7 +21,10 @@ describe('[AUTH] OrganizationUserController', () => {
 
   it('findAll', () => {
     const methodName = trackMethod('findAll')
-    expectArrayMatch(getAllowedAuthStrategies(OrganizationUserController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationUserController, methodName), [
+      AuthStrategyType.JWT,
+      AuthStrategyType.API_KEY,
+    ])
     expectArrayMatch(getAuthContextGuards(OrganizationUserController, methodName), [OrganizationAuthContextGuard])
     expect(getRequiredOrganizationMemberRole(OrganizationUserController, methodName)).toBeUndefined()
     expect(getRequiredOrganizationResourcePermissions(OrganizationUserController, methodName)).toBeUndefined()

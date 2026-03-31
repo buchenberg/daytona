@@ -14,6 +14,7 @@ export interface BaseAuthContext {
     | 'region-ssh-gateway'
     | 'otel-collector'
     | 'health-check'
+    | 'billing'
 }
 
 export function isBaseAuthContext(user: unknown): user is BaseAuthContext {

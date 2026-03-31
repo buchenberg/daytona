@@ -28,6 +28,7 @@ import { RegionSSHGatewayAuthContext } from '../common/interfaces/region-ssh-gat
 import { OtelCollectorAuthContext } from '../common/interfaces/otel-collector-auth-context.interface'
 import { HealthCheckAuthContext } from '../common/interfaces/health-check-auth-context.interface'
 import { handleAuthError } from './utils/handle-auth-error.util'
+import { BillingAuthContext } from '../common/interfaces/billing-auth-context.interface'
 
 type ApiKeyAuthContext =
   | UserAuthContext
@@ -38,6 +39,7 @@ type ApiKeyAuthContext =
   | RegionSSHGatewayAuthContext
   | OtelCollectorAuthContext
   | HealthCheckAuthContext
+  | BillingAuthContext
 
 type UserCache = {
   userId: string
@@ -94,6 +96,11 @@ export class ApiKeyStrategy extends PassportStrategy(Strategy, AuthStrategyType.
     const healthCheckApiKey = this.configService.get('healthCheck.apiKey')
     if (healthCheckApiKey && healthCheckApiKey === token) {
       return { role: 'health-check' } satisfies HealthCheckAuthContext
+    }
+
+    const billingApiKey = this.configService.get('billing.apiKey')
+    if (billingApiKey && billingApiKey === token) {
+      return { role: 'billing' } satisfies BillingAuthContext
     }
 
     /**

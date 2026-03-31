@@ -320,6 +320,9 @@ const configuration = {
   otelCollector: {
     apiKey: process.env.OTEL_COLLECTOR_API_KEY,
   },
+  billing: {
+    apiKey: process.env.BILLING_API_KEY,
+  },
   clickhouse: {
     host: process.env.CLICKHOUSE_HOST,
     port: parseInt(process.env.CLICKHOUSE_PORT || '8123', 10),

@@ -14,6 +14,7 @@ import {
   createMockRegionAuthContext,
   createMockHealthCheckAuthContext,
   createMockUserAuthContext,
+  createMockBillingAuthContext,
 } from '../../test/helpers/auth-context.factory'
 import { createMockExecutionContext } from '../../test/helpers/execution-context.factory'
 
@@ -98,6 +99,7 @@ describe('[AUTH] SandboxAccessGuard', () => {
     ['User', createMockUserAuthContext],
     ['HealthCheck', createMockHealthCheckAuthContext],
     ['OtelCollector', createMockOtelCollectorAuthContext],
+    ['Billing', createMockBillingAuthContext],
   ])('rejects %sAuthContext', async (_name, factory) => {
     const { context } = createMockExecutionContext({ user: factory(), params: { sandboxIdOrName: 'sandbox-1' } } as any)
     await expect(guard.canActivate(context)).rejects.toThrow(NotFoundException)

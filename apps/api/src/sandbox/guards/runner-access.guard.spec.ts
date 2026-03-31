@@ -16,6 +16,7 @@ import {
   createMockSshGatewayAuthContext,
   createMockRegionAuthContext,
   createMockOrganizationAuthContext,
+  createMockBillingAuthContext,
 } from '../../test/helpers/auth-context.factory'
 import { createMockExecutionContext } from '../../test/helpers/execution-context.factory'
 
@@ -104,6 +105,7 @@ describe('[AUTH] RunnerAccessGuard', () => {
     ['RegionSshGateway', createMockRegionSshGatewayAuthContext],
     ['HealthCheck', createMockHealthCheckAuthContext],
     ['OtelCollector', createMockOtelCollectorAuthContext],
+    ['Billing', createMockBillingAuthContext],
   ])('rejects %sAuthContext', async (_name, factory) => {
     const runner = { id: 'runner-1', region: 'region-1' }
     runnerService.findOneOrFail.mockResolvedValue(runner)

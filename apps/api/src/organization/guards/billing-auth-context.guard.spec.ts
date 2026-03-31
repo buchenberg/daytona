@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { ProxyAuthContextGuard } from './proxy-auth-context.guard'
+import { BillingAuthContextGuard } from './billing-auth-context.guard'
 import { InvalidAuthenticationContextException } from '../../common/exceptions/invalid-authentication-context.exception'
 import {
   createMockBillingAuthContext,
@@ -19,20 +19,15 @@ import {
 } from '../../test/helpers/auth-context.factory'
 import { createMockExecutionContext } from '../../test/helpers/execution-context.factory'
 
-describe('[AUTH] ProxyAuthContextGuard', () => {
-  let guard: ProxyAuthContextGuard
+describe('[AUTH] BillingAuthContextGuard', () => {
+  let guard: BillingAuthContextGuard
 
   beforeEach(() => {
-    guard = new ProxyAuthContextGuard()
+    guard = new BillingAuthContextGuard()
   })
 
-  it('allows RegionProxyAuthContext', async () => {
-    const { context } = createMockExecutionContext({ user: createMockRegionProxyAuthContext() })
-    await expect(guard.canActivate(context)).resolves.toBe(true)
-  })
-
-  it('allows ProxyAuthContext', async () => {
-    const { context } = createMockExecutionContext({ user: createMockProxyAuthContext() })
+  it('allows BillingAuthContext', async () => {
+    const { context } = createMockExecutionContext({ user: createMockBillingAuthContext() })
     await expect(guard.canActivate(context)).resolves.toBe(true)
   })
 
@@ -40,12 +35,13 @@ describe('[AUTH] ProxyAuthContextGuard', () => {
     ['User', createMockUserAuthContext],
     ['Organization', createMockOrganizationAuthContext],
     ['Runner', createMockRunnerAuthContext],
+    ['Proxy', createMockProxyAuthContext],
     ['SshGateway', createMockSshGatewayAuthContext],
+    ['RegionProxy', createMockRegionProxyAuthContext],
     ['RegionSshGateway', createMockRegionSshGatewayAuthContext],
     ['HealthCheck', createMockHealthCheckAuthContext],
     ['OtelCollector', createMockOtelCollectorAuthContext],
-    ['Billing', createMockBillingAuthContext],
-  ])('rejects %s', async (_name, factory) => {
+  ])('rejects %sAuthContext', async (_name, factory) => {
     const { context } = createMockExecutionContext({ user: factory() })
     await expect(guard.canActivate(context)).rejects.toThrow(InvalidAuthenticationContextException)
   })
