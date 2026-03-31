@@ -242,7 +242,7 @@ export class SandboxStartAction extends SandboxAction {
 
     try {
       runner = await this.runnerService.getRandomAvailableRunner({
-        regions: [sandbox.region],
+        regions: [effectiveRegion],
         sandboxClass: sandbox.class,
         excludedRunnerIds: excludedRunnerIds,
         ...(isBuild &&
