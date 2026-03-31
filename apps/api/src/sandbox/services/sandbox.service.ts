@@ -535,7 +535,9 @@ export class SandboxService {
 
       const insertedSandbox = await this.sandboxRepository.insert(sandbox)
 
-      this.eventEmitter.emit(SandboxEvents.CREATED, new SandboxCreatedEvent(insertedSandbox))
+      this.eventEmitter
+        .emitAsync(SandboxEvents.CREATED, new SandboxCreatedEvent(insertedSandbox))
+        .catch((err) => this.logger.error('Failed to emit SandboxCreatedEvent', err))
 
       return this.toSandboxDto(insertedSandbox)
     } catch (error) {
@@ -767,7 +769,9 @@ export class SandboxService {
 
       const insertedSandbox = await this.sandboxRepository.insert(sandbox)
 
-      this.eventEmitter.emit(SandboxEvents.CREATED, new SandboxCreatedEvent(insertedSandbox))
+      this.eventEmitter
+        .emitAsync(SandboxEvents.CREATED, new SandboxCreatedEvent(insertedSandbox))
+        .catch((err) => this.logger.error('Failed to emit SandboxCreatedEvent', err))
 
       return this.toSandboxDto(insertedSandbox)
     } catch (error) {
