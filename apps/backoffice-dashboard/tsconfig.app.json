@@ -1,0 +1,29 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../dist/out-tsc",
+    "types": ["node", "vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../dashboard/src/*"],
+      "@backoffice/*": ["src/*"],
+      "@api/*": ["../api/src/*"],
+      "@daytonaio/backoffice-api-client": ["../../libs/backoffice-api-client/src/index.ts"],
+      "@dashboard/ui/*": ["../dashboard/src/components/ui/*"],
+      "@dashboard/lib/*": ["../dashboard/src/lib/*"],
+      "@dashboard/hooks/*": ["../dashboard/src/hooks/*"],
+      "@dashboard/components/*": ["../dashboard/src/components/*"]
+    }
+  },
+  "include": [
+    "vite.config.ts",
+    "vite.config.mts",
+    "vitest.config.ts",
+    "vitest.config.mts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.js",
+    "src/**/*.jsx"
+  ],
+  "exclude": ["src/**/*.spec.ts", "src/**/*.test.ts", "src/**/*.spec.tsx", "src/**/*.test.tsx"]
+}

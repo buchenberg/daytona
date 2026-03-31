@@ -1,0 +1,76 @@
+{
+  "name": "backoffice-api",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/backoffice-api/src",
+  "projectType": "application",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/webpack:webpack",
+      "options": {
+        "outputPath": "dist/apps/backoffice-api",
+        "main": "apps/backoffice-api/src/main.ts",
+        "tsConfig": "apps/backoffice-api/tsconfig.app.json",
+        "generatePackageJson": true,
+        "target": "node",
+        "compiler": "tsc",
+        "sourceMap": true,
+        "webpackConfig": "apps/backoffice-api/webpack.config.js",
+        "assets": []
+      },
+      "configurations": {
+        "development": {
+          "optimization": false
+        },
+        "production": {
+          "optimization": true,
+          "extractLicenses": true,
+          "inspect": false
+        }
+      }
+    },
+    "serve": {
+      "executor": "@nx/js:node",
+      "defaultConfiguration": "development",
+      "dependsOn": ["build"],
+      "options": {
+        "buildTarget": "backoffice-api:build",
+        "runBuildTargetDependencies": false,
+        "watch": true
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "backoffice-api:build:development"
+        },
+        "production": {
+          "buildTarget": "backoffice-api:build:production"
+        }
+      }
+    },
+    "openapi": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": ["mkdir -p dist/apps/backoffice-api", "yarn ts-node apps/backoffice-api/src/generate-openapi.ts"],
+        "parallel": false,
+        "env": {
+          "TS_NODE_PROJECT": "apps/backoffice-api/tsconfig.app.json",
+          "NODE_OPTIONS": "--require tsconfig-paths/register",
+          "SKIP_CONNECTIONS": "true"
+        }
+      }
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd {projectRoot} && prettier --write \"**/*.{ts,json,mjs}\" --config ../../.prettierrc"
+      }
+    },
+    "check-version-env": {},
+    "docker": {
+      "options": {
+        "target": "backoffice"
+      }
+    },
+    "push-manifest": {}
+  }
+}

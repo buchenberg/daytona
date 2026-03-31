@@ -15,7 +15,9 @@
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
+      "@api/*": ["apps/api/src/*"],
       "@daytonaio/api-client": ["libs/api-client/src/index.ts"],
+      "@daytonaio/backoffice-api-client": ["libs/backoffice-api-client/src/index.ts"],
       "@daytonaio/runner-api-client": ["libs/runner-api-client/src/index.ts"],
       "@daytonaio/sdk": ["libs/sdk-typescript/src/index.ts"],
       "@daytonaio/toolbox-api-client": ["libs/toolbox-api-client/src/index.ts"],
