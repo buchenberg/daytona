@@ -51,8 +51,6 @@ import { OtelCollectorAuthContextGuard } from '../guards/otel-collector-auth-con
 import { OtelConfigDto } from '../dto/otel-config.dto'
 import { OrganizationAuthContext } from '../../common/interfaces/organization-auth-context.interface'
 import { UserAuthContextGuard } from '../../user/guards/user-auth-context.guard'
-import { RegionQuotaDto } from '../dto/region-quota.dto'
-import { ProxyAuthContextGuard } from '../../sandbox/guards/proxy-auth-context.guard'
 
 @Controller('organizations')
 @ApiTags('organizations')
@@ -509,60 +507,6 @@ export class OrganizationController {
   })
   async unsuspend(@Param('organizationId') organizationId: string): Promise<void> {
     return this.organizationService.unsuspend(organizationId)
-  }
-
-  @Get('/by-sandbox-id/:sandboxId')
-  @ApiOperation({
-    summary: 'Get organization by sandbox ID',
-    operationId: 'getOrganizationBySandboxIdDeprecated',
-    deprecated: true,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Organization',
-    type: OrganizationDto,
-  })
-  @ApiParam({
-    name: 'sandboxId',
-    description: 'Sandbox ID',
-    type: 'string',
-  })
-  @AuthStrategy(AuthStrategyType.API_KEY)
-  @UseGuards(ProxyAuthContextGuard)
-  async getBySandboxId(@Param('sandboxId') sandboxId: string): Promise<OrganizationDto> {
-    const organization = await this.organizationService.findBySandboxId(sandboxId)
-    if (!organization) {
-      throw new NotFoundException(`Organization with sandbox ID ${sandboxId} not found`)
-    }
-
-    return OrganizationDto.fromOrganization(organization)
-  }
-
-  @Get('/region-quota/by-sandbox-id/:sandboxId')
-  @ApiOperation({
-    summary: 'Get region quota by sandbox ID',
-    operationId: 'getRegionQuotaBySandboxIdDeprecated',
-    deprecated: true,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Region quota',
-    type: RegionQuotaDto,
-  })
-  @ApiParam({
-    name: 'sandboxId',
-    description: 'Sandbox ID',
-    type: 'string',
-  })
-  @AuthStrategy(AuthStrategyType.API_KEY)
-  @UseGuards(ProxyAuthContextGuard)
-  async getRegionQuotaBySandboxId(@Param('sandboxId') sandboxId: string): Promise<RegionQuotaDto> {
-    const regionQuota = await this.organizationService.getRegionQuotaBySandboxId(sandboxId)
-    if (!regionQuota) {
-      throw new NotFoundException(`Region quota for sandbox with ID ${sandboxId} not found`)
-    }
-
-    return regionQuota
   }
 
   @Get('/otel-config/by-sandbox-auth-token/:authToken')

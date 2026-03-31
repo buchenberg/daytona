@@ -616,64 +616,6 @@ paths:
       summary: Unsuspend organization
       tags:
       - organizations
-  /organizations/by-sandbox-id/{sandboxId}:
-    get:
-      deprecated: true
-      operationId: getOrganizationBySandboxIdDeprecated
-      parameters:
-      - description: Sandbox ID
-        explode: false
-        in: path
-        name: sandboxId
-        required: true
-        schema:
-          type: string
-        style: simple
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Organization'
-          description: Organization
-      security:
-      - bearer: []
-      - oauth2:
-        - openid
-        - profile
-        - email
-      summary: Get organization by sandbox ID
-      tags:
-      - organizations
-  /organizations/region-quota/by-sandbox-id/{sandboxId}:
-    get:
-      deprecated: true
-      operationId: getRegionQuotaBySandboxIdDeprecated
-      parameters:
-      - description: Sandbox ID
-        explode: false
-        in: path
-        name: sandboxId
-        required: true
-        schema:
-          type: string
-        style: simple
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RegionQuota'
-          description: Region quota
-      security:
-      - bearer: []
-      - oauth2:
-        - openid
-        - profile
-        - email
-      summary: Get region quota by sandbox ID
-      tags:
-      - organizations
   /organizations/otel-config/by-sandbox-auth-token/{authToken}:
     get:
       operationId: getOrganizationOtelConfigBySandboxAuthToken
@@ -9766,31 +9708,6 @@ components:
       - reason
       - until
       type: object
-    RegionQuota:
-      example:
-        organizationId: organizationId
-        totalCpuQuota: 0.8008281904610115
-        regionId: regionId
-        totalMemoryQuota: 6.027456183070403
-        totalDiskQuota: 1.4658129805029452
-      properties:
-        organizationId:
-          type: string
-        regionId:
-          type: string
-        totalCpuQuota:
-          type: number
-        totalMemoryQuota:
-          type: number
-        totalDiskQuota:
-          type: number
-      required:
-      - organizationId
-      - regionId
-      - totalCpuQuota
-      - totalDiskQuota
-      - totalMemoryQuota
-      type: object
     OtelConfig:
       example:
         headers:
@@ -11087,6 +11004,31 @@ components:
           type: string
       required:
       - url
+      type: object
+    RegionQuota:
+      example:
+        organizationId: organizationId
+        totalCpuQuota: 0.8008281904610115
+        regionId: regionId
+        totalMemoryQuota: 6.027456183070403
+        totalDiskQuota: 1.4658129805029452
+      properties:
+        organizationId:
+          type: string
+        regionId:
+          type: string
+        totalCpuQuota:
+          type: number
+        totalMemoryQuota:
+          type: number
+        totalDiskQuota:
+          type: number
+      required:
+      - organizationId
+      - regionId
+      - totalCpuQuota
+      - totalDiskQuota
+      - totalMemoryQuota
       type: object
     CreateRunner:
       example:
