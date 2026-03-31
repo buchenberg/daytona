@@ -366,7 +366,7 @@ func (p *Proxy) sandboxIsExempt(ctx *gin.Context, sandboxId string, port float32
 	}
 
 	if !hasOrgId || !hasRegionId {
-		regionQuota, res, err := p.apiclient.OrganizationsAPI.GetRegionQuotaBySandboxId(ctx, sandboxId).Execute()
+		regionQuota, res, err := p.apiclient.SandboxAPI.GetRegionQuotaBySandboxId(ctx, sandboxId).Execute()
 		if err != nil {
 			if retryAsSignedUrl && res != nil && res.StatusCode == http.StatusNotFound {
 				idFromToken, _, signedErr := p.apiclient.PreviewAPI.GetSandboxIdFromSignedPreviewUrlToken(ctx.Request.Context(), sandboxId, port).Execute()
@@ -421,7 +421,7 @@ func (p *Proxy) sandboxIsExempt(ctx *gin.Context, sandboxId string, port float32
 				CPUQuota = *c
 			} else {
 				// Fetch from API
-				regionQuota, _, err := p.apiclient.OrganizationsAPI.GetRegionQuotaBySandboxId(ctx, sandboxId).Execute()
+				regionQuota, _, err := p.apiclient.SandboxAPI.GetRegionQuotaBySandboxId(ctx, sandboxId).Execute()
 				if err != nil {
 					return false, err
 				}

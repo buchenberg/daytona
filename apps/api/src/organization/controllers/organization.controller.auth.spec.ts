@@ -18,6 +18,7 @@ import {
   createCoverageTracker,
 } from '../../test/helpers/controller-metadata.helper'
 import { UserAuthContextGuard } from '../../user/guards/user-auth-context.guard'
+import { ProxyAuthContextGuard } from '../../sandbox/guards/proxy-auth-context.guard'
 
 describe('[AUTH] OrganizationController', () => {
   const trackMethod = createCoverageTracker(OrganizationController)
@@ -118,6 +119,18 @@ describe('[AUTH] OrganizationController', () => {
     const methodName = trackMethod('unsuspend')
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
+  })
+
+  it('getBySandboxId', () => {
+    const methodName = trackMethod('getBySandboxId')
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [ProxyAuthContextGuard])
+  })
+
+  it('getRegionQuotaBySandboxId', () => {
+    const methodName = trackMethod('getRegionQuotaBySandboxId')
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [ProxyAuthContextGuard])
   })
 
   it('getOtelConfigBySandboxAuthToken', () => {
