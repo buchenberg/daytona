@@ -202,7 +202,6 @@
     "svix-react": "^1.13.7",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "tailwind": "^4.0.0",
     "tailwind-merge": "^3.4.0",
     "tailwind-scrollbar": "^4.0.2",
     "tailwindcss-animate": "^1.0.7",
