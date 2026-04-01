@@ -5,7 +5,17 @@
 
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Database, Server, Camera, Building2, Users, MapPin, UserCircle, ClipboardList } from 'lucide-react'
+import {
+  Database,
+  Server,
+  Camera,
+  Building2,
+  Users,
+  MapPin,
+  UserCircle,
+  ClipboardList,
+  MessageCircle,
+} from 'lucide-react'
 import { Logo, LogoText } from '@backoffice/assets/Logo'
 import {
   Sidebar as SidebarComponent,
@@ -29,6 +39,7 @@ const navigation = [
   { name: 'Region Quotas', href: '/region-quotas', icon: MapPin },
   { name: 'Users', href: '/users', icon: UserCircle },
   { name: 'Audit Logs', href: '/audit-logs', icon: ClipboardList },
+  { name: 'Mali', href: '/chat', icon: MessageCircle },
 ]
 
 export function Sidebar() {

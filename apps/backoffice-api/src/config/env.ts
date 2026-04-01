@@ -83,4 +83,35 @@ export const config = {
   admin: {
     organizationId: process.env.ADMIN_ORG_ID || '',
   },
+
+  mali: {
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
+    model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6',
+
+    grafana: {
+      url: process.env.MALI_GRAFANA_URL || '',
+      token: process.env.MALI_GRAFANA_TOKEN || '',
+    },
+    database: {
+      url: process.env.MALI_DB_APP_URL || '',
+      token: process.env.MALI_DB_APP_TOKEN || process.env.MALI_DB_TOKEN || '',
+    },
+    clickhouse: {
+      serviceId: process.env.MALI_CLICKHOUSE_SERVICE_ID || '',
+      keyId: process.env.MALI_CLICKHOUSE_KEY_ID || '',
+      keySecret: process.env.MALI_CLICKHOUSE_KEY_SECRET || '',
+    },
+    opensearch: {
+      url: process.env.MALI_OPENSEARCH_URL || '',
+    },
+    posthog: {
+      host: process.env.MALI_POSTHOG_HOST || 'https://us.posthog.com',
+      apiKey: process.env.MALI_POSTHOG_API_KEY || '',
+      projectId: process.env.MALI_POSTHOG_PROJECT_ID || '',
+    },
+    sandbox: {
+      githubRepoUrl: process.env.MALI_GITHUB_REPO_URL || '',
+      githubPat: process.env.MALI_GITHUB_PAT || '',
+    },
+  },
 }

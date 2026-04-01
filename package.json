@@ -33,6 +33,9 @@
     "push-manifest": "nx run-many --target=push-manifest --all --parallel=$(getconf _NPROCESSORS_ONLN)"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
+    "@assistant-ui/react": "^0.12.20",
+    "@assistant-ui/react-markdown": "^0.12.6",
     "@astrojs/mdx": "2.2.4",
     "@astrojs/node": "9.5.4",
     "@astrojs/react": "^3.1.1",
@@ -251,6 +254,7 @@
     "@swc/core": "~1.5.7",
     "@swc/helpers": "~0.5.11",
     "@tailwindcss/postcss": "^4.1.11",
+    "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-query-devtools": "^5.90.1",
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@types/busboy": "^1.0.0",

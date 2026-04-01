@@ -121,6 +121,7 @@ module.exports = {
     },
   },
   plugins: [
+    require('@tailwindcss/typography'),
     require('tailwind-scrollbar'),
     require('tailwindcss-animate'),
     plugin(function ({ addVariant }) {

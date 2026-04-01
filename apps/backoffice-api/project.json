@@ -16,7 +16,13 @@
         "compiler": "tsc",
         "sourceMap": true,
         "webpackConfig": "apps/backoffice-api/webpack.config.js",
-        "assets": []
+        "assets": [
+          {
+            "glob": "*.md",
+            "input": "apps/backoffice-api/src/skills",
+            "output": "skills"
+          }
+        ]
       },
       "configurations": {
         "development": {
