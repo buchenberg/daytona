@@ -37,6 +37,13 @@ const configuration = {
     password: process.env.REDIS_PASSWORD,
     tls: process.env.REDIS_TLS === 'true' ? {} : undefined,
   },
+  proxyEuRedis: {
+    host: process.env.PROXY_EU_REDIS_HOST,
+    port: parseInt(process.env.PROXY_EU_REDIS_PORT || '6379', 10),
+    username: process.env.PROXY_EU_REDIS_USERNAME,
+    password: process.env.PROXY_EU_REDIS_PASSWORD,
+    tls: process.env.PROXY_EU_REDIS_TLS === 'true' ? {} : undefined,
+  },
   posthog: {
     apiKey: process.env.POSTHOG_API_KEY,
     host: process.env.POSTHOG_HOST,

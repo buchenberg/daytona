@@ -179,6 +179,25 @@ export class TypedConfigService {
   }
 
   /**
+   * Get the EU proxy Redis configuration
+   * @returns The Redis configuration or null if not configured
+   */
+  getProxyEuRedisConfig(): RedisOptions | null {
+    const host = this.get('proxyEuRedis.host')
+    if (!host) {
+      return null
+    }
+    return {
+      host,
+      port: this.get('proxyEuRedis.port'),
+      username: this.get('proxyEuRedis.username'),
+      password: this.get('proxyEuRedis.password'),
+      tls: this.get('proxyEuRedis.tls'),
+      lazyConnect: this.get('skipConnections'),
+    }
+  }
+
+  /**
    * Get the ClickHouse configuration
    * @returns The ClickHouse configuration
    */
