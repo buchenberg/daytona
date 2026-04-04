@@ -4,6 +4,7 @@
  */
 
 import type { ChatEvent } from './types'
+import { parseChatEvent } from './types'
 
 const BASE = '/api/v1'
 
@@ -58,7 +59,16 @@ export async function* streamChat(
       if (line.startsWith('data: ')) {
         const json = line.slice(6).trim()
         if (json) {
-          yield JSON.parse(json) as ChatEvent
+          try {
+            const event = parseChatEvent(JSON.parse(json))
+            if (event) {
+              yield event
+            } else {
+              console.warn('[mali-sse] Skipping unrecognized event:', json)
+            }
+          } catch (e) {
+            console.warn('[mali-sse] Skipping malformed SSE data:', json, e)
+          }
         }
       }
     }
@@ -104,7 +114,16 @@ export async function* streamContinue(conversationId: string, signal?: AbortSign
       if (line.startsWith('data: ')) {
         const json = line.slice(6).trim()
         if (json) {
-          yield JSON.parse(json) as ChatEvent
+          try {
+            const event = parseChatEvent(JSON.parse(json))
+            if (event) {
+              yield event
+            } else {
+              console.warn('[mali-sse] Skipping unrecognized event:', json)
+            }
+          } catch (e) {
+            console.warn('[mali-sse] Skipping malformed SSE data:', json, e)
+          }
         }
       }
     }
@@ -169,8 +188,22 @@ export function deleteConversation(id: string): Promise<{ success: boolean }> {
   return request(`/conversations/${id}`, { method: 'DELETE' })
 }
 
+export function rememberFromConversation(
+  conversationId: string,
+): Promise<{ success: boolean; key?: string; value?: string }> {
+  return request(`/chat/remember/${conversationId}`, { method: 'POST' })
+}
+
+export function getSuggestions(conversationId: string): Promise<{ suggestions: string[] }> {
+  return request(`/chat/suggestions/${conversationId}`)
+}
+
 export function resetConversationMessages(id: string, keepCount: number): Promise<{ deleted: number }> {
   return request(`/conversations/${id}/messages?keepCount=${keepCount}`, { method: 'DELETE' })
+}
+
+export function compactConversation(conversationId: string): Promise<{ summary: string }> {
+  return request(`/chat/compact/${conversationId}`, { method: 'POST' })
 }
 
 // Settings

@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Controller, Post, Body, Req, Res, UseGuards } from '@nestjs/common'
+import { Controller, Post, Get, Param, Body, Req, Res, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiSecurity } from '@nestjs/swagger'
 import { SkipThrottle } from '@nestjs/throttler'
 import { Response } from 'express'
 import { FlexibleAuthGuard } from '../common/guards/flexible-auth.guard'
 import { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface'
 import { ChatService } from './chat.service'
+import { MemoryService } from './memory.service'
 import { ChatRequestDto, StopChatRequestDto, ContinueChatRequestDto } from './dto/chat-request.dto'
 
 @ApiTags('chat')
@@ -17,7 +18,10 @@ import { ChatRequestDto, StopChatRequestDto, ContinueChatRequestDto } from './dt
 @UseGuards(FlexibleAuthGuard)
 @Controller('chat')
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly memoryService: MemoryService,
+  ) {}
 
   @Post('stream')
   @SkipThrottle()
@@ -93,5 +97,42 @@ export class ChatController {
     }
 
     if (!res.writableEnded) res.end()
+  }
+
+  @Get('suggestions/:conversationId')
+  @ApiOperation({ summary: 'Generate follow-up suggestions for a conversation' })
+  async suggestions(@Param('conversationId') conversationId: string, @Req() req: AuthenticatedRequest) {
+    const userId = req.user?.id || 'anonymous'
+    const suggestions = await this.chatService.generateSuggestions(conversationId, userId)
+    return { suggestions }
+  }
+
+  @Post('compact/:conversationId')
+  @ApiOperation({ summary: 'Compact conversation history by summarizing old messages' })
+  async compact(@Param('conversationId') conversationId: string, @Req() req: AuthenticatedRequest) {
+    const userId = req.user?.id || 'anonymous'
+    return this.chatService.compactConversation(conversationId, userId)
+  }
+
+  @Post('remember/:conversationId')
+  @ApiOperation({ summary: 'Extract and store a memory from recent conversation messages' })
+  async remember(@Param('conversationId') conversationId: string, @Req() req: AuthenticatedRequest) {
+    const userId = req.user?.id || 'anonymous'
+    const memory = await this.memoryService.rememberFromConversation(conversationId, userId)
+    return memory ? { success: true, key: memory.key, value: memory.value } : { success: false }
+  }
+
+  @Get('memories')
+  @ApiOperation({ summary: 'List all shared memory entries' })
+  async listMemories() {
+    const memories = await this.memoryService.list()
+    return { memories }
+  }
+
+  @Post('forget')
+  @ApiOperation({ summary: 'Delete a memory entry by key' })
+  async forget(@Body() body: { key: string }) {
+    const deleted = await this.memoryService.forget(body.key)
+    return { success: deleted }
   }
 }

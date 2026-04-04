@@ -17,6 +17,7 @@ import { Conversation } from './chat/entities/conversation.entity'
 import { Message } from './chat/entities/message.entity'
 import { UserSettings } from './chat/entities/user-settings.entity'
 import { ThreadCollaborator } from './chat/entities/thread-collaborator.entity'
+import { Memory } from './chat/entities/memory.entity'
 
 // Auth & Audit
 import { AuthModule } from './auth/auth.module'
@@ -82,7 +83,7 @@ import { HealthController } from './health.controller'
       username: config.backofficeDb.username,
       password: config.backofficeDb.password,
       database: config.backofficeDb.database,
-      entities: [AuditLog, BackofficeUser, Conversation, Message, UserSettings, ThreadCollaborator],
+      entities: [AuditLog, BackofficeUser, Conversation, Message, UserSettings, ThreadCollaborator, Memory],
       migrations: [join(__dirname, 'migrations-backoffice/**/*{.ts,.js}')],
       migrationsRun: config.backofficeDb.migrationsRun,
       synchronize: false,

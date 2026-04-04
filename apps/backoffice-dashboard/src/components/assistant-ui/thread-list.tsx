@@ -88,7 +88,7 @@ const ThreadListItem: FC = () => {
   }
 
   return (
-    <ThreadListItemPrimitive.Root className="group flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-muted data-[current]:bg-muted border-b border-border/50">
+    <ThreadListItemPrimitive.Root className="group flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-muted aria-[current]:bg-primary/10 aria-[current]:border-l-2 aria-[current]:border-l-primary border-b border-border/50">
       <ThreadListItemPrimitive.Trigger className="flex-1 min-w-0 text-left">
         <div className="truncate">
           <ThreadListItemPrimitive.Title fallback="New conversation" />

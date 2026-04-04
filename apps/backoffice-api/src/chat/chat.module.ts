@@ -18,15 +18,20 @@ import { Conversation } from './entities/conversation.entity'
 import { Message } from './entities/message.entity'
 import { UserSettings } from './entities/user-settings.entity'
 import { ThreadCollaborator } from './entities/thread-collaborator.entity'
+import { Memory } from './entities/memory.entity'
+import { MemoryService } from './memory.service'
 import { BackofficeUser } from '../backoffice-db/entities/backoffice-user.entity'
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Conversation, Message, UserSettings, ThreadCollaborator, BackofficeUser], 'backoffice'),
+    TypeOrmModule.forFeature(
+      [Conversation, Message, UserSettings, ThreadCollaborator, Memory, BackofficeUser],
+      'backoffice',
+    ),
     AuthModule,
     ToolsModule,
   ],
   controllers: [ChatController, ConversationsController, SettingsController],
-  providers: [ChatService, ConversationsService, CollaboratorsService, SettingsService],
+  providers: [ChatService, ConversationsService, CollaboratorsService, SettingsService, MemoryService],
 })
 export class ChatModule {}

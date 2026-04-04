@@ -9,6 +9,12 @@ import type { ChatEvent } from './types'
 
 type JSONValue = null | string | number | boolean | { readonly [key: string]: JSONValue } | readonly JSONValue[]
 
+function isAbortError(err: unknown): boolean {
+  return (
+    (err instanceof DOMException && err.name === 'AbortError') || (err instanceof Error && err.name === 'AbortError')
+  )
+}
+
 interface ToolCallEntry {
   toolCallId: string
   toolName: string
@@ -173,6 +179,11 @@ export const createMaliAdapter = (fixedConversationId?: string): ChatModelAdapte
             }
             return
 
+          case 'warning':
+            appendText(`\n\n> **Warning**: ${(event as { type: 'warning'; message: string }).message}\n\n`)
+            yield buildResult()
+            break
+
           case 'done':
             yield buildResult()
             return
@@ -183,8 +194,29 @@ export const createMaliAdapter = (fixedConversationId?: string): ChatModelAdapte
               status: { type: 'incomplete' as const, reason: 'length' as const },
             }
             return
+
+          // New event types — silently ignored in the UI for now
+          case 'usage':
+          case 'stuck_loop':
+            break
         }
       }
+    } catch (err: unknown) {
+      if (isAbortError(err)) {
+        // User cancelled — yield current accumulated content with cancelled status
+        yield {
+          ...buildResult(),
+          status: { type: 'incomplete' as const, reason: 'cancelled' as const },
+        }
+        return
+      }
+      // Network or unexpected error �� surface as error message in chat
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred'
+      yield {
+        content: [{ type: 'text' as const, text: `Error: ${message}` }],
+        status: { type: 'incomplete' as const, reason: 'error' as const },
+      }
+      return
     } finally {
       abortSignal.removeEventListener('abort', handleAbort)
     }

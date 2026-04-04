@@ -28,6 +28,24 @@ const SANDBOX_TOOL_NAMES = new Set([
   'create_fix_pr',
 ])
 
+/** Tools that mutate state — must execute sequentially, never in parallel. */
+const SIDE_EFFECT_TOOL_NAMES = new Set(['sandbox_create', 'sandbox_delete', 'sandbox_exec', 'create_fix_pr'])
+
+/** Per-tool timeout overrides (ms). Default: 30s. */
+const TOOL_TIMEOUTS: Record<string, number> = {
+  query_prometheus_range: 45_000,
+  query_loki: 45_000,
+  query_clickhouse: 45_000,
+  query_opensearch: 45_000,
+  query_posthog: 45_000,
+  search_tempo_traces: 45_000,
+  sandbox_create: 120_000,
+  sandbox_exec: 60_000,
+  create_fix_pr: 300_000,
+}
+
+const DEFAULT_TIMEOUT_MS = 30_000
+
 @Injectable()
 export class ToolRegistry {
   private readonly logger = new Logger(ToolRegistry.name)
@@ -104,8 +122,22 @@ export class ToolRegistry {
     if (!executor) {
       return JSON.stringify({ error: `Unknown tool: ${name}` })
     }
+
+    const timeoutMs = TOOL_TIMEOUTS[name] ?? DEFAULT_TIMEOUT_MS
+
     try {
-      return await executor(input, userId)
+      const result = await Promise.race([
+        executor(input, userId),
+        new Promise<never>((_, reject) => {
+          const timer = setTimeout(
+            () => reject(new Error(`Tool ${name} timed out after ${Math.round(timeoutMs / 1000)}s`)),
+            timeoutMs,
+          )
+          // Don't keep the Node.js process alive for the timer
+          if (typeof timer === 'object' && 'unref' in timer) (timer as NodeJS.Timeout).unref()
+        }),
+      ])
+      return result
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       this.logger.error(`Tool ${name} failed: ${message}`)
@@ -115,6 +147,10 @@ export class ToolRegistry {
 
   isSandboxTool(name: string): boolean {
     return SANDBOX_TOOL_NAMES.has(name)
+  }
+
+  isReadOnlyTool(name: string): boolean {
+    return !SIDE_EFFECT_TOOL_NAMES.has(name)
   }
 
   summarizeArgs(args: Record<string, unknown>): Record<string, unknown> {

@@ -21,6 +21,9 @@ export class Message {
   @Column({ type: 'jsonb' })
   content: unknown
 
+  @Column({ name: 'compacted_at', type: 'timestamptz', nullable: true })
+  compactedAt: Date | null
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date
 

@@ -9,6 +9,11 @@ import { config } from './env'
 
 import { AuditLog } from '../backoffice-db/entities/audit-log.entity'
 import { BackofficeUser } from '../backoffice-db/entities/backoffice-user.entity'
+import { Conversation } from '../chat/entities/conversation.entity'
+import { Message } from '../chat/entities/message.entity'
+import { UserSettings } from '../chat/entities/user-settings.entity'
+import { ThreadCollaborator } from '../chat/entities/thread-collaborator.entity'
+import { Memory } from '../chat/entities/memory.entity'
 
 export const BackofficeDataSource = new DataSource({
   type: 'postgres',
@@ -17,7 +22,7 @@ export const BackofficeDataSource = new DataSource({
   username: config.backofficeDb.username,
   password: config.backofficeDb.password,
   database: config.backofficeDb.database,
-  entities: [AuditLog, BackofficeUser],
+  entities: [AuditLog, BackofficeUser, Conversation, Message, UserSettings, ThreadCollaborator, Memory],
   migrations: [join(__dirname, '../migrations-backoffice/**/*{.ts,.js}')],
   synchronize: false,
   migrationsRun: config.backofficeDb.migrationsRun,

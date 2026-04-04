@@ -39,7 +39,7 @@ const navigation = [
   { name: 'Region Quotas', href: '/region-quotas', icon: MapPin },
   { name: 'Users', href: '/users', icon: UserCircle },
   { name: 'Audit Logs', href: '/audit-logs', icon: ClipboardList },
-  { name: 'Mali', href: '/chat', icon: MessageCircle },
+  { name: 'mali', href: '/chat', icon: MessageCircle },
 ]
 
 export function Sidebar() {

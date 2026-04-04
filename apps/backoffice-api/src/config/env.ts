@@ -87,14 +87,24 @@ export const config = {
   mali: {
     anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
     model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6',
+    suggestionModel: process.env.MALI_SUGGESTION_MODEL || 'claude-haiku-4-5-20251001',
+    fallbackModel: process.env.ANTHROPIC_FALLBACK_MODEL || 'claude-haiku-4-5-20251001',
+    memoryContextMessages: process.env.MALI_MEMORY_CONTEXT_MESSAGES || '5',
 
     grafana: {
       url: process.env.MALI_GRAFANA_URL || '',
       token: process.env.MALI_GRAFANA_TOKEN || '',
     },
     database: {
-      url: process.env.MALI_DB_APP_URL || '',
-      token: process.env.MALI_DB_APP_TOKEN || process.env.MALI_DB_TOKEN || '',
+      host: process.env.MALI_DB_HOST || '',
+      port: parseInt(process.env.MALI_DB_PORT || '5432', 10),
+      username: process.env.MALI_DB_USERNAME || '',
+      password: process.env.MALI_DB_PASSWORD || '',
+      database: process.env.MALI_DB_DATABASE || 'application_ctx',
+      tls: {
+        enabled: process.env.MALI_DB_TLS_ENABLED === 'true',
+        rejectUnauthorized: process.env.MALI_DB_TLS_REJECT_UNAUTHORIZED !== 'false',
+      },
     },
     clickhouse: {
       serviceId: process.env.MALI_CLICKHOUSE_SERVICE_ID || '',
@@ -103,6 +113,8 @@ export const config = {
     },
     opensearch: {
       url: process.env.MALI_OPENSEARCH_URL || '',
+      username: process.env.MALI_OPENSEARCH_USERNAME || '',
+      password: process.env.MALI_OPENSEARCH_PASSWORD || '',
     },
     posthog: {
       host: process.env.MALI_POSTHOG_HOST || 'https://us.posthog.com',

@@ -14,6 +14,8 @@ export class OpensearchService {
 
   constructor(private readonly configService: ConfigService) {
     const url = this.configService.get<string>('mali.opensearch.url')
+    const username = this.configService.get<string>('mali.opensearch.username')
+    const password = this.configService.get<string>('mali.opensearch.password')
 
     if (url) {
       this.client = axios.create({
@@ -23,6 +25,7 @@ export class OpensearchService {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
+        ...(username && password ? { auth: { username, password } } : {}),
       })
       this.logger.log('OpenSearch client initialized')
     } else {

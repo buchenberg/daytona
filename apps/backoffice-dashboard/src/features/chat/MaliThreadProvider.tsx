@@ -6,8 +6,10 @@
 import { RuntimeAdapterProvider, useAui, ExportedMessageRepository } from '@assistant-ui/react'
 import type { ThreadHistoryAdapter, ThreadMessageLike } from '@assistant-ui/react'
 import { useMemo, type FC, type PropsWithChildren } from 'react'
+import { toast } from 'sonner'
 import { getConversation, type AssistantUIMessage, type AssistantUIMessagePart } from './api'
 import { registerKnownConversationId } from './mali-runtime'
+import { setCurrentConversationId } from './conversation-state'
 
 // assistant-ui registers threadListItem scope via module augmentation on @assistant-ui/store,
 // but TypeScript doesn't resolve the augmentation across nested node_modules.
@@ -71,10 +73,13 @@ export const MaliThreadProvider: FC<PropsWithChildren> = ({ children }) => {
       async load() {
         if (!remoteId) return { messages: [] }
         registerKnownConversationId(remoteId)
+        setCurrentConversationId(remoteId)
         try {
           const conv = await getConversation(remoteId)
           return ExportedMessageRepository.fromArray(toThreadMessageLikes(conv.messages))
-        } catch {
+        } catch (err) {
+          console.warn('[mali-history] Failed to load conversation:', err instanceof Error ? err.message : err)
+          toast.error('Failed to load conversation history')
           return { messages: [] }
         }
       },

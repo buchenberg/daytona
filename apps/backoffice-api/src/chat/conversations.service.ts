@@ -5,7 +5,7 @@
 
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { Repository, IsNull } from 'typeorm'
 import { Conversation } from './entities/conversation.entity'
 import { Message } from './entities/message.entity'
 import { ThreadCollaborator } from './entities/thread-collaborator.entity'
@@ -119,13 +119,40 @@ export class ConversationsService {
 
   async getAnthropicMessages(conversationId: string) {
     const messages = await this.messageRepo.find({
-      where: { conversationId },
+      where: { conversationId, compactedAt: IsNull() },
       order: { createdAt: 'ASC' },
     })
-    return messages.map((m) => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    }))
+
+    // Sanitize: strip tool_use blocks from any assistant message that isn't
+    // followed by a user message containing matching tool_result blocks.
+    // This handles every corruption scenario (abort, crash, race condition)
+    // without needing the write path to be perfect.
+    const result: { role: 'user' | 'assistant'; content: unknown }[] = []
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i]
+      const content = m.content
+      if (
+        m.role === 'assistant' &&
+        Array.isArray(content) &&
+        content.some((b: { type?: string }) => b.type === 'tool_use')
+      ) {
+        const next = messages[i + 1]
+        const nextHasResults =
+          next?.role === 'user' &&
+          Array.isArray(next.content) &&
+          next.content.some((b: { type?: string }) => b.type === 'tool_result')
+        if (!nextHasResults) {
+          // Strip tool_use blocks, keep only text
+          const textOnly = content.filter((b: { type?: string }) => b.type !== 'tool_use')
+          if (textOnly.length > 0) {
+            result.push({ role: 'assistant', content: textOnly })
+          }
+          continue
+        }
+      }
+      result.push({ role: m.role as 'user' | 'assistant', content: m.content })
+    }
+    return result
   }
 
   async findById(conversationId: string) {
@@ -163,6 +190,10 @@ export class ConversationsService {
     const toDelete = messages.slice(keepCount).map((m) => m.id)
     await this.messageRepo.delete(toDelete)
     return { deleted: toDelete.length }
+  }
+
+  async deleteAllMessages(conversationId: string) {
+    await this.messageRepo.delete({ conversationId })
   }
 
   static generateTitle(userMessage: string): string {

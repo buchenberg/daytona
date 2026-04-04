@@ -4,6 +4,7 @@
  */
 
 import type { RemoteThreadListAdapter } from '@assistant-ui/react'
+import { toast } from 'sonner'
 import { createConversation, listConversations, getConversation, renameConversation, deleteConversation } from './api'
 import { MaliThreadProvider } from './MaliThreadProvider'
 import { registerKnownConversationId, setLastCreatedConversationId } from './mali-runtime'
@@ -16,22 +17,33 @@ export function getThreadTimestamp(remoteId: string): string | undefined {
 
 export const createMaliThreadListAdapter = (): RemoteThreadListAdapter => ({
   async list() {
-    const conversations = await listConversations()
-    for (const c of conversations) {
-      timestampCache.set(c.id, c.updatedAt)
-      registerKnownConversationId(c.id)
-    }
-    return {
-      threads: conversations.map((c) => ({
-        status: 'regular' as const,
-        remoteId: c.id,
-        title: c.title,
-      })),
+    try {
+      const conversations = await listConversations()
+      for (const c of conversations) {
+        timestampCache.set(c.id, c.updatedAt)
+        registerKnownConversationId(c.id)
+      }
+      return {
+        threads: conversations.map((c) => ({
+          status: 'regular' as const,
+          remoteId: c.id,
+          title: c.title,
+        })),
+      }
+    } catch (err) {
+      console.warn('[mali-threads] Failed to list conversations:', err)
+      toast.error('Failed to load conversations')
+      return { threads: [] }
     }
   },
 
   async rename(remoteId, newTitle) {
-    await renameConversation(remoteId, newTitle)
+    try {
+      await renameConversation(remoteId, newTitle)
+    } catch (err) {
+      console.warn('[mali-threads] Failed to rename conversation:', err)
+      toast.error('Failed to rename conversation')
+    }
   },
 
   async archive() {
@@ -43,19 +55,31 @@ export const createMaliThreadListAdapter = (): RemoteThreadListAdapter => ({
   },
 
   async delete(remoteId) {
-    await deleteConversation(remoteId)
-    timestampCache.delete(remoteId)
+    try {
+      await deleteConversation(remoteId)
+      timestampCache.delete(remoteId)
+    } catch (err) {
+      console.warn('[mali-threads] Failed to delete conversation:', err)
+      toast.error('Failed to delete conversation')
+      throw err // re-throw: assistant-ui must not remove the thread from the list
+    }
   },
 
   async initialize() {
-    const conv = await createConversation()
-    timestampCache.set(conv.id, conv.createdAt)
-    // Register before returning — run() may fire before React re-renders
-    // the updated remoteId into unstable_threadId.
-    setLastCreatedConversationId(conv.id)
-    return {
-      remoteId: conv.id,
-      externalId: undefined,
+    try {
+      const conv = await createConversation()
+      timestampCache.set(conv.id, conv.createdAt)
+      // Register before returning — run() may fire before React re-renders
+      // the updated remoteId into unstable_threadId.
+      setLastCreatedConversationId(conv.id)
+      return {
+        remoteId: conv.id,
+        externalId: undefined,
+      }
+    } catch (err) {
+      console.warn('[mali-threads] Failed to create conversation:', err)
+      toast.error('Failed to create new conversation')
+      throw err // re-throw: assistant-ui must know initialization failed
     }
   },
 
@@ -67,12 +91,22 @@ export const createMaliThreadListAdapter = (): RemoteThreadListAdapter => ({
   },
 
   async fetch(remoteId) {
-    const conv = await getConversation(remoteId)
-    timestampCache.set(conv.id, conv.updatedAt)
-    return {
-      status: 'regular' as const,
-      remoteId: conv.id,
-      title: conv.title,
+    try {
+      const conv = await getConversation(remoteId)
+      timestampCache.set(conv.id, conv.updatedAt)
+      return {
+        status: 'regular' as const,
+        remoteId: conv.id,
+        title: conv.title,
+      }
+    } catch (err) {
+      console.warn('[mali-threads] Failed to fetch conversation:', err)
+      toast.error('Failed to load conversation')
+      return {
+        status: 'regular' as const,
+        remoteId,
+        title: 'Untitled',
+      }
     }
   },
 
