@@ -51,6 +51,9 @@ async function bootstrap() {
       process.exit(0)
     }
 
+    // Trust proxy so Express sees the real protocol behind ALB/reverse proxy
+    app.getHttpAdapter().getInstance().set('trust proxy', 1)
+
     // Security
     app.use(helmet())
     app.use(cookieParser())
