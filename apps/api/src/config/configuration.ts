@@ -323,6 +323,9 @@ const configuration = {
   billing: {
     apiKey: process.env.BILLING_API_KEY,
   },
+  runnerCleanupTool: {
+    apiKey: process.env.RUNNER_CLEANUP_TOOL_API_KEY,
+  },
   clickhouse: {
     host: process.env.CLICKHOUSE_HOST,
     port: parseInt(process.env.CLICKHOUSE_PORT || '8123', 10),

@@ -15,6 +15,7 @@ import {
   createMockHealthCheckAuthContext,
   createMockUserAuthContext,
   createMockBillingAuthContext,
+  createMockRunnerCleanupToolAuthContext,
 } from '../../test/helpers/auth-context.factory'
 import { createMockExecutionContext } from '../../test/helpers/execution-context.factory'
 
@@ -74,6 +75,13 @@ describe('[AUTH] SandboxAccessGuard', () => {
 
   it('allows SshGatewayAuthContext', async () => {
     const authContext = createMockSshGatewayAuthContext()
+    const sandbox = { id: 'sandbox-1' }
+    const { context } = createMockExecutionContext({ user: authContext, params: { sandboxIdOrName: sandbox.id } })
+    await expect(guard.canActivate(context)).resolves.toBe(true)
+  })
+
+  it('allows RunnerCleanupToolAuthContext', async () => {
+    const authContext = createMockRunnerCleanupToolAuthContext()
     const sandbox = { id: 'sandbox-1' }
     const { context } = createMockExecutionContext({ user: authContext, params: { sandboxIdOrName: sandbox.id } })
     await expect(guard.canActivate(context)).resolves.toBe(true)

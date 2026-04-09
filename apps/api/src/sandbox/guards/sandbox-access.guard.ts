@@ -13,6 +13,7 @@ import { isRegionAuthContext } from '../../common/interfaces/region-auth-context
 import { getAuthContext } from '../../common/utils/get-auth-context'
 import { isProxyAuthContext } from '../../common/interfaces/proxy-auth-context.interface'
 import { isSshGatewayAuthContext } from '../../common/interfaces/ssh-gateway-auth-context.interface'
+import { isRunnerCleanupToolAuthContext } from '../../common/interfaces/runner-cleanup-tool-auth-context.interface'
 import { InvalidAuthenticationContextException } from '../../common/exceptions/invalid-authentication-context.exception'
 
 @Injectable()
@@ -49,6 +50,7 @@ export class SandboxAccessGuard extends ResourceAccessGuard {
         }
         case isProxyAuthContext(authContext):
         case isSshGatewayAuthContext(authContext):
+        case isRunnerCleanupToolAuthContext(authContext):
           break
         case isOrganizationAuthContext(authContext): {
           const sandboxOrganizationId = await this.sandboxService.getOrganizationId(

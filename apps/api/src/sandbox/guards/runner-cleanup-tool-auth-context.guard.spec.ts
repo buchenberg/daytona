@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { SshGatewayAuthContextGuard } from './ssh-gateway-auth-context.guard'
+import { RunnerCleanupToolAuthContextGuard } from './runner-cleanup-tool-auth-context.guard'
 import { InvalidAuthenticationContextException } from '../../common/exceptions/invalid-authentication-context.exception'
 import {
   createMockBillingAuthContext,
@@ -20,20 +20,15 @@ import {
 } from '../../test/helpers/auth-context.factory'
 import { createMockExecutionContext } from '../../test/helpers/execution-context.factory'
 
-describe('[AUTH] SshGatewayAuthContextGuard', () => {
-  let guard: SshGatewayAuthContextGuard
+describe('[AUTH] RunnerCleanupToolAuthContextGuard', () => {
+  let guard: RunnerCleanupToolAuthContextGuard
 
   beforeEach(() => {
-    guard = new SshGatewayAuthContextGuard()
+    guard = new RunnerCleanupToolAuthContextGuard()
   })
 
-  it('allows SshGatewayAuthContext', async () => {
-    const { context } = createMockExecutionContext({ user: createMockSshGatewayAuthContext() })
-    await expect(guard.canActivate(context)).resolves.toBe(true)
-  })
-
-  it('allows RegionSshGatewayAuthContext', async () => {
-    const { context } = createMockExecutionContext({ user: createMockRegionSshGatewayAuthContext() })
+  it('allows RunnerCleanupToolAuthContext', async () => {
+    const { context } = createMockExecutionContext({ user: createMockRunnerCleanupToolAuthContext() })
     await expect(guard.canActivate(context)).resolves.toBe(true)
   })
 
@@ -42,12 +37,13 @@ describe('[AUTH] SshGatewayAuthContextGuard', () => {
     ['Organization', createMockOrganizationAuthContext],
     ['Runner', createMockRunnerAuthContext],
     ['Proxy', createMockProxyAuthContext],
+    ['SshGateway', createMockSshGatewayAuthContext],
     ['RegionProxy', createMockRegionProxyAuthContext],
+    ['RegionSshGateway', createMockRegionSshGatewayAuthContext],
     ['HealthCheck', createMockHealthCheckAuthContext],
     ['OtelCollector', createMockOtelCollectorAuthContext],
     ['Billing', createMockBillingAuthContext],
-    ['RunnerCleanupTool', createMockRunnerCleanupToolAuthContext],
-  ])('rejects %s', async (_name, factory) => {
+  ])('rejects %sAuthContext', async (_name, factory) => {
     const { context } = createMockExecutionContext({ user: factory() })
     await expect(guard.canActivate(context)).rejects.toThrow(InvalidAuthenticationContextException)
   })

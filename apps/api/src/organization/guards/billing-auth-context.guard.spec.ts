@@ -14,6 +14,7 @@ import {
   createMockRegionProxyAuthContext,
   createMockRegionSshGatewayAuthContext,
   createMockRunnerAuthContext,
+  createMockRunnerCleanupToolAuthContext,
   createMockSshGatewayAuthContext,
   createMockUserAuthContext,
 } from '../../test/helpers/auth-context.factory'
@@ -41,6 +42,7 @@ describe('[AUTH] BillingAuthContextGuard', () => {
     ['RegionSshGateway', createMockRegionSshGatewayAuthContext],
     ['HealthCheck', createMockHealthCheckAuthContext],
     ['OtelCollector', createMockOtelCollectorAuthContext],
+    ['RunnerCleanupTool', createMockRunnerCleanupToolAuthContext],
   ])('rejects %sAuthContext', async (_name, factory) => {
     const { context } = createMockExecutionContext({ user: factory() })
     await expect(guard.canActivate(context)).rejects.toThrow(InvalidAuthenticationContextException)

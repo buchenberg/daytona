@@ -17,6 +17,7 @@ import {
   createMockRegionAuthContext,
   createMockOrganizationAuthContext,
   createMockBillingAuthContext,
+  createMockRunnerCleanupToolAuthContext,
 } from '../../test/helpers/auth-context.factory'
 import { createMockExecutionContext } from '../../test/helpers/execution-context.factory'
 
@@ -106,6 +107,7 @@ describe('[AUTH] RunnerAccessGuard', () => {
     ['HealthCheck', createMockHealthCheckAuthContext],
     ['OtelCollector', createMockOtelCollectorAuthContext],
     ['Billing', createMockBillingAuthContext],
+    ['RunnerCleanupTool', createMockRunnerCleanupToolAuthContext],
   ])('rejects %sAuthContext', async (_name, factory) => {
     const runner = { id: 'runner-1', region: 'region-1' }
     runnerService.findOneOrFail.mockResolvedValue(runner)

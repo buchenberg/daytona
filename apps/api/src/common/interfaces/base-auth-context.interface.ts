@@ -15,6 +15,7 @@ export interface BaseAuthContext {
     | 'otel-collector'
     | 'health-check'
     | 'billing'
+    | 'runner-cleanup-tool'
 }
 
 export function isBaseAuthContext(user: unknown): user is BaseAuthContext {

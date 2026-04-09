@@ -37,6 +37,7 @@ import { Audit, TypedRequest } from '../../audit/decorators/audit.decorator'
 import { AuditAction } from '../../audit/enums/audit-action.enum'
 import { AuditTarget } from '../../audit/enums/audit-target.enum'
 import { SshGatewayAuthContextGuard } from '../guards/ssh-gateway-auth-context.guard'
+import { RunnerCleanupToolAuthContextGuard } from '../guards/runner-cleanup-tool-auth-context.guard'
 import { OrGuard } from '../../auth/or.guard'
 import { RunnerAuthContextGuard } from '../guards/runner-auth-context.guard'
 import { RunnerAuthContext } from '../../common/interfaces/runner-auth-context.interface'
@@ -148,7 +149,10 @@ export class RunnerController {
     type: RunnerFullDto,
   })
   @AuthStrategy(AuthStrategyType.API_KEY)
-  @UseGuards(OrGuard([ProxyAuthContextGuard, SshGatewayAuthContextGuard]), SandboxAccessGuard)
+  @UseGuards(
+    OrGuard([ProxyAuthContextGuard, SshGatewayAuthContextGuard, RunnerCleanupToolAuthContextGuard]),
+    SandboxAccessGuard,
+  )
   async getRunnerBySandboxId(@Param('sandboxId') sandboxId: string): Promise<RunnerFullDto> {
     const runner = await this.runnerService.findBySandboxId(sandboxId)
 
@@ -176,7 +180,7 @@ export class RunnerController {
     type: [RunnerSnapshotDto],
   })
   @AuthStrategy(AuthStrategyType.API_KEY)
-  @UseGuards(OrGuard([ProxyAuthContextGuard, SshGatewayAuthContextGuard]))
+  @UseGuards(OrGuard([ProxyAuthContextGuard, SshGatewayAuthContextGuard, RunnerCleanupToolAuthContextGuard]))
   async getRunnersBySnapshotRef(@Query('ref') ref: string): Promise<RunnerSnapshotDto[]> {
     return this.runnerService.getRunnersBySnapshotRef(ref)
   }

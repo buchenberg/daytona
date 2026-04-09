@@ -10,6 +10,7 @@ import { RunnerAccessGuard } from '../guards/runner-access.guard'
 import { SandboxAccessGuard } from '../guards/sandbox-access.guard'
 import { ProxyAuthContextGuard } from '../guards/proxy-auth-context.guard'
 import { SshGatewayAuthContextGuard } from '../guards/ssh-gateway-auth-context.guard'
+import { RunnerCleanupToolAuthContextGuard } from '../guards/runner-cleanup-tool-auth-context.guard'
 import { AuthStrategyType } from '../../auth/enums/auth-strategy-type.enum'
 import { OrganizationResourcePermission } from '../../organization/enums/organization-resource-permission.enum'
 import {
@@ -50,6 +51,7 @@ describe('[AUTH] RunnerController', () => {
     expectArrayMatch(getAuthContextGuards(RunnerController, methodName), [
       ProxyAuthContextGuard,
       SshGatewayAuthContextGuard,
+      RunnerCleanupToolAuthContextGuard,
     ])
     expectArrayMatch(getResourceAccessGuards(RunnerController, methodName), [SandboxAccessGuard])
   })
@@ -60,6 +62,7 @@ describe('[AUTH] RunnerController', () => {
     expectArrayMatch(getAuthContextGuards(RunnerController, methodName), [
       ProxyAuthContextGuard,
       SshGatewayAuthContextGuard,
+      RunnerCleanupToolAuthContextGuard,
     ])
   })
 

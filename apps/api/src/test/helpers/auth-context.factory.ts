@@ -16,6 +16,7 @@ import { RegionSSHGatewayAuthContext } from '../../common/interfaces/region-ssh-
 import { HealthCheckAuthContext } from '../../common/interfaces/health-check-auth-context.interface'
 import { OtelCollectorAuthContext } from '../../common/interfaces/otel-collector-auth-context.interface'
 import { BillingAuthContext } from '../../common/interfaces/billing-auth-context.interface'
+import { RunnerCleanupToolAuthContext } from '../../common/interfaces/runner-cleanup-tool-auth-context.interface'
 import { MOCK_USER_ID, MOCK_USER_EMAIL, MOCK_ORGANIZATION_ID, MOCK_RUNNER_ID, MOCK_REGION_ID } from './constants'
 import { createMockOrganization, createMockOrganizationUser, createMockRunner } from './entity.factory'
 
@@ -140,6 +141,15 @@ export function createMockBillingAuthContext(
 ): BillingAuthContext {
   return {
     role: 'billing',
+    ...overrides,
+  }
+}
+
+export function createMockRunnerCleanupToolAuthContext(
+  overrides?: Partial<Omit<RunnerCleanupToolAuthContext, 'role'>>,
+): RunnerCleanupToolAuthContext {
+  return {
+    role: 'runner-cleanup-tool',
     ...overrides,
   }
 }

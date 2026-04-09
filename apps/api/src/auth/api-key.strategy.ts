@@ -29,6 +29,7 @@ import { OtelCollectorAuthContext } from '../common/interfaces/otel-collector-au
 import { HealthCheckAuthContext } from '../common/interfaces/health-check-auth-context.interface'
 import { handleAuthError } from './utils/handle-auth-error.util'
 import { BillingAuthContext } from '../common/interfaces/billing-auth-context.interface'
+import { RunnerCleanupToolAuthContext } from '../common/interfaces/runner-cleanup-tool-auth-context.interface'
 
 type ApiKeyAuthContext =
   | UserAuthContext
@@ -40,6 +41,7 @@ type ApiKeyAuthContext =
   | OtelCollectorAuthContext
   | HealthCheckAuthContext
   | BillingAuthContext
+  | RunnerCleanupToolAuthContext
 
 type UserCache = {
   userId: string
@@ -101,6 +103,11 @@ export class ApiKeyStrategy extends PassportStrategy(Strategy, AuthStrategyType.
     const billingApiKey = this.configService.get('billing.apiKey')
     if (billingApiKey && billingApiKey === token) {
       return { role: 'billing' } satisfies BillingAuthContext
+    }
+
+    const runnerCleanupToolApiKey = this.configService.get('runnerCleanupTool.apiKey')
+    if (runnerCleanupToolApiKey && runnerCleanupToolApiKey === token) {
+      return { role: 'runner-cleanup-tool' } satisfies RunnerCleanupToolAuthContext
     }
 
     /**
