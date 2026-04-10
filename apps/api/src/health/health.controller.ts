@@ -50,6 +50,7 @@ export class HealthController {
 
   @Get('29875676-8e7b-47c5-a5e8-d47aed8375fa')
   @ApiExcludeEndpoint(true)
+  @Public()
   async k8sHealthcheck() {
     try {
       const result = await this.health.check([() => this.db.pingCheck('database'), () => this.redis.isHealthy('redis')])
