@@ -68,6 +68,7 @@ import { HealthController } from './health.controller'
       logging: config.database.logging,
       migrationsRun: false,
       entitySkipConstructor: true,
+      manualInitialization: config.skipConnections,
       ssl: config.database.tls.enabled,
       extra: config.database.tls.enabled
         ? { ssl: { rejectUnauthorized: config.database.tls.rejectUnauthorized } }
@@ -88,6 +89,7 @@ import { HealthController } from './health.controller'
       migrationsRun: config.backofficeDb.migrationsRun,
       synchronize: false,
       logging: config.backofficeDb.logging,
+      manualInitialization: config.skipConnections,
       ssl: config.backofficeDb.tls.enabled,
       extra: config.backofficeDb.tls.enabled
         ? { ssl: { rejectUnauthorized: config.backofficeDb.tls.rejectUnauthorized } }

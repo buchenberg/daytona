@@ -13,6 +13,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env.local') })
 export const config = {
   port: parseInt(process.env.PORT || '8080', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
+  skipConnections: process.env.SKIP_CONNECTIONS === 'true',
 
   database: {
     host: process.env.DB_HOST || 'db',
