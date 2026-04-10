@@ -22,12 +22,6 @@ func AuthMiddleware(apiToken string) gin.HandlerFunc {
 
 		ctx.Request.Header.Del(constants.DAYTONA_AUTHORIZATION_HEADER)
 
-		// Hotfix for dtn_ api token in daemon memory
-		authorizationHeader := ctx.GetHeader(constants.AUTHORIZATION_HEADER)
-		if authorizationHeader != "" && strings.HasPrefix(authorizationHeader, "Bearer dtn_") {
-			ctx.Request.Header.Del(constants.AUTHORIZATION_HEADER)
-		}
-
 		if authHeader == "" {
 			ctx.Error(common_errors.NewUnauthorizedError(errors.New("authorization header required")))
 			ctx.Abort()
