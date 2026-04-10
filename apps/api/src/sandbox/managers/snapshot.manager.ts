@@ -81,7 +81,7 @@ const REGION_PROPAGATION_TIERS: Record<string, { threshold: number; percentage: 
 }
 
 const ORGANIZATION_PROPAGATION_OVERRIDES: Record<string, { threshold: number; percentage: number }[]> = {
-  '8c0f7497-8037-4515-89a3-992bb9230cbc': [{ threshold: 0, percentage: 7 }],
+  '8c0f7497-8037-4515-89a3-992bb9230cbc': [{ threshold: 0, percentage: 12 }],
 }
 
 /**
