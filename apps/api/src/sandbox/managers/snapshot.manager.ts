@@ -56,53 +56,7 @@ import { SandboxRepository } from '../repositories/sandbox.repository'
 import { SnapshotInfoResponse } from '@daytona/runner-api-client'
 import { SnapshotActivatedEvent } from '../events/snapshot-activated.event'
 import { TypedConfigService } from '../../config/typed-config.service'
-
-/**
- * Propagation tiers keyed by regionId. Each entry maps a cpuQuota threshold to the percentage of shared runners to propagate to.
- *
- * Thresholds must be sorted descending. The first matching threshold is used.
- *
- * The "default" key is used as a fallback when no region-specific tiers are defined.
- */
-const REGION_PROPAGATION_TIERS: Record<string, { threshold: number; percentage: number }[]> = {
-  RL: [
-    { threshold: 10000, percentage: 90 },
-    { threshold: 5000, percentage: 50 },
-    { threshold: 1000, percentage: 25 },
-    { threshold: 250, percentage: 12 },
-    { threshold: 0, percentage: 8 },
-  ],
-  default: [
-    { threshold: 5000, percentage: 66 },
-    { threshold: 1000, percentage: 33 },
-    { threshold: 250, percentage: 16 },
-    { threshold: 0, percentage: 12 },
-  ],
-}
-
-const ORGANIZATION_PROPAGATION_OVERRIDES: Record<string, { threshold: number; percentage: number }[]> = {
-  '8c0f7497-8037-4515-89a3-992bb9230cbc': [{ threshold: 0, percentage: 12 }],
-}
-
-/**
- * Get the propagation factor for a snapshot based on the CPU quota that the organization has in the snapshot region.
- *
- * The propagation factor is a number between 0 and 1 that represents the fraction of shared runners to propagate to.
- *
- * @param regionId Provide to use region-specific propagation tiers, otherwise the default tiers are used.
- * @param organizationId Provide to use organization-specific propagation overrides.
- */
-function getSnapshotPropagationFactor(cpuQuota: number, regionId?: string, organizationId?: string): number {
-  const orgTiers = organizationId && ORGANIZATION_PROPAGATION_OVERRIDES[organizationId]
-  const tiers = orgTiers ?? (regionId && REGION_PROPAGATION_TIERS[regionId]) ?? REGION_PROPAGATION_TIERS['default']
-  const tier = tiers.find((t) => cpuQuota >= t.threshold)
-
-  if (!tier) {
-    return 0.08
-  }
-
-  return Math.min(tier.percentage / 100, 1)
-}
+import { getSnapshotPropagationFactor } from '../constants/propagation-tiers.constant'
 
 const SYNC_AGAIN = 'sync-again'
 const DONT_SYNC_AGAIN = 'dont-sync-again'
@@ -200,7 +154,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     const results = await Promise.allSettled(
       snapshots.map(async (snapshot) => {
-        const propagationFactor = getSnapshotPropagationFactor(
+        const { factor: propagationFactor, minimum: minimumRunners } = getSnapshotPropagationFactor(
           snapshot.total_cpu_quota,
           undefined,
           snapshot.organizationId,
@@ -213,7 +167,13 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
           .filter((r) => r.organizationId === snapshot.organizationId)
           .map((r) => r.id)
 
-        return this.propagateSnapshotToRunners(snapshot, sharedRegionIds, organizationRegionIds, propagationFactor)
+        return this.propagateSnapshotToRunners(
+          snapshot,
+          sharedRegionIds,
+          organizationRegionIds,
+          propagationFactor,
+          minimumRunners,
+        )
       }),
     )
 
@@ -419,6 +379,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     sharedRegionIds: string[],
     organizationRegionIds: string[],
     propagationFactor: number,
+    minimumRunners = 0,
   ) {
     //  todo: remove try catch block and implement error handling
     try {
@@ -477,10 +438,11 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       // propagate the snapshot to all organization runners
       runnersToPropagateTo.push(...unallocatedOrganizationRunners)
 
-      // respect the propagation limit for shared runners
+      // respect the propagation limit for shared runners, enforcing a minimum
+      const targetSharedRunnerCount = Math.max(minimumRunners, Math.ceil(propagationFactor * sharedRunners.length))
       const sharedRunnersPropagateLimit = Math.max(
         0,
-        Math.ceil(propagationFactor * sharedRunners.length) - sharedSnapshotRunnersDistinctRunnersIds.size,
+        targetSharedRunnerCount - sharedSnapshotRunnersDistinctRunnersIds.size,
       )
       runnersToPropagateTo.push(
         ...unallocatedSharedRunners.sort(() => Math.random() - 0.5).slice(0, sharedRunnersPropagateLimit),
@@ -1046,7 +1008,11 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
   private async waitForRLRegionPropagation(snapshot: Snapshot): Promise<void> {
     const regionQuota = await this.organizationService.getRegionQuota(snapshot.organizationId, RL_REGION)
     const cpuQuota = regionQuota?.totalCpuQuota ?? 0
-    const propagationFactor = getSnapshotPropagationFactor(cpuQuota, RL_REGION, snapshot.organizationId)
+    const { factor: propagationFactor, minimum: minimumRunners } = getSnapshotPropagationFactor(
+      cpuQuota,
+      RL_REGION,
+      snapshot.organizationId,
+    )
 
     const runners = await this.runnerRepository.find({
       where: {
@@ -1058,12 +1024,13 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     const runnerIds = runners.map((r) => r.id)
 
     const targetReadyPercentage = 0.75
-    const targetReadyCount = Math.ceil(targetReadyPercentage * propagationFactor * runners.length)
+    const targetRunnerCount = Math.max(minimumRunners, Math.ceil(propagationFactor * runners.length))
+    const targetReadyCount = Math.ceil(targetReadyPercentage * targetRunnerCount)
 
     const startedAt = Date.now()
     const waitTimeMs = 5 * 60 * 1000 // 5 minutes
 
-    this.propagateSnapshotToRunners(snapshot, [RL_REGION], [], propagationFactor)
+    this.propagateSnapshotToRunners(snapshot, [RL_REGION], [], propagationFactor, minimumRunners)
 
     this.logger.warn('waitForRLRegionPropagation, snapshotId:', snapshot.id, 'startedAt:', startedAt)
 
