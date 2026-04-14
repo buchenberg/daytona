@@ -16,6 +16,7 @@ import {
   getRequiredOrganizationResourcePermissions,
   expectArrayMatch,
   createCoverageTracker,
+  isPublicEndpoint,
 } from '../../test/helpers/controller-metadata.helper'
 import { UserAuthContextGuard } from '../../user/guards/user-auth-context.guard'
 
@@ -24,36 +25,42 @@ describe('[AUTH] OrganizationController', () => {
 
   it('findInvitationsByUser', () => {
     const methodName = trackMethod('findInvitationsByUser')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [UserAuthContextGuard])
   })
 
   it('getInvitationsCountByUser', () => {
     const methodName = trackMethod('getInvitationsCountByUser')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [UserAuthContextGuard])
   })
 
   it('acceptInvitation', () => {
     const methodName = trackMethod('acceptInvitation')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [UserAuthContextGuard])
   })
 
   it('declineInvitation', () => {
     const methodName = trackMethod('declineInvitation')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [UserAuthContextGuard])
   })
 
   it('create', () => {
     const methodName = trackMethod('create')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [UserAuthContextGuard])
   })
 
   it('setDefaultRegion', () => {
     const methodName = trackMethod('setDefaultRegion')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
     expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBe(OrganizationMemberRole.OWNER)
@@ -61,12 +68,14 @@ describe('[AUTH] OrganizationController', () => {
 
   it('findAll', () => {
     const methodName = trackMethod('findAll')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [UserAuthContextGuard])
   })
 
   it('findOne', () => {
     const methodName = trackMethod('findOne')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
     expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBeUndefined()
@@ -75,6 +84,7 @@ describe('[AUTH] OrganizationController', () => {
 
   it('delete', () => {
     const methodName = trackMethod('delete')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
     expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBe(OrganizationMemberRole.OWNER)
@@ -82,6 +92,7 @@ describe('[AUTH] OrganizationController', () => {
 
   it('getUsageOverview', () => {
     const methodName = trackMethod('getUsageOverview')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
     expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBeUndefined()
@@ -90,6 +101,7 @@ describe('[AUTH] OrganizationController', () => {
 
   it('leave', () => {
     const methodName = trackMethod('leave')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
     expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBeUndefined()
@@ -98,42 +110,49 @@ describe('[AUTH] OrganizationController', () => {
 
   it('updateOrganizationQuota', () => {
     const methodName = trackMethod('updateOrganizationQuota')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
   })
 
   it('updateOrganizationRegionQuota', () => {
     const methodName = trackMethod('updateOrganizationRegionQuota')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
   })
 
   it('suspend', () => {
     const methodName = trackMethod('suspend')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
   })
 
   it('unsuspend', () => {
     const methodName = trackMethod('unsuspend')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
   })
 
   it('getOtelConfigBySandboxAuthToken', () => {
     const methodName = trackMethod('getOtelConfigBySandboxAuthToken')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OtelCollectorAuthContextGuard])
   })
 
   it('updateSandboxDefaultLimitedNetworkEgress', () => {
     const methodName = trackMethod('updateSandboxDefaultLimitedNetworkEgress')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
   })
 
   it('updateExperimentalConfig', () => {
     const methodName = trackMethod('updateExperimentalConfig')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
     expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBe(OrganizationMemberRole.OWNER)
