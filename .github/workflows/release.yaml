@@ -92,6 +92,7 @@ jobs:
             "name": "runner",
             "version": "0.0.0"
           }' > apps/backoffice-dashboard/package.json
+          echo '{
             "name": "daytona-e2e",
             "version": "0.0.0"
           }' > apps/daytona-e2e/package.json
