@@ -92,6 +92,9 @@ jobs:
             "name": "runner",
             "version": "0.0.0"
           }' > apps/backoffice-dashboard/package.json
+            "name": "daytona-e2e",
+            "version": "0.0.0"
+          }' > apps/daytona-e2e/package.json
 
       - name: Create release
         run: yarn nx release "$VERSION" --skip-publish --verbose
