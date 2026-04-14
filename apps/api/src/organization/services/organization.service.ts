@@ -53,6 +53,7 @@ import { OtelConfigDto } from '../dto/otel-config.dto'
 import { sandboxLookupCacheKeyByAuthToken } from '../../sandbox/utils/sandbox-lookup-cache.util'
 import { SandboxRepository } from '../../sandbox/repositories/sandbox.repository'
 import { SnapshotRepository } from '../../sandbox/repositories/snapshot.repository'
+import { EntityNotFoundError } from 'typeorm'
 
 @Injectable()
 export class OrganizationService implements OnModuleInit, TrackableJobExecutions, OnApplicationShutdown {
@@ -200,9 +201,14 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
     regionId: string,
     updateDto: UpdateOrganizationRegionQuotaDto,
   ): Promise<void> {
-    const regionQuota = await this.regionQuotaRepository.findOne({ where: { organizationId, regionId } })
-    if (!regionQuota) {
-      throw new NotFoundException('Region not found')
+    let regionQuota: RegionQuota | null = null
+    try {
+      regionQuota = await this.regionQuotaRepository.findOne({ where: { organizationId, regionId } })
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof EntityNotFoundError) {
+        regionQuota = new RegionQuota(organizationId, regionId, 0, 0, 0)
+      }
+      throw error
     }
 
     regionQuota.totalCpuQuota = updateDto.totalCpuQuota ?? regionQuota.totalCpuQuota
