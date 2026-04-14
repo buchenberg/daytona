@@ -162,6 +162,7 @@
     "lucide-react": "0.561.0",
     "motion": "^12.23.0",
     "msw": "^2.12.2",
+    "nanoid": "^3.3.11",
     "nestjs-opensearch": "^1.4.1",
     "nestjs-pino": "^4.4.1",
     "node-cache": "^5.1.2",
