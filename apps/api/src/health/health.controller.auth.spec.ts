@@ -33,6 +33,8 @@ describe('[AUTH] HealthController', () => {
 
   it('k8sHealthcheck', () => {
     const methodName = trackMethod('k8sHealthcheck')
-    // TODO
+    expect(isPublicEndpoint(HealthController, methodName)).toBe(true)
+    expectArrayMatch(getAllowedAuthStrategies(HealthController, methodName), [])
+    expectArrayMatch(getAuthContextGuards(HealthController, methodName), [])
   })
 })
