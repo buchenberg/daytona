@@ -403,7 +403,7 @@ export class SandboxStartAction extends SandboxAction {
       internalRegistry,
       entrypoint,
       metadata,
-      this.configService.get('sandboxOtel.endpointUrl'),
+      this.configService.get('otelCollector.endpointUrl'),
     )
 
     sandbox.snapshot = originalSnapshot
@@ -870,7 +870,7 @@ export class SandboxStartAction extends SandboxAction {
       registry,
       entrypoint,
       metadata,
-      this.configService.get('sandboxOtel.endpointUrl'),
+      this.configService.get('otelCollector.endpointUrl'),
     )
 
     return null
