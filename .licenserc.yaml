@@ -27,5 +27,12 @@ header:
     - 'guides/**'
     - 'apps/daemon/pkg/toolbox/docs/docs.go'
     - 'apps/dashboard/public/mockServiceWorker.js'
+    - 'apps/api/src/sandbox/constants/dedicated-regions.constant.ts'
+    - 'apps/api/src/sandbox/constants/kepler.constant.ts'
+    - 'apps/api/src/sandbox/utils/resources.ts'
+    - 'apps/backoffice-api/**'
+    - 'apps/backoffice-dashboard/**'
+    - 'pm2-logs.sh'
+    - 'push-dashboard.sh'
 
   comment: on-failure
