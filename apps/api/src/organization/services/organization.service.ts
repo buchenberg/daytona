@@ -201,14 +201,10 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
     regionId: string,
     updateDto: UpdateOrganizationRegionQuotaDto,
   ): Promise<void> {
-    let regionQuota: RegionQuota | null = null
-    try {
-      regionQuota = await this.regionQuotaRepository.findOne({ where: { organizationId, regionId } })
-    } catch (error) {
-      if (error instanceof NotFoundException || error instanceof EntityNotFoundError) {
-        regionQuota = new RegionQuota(organizationId, regionId, 0, 0, 0)
-      }
-      throw error
+    let regionQuota = await this.regionQuotaRepository.findOne({ where: { organizationId, regionId } })
+    if (!regionQuota) {
+      // If region quota doesn't exist, create a new one with default quotas
+      regionQuota = new RegionQuota(organizationId, regionId, 0, 0, 0)
     }
 
     regionQuota.totalCpuQuota = updateDto.totalCpuQuota ?? regionQuota.totalCpuQuota
