@@ -385,11 +385,11 @@ func (p *Proxy) sandboxIsExempt(ctx *gin.Context, sandboxId string, port float32
 		CPUQuotaCacheKey = getCPUQuotaCacheKey(orgId, regionId)
 		CPUQuota = int(regionQuota.TotalCpuQuota)
 
-		p.sandboxOrgIdCache.Set(ctx, sandboxId, orgId, 1*time.Hour)
-		p.sandboxRegionIdCache.Set(ctx, sandboxId, regionId, 1*time.Hour)
+		_ = p.sandboxOrgIdCache.Set(ctx, sandboxId, orgId, 1*time.Hour)
+		_ = p.sandboxRegionIdCache.Set(ctx, sandboxId, regionId, 1*time.Hour)
 
 		// CPU quota should have lower ttl since it's more likely to change
-		p.CPUQuotaCache.Set(ctx, CPUQuotaCacheKey, CPUQuota, 5*time.Minute)
+		_ = p.CPUQuotaCache.Set(ctx, CPUQuotaCacheKey, CPUQuota, 5*time.Minute)
 	} else {
 		orgIdCache, err := p.sandboxOrgIdCache.Get(ctx, sandboxId)
 		if err != nil {
@@ -426,7 +426,7 @@ func (p *Proxy) sandboxIsExempt(ctx *gin.Context, sandboxId string, port float32
 					return false, err
 				}
 				CPUQuota = int(regionQuota.TotalCpuQuota)
-				p.CPUQuotaCache.Set(ctx, CPUQuotaCacheKey, CPUQuota, 5*time.Minute)
+				_ = p.CPUQuotaCache.Set(ctx, CPUQuotaCacheKey, CPUQuota, 5*time.Minute)
 			}
 		}
 
