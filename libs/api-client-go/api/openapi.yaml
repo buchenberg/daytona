@@ -13392,7 +13392,6 @@ components:
         organizationId: organizationId
         general: true
         createdAt: 2000-01-23T04:56:07.000+00:00
-        skipValidation: true
         disk: 5.637376656633329
         ref: daytonaio/sandbox:latest
         size: 0.8008281904610115
@@ -13454,8 +13453,6 @@ components:
           allOf:
           - $ref: '#/components/schemas/BuildInfo'
           description: Build information for the snapshot
-        skipValidation:
-          type: boolean
         regionIds:
           description: IDs of regions where the snapshot is available
           items:
@@ -13482,7 +13479,6 @@ components:
       - mem
       - name
       - size
-      - skipValidation
       - state
       - updatedAt
       type: object
@@ -13502,7 +13498,6 @@ components:
           organizationId: organizationId
           general: true
           createdAt: 2000-01-23T04:56:07.000+00:00
-          skipValidation: true
           disk: 5.637376656633329
           ref: daytonaio/sandbox:latest
           size: 0.8008281904610115

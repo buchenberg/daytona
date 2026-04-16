@@ -67,7 +67,6 @@ export class SnapshotDto {
   })
   buildInfo?: BuildInfoDto
 
-  @ApiProperty()
   skipValidation: boolean
 
   @ApiPropertyOptional({
