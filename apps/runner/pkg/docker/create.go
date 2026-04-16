@@ -105,7 +105,9 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 					return "", "", err
 				}
 				// Recreate without sysbox
-				d.Destroy(ctx, sandboxDto.Id)
+				if err := d.Destroy(ctx, sandboxDto.Id); err != nil {
+					d.logger.WarnContext(ctx, "Failed to destroy sandbox before recreating without sysbox", "sandboxId", sandboxDto.Id, "error", err)
+				}
 				return d.Create(ctx, sandboxDto, true, true)
 			}
 
@@ -169,7 +171,9 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 				return "", "", err
 			}
 			// Recreate without sysbox
-			d.Destroy(ctx, sandboxDto.Id)
+			if err := d.Destroy(ctx, sandboxDto.Id); err != nil {
+				d.logger.WarnContext(ctx, "Failed to destroy sandbox before recreating without sysbox", "sandboxId", sandboxDto.Id, "error", err)
+			}
 			return d.Create(ctx, sandboxDto, true, true)
 		} else {
 			return "", "", err
