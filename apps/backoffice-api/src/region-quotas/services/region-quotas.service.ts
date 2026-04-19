@@ -88,6 +88,25 @@ export class RegionQuotasService {
       warnings.push('totalDiskQuota is less than 1GB - this may prevent any sandboxes from being created')
     }
 
+    // Per-sandbox caps shouldn't exceed the region total
+    const maxCpu = updateData.maxCpuPerSandbox ?? regionQuota.maxCpuPerSandbox
+    const totalCpu = updateData.totalCpuQuota ?? regionQuota.totalCpuQuota
+    if (maxCpu != null && maxCpu > totalCpu) {
+      warnings.push(`maxCpuPerSandbox (${maxCpu}) exceeds totalCpuQuota (${totalCpu}); the lower bound applies`)
+    }
+
+    const maxMem = updateData.maxMemoryPerSandbox ?? regionQuota.maxMemoryPerSandbox
+    const totalMem = updateData.totalMemoryQuota ?? regionQuota.totalMemoryQuota
+    if (maxMem != null && maxMem > totalMem) {
+      warnings.push(`maxMemoryPerSandbox (${maxMem}) exceeds totalMemoryQuota (${totalMem}); the lower bound applies`)
+    }
+
+    const maxDisk = updateData.maxDiskPerSandbox ?? regionQuota.maxDiskPerSandbox
+    const totalDisk = updateData.totalDiskQuota ?? regionQuota.totalDiskQuota
+    if (maxDisk != null && maxDisk > totalDisk) {
+      warnings.push(`maxDiskPerSandbox (${maxDisk}) exceeds totalDiskQuota (${totalDisk}); the lower bound applies`)
+    }
+
     return warnings
   }
 }

@@ -5,7 +5,7 @@
 
 import { Controller, Get, Post, Query, Res, UseGuards, Req, UnauthorizedException, Session } from '@nestjs/common'
 import { Request } from 'express'
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger'
+import { ApiTags, ApiOperation, ApiResponse, ApiExtraModels } from '@nestjs/swagger'
 import { Response } from 'express'
 import { randomBytes } from 'crypto'
 import { JwtService } from '@nestjs/jwt'
@@ -16,9 +16,12 @@ import { FlexibleAuthGuard, AuthenticatedRequest } from '../common/guards/flexib
 import { AuditService } from '../audit/audit.service'
 import { AuditAction } from '../audit/enums/audit-action.enum'
 import { AuditTarget } from '../audit/enums/audit-target.enum'
+import { AuthMeResponseDto, AuthRefreshResponseDto, AuthUserDto, AuthRefreshDataDto } from './dto/auth-user.dto'
+import { PermissionsDto } from './dto/permissions.dto'
 
 @Controller('auth')
 @ApiTags('authentication')
+@ApiExtraModels(PermissionsDto, AuthUserDto, AuthMeResponseDto, AuthRefreshDataDto, AuthRefreshResponseDto)
 export class AuthController {
   constructor(
     private readonly oidcService: OidcService,
@@ -104,7 +107,7 @@ export class AuthController {
         sub: backofficeUser.id,
         email: backofficeUser.email,
         name: backofficeUser.name,
-        role: backofficeUser.role,
+        permissions: backofficeUser.permissions ?? {},
       })
 
       // Set HTTP-only cookie
@@ -146,7 +149,7 @@ export class AuthController {
 
   @Post('refresh')
   @ApiOperation({ summary: 'Refresh session token' })
-  @ApiResponse({ status: 200, description: 'Token refreshed successfully' })
+  @ApiResponse({ status: 200, description: 'Token refreshed successfully', type: AuthRefreshResponseDto })
   @ApiResponse({ status: 401, description: 'Invalid or expired session' })
   async refresh(@Req() req: Request, @Res() res: Response) {
     const cookie = req.cookies?.['backoffice_session']
@@ -162,8 +165,25 @@ export class AuthController {
     }
 
     try {
-      // Verify the current token (may be expired, but we check signature)
-      const payload = await this.jwtService.verifyAsync(cookie)
+      // Verify signature only — accept tokens past `exp` so users coming back
+      // to a backgrounded tab can slide their session forward without an OAuth
+      // round-trip. The hard cap on `iat` below bounds how far back we'll
+      // resurrect, and the DB lookup that follows is still the actual
+      // revocation gate.
+      const payload = await this.jwtService.verifyAsync(cookie, { ignoreExpiration: true })
+
+      const issuedAtMs = (payload.iat ?? 0) * 1000
+      const maxRefreshAgeMs = this.configService.getOrThrow<number>('jwt.maxRefreshAgeSeconds') * 1000
+      if (!issuedAtMs || Date.now() - issuedAtMs > maxRefreshAgeMs) {
+        res.clearCookie('backoffice_session', { path: '/' })
+        throw new UnauthorizedException({
+          success: false,
+          error: {
+            code: 'AUTH_012',
+            message: 'Session too old; please sign in again',
+          },
+        })
+      }
 
       // DB lookup only happens here on refresh, not on every request
       const user = await this.userService.findByEmail(payload.email)
@@ -178,12 +198,12 @@ export class AuthController {
         })
       }
 
-      // Issue fresh token with current role from DB
+      // Issue fresh token with current permissions from DB
       const newToken = this.jwtService.sign({
         sub: user.id,
         email: user.email,
         name: user.name,
-        role: user.role,
+        permissions: user.permissions ?? {},
       })
 
       res.cookie('backoffice_session', newToken, {
@@ -201,7 +221,7 @@ export class AuthController {
             id: user.id,
             email: user.email,
             name: user.name,
-            role: user.role,
+            permissions: user.permissions ?? {},
           },
         },
       })
@@ -222,13 +242,13 @@ export class AuthController {
 
   @Get('me')
   @ApiOperation({ summary: 'Get current user info' })
-  @ApiResponse({ status: 200, description: 'Returns current user info' })
+  @ApiResponse({ status: 200, description: 'Returns current user info', type: AuthMeResponseDto })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @UseGuards(FlexibleAuthGuard)
-  async me(@Req() req: AuthenticatedRequest) {
+  async me(@Req() req: AuthenticatedRequest): Promise<AuthMeResponseDto> {
     return {
       success: true,
-      data: req.user,
+      data: req.user as AuthMeResponseDto['data'],
     }
   }
 }

@@ -7,6 +7,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { BackofficeUser } from '../../backoffice-db/entities/backoffice-user.entity'
+import { EMPTY_PERMISSIONS, Permissions } from '../../common/permissions'
 
 @Injectable()
 export class BackofficeUserService {
@@ -31,7 +32,7 @@ export class BackofficeUserService {
     email: string
     emailVerified: boolean
   }): Promise<BackofficeUser> {
-    // Check if user is whitelisted
+    // Whitelist check: if the email isn't already pre-provisioned, reject.
     const isWhitelisted = await this.isWhitelisted(data.email)
     if (!isWhitelisted) {
       throw new UnauthorizedException(`User ${data.email} is not whitelisted for backoffice access`)
@@ -41,7 +42,7 @@ export class BackofficeUserService {
       id: data.id,
       email: data.email,
       name: data.name,
-      role: 'admin',
+      permissions: EMPTY_PERMISSIONS,
       lastLoginAt: new Date(),
     })
 
@@ -62,11 +63,16 @@ export class BackofficeUserService {
     return !!user
   }
 
-  async createUser(email: string, name: string, createdBy: string): Promise<BackofficeUser> {
+  async createUser(
+    email: string,
+    name: string,
+    createdBy: string,
+    permissions: Permissions = EMPTY_PERMISSIONS,
+  ): Promise<BackofficeUser> {
     const user = this.backofficeUserRepository.create({
       email,
       name,
-      role: 'admin',
+      permissions,
       createdBy,
     })
     return await this.backofficeUserRepository.save(user)

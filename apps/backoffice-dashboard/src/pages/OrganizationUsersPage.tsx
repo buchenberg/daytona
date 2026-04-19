@@ -11,9 +11,11 @@ import { useOrganizationUsers } from '../features/organization-users/useOrganiza
 import { EditOrganizationUserModal } from '../features/organization-users/EditOrganizationUserModal'
 import { BulkEditOrganizationUserModal } from '../features/organization-users/BulkEditOrganizationUserModal'
 import { BulkActionToolbar } from '../components/BulkActionToolbar'
+import { useHasPermission } from '../providers/ApiProvider'
 import { OrganizationUserFiltersDto, OrganizationUser } from '../types'
 
 export const OrganizationUsersPage = () => {
+  const canBulkWrite = useHasPermission('organizationUsers', 'write-bulk')
   const [filterOpen, setFilterOpen] = useState(false)
   const [filters, setFilters] = useState<OrganizationUserFiltersDto>({})
   const [page, setPage] = useState(1)
@@ -97,7 +99,7 @@ export const OrganizationUsersPage = () => {
         <PageTitle>Organization Users</PageTitle>
       </PageHeader>
       <PageContent size="full">
-        {selectedRowKeys.length > 0 && (
+        {canBulkWrite && selectedRowKeys.length > 0 && (
           <BulkActionToolbar
             selectedCount={selectedRowKeys.length}
             onBulkEdit={handleBulkEdit}

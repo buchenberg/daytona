@@ -36,4 +36,28 @@ export interface UpdateRegionQuotaDto {
    * @memberof UpdateRegionQuotaDto
    */
   totalDiskQuota?: number
+  /**
+   * Max CPU per sandbox in this region. null = use organization default.
+   * @type {number}
+   * @memberof UpdateRegionQuotaDto
+   */
+  maxCpuPerSandbox?: number | null
+  /**
+   * Max memory (GB) per sandbox in this region. null = use organization default.
+   * @type {number}
+   * @memberof UpdateRegionQuotaDto
+   */
+  maxMemoryPerSandbox?: number | null
+  /**
+   * Max disk (GB) per sandbox in this region. null = use organization default.
+   * @type {number}
+   * @memberof UpdateRegionQuotaDto
+   */
+  maxDiskPerSandbox?: number | null
+  /**
+   * Max disk (GB) for non-ephemeral sandboxes. null = fall back to maxDiskPerSandbox. 0 = non-ephemeral sandboxes disabled in this region.
+   * @type {number}
+   * @memberof UpdateRegionQuotaDto
+   */
+  maxDiskPerNonEphemeralSandbox?: number | null
 }

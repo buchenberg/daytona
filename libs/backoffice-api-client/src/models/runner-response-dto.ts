@@ -108,6 +108,18 @@ export interface RunnerResponseDto {
    * @memberof RunnerResponseDto
    */
   draining: boolean
+  /**
+   *
+   * @type {string}
+   * @memberof RunnerResponseDto
+   */
+  appVersion?: string | null
+  /**
+   *
+   * @type {string}
+   * @memberof RunnerResponseDto
+   */
+  apiVersion: string
 }
 
 export const RunnerResponseDtoStateEnum = {

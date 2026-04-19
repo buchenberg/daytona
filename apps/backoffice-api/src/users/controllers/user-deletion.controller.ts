@@ -4,9 +4,8 @@
  */
 
 import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common'
-import { RolesGuard } from '../../common/guards/roles.guard'
-import { Roles } from '../../common/decorators/roles.decorator'
-import { BackofficeRole } from '../../common/enums/backoffice-role.enum'
+import { PermissionsGuard } from '../../common/guards/permissions.guard'
+import { RequirePermission } from '../../common/decorators/require-permission.decorator'
 import { ApiOperation, ApiResponse, ApiTags, ApiParam, ApiExtraModels, ApiSecurity } from '@nestjs/swagger'
 import { FlexibleAuthGuard } from '../../common/guards/flexible-auth.guard'
 import { UserDeletionPreviewService } from '../services/user-deletion-preview.service'
@@ -26,7 +25,7 @@ import { AuditTarget } from '../../audit/enums/audit-target.enum'
 @ApiTags('users')
 @ApiSecurity('bearerAuth')
 @Controller('users')
-@UseGuards(FlexibleAuthGuard)
+@UseGuards(FlexibleAuthGuard, PermissionsGuard)
 @ApiExtraModels(OrganizationPreviewDto, SandboxPreviewDto, SnapshotPreviewDto, ExecutedActionsDto, ManualStepDto)
 export class UserDeletionController {
   constructor(
@@ -35,6 +34,10 @@ export class UserDeletionController {
   ) {}
 
   @Get(':userId/deletion-preview')
+  @RequirePermission([
+    ['users', 'read'],
+    ['users', 'delete'],
+  ])
   @ApiOperation({ summary: 'Preview user deletion impact' })
   @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'Deletion preview', type: UserDeletionPreviewDto })
@@ -50,8 +53,7 @@ export class UserDeletionController {
   }
 
   @Post(':userId/delete')
-  @UseGuards(RolesGuard)
-  @Roles([BackofficeRole.ADMIN])
+  @RequirePermission(['users', 'delete'])
   @ApiOperation({ summary: 'Delete user and associated resources' })
   @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'User deleted successfully', type: UserDeletionResponseDto })

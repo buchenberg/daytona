@@ -39,10 +39,18 @@ export const EditOrganizationModal = ({ organization, open, onClose, onSuccess }
     snapshotQuota: '',
     volumeQuota: '',
     sandboxLimitedNetworkEgress: false,
+    snapshotDeactivationTimeoutMinutes: '',
+    authenticatedRateLimit: '',
+    sandboxCreateRateLimit: '',
+    sandboxLifecycleRateLimit: '',
+    authenticatedRateLimitTtlSeconds: '',
+    sandboxCreateRateLimitTtlSeconds: '',
+    sandboxLifecycleRateLimitTtlSeconds: '',
   })
 
   useEffect(() => {
     if (organization && open) {
+      const nullableToString = (v: number | null | undefined): string => (v == null ? '' : String(v))
       setFormData({
         name: organization.name,
         suspended: organization.suspended,
@@ -60,6 +68,13 @@ export const EditOrganizationModal = ({ organization, open, onClose, onSuccess }
         snapshotQuota: organization.snapshotQuota ?? '',
         volumeQuota: organization.volumeQuota ?? '',
         sandboxLimitedNetworkEgress: organization.sandboxLimitedNetworkEgress,
+        snapshotDeactivationTimeoutMinutes: (organization as any).snapshotDeactivationTimeoutMinutes ?? '',
+        authenticatedRateLimit: nullableToString(organization.authenticatedRateLimit),
+        sandboxCreateRateLimit: nullableToString(organization.sandboxCreateRateLimit),
+        sandboxLifecycleRateLimit: nullableToString(organization.sandboxLifecycleRateLimit),
+        authenticatedRateLimitTtlSeconds: nullableToString(organization.authenticatedRateLimitTtlSeconds),
+        sandboxCreateRateLimitTtlSeconds: nullableToString(organization.sandboxCreateRateLimitTtlSeconds),
+        sandboxLifecycleRateLimitTtlSeconds: nullableToString(organization.sandboxLifecycleRateLimitTtlSeconds),
       })
     }
   }, [organization, open])
@@ -109,7 +124,7 @@ export const EditOrganizationModal = ({ organization, open, onClose, onSuccess }
         updates.telemetryEnabled = formData.telemetryEnabled
       }
 
-      // Quota fields
+      // Required-numeric fields (entity-level defaults, never null)
       const numericFields = [
         'maxCpuPerSandbox',
         'maxMemoryPerSandbox',
@@ -117,11 +132,30 @@ export const EditOrganizationModal = ({ organization, open, onClose, onSuccess }
         'maxSnapshotSize',
         'snapshotQuota',
         'volumeQuota',
+        'snapshotDeactivationTimeoutMinutes',
       ] as const
 
       for (const field of numericFields) {
         const newValue = formData[field] === '' ? undefined : Number(formData[field])
         const oldValue = (organization as Record<string, any>)[field] ?? undefined
+        if (newValue !== oldValue) {
+          ;(updates as any)[field] = newValue
+        }
+      }
+
+      // Nullable rate-limit fields: empty input = explicit null (clear override → use global default)
+      const nullableFields = [
+        'authenticatedRateLimit',
+        'sandboxCreateRateLimit',
+        'sandboxLifecycleRateLimit',
+        'authenticatedRateLimitTtlSeconds',
+        'sandboxCreateRateLimitTtlSeconds',
+        'sandboxLifecycleRateLimitTtlSeconds',
+      ] as const
+
+      for (const field of nullableFields) {
+        const newValue = formData[field] === '' ? null : Number(formData[field])
+        const oldValue = (organization as Record<string, any>)[field] ?? null
         if (newValue !== oldValue) {
           ;(updates as any)[field] = newValue
         }
@@ -321,6 +355,105 @@ export const EditOrganizationModal = ({ organization, open, onClose, onSuccess }
             <p className="text-xs text-muted-foreground">
               Restrict outbound network access for sandboxes in this organization
             </p>
+          </div>
+
+          <Separator />
+
+          {/* Snapshot Lifecycle */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold">Snapshot Lifecycle</h3>
+            <div className="space-y-2">
+              <Label htmlFor="snapshotDeactivationTimeoutMinutes">Deactivation Timeout (minutes)</Label>
+              <Input
+                id="snapshotDeactivationTimeoutMinutes"
+                type="number"
+                min={1}
+                value={formData.snapshotDeactivationTimeoutMinutes}
+                onChange={(e) => setFormData({ ...formData, snapshotDeactivationTimeoutMinutes: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">Default 20160 (14 days). Min 1.</p>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Rate Limits */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold">Rate Limits</h3>
+            <p className="text-xs text-muted-foreground">
+              Leave empty to inherit the global default. Each limit pairs a request count with a TTL window (seconds).
+            </p>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="authenticatedRateLimit">Authenticated requests</Label>
+                <Input
+                  id="authenticatedRateLimit"
+                  type="number"
+                  min={0}
+                  placeholder="(global default)"
+                  value={formData.authenticatedRateLimit}
+                  onChange={(e) => setFormData({ ...formData, authenticatedRateLimit: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="authenticatedRateLimitTtlSeconds">…per (seconds)</Label>
+                <Input
+                  id="authenticatedRateLimitTtlSeconds"
+                  type="number"
+                  min={1}
+                  placeholder="(global default)"
+                  value={formData.authenticatedRateLimitTtlSeconds}
+                  onChange={(e) => setFormData({ ...formData, authenticatedRateLimitTtlSeconds: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sandboxCreateRateLimit">Sandbox create</Label>
+                <Input
+                  id="sandboxCreateRateLimit"
+                  type="number"
+                  min={0}
+                  placeholder="(global default)"
+                  value={formData.sandboxCreateRateLimit}
+                  onChange={(e) => setFormData({ ...formData, sandboxCreateRateLimit: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sandboxCreateRateLimitTtlSeconds">…per (seconds)</Label>
+                <Input
+                  id="sandboxCreateRateLimitTtlSeconds"
+                  type="number"
+                  min={1}
+                  placeholder="(global default)"
+                  value={formData.sandboxCreateRateLimitTtlSeconds}
+                  onChange={(e) => setFormData({ ...formData, sandboxCreateRateLimitTtlSeconds: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sandboxLifecycleRateLimit">Sandbox lifecycle</Label>
+                <Input
+                  id="sandboxLifecycleRateLimit"
+                  type="number"
+                  min={0}
+                  placeholder="(global default)"
+                  value={formData.sandboxLifecycleRateLimit}
+                  onChange={(e) => setFormData({ ...formData, sandboxLifecycleRateLimit: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sandboxLifecycleRateLimitTtlSeconds">…per (seconds)</Label>
+                <Input
+                  id="sandboxLifecycleRateLimitTtlSeconds"
+                  type="number"
+                  min={1}
+                  placeholder="(global default)"
+                  value={formData.sandboxLifecycleRateLimitTtlSeconds}
+                  onChange={(e) => setFormData({ ...formData, sandboxLifecycleRateLimitTtlSeconds: e.target.value })}
+                />
+              </div>
+            </div>
           </div>
 
           <DialogFooter>

@@ -152,6 +152,8 @@ export const UpdateSandboxDtoStateEnum = {
   ARCHIVED: 'archived',
   ARCHIVING: 'archiving',
   RESIZING: 'resizing',
+  SNAPSHOTTING: 'snapshotting',
+  FORKING: 'forking',
 } as const
 
 export type UpdateSandboxDtoStateEnum = (typeof UpdateSandboxDtoStateEnum)[keyof typeof UpdateSandboxDtoStateEnum]

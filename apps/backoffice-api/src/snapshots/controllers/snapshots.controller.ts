@@ -19,9 +19,8 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { ConfigService } from '@nestjs/config'
 import { FlexibleAuthGuard, AuthenticatedRequest } from '../../common/guards/flexible-auth.guard'
-import { RolesGuard } from '../../common/guards/roles.guard'
-import { Roles } from '../../common/decorators/roles.decorator'
-import { BackofficeRole } from '../../common/enums/backoffice-role.enum'
+import { PermissionsGuard } from '../../common/guards/permissions.guard'
+import { RequirePermission } from '../../common/decorators/require-permission.decorator'
 import { SnapshotsService } from '../services'
 import { PatchSnapshotDto, AddToWarmPoolDto, AddToWarmPoolResponseDto } from '../dto'
 import { Snapshot } from '@api/sandbox/entities/snapshot.entity'
@@ -33,8 +32,7 @@ import { AuditTarget } from '../../audit/enums/audit-target.enum'
 
 @ApiTags('snapshots')
 @ApiSecurity('bearerAuth')
-@UseGuards(FlexibleAuthGuard, RolesGuard)
-@Roles([BackofficeRole.ADMIN])
+@UseGuards(FlexibleAuthGuard, PermissionsGuard)
 @Controller('snapshots')
 export class SnapshotsController {
   constructor(
@@ -47,6 +45,7 @@ export class SnapshotsController {
   ) {}
 
   @Patch(':id')
+  @RequirePermission(['snapshots', 'write'])
   @ApiOperation({ summary: 'Update a snapshot' })
   @ApiParam({ name: 'id', description: 'Snapshot ID' })
   @ApiResponse({ status: 200, description: 'Snapshot updated successfully' })
@@ -64,6 +63,7 @@ export class SnapshotsController {
   }
 
   @Post(':id/add-to-warm-pool')
+  @RequirePermission(['snapshots', 'write'])
   @ApiOperation({ summary: 'Add snapshot to warm pool' })
   @ApiParam({ name: 'id', description: 'Snapshot ID' })
   @ApiResponse({ status: 201, description: 'Snapshot added to warm pool', type: AddToWarmPoolResponseDto })

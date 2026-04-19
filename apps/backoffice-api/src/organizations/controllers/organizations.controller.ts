@@ -3,15 +3,14 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Controller, Param, Body, Patch, Post, UseGuards, Req, BadRequestException } from '@nestjs/common'
+import { Controller, Param, Body, Patch, Post, UseGuards, BadRequestException } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity, ApiParam } from '@nestjs/swagger'
 import { HttpService } from '@nestjs/axios'
 import { ConfigService } from '@nestjs/config'
 import { firstValueFrom } from 'rxjs'
-import { FlexibleAuthGuard, AuthenticatedRequest } from '../../common/guards/flexible-auth.guard'
-import { RolesGuard } from '../../common/guards/roles.guard'
-import { Roles } from '../../common/decorators/roles.decorator'
-import { BackofficeRole } from '../../common/enums/backoffice-role.enum'
+import { FlexibleAuthGuard } from '../../common/guards/flexible-auth.guard'
+import { PermissionsGuard } from '../../common/guards/permissions.guard'
+import { RequirePermission } from '../../common/decorators/require-permission.decorator'
 import { OrganizationsService } from '../services'
 import { PatchOrganizationDto, InitializeWebhooksResponseDto } from '../dto'
 import { Audit } from '../../audit/decorators/audit.decorator'
@@ -20,8 +19,7 @@ import { AuditTarget } from '../../audit/enums/audit-target.enum'
 
 @ApiTags('organizations')
 @ApiSecurity('bearerAuth')
-@UseGuards(FlexibleAuthGuard, RolesGuard)
-@Roles([BackofficeRole.ADMIN])
+@UseGuards(FlexibleAuthGuard, PermissionsGuard)
 @Controller('organizations')
 export class OrganizationsController {
   constructor(
@@ -31,6 +29,7 @@ export class OrganizationsController {
   ) {}
 
   @Patch(':id')
+  @RequirePermission(['organizations', 'write'])
   @ApiOperation({ summary: 'Update an organization' })
   @ApiParam({ name: 'id', description: 'Organization ID' })
   @ApiResponse({ status: 200, description: 'Organization updated successfully' })
@@ -42,11 +41,12 @@ export class OrganizationsController {
     targetType: AuditTarget.ORGANIZATION,
     targetIdFromRequest: (req) => req.params.id,
   })
-  async update(@Param('id') id: string, @Body() patchDto: PatchOrganizationDto, @Req() req: AuthenticatedRequest) {
+  async update(@Param('id') id: string, @Body() patchDto: PatchOrganizationDto) {
     return this.organizationsService.update(id, patchDto)
   }
 
   @Post(':id/initialize-webhooks')
+  @RequirePermission(['organizations', 'write'])
   @ApiOperation({ summary: 'Initialize webhooks for organization' })
   @ApiParam({ name: 'id', description: 'Organization ID' })
   @ApiResponse({ status: 200, description: 'Webhooks initialized successfully', type: InitializeWebhooksResponseDto })
@@ -56,10 +56,7 @@ export class OrganizationsController {
     targetType: AuditTarget.ORGANIZATION,
     targetIdFromRequest: (req) => req.params.id,
   })
-  async initializeWebhooks(
-    @Param('id') organizationId: string,
-    @Req() req: AuthenticatedRequest,
-  ): Promise<InitializeWebhooksResponseDto> {
+  async initializeWebhooks(@Param('id') organizationId: string): Promise<InitializeWebhooksResponseDto> {
     const externalApiUrl = this.configService.get('externalApi.baseUrl')
     const adminKey = this.configService.get('externalApi.adminKey')
 

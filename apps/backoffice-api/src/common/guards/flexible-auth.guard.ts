@@ -3,24 +3,22 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Injectable, ExecutionContext, UnauthorizedException } from '@nestjs/common'
-import { AuthGuard } from '@nestjs/passport'
+import { Injectable, ExecutionContext, UnauthorizedException, CanActivate } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
 import { timingSafeEqual } from 'crypto'
 import { AuthenticatedRequest } from '../interfaces/authenticated-request.interface'
+import { SUPER_ADMIN_PERMISSIONS } from '../permissions'
 
 // Re-export for backward compatibility
 export { AuthenticatedRequest }
 
 @Injectable()
-export class FlexibleAuthGuard extends AuthGuard('jwt') {
+export class FlexibleAuthGuard implements CanActivate {
   constructor(
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
-  ) {
-    super()
-  }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest()
@@ -74,7 +72,7 @@ export class FlexibleAuthGuard extends AuthGuard('jwt') {
         id: payload.sub,
         email: payload.email,
         name: payload.name,
-        role: payload.role,
+        permissions: payload.permissions ?? {},
       }
       return true
     } catch {
@@ -118,7 +116,7 @@ export class FlexibleAuthGuard extends AuthGuard('jwt') {
           id: 'admin-user-id',
           email: 'admin@daytona.io',
           name: 'Admin (BasicAuth)',
-          role: 'admin',
+          permissions: SUPER_ADMIN_PERMISSIONS,
         }
         return true
       }

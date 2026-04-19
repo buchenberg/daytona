@@ -11,9 +11,11 @@ import { BulkActionToolbar } from '../components/BulkActionToolbar'
 import { FilterPanel } from '../features/region-quotas/FilterPanel'
 import { EditRegionQuotaModal } from '../features/region-quotas/EditRegionQuotaModal'
 import { BulkEditRegionQuotaModal as BulkEditModal } from '../features/region-quotas/BulkEditRegionQuotaModal'
+import { useHasPermission } from '../providers/ApiProvider'
 import { RegionQuotaFiltersDto, RegionQuota } from '../types'
 
 export const RegionQuotasPage = () => {
+  const canBulkWrite = useHasPermission('regionQuotas', 'write-bulk')
   const [filterOpen, setFilterOpen] = useState(false)
   const [filters, setFilters] = useState<RegionQuotaFiltersDto>({})
   const [page, setPage] = useState(1)
@@ -97,7 +99,7 @@ export const RegionQuotasPage = () => {
         <PageTitle>Region Quotas</PageTitle>
       </PageHeader>
       <PageContent size="full">
-        {selectedRowKeys.length > 0 && (
+        {canBulkWrite && selectedRowKeys.length > 0 && (
           <BulkActionToolbar
             selectedCount={selectedRowKeys.length}
             onBulkEdit={handleBulkEdit}

@@ -9,7 +9,7 @@ import { Badge } from '@dashboard/ui/badge'
 import { Input } from '@dashboard/ui/input'
 import { DataTable, Column } from '@backoffice/components/DataTable'
 import { TruncatedText } from '@backoffice/components/TruncatedText'
-import { useIsAdmin } from '../../providers/ApiProvider'
+import { useHasPermission } from '../../providers/ApiProvider'
 import type { User } from '../../types'
 import dayjs from 'dayjs'
 import { cn } from '@backoffice/lib/utils'
@@ -51,7 +51,7 @@ export const TableView = ({
   searchValue = '',
   onSearchChange,
 }: TableViewProps) => {
-  const isAdmin = useIsAdmin()
+  const canDelete = useHasPermission('users', 'delete')
 
   const columns: Column<User>[] = [
     {
@@ -94,7 +94,7 @@ export const TableView = ({
     },
   ]
 
-  if (onDelete && isAdmin) {
+  if (onDelete && canDelete) {
     columns.push({
       key: 'actions',
       title: 'Actions',

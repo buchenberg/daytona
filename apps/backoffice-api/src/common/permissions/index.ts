@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-export enum BackofficeRole {
-  ADMIN = 'admin',
-  VIEWER = 'viewer',
-}
+export * from './types'
+export * from './helpers'
+export * from './presets'

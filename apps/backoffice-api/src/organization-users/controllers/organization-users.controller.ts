@@ -6,9 +6,8 @@
 import { Controller, Param, Body, Patch, UseGuards, Req } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity, ApiParam } from '@nestjs/swagger'
 import { FlexibleAuthGuard, AuthenticatedRequest } from '../../common/guards/flexible-auth.guard'
-import { RolesGuard } from '../../common/guards/roles.guard'
-import { Roles } from '../../common/decorators/roles.decorator'
-import { BackofficeRole } from '../../common/enums/backoffice-role.enum'
+import { PermissionsGuard } from '../../common/guards/permissions.guard'
+import { RequirePermission } from '../../common/decorators/require-permission.decorator'
 import { OrganizationUsersService } from '../services'
 import { PatchOrganizationUserDto } from '../dto'
 import { Audit } from '../../audit/decorators/audit.decorator'
@@ -17,13 +16,13 @@ import { AuditTarget } from '../../audit/enums/audit-target.enum'
 
 @ApiTags('organization-users')
 @ApiSecurity('bearerAuth')
-@UseGuards(FlexibleAuthGuard, RolesGuard)
-@Roles([BackofficeRole.ADMIN])
+@UseGuards(FlexibleAuthGuard, PermissionsGuard)
 @Controller('organization-users')
 export class OrganizationUsersController {
   constructor(private readonly organizationUsersService: OrganizationUsersService) {}
 
   @Patch(':organizationId/:userId')
+  @RequirePermission(['organizationUsers', 'write'])
   @ApiOperation({ summary: 'Update an organization user' })
   @ApiParam({ name: 'organizationId', description: 'Organization ID' })
   @ApiParam({ name: 'userId', description: 'User ID' })

@@ -61,6 +61,10 @@ export const config = {
   jwt: {
     secret: process.env.JWT_SECRET || 'dev-secret-key-change-in-production',
     expiresIn: (process.env.JWT_EXPIRES_IN as StringValue) || '7d',
+    // Hard cap (in seconds) on how old a session token's `iat` can be and still
+    // be eligible for sliding refresh. After this, the user must re-OAuth.
+    // 8h matches the typical "re-auth at start of workday" admin-tool pattern.
+    maxRefreshAgeSeconds: parseInt(process.env.JWT_MAX_REFRESH_AGE_SECONDS || `${8 * 60 * 60}`, 10),
   },
 
   frontend: {

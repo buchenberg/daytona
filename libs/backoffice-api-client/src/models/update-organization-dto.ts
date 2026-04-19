@@ -90,4 +90,46 @@ export interface UpdateOrganizationDto {
    * @memberof UpdateOrganizationDto
    */
   sandboxLimitedNetworkEgress?: boolean
+  /**
+   * Snapshot deactivation timeout in minutes (default 20160 = 14 days). Min 1.
+   * @type {number}
+   * @memberof UpdateOrganizationDto
+   */
+  snapshotDeactivationTimeoutMinutes?: number
+  /**
+   * Authenticated request rate limit (requests per TTL window). null = use global default.
+   * @type {number}
+   * @memberof UpdateOrganizationDto
+   */
+  authenticatedRateLimit?: number | null
+  /**
+   * Sandbox create rate limit. null = use global default.
+   * @type {number}
+   * @memberof UpdateOrganizationDto
+   */
+  sandboxCreateRateLimit?: number | null
+  /**
+   * Sandbox lifecycle (start/stop/etc) rate limit. null = use global default.
+   * @type {number}
+   * @memberof UpdateOrganizationDto
+   */
+  sandboxLifecycleRateLimit?: number | null
+  /**
+   * TTL window (seconds) for authenticatedRateLimit. null = use global default.
+   * @type {number}
+   * @memberof UpdateOrganizationDto
+   */
+  authenticatedRateLimitTtlSeconds?: number | null
+  /**
+   * TTL window (seconds) for sandboxCreateRateLimit. null = use global default.
+   * @type {number}
+   * @memberof UpdateOrganizationDto
+   */
+  sandboxCreateRateLimitTtlSeconds?: number | null
+  /**
+   * TTL window (seconds) for sandboxLifecycleRateLimit. null = use global default.
+   * @type {number}
+   * @memberof UpdateOrganizationDto
+   */
+  sandboxLifecycleRateLimitTtlSeconds?: number | null
 }

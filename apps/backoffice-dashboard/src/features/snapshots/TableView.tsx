@@ -10,7 +10,7 @@ import { Input } from '@dashboard/ui/input'
 import { DataTable, Column } from '@backoffice/components/DataTable'
 import { TruncatedText } from '@backoffice/components/TruncatedText'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@dashboard/ui/tooltip'
-import { useIsAdmin } from '../../providers/ApiProvider'
+import { useHasPermission } from '../../providers/ApiProvider'
 import { Snapshot, SnapshotState } from '../../types'
 import dayjs from 'dayjs'
 import { cn } from '@backoffice/lib/utils'
@@ -77,7 +77,7 @@ export const TableView = ({
   searchValue = '',
   onSearchChange,
 }: TableViewProps) => {
-  const isAdmin = useIsAdmin()
+  const canWrite = useHasPermission('snapshots', 'write')
   const columns: Column<Snapshot>[] = [
     {
       key: 'name',
@@ -173,7 +173,7 @@ export const TableView = ({
   ]
 
   // Add actions column if onEdit or onPropagate or onAddToWarmPool callbacks are provided
-  if ((onEdit && isAdmin) || onPropagate || onAddToWarmPool) {
+  if ((onEdit && canWrite) || (onPropagate && canWrite) || (onAddToWarmPool && canWrite)) {
     columns.push({
       key: 'actions',
       title: 'Actions',
@@ -181,7 +181,7 @@ export const TableView = ({
       render: (snapshot) => (
         <TooltipProvider delayDuration={300}>
           <div className="flex gap-1">
-            {onEdit && isAdmin && (
+            {onEdit && canWrite && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -202,7 +202,7 @@ export const TableView = ({
                 </TooltipContent>
               </Tooltip>
             )}
-            {onPropagate && (
+            {onPropagate && canWrite && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -223,7 +223,7 @@ export const TableView = ({
                 </TooltipContent>
               </Tooltip>
             )}
-            {onAddToWarmPool && (
+            {onAddToWarmPool && canWrite && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button

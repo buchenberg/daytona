@@ -8,7 +8,7 @@ import { Button } from '@dashboard/ui/button'
 import { Input } from '@dashboard/ui/input'
 import { DataTable, Column } from '@backoffice/components/DataTable'
 import { TruncatedText } from '@backoffice/components/TruncatedText'
-import { useIsAdmin } from '../../providers/ApiProvider'
+import { useHasPermission } from '../../providers/ApiProvider'
 import { RegionQuota } from '../../types'
 import dayjs from 'dayjs'
 import { cn } from '@backoffice/lib/utils'
@@ -54,7 +54,7 @@ export const TableView = ({
   searchValue = '',
   onSearchChange,
 }: TableViewProps) => {
-  const isAdmin = useIsAdmin()
+  const canWrite = useHasPermission('regionQuotas', 'write')
   const columns: Column<RegionQuota>[] = [
     {
       key: 'organization',
@@ -97,6 +97,26 @@ export const TableView = ({
       render: (record) => <span className="font-semibold">{record.totalDiskQuota}</span>,
     },
     {
+      key: 'perSandboxCaps',
+      title: 'Per-Sandbox Caps',
+      width: '220px',
+      render: (record) => {
+        const fmt = (v: number | null | undefined) => (v == null ? '—' : String(v))
+        return (
+          <div className="flex flex-col text-xs leading-tight">
+            <span>
+              <span className="text-muted-foreground">cpu</span> {fmt(record.maxCpuPerSandbox)}{' '}
+              <span className="text-muted-foreground">· mem</span> {fmt(record.maxMemoryPerSandbox)}
+            </span>
+            <span>
+              <span className="text-muted-foreground">disk</span> {fmt(record.maxDiskPerSandbox)}{' '}
+              <span className="text-muted-foreground">· non-eph</span> {fmt(record.maxDiskPerNonEphemeralSandbox)}
+            </span>
+          </div>
+        )
+      },
+    },
+    {
       key: 'createdAt',
       title: 'Created',
       width: '120px',
@@ -113,7 +133,7 @@ export const TableView = ({
   ]
 
   // Add Edit button column if onEdit callback is provided
-  if (onEdit && isAdmin) {
+  if (onEdit && canWrite) {
     columns.push({
       key: 'actions',
       title: 'Actions',

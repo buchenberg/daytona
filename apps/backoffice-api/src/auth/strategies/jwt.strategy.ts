@@ -11,12 +11,13 @@ import { createRemoteJWKSet, JWTPayload, jwtVerify } from 'jose'
 import { Request } from 'express'
 import { ConfigService } from '@nestjs/config'
 import { BackofficeUserService } from '../services/backoffice-user.service'
+import { Permissions } from '../../common/permissions'
 
 export interface JwtPayload {
   sub: string
   email: string
   name: string
-  role?: string
+  permissions?: Permissions
   iat: number
   exp: number
 }
@@ -101,7 +102,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role || 'admin',
+      permissions: user.permissions ?? {},
     }
   }
 

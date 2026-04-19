@@ -6,9 +6,8 @@
 import { Controller, Param, Body, Patch, UseGuards, Req } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity, ApiParam } from '@nestjs/swagger'
 import { FlexibleAuthGuard, AuthenticatedRequest } from '../../common/guards/flexible-auth.guard'
-import { RolesGuard } from '../../common/guards/roles.guard'
-import { Roles } from '../../common/decorators/roles.decorator'
-import { BackofficeRole } from '../../common/enums/backoffice-role.enum'
+import { PermissionsGuard } from '../../common/guards/permissions.guard'
+import { RequirePermission } from '../../common/decorators/require-permission.decorator'
 import { SandboxesService } from '../services'
 import { PatchSandboxDto } from '../dto'
 import { Audit } from '../../audit/decorators/audit.decorator'
@@ -17,13 +16,13 @@ import { AuditTarget } from '../../audit/enums/audit-target.enum'
 
 @ApiTags('sandboxes')
 @ApiSecurity('bearerAuth')
-@UseGuards(FlexibleAuthGuard, RolesGuard)
-@Roles([BackofficeRole.ADMIN])
+@UseGuards(FlexibleAuthGuard, PermissionsGuard)
 @Controller('sandboxes')
 export class SandboxesController {
   constructor(private readonly sandboxesService: SandboxesService) {}
 
   @Patch(':id')
+  @RequirePermission(['sandboxes', 'write'])
   @ApiOperation({ summary: 'Update a sandbox' })
   @ApiParam({ name: 'id', description: 'Sandbox ID' })
   @ApiResponse({ status: 200, description: 'Sandbox updated successfully' })

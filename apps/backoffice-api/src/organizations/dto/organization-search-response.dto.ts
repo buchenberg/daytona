@@ -108,6 +108,10 @@ export class OrganizationResponseDto implements Partial<Organization> {
   @Expose()
   @ApiPropertyOptional({ description: 'Sandbox lifecycle rate limit TTL in seconds' })
   sandboxLifecycleRateLimitTtlSeconds: number | null
+
+  @Expose()
+  @ApiProperty({ description: 'Snapshot deactivation timeout in minutes (default 20160 = 14 days)' })
+  snapshotDeactivationTimeoutMinutes: number
 }
 
 export class OrganizationSearchDataDto {

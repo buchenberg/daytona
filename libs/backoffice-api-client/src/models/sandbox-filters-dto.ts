@@ -112,18 +112,6 @@ export interface SandboxFiltersDto {
    * @memberof SandboxFiltersDto
    */
   createdBefore?: Date
-  /**
-   * Filter by last activity after date
-   * @type {Date}
-   * @memberof SandboxFiltersDto
-   */
-  lastActivityAfter?: Date
-  /**
-   * Filter by last activity before date
-   * @type {Date}
-   * @memberof SandboxFiltersDto
-   */
-  lastActivityBefore?: Date
 }
 
 export const SandboxFiltersDtoStateEnum = {
@@ -144,6 +132,8 @@ export const SandboxFiltersDtoStateEnum = {
   ARCHIVED: 'archived',
   ARCHIVING: 'archiving',
   RESIZING: 'resizing',
+  SNAPSHOTTING: 'snapshotting',
+  FORKING: 'forking',
 } as const
 
 export type SandboxFiltersDtoStateEnum = (typeof SandboxFiltersDtoStateEnum)[keyof typeof SandboxFiltersDtoStateEnum]
@@ -165,6 +155,8 @@ export const SandboxFiltersDtoExcludeStatesEnum = {
   ARCHIVED: 'archived',
   ARCHIVING: 'archiving',
   RESIZING: 'resizing',
+  SNAPSHOTTING: 'snapshotting',
+  FORKING: 'forking',
 } as const
 
 export type SandboxFiltersDtoExcludeStatesEnum =

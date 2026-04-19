@@ -53,6 +53,30 @@ export interface RegionQuotaResponseDto {
    * @type {number}
    * @memberof RegionQuotaResponseDto
    */
+  maxCpuPerSandbox?: number | null
+  /**
+   *
+   * @type {number}
+   * @memberof RegionQuotaResponseDto
+   */
+  maxMemoryPerSandbox?: number | null
+  /**
+   *
+   * @type {number}
+   * @memberof RegionQuotaResponseDto
+   */
+  maxDiskPerSandbox?: number | null
+  /**
+   *
+   * @type {number}
+   * @memberof RegionQuotaResponseDto
+   */
+  maxDiskPerNonEphemeralSandbox?: number | null
+  /**
+   *
+   * @type {number}
+   * @memberof RegionQuotaResponseDto
+   */
   sandboxQuota?: number
   /**
    *

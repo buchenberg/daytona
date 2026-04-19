@@ -9,7 +9,7 @@ import { Badge } from '@dashboard/ui/badge'
 import { Input } from '@dashboard/ui/input'
 import { DataTable, Column } from '@backoffice/components/DataTable'
 import { TruncatedText } from '@backoffice/components/TruncatedText'
-import { useIsAdmin } from '../../providers/ApiProvider'
+import { useHasPermission } from '../../providers/ApiProvider'
 import { OrganizationUser, OrganizationMemberRole } from '../../types'
 import dayjs from 'dayjs'
 import { cn } from '@backoffice/lib/utils'
@@ -68,7 +68,7 @@ export const TableView = ({
   searchValue = '',
   onSearchChange,
 }: TableViewProps) => {
-  const isAdmin = useIsAdmin()
+  const canWrite = useHasPermission('organizationUsers', 'write')
   const columns: Column<OrganizationUser>[] = [
     {
       key: 'userId',
@@ -123,7 +123,7 @@ export const TableView = ({
   ]
 
   // Add Edit button column if onEdit callback is provided
-  if (onEdit && isAdmin) {
+  if (onEdit && canWrite) {
     columns.push({
       key: 'actions',
       title: 'Actions',

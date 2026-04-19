@@ -14,9 +14,11 @@ import { BulkActionToolbar } from '../components/BulkActionToolbar'
 import { Button } from '@dashboard/ui/button'
 import { Upload } from 'lucide-react'
 import { useRunners } from '../features/runners/useRunners'
+import { useHasPermission } from '../providers/ApiProvider'
 import { RunnerFiltersDto, Runner } from '../types'
 
 export const RunnersPage = () => {
+  const canBulkWrite = useHasPermission('runners', 'write-bulk')
   const [filterOpen, setFilterOpen] = useState(false)
   const [filters, setFilters] = useState<RunnerFiltersDto>({})
   const [page, setPage] = useState(1)
@@ -120,13 +122,15 @@ export const RunnersPage = () => {
     <PageLayout>
       <PageHeader>
         <PageTitle>Runners</PageTitle>
-        <Button onClick={handleImportOpen} variant="outline" className="ml-auto">
-          <Upload className="h-4 w-4 mr-2" />
-          Import Runners
-        </Button>
+        {canBulkWrite && (
+          <Button onClick={handleImportOpen} variant="outline" className="ml-auto">
+            <Upload className="h-4 w-4 mr-2" />
+            Import Runners
+          </Button>
+        )}
       </PageHeader>
       <PageContent size="full">
-        {selectedRowKeys.length > 0 && (
+        {canBulkWrite && selectedRowKeys.length > 0 && (
           <BulkActionToolbar
             selectedCount={selectedRowKeys.length}
             onBulkEdit={handleBulkEdit}

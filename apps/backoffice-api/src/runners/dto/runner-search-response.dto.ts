@@ -21,6 +21,8 @@ export class RunnerResponseDto implements Partial<Runner> {
   @Expose() @ApiPropertyOptional() lastChecked?: Date
   @Expose() @ApiProperty() unschedulable: boolean
   @Expose() @ApiProperty() draining: boolean
+  @Expose() @ApiPropertyOptional({ nullable: true, type: String }) appVersion?: string | null
+  @Expose() @ApiProperty() apiVersion: string
 }
 
 export class RunnerSearchDataDto {

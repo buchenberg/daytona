@@ -168,4 +168,10 @@ export interface OrganizationResponseDto {
    * @memberof OrganizationResponseDto
    */
   sandboxLifecycleRateLimitTtlSeconds?: number
+  /**
+   * Snapshot deactivation timeout in minutes (default 20160 = 14 days)
+   * @type {number}
+   * @memberof OrganizationResponseDto
+   */
+  snapshotDeactivationTimeoutMinutes: number
 }

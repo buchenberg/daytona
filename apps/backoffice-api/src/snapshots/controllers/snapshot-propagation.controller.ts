@@ -6,9 +6,8 @@
 import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common'
 import { ApiOperation, ApiResponse, ApiTags, ApiParam, ApiExtraModels, ApiSecurity } from '@nestjs/swagger'
 import { FlexibleAuthGuard } from '../../common/guards/flexible-auth.guard'
-import { RolesGuard } from '../../common/guards/roles.guard'
-import { Roles } from '../../common/decorators/roles.decorator'
-import { BackofficeRole } from '../../common/enums/backoffice-role.enum'
+import { PermissionsGuard } from '../../common/guards/permissions.guard'
+import { RequirePermission } from '../../common/decorators/require-permission.decorator'
 import { SnapshotPropagationService } from '../services/snapshot-propagation.service'
 import { SnapshotPropagationRequestDto } from '../dto/snapshot-propagation-request.dto'
 import { SnapshotPropagationResponseDto, SnapshotPropagationStatusDto } from '../dto/snapshot-propagation-response.dto'
@@ -19,13 +18,13 @@ import { AuditTarget } from '../../audit/enums/audit-target.enum'
 @ApiTags('snapshots')
 @ApiSecurity('bearerAuth')
 @Controller('snapshots')
-@UseGuards(FlexibleAuthGuard, RolesGuard)
-@Roles([BackofficeRole.ADMIN])
+@UseGuards(FlexibleAuthGuard, PermissionsGuard)
 @ApiExtraModels(SnapshotPropagationStatusDto)
 export class SnapshotPropagationController {
   constructor(private readonly snapshotPropagationService: SnapshotPropagationService) {}
 
   @Post(':snapshotId/propagate')
+  @RequirePermission(['snapshots', 'write'])
   @ApiOperation({ summary: 'Propagate snapshot to runners in a region' })
   @ApiParam({ name: 'snapshotId', description: 'Snapshot ID' })
   @ApiResponse({ status: 200, description: 'Propagation completed', type: SnapshotPropagationResponseDto })

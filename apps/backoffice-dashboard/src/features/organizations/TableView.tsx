@@ -10,7 +10,7 @@ import { Input } from '@dashboard/ui/input'
 import { DataTable, Column } from '@backoffice/components/DataTable'
 import { TruncatedText } from '@backoffice/components/TruncatedText'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@dashboard/ui/tooltip'
-import { useIsAdmin } from '../../providers/ApiProvider'
+import { useHasPermission } from '../../providers/ApiProvider'
 import { Organization } from '../../types'
 import dayjs from 'dayjs'
 import { cn } from '@backoffice/lib/utils'
@@ -58,7 +58,7 @@ export const TableView = ({
   searchValue = '',
   onSearchChange,
 }: TableViewProps) => {
-  const isAdmin = useIsAdmin()
+  const canWrite = useHasPermission('organizations', 'write')
   const columns: Column<Organization>[] = [
     {
       key: 'name',
@@ -133,7 +133,7 @@ export const TableView = ({
   ]
 
   // Add actions column if any action callback is provided
-  if ((onEdit && isAdmin) || onInitializeWebhooks) {
+  if ((onEdit && canWrite) || (onInitializeWebhooks && canWrite)) {
     columns.push({
       key: 'actions',
       title: 'Actions',
@@ -141,7 +141,7 @@ export const TableView = ({
       render: (organization) => (
         <TooltipProvider delayDuration={300}>
           <div className="flex gap-1">
-            {onEdit && isAdmin && (
+            {onEdit && canWrite && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -161,7 +161,7 @@ export const TableView = ({
                 </TooltipContent>
               </Tooltip>
             )}
-            {onInitializeWebhooks && (
+            {onInitializeWebhooks && canWrite && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button

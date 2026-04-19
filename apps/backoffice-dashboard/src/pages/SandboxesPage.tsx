@@ -13,9 +13,11 @@ import { EditSandboxModal } from '../features/sandboxes/EditSandboxModal'
 import { BulkEditModal } from '../features/sandboxes/BulkEditModal'
 import { BulkActionToolbar } from '../components/BulkActionToolbar'
 import { useSandboxes } from '../features/sandboxes/useSandboxes'
+import { useHasPermission } from '../providers/ApiProvider'
 import { SandboxFiltersDto, SandboxState, Sandbox } from '../types'
 
 export const SandboxesPage = () => {
+  const canBulkWrite = useHasPermission('sandboxes', 'write-bulk')
   const [filterOpen, setFilterOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
@@ -153,7 +155,7 @@ export const SandboxesPage = () => {
         </div>
       </PageHeader>
       <PageContent size="full">
-        {selectedRowKeys.length > 0 && (
+        {canBulkWrite && selectedRowKeys.length > 0 && (
           <BulkActionToolbar
             selectedCount={selectedRowKeys.length}
             onBulkEdit={handleBulkEdit}

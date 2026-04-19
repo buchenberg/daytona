@@ -13,9 +13,11 @@ import { BulkEditSnapshotModal } from '../features/snapshots/BulkEditSnapshotMod
 import { PropagateSnapshotModal } from '../features/snapshots/PropagateSnapshotModal'
 import { AddToWarmPoolModal } from '../features/snapshots/AddToWarmPoolModal'
 import { BulkActionToolbar } from '../components/BulkActionToolbar'
+import { useHasPermission } from '../providers/ApiProvider'
 import { SnapshotFiltersDto, Snapshot } from '../types'
 
 export const SnapshotsPage = () => {
+  const canBulkWrite = useHasPermission('snapshots', 'write-bulk')
   const [filterOpen, setFilterOpen] = useState(false)
   const [filters, setFilters] = useState<SnapshotFiltersDto>({})
   const [page, setPage] = useState(1)
@@ -107,7 +109,7 @@ export const SnapshotsPage = () => {
         <PageTitle>Snapshots</PageTitle>
       </PageHeader>
       <PageContent size="full">
-        {selectedRowKeys.length > 0 && (
+        {canBulkWrite && selectedRowKeys.length > 0 && (
           <BulkActionToolbar
             selectedCount={selectedRowKeys.length}
             onBulkEdit={handleBulkEdit}

@@ -8,6 +8,10 @@ export class RegionQuotaResponseDto implements Partial<RegionQuota> {
   @ApiProperty() totalCpuQuota: number
   @ApiProperty() totalMemoryQuota: number
   @ApiProperty() totalDiskQuota: number
+  @ApiPropertyOptional({ nullable: true, type: Number }) maxCpuPerSandbox?: number | null
+  @ApiPropertyOptional({ nullable: true, type: Number }) maxMemoryPerSandbox?: number | null
+  @ApiPropertyOptional({ nullable: true, type: Number }) maxDiskPerSandbox?: number | null
+  @ApiPropertyOptional({ nullable: true, type: Number }) maxDiskPerNonEphemeralSandbox?: number | null
   @ApiPropertyOptional() sandboxQuota?: number
   @ApiProperty() createdAt: Date
   @ApiProperty() updatedAt: Date

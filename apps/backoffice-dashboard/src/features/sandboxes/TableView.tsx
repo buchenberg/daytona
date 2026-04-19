@@ -9,7 +9,7 @@ import { Badge } from '@dashboard/ui/badge'
 import { Input } from '@dashboard/ui/input'
 import { DataTable, Column } from '@backoffice/components/DataTable'
 import { TruncatedText } from '@backoffice/components/TruncatedText'
-import { useIsAdmin } from '../../providers/ApiProvider'
+import { useHasPermission } from '../../providers/ApiProvider'
 import { Sandbox, SandboxState, BackupState } from '../../types'
 import dayjs from 'dayjs'
 import { cn } from '@backoffice/lib/utils'
@@ -89,7 +89,7 @@ export const TableView = ({
   searchValue = '',
   onSearchChange,
 }: TableViewProps) => {
-  const isAdmin = useIsAdmin()
+  const canWrite = useHasPermission('sandboxes', 'write')
   const columns: Column<Sandbox>[] = [
     {
       key: 'name',
@@ -196,7 +196,7 @@ export const TableView = ({
     },
   ]
 
-  if (onEdit && isAdmin) {
+  if (onEdit && canWrite) {
     columns.push({
       key: 'actions',
       title: 'Actions',

@@ -6,9 +6,8 @@
 import { Controller, Post, Body, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger'
 import { FlexibleAuthGuard } from '../../common/guards/flexible-auth.guard'
-import { RolesGuard } from '../../common/guards/roles.guard'
-import { Roles } from '../../common/decorators/roles.decorator'
-import { BackofficeRole } from '../../common/enums/backoffice-role.enum'
+import { PermissionsGuard } from '../../common/guards/permissions.guard'
+import { RequirePermission } from '../../common/decorators/require-permission.decorator'
 import { BulkUpdateResponseDto } from '../../common/dto/bulk-response.dto'
 import { OrganizationsBulkService } from '../services'
 import { BulkUpdateOrganizationDto } from '../dto'
@@ -18,13 +17,13 @@ import { AuditTarget } from '../../audit/enums/audit-target.enum'
 
 @ApiTags('organizations')
 @ApiSecurity('bearerAuth')
-@UseGuards(FlexibleAuthGuard, RolesGuard)
-@Roles([BackofficeRole.ADMIN])
+@UseGuards(FlexibleAuthGuard, PermissionsGuard)
 @Controller('organizations')
 export class OrganizationsBulkController {
   constructor(private readonly organizationsBulkService: OrganizationsBulkService) {}
 
   @Post('bulk-update')
+  @RequirePermission(['organizations', 'write-bulk'])
   @ApiOperation({ summary: 'Bulk update organizations' })
   @ApiResponse({ status: 200, description: 'Bulk update completed', type: BulkUpdateResponseDto })
   @ApiResponse({ status: 400, description: 'Validation error' })

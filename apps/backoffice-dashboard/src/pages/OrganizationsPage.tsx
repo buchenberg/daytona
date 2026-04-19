@@ -12,9 +12,11 @@ import { EditOrganizationModal } from '../features/organizations/EditOrganizatio
 import { BulkEditOrganizationModal } from '../features/organizations/BulkEditOrganizationModal'
 import { InitializeWebhooksModal } from '../features/organizations/InitializeWebhooksModal'
 import { BulkActionToolbar } from '../components/BulkActionToolbar'
+import { useHasPermission } from '../providers/ApiProvider'
 import { OrganizationFiltersDto, Organization } from '../types'
 
 export const OrganizationsPage = () => {
+  const canBulkWrite = useHasPermission('organizations', 'write-bulk')
   const [filterOpen, setFilterOpen] = useState(false)
   const [filters, setFilters] = useState<OrganizationFiltersDto>({})
   const [page, setPage] = useState(1)
@@ -102,7 +104,7 @@ export const OrganizationsPage = () => {
         <PageTitle>Organizations</PageTitle>
       </PageHeader>
       <PageContent size="full">
-        {selectedRowKeys.length > 0 && (
+        {canBulkWrite && selectedRowKeys.length > 0 && (
           <BulkActionToolbar
             selectedCount={selectedRowKeys.length}
             onBulkEdit={handleBulkEdit}

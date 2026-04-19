@@ -9,7 +9,7 @@ import { Badge } from '@dashboard/ui/badge'
 import { Input } from '@dashboard/ui/input'
 import { DataTable, Column } from '@backoffice/components/DataTable'
 import { TruncatedText } from '@backoffice/components/TruncatedText'
-import { useIsAdmin } from '../../providers/ApiProvider'
+import { useHasPermission } from '../../providers/ApiProvider'
 import { Runner, RunnerState } from '../../types'
 import dayjs from 'dayjs'
 import { cn } from '@backoffice/lib/utils'
@@ -90,7 +90,7 @@ export const TableView = ({
   searchValue = '',
   onSearchChange,
 }: TableViewProps) => {
-  const isAdmin = useIsAdmin()
+  const canWrite = useHasPermission('runners', 'write')
   const columns: Column<Runner>[] = [
     {
       key: 'domain',
@@ -196,9 +196,24 @@ export const TableView = ({
         </Badge>
       ),
     },
+    {
+      key: 'versions',
+      title: 'Versions',
+      width: '160px',
+      render: (runner) => (
+        <div className="flex flex-col text-xs leading-tight font-mono">
+          <span>
+            <span className="text-muted-foreground">app</span> {runner.appVersion ?? '—'}
+          </span>
+          <span>
+            <span className="text-muted-foreground">api</span> {runner.apiVersion ?? '—'}
+          </span>
+        </div>
+      ),
+    },
   ]
 
-  if (onEdit && isAdmin) {
+  if (onEdit && canWrite) {
     columns.push({
       key: 'actions',
       title: 'Actions',

@@ -31,6 +31,10 @@ import {
 } from '../common'
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base'
+// @ts-ignore
+import type { AuthMeResponseDto } from '../models'
+// @ts-ignore
+import type { AuthRefreshResponseDto } from '../models'
 /**
  * AuthenticationApi - axios parameter creator
  * @export
@@ -290,7 +294,7 @@ export const AuthenticationApiFp = function (configuration?: Configuration) {
      */
     async authControllerMe(
       options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AuthMeResponseDto>> {
       const localVarAxiosArgs = await localVarAxiosParamCreator.authControllerMe(options)
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0
       const localVarOperationServerBasePath =
@@ -311,7 +315,7 @@ export const AuthenticationApiFp = function (configuration?: Configuration) {
      */
     async authControllerRefresh(
       options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AuthRefreshResponseDto>> {
       const localVarAxiosArgs = await localVarAxiosParamCreator.authControllerRefresh(options)
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0
       const localVarOperationServerBasePath =
@@ -379,7 +383,7 @@ export const AuthenticationApiFactory = function (
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    authControllerMe(options?: RawAxiosRequestConfig): AxiosPromise<void> {
+    authControllerMe(options?: RawAxiosRequestConfig): AxiosPromise<AuthMeResponseDto> {
       return localVarFp.authControllerMe(options).then((request) => request(axios, basePath))
     },
     /**
@@ -388,7 +392,7 @@ export const AuthenticationApiFactory = function (
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    authControllerRefresh(options?: RawAxiosRequestConfig): AxiosPromise<void> {
+    authControllerRefresh(options?: RawAxiosRequestConfig): AxiosPromise<AuthRefreshResponseDto> {
       return localVarFp.authControllerRefresh(options).then((request) => request(axios, basePath))
     },
   }

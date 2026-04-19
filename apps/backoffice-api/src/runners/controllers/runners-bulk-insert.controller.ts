@@ -6,9 +6,8 @@
 import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger'
 import { FlexibleAuthGuard, AuthenticatedRequest } from '../../common/guards/flexible-auth.guard'
-import { RolesGuard } from '../../common/guards/roles.guard'
-import { Roles } from '../../common/decorators/roles.decorator'
-import { BackofficeRole } from '../../common/enums/backoffice-role.enum'
+import { PermissionsGuard } from '../../common/guards/permissions.guard'
+import { RequirePermission } from '../../common/decorators/require-permission.decorator'
 import { RunnersBulkInsertService } from '../services'
 import { BulkInsertRunnerDto, BulkInsertResponseDto } from '../dto'
 import { Audit } from '../../audit/decorators/audit.decorator'
@@ -17,13 +16,13 @@ import { AuditTarget } from '../../audit/enums/audit-target.enum'
 
 @ApiTags('runners')
 @ApiSecurity('bearerAuth')
-@UseGuards(FlexibleAuthGuard, RolesGuard)
-@Roles([BackofficeRole.ADMIN])
+@UseGuards(FlexibleAuthGuard, PermissionsGuard)
 @Controller('runners')
 export class RunnersBulkInsertController {
   constructor(private readonly runnersBulkInsertService: RunnersBulkInsertService) {}
 
   @Post('bulk-insert')
+  @RequirePermission(['runners', 'write-bulk'])
   @ApiOperation({ summary: 'Bulk insert runners' })
   @ApiResponse({ status: 200, description: 'Bulk insert completed', type: BulkInsertResponseDto })
   @ApiResponse({ status: 400, description: 'Bad request - validation failed' })

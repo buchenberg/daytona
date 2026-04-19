@@ -4,7 +4,7 @@
  */
 
 import { ApiPropertyOptional } from '@nestjs/swagger'
-import { IsOptional, IsString, IsBoolean, IsNumber } from 'class-validator'
+import { IsOptional, IsString, IsBoolean, IsNumber, IsInt, Min, ValidateIf } from 'class-validator'
 import { Organization } from '@api/organization/entities/organization.entity'
 
 /**
@@ -70,4 +70,72 @@ export class UpdateOrganizationDto implements Partial<Organization> {
   @IsOptional()
   @IsBoolean()
   sandboxLimitedNetworkEgress?: boolean
+
+  @ApiPropertyOptional({
+    description: 'Snapshot deactivation timeout in minutes (default 20160 = 14 days). Min 1.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  snapshotDeactivationTimeoutMinutes?: number
+
+  @ApiPropertyOptional({
+    description: 'Authenticated request rate limit (requests per TTL window). null = use global default.',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(0)
+  authenticatedRateLimit?: number | null
+
+  @ApiPropertyOptional({
+    description: 'Sandbox create rate limit. null = use global default.',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(0)
+  sandboxCreateRateLimit?: number | null
+
+  @ApiPropertyOptional({
+    description: 'Sandbox lifecycle (start/stop/etc) rate limit. null = use global default.',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(0)
+  sandboxLifecycleRateLimit?: number | null
+
+  @ApiPropertyOptional({
+    description: 'TTL window (seconds) for authenticatedRateLimit. null = use global default.',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(1)
+  authenticatedRateLimitTtlSeconds?: number | null
+
+  @ApiPropertyOptional({
+    description: 'TTL window (seconds) for sandboxCreateRateLimit. null = use global default.',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(1)
+  sandboxCreateRateLimitTtlSeconds?: number | null
+
+  @ApiPropertyOptional({
+    description: 'TTL window (seconds) for sandboxLifecycleRateLimit. null = use global default.',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(1)
+  sandboxLifecycleRateLimitTtlSeconds?: number | null
 }

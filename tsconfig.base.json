@@ -16,6 +16,7 @@
     "baseUrl": ".",
     "paths": {
       "@api/*": ["apps/api/src/*"],
+      "@backoffice-api/permissions": ["apps/backoffice-api/src/common/permissions/index.ts"],
       "@daytonaio/backoffice-api-client": ["libs/backoffice-api-client/src/index.ts"],
       "@daytona/api-client": ["libs/api-client/src/index.ts"],
       "@daytona/runner-api-client": ["libs/runner-api-client/src/index.ts"],

@@ -110,12 +110,6 @@ export interface SandboxResponseDto {
   createdAt: Date
   /**
    *
-   * @type {Date}
-   * @memberof SandboxResponseDto
-   */
-  lastActivityAt?: Date
-  /**
-   *
    * @type {boolean}
    * @memberof SandboxResponseDto
    */
@@ -194,6 +188,8 @@ export const SandboxResponseDtoStateEnum = {
   ARCHIVED: 'archived',
   ARCHIVING: 'archiving',
   RESIZING: 'resizing',
+  SNAPSHOTTING: 'snapshotting',
+  FORKING: 'forking',
 } as const
 
 export type SandboxResponseDtoStateEnum = (typeof SandboxResponseDtoStateEnum)[keyof typeof SandboxResponseDtoStateEnum]

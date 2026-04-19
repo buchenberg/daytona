@@ -3,15 +3,16 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import BackofficeApiClient from '../api/BackofficeApiClient'
+import { Permissions, PermissionResource, ActionFor, hasPermission, isSuperAdmin } from '@backoffice-api/permissions'
 
 interface AuthUser {
   id: string
   email: string
   name: string
-  role: string
+  permissions: Permissions
 }
 
 const ApiContext = createContext<typeof BackofficeApiClient | null>(null)
@@ -20,6 +21,9 @@ const UserContext = createContext<AuthUser | null>(null)
 // Refresh interval: 12 minutes (before 15 min token expiry)
 const REFRESH_INTERVAL_MS = 12 * 60 * 1000
 
+// Don't slam /refresh on rapid tab-focus toggling (alt-tab spam, popovers, etc.)
+const FOCUS_REFRESH_THROTTLE_MS = 30 * 1000
+
 export const useApi = () => {
   const context = useContext(ApiContext)
   if (!context) throw new Error('useApi must be used within ApiProvider')
@@ -27,12 +31,20 @@ export const useApi = () => {
 }
 
 export const useUser = () => useContext(UserContext)
-export const useIsAdmin = () => useContext(UserContext)?.role === 'admin'
+
+export const usePermissions = (): Permissions => useContext(UserContext)?.permissions ?? {}
+
+export const useIsSuperAdmin = (): boolean => isSuperAdmin(usePermissions())
+
+export function useHasPermission<R extends PermissionResource>(resource: R, action: ActionFor<R>): boolean {
+  return hasPermission(usePermissions(), resource, action)
+}
 
 export function ApiProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState<AuthUser | null>(null)
+  const lastRefreshAtRef = useRef<number>(0)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -45,6 +57,7 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
       })
       if (!response.ok) return null
       const data = await response.json()
+      lastRefreshAtRef.current = Date.now()
       return (data?.data?.user as AuthUser) ?? null
     } catch {
       return null
@@ -100,6 +113,28 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
     }, REFRESH_INTERVAL_MS)
 
     return () => clearInterval(intervalId)
+  }, [isAuthenticated, refreshSession])
+
+  // Refresh on tab focus. setInterval is throttled / paused in background tabs,
+  // so without this a user returning after >15 min hits an expired cookie and
+  // would otherwise be bounced through OAuth.
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    const onVisibilityChange = async () => {
+      if (document.visibilityState !== 'visible') return
+      if (Date.now() - lastRefreshAtRef.current < FOCUS_REFRESH_THROTTLE_MS) return
+
+      const refreshedUser = await refreshSession()
+      if (!refreshedUser) {
+        window.location.href = '/api/v1/auth/login'
+      } else {
+        setUser(refreshedUser)
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
   }, [isAuthenticated, refreshSession])
 
   // Handle OAuth errors from query params

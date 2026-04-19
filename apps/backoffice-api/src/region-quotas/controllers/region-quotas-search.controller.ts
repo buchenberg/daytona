@@ -6,18 +6,21 @@
 import { Controller, Post, Body, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity, ApiExtraModels } from '@nestjs/swagger'
 import { FlexibleAuthGuard } from '../../common/guards/flexible-auth.guard'
+import { PermissionsGuard } from '../../common/guards/permissions.guard'
+import { RequirePermission } from '../../common/decorators/require-permission.decorator'
 import { RegionQuotasSearchService } from '../services'
 import { SearchRegionQuotaDto, RegionQuotaSearchResponseDto, RegionQuotaResponseDto } from '../dto'
 
 @ApiTags('region-quotas')
 @ApiSecurity('bearerAuth')
 @ApiExtraModels(RegionQuotaResponseDto)
-@UseGuards(FlexibleAuthGuard)
+@UseGuards(FlexibleAuthGuard, PermissionsGuard)
 @Controller('region-quotas')
 export class RegionQuotasSearchController {
   constructor(private readonly regionQuotasSearchService: RegionQuotasSearchService) {}
 
   @Post('search')
+  @RequirePermission(['regionQuotas', 'read'])
   @ApiOperation({ summary: 'Search region-quotas' })
   @ApiResponse({ status: 200, description: 'Search results', type: RegionQuotaSearchResponseDto })
   @ApiResponse({ status: 400, description: 'Validation error' })

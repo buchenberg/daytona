@@ -4,6 +4,7 @@
  */
 
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm'
+import { Permissions } from '../../common/permissions'
 
 @Entity('backoffice_user')
 @Index(['email'], { unique: true })
@@ -18,8 +19,8 @@ export class BackofficeUser {
   @Column({ nullable: true })
   name?: string
 
-  @Column({ default: 'admin' })
-  role: string
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
+  permissions: Permissions
 
   @Column({ name: 'is_active', default: true })
   isActive: boolean

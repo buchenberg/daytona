@@ -5,11 +5,12 @@
 
 import { useEffect, useState, FormEvent } from 'react'
 import { toast } from 'sonner'
-import { handleUpdateError } from '../../lib/api'
+import { handleUpdateError, showApiWarnings } from '../../lib/api'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@dashboard/ui/dialog'
 import { Button } from '@dashboard/ui/button'
 import { Input } from '@dashboard/ui/input'
 import { Label } from '@dashboard/ui/label'
+import { Separator } from '@dashboard/ui/separator'
 import { RegionQuota, UpdateRegionQuotaDto, PatchRegionQuotaDto } from '../../types'
 import BackofficeApiClient from '../../api/BackofficeApiClient'
 
@@ -20,21 +21,46 @@ interface EditRegionQuotaModalProps {
   onSuccess: () => void
 }
 
-// No manual form interface - use generated UpdateRegionQuotaDto directly
+// Form keeps strings so empty input maps cleanly to "unset / inherit org default" (= null on the wire).
+type FormState = {
+  totalCpuQuota: string
+  totalMemoryQuota: string
+  totalDiskQuota: string
+  maxCpuPerSandbox: string
+  maxMemoryPerSandbox: string
+  maxDiskPerSandbox: string
+  maxDiskPerNonEphemeralSandbox: string
+}
+
+const toFormString = (v: number | null | undefined): string => (v == null ? '' : String(v))
+
+const numberOrUndefined = (v: string): number | undefined => (v === '' ? undefined : Number(v))
+
+// For nullable per-sandbox caps: empty string = explicit null (clear override).
+const numberOrNull = (v: string): number | null => (v === '' ? null : Number(v))
+
 export const EditRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: EditRegionQuotaModalProps) => {
   const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState<Record<string, any>>({
-    totalCpuQuota: 0,
-    totalMemoryQuota: 0,
-    totalDiskQuota: 0,
+  const [formData, setFormData] = useState<FormState>({
+    totalCpuQuota: '',
+    totalMemoryQuota: '',
+    totalDiskQuota: '',
+    maxCpuPerSandbox: '',
+    maxMemoryPerSandbox: '',
+    maxDiskPerSandbox: '',
+    maxDiskPerNonEphemeralSandbox: '',
   })
 
   useEffect(() => {
     if (regionQuota && open) {
       setFormData({
-        totalCpuQuota: regionQuota.totalCpuQuota || 0,
-        totalMemoryQuota: regionQuota.totalMemoryQuota || 0,
-        totalDiskQuota: regionQuota.totalDiskQuota || 0,
+        totalCpuQuota: String(regionQuota.totalCpuQuota ?? 0),
+        totalMemoryQuota: String(regionQuota.totalMemoryQuota ?? 0),
+        totalDiskQuota: String(regionQuota.totalDiskQuota ?? 0),
+        maxCpuPerSandbox: toFormString(regionQuota.maxCpuPerSandbox),
+        maxMemoryPerSandbox: toFormString(regionQuota.maxMemoryPerSandbox),
+        maxDiskPerSandbox: toFormString(regionQuota.maxDiskPerSandbox),
+        maxDiskPerNonEphemeralSandbox: toFormString(regionQuota.maxDiskPerNonEphemeralSandbox),
       })
     }
   }, [regionQuota, open])
@@ -49,17 +75,37 @@ export const EditRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
       const updates: UpdateRegionQuotaDto = {}
       const preconditions: UpdateRegionQuotaDto = {}
 
-      if (formData.totalCpuQuota !== regionQuota.totalCpuQuota) {
-        updates.totalCpuQuota = Number(formData.totalCpuQuota)
+      // Total quotas (always present, never null)
+      const newTotalCpu = numberOrUndefined(formData.totalCpuQuota)
+      if (newTotalCpu !== undefined && newTotalCpu !== regionQuota.totalCpuQuota) {
+        updates.totalCpuQuota = newTotalCpu
         preconditions.totalCpuQuota = regionQuota.totalCpuQuota
       }
-      if (formData.totalMemoryQuota !== regionQuota.totalMemoryQuota) {
-        updates.totalMemoryQuota = Number(formData.totalMemoryQuota)
+      const newTotalMem = numberOrUndefined(formData.totalMemoryQuota)
+      if (newTotalMem !== undefined && newTotalMem !== regionQuota.totalMemoryQuota) {
+        updates.totalMemoryQuota = newTotalMem
         preconditions.totalMemoryQuota = regionQuota.totalMemoryQuota
       }
-      if (formData.totalDiskQuota !== regionQuota.totalDiskQuota) {
-        updates.totalDiskQuota = Number(formData.totalDiskQuota)
+      const newTotalDisk = numberOrUndefined(formData.totalDiskQuota)
+      if (newTotalDisk !== undefined && newTotalDisk !== regionQuota.totalDiskQuota) {
+        updates.totalDiskQuota = newTotalDisk
         preconditions.totalDiskQuota = regionQuota.totalDiskQuota
+      }
+
+      // Per-sandbox caps (nullable; empty input clears override)
+      const perSandboxFields: Array<
+        keyof Pick<
+          FormState,
+          'maxCpuPerSandbox' | 'maxMemoryPerSandbox' | 'maxDiskPerSandbox' | 'maxDiskPerNonEphemeralSandbox'
+        >
+      > = ['maxCpuPerSandbox', 'maxMemoryPerSandbox', 'maxDiskPerSandbox', 'maxDiskPerNonEphemeralSandbox']
+
+      for (const field of perSandboxFields) {
+        const newValue = numberOrNull(formData[field])
+        const oldValue = (regionQuota as any)[field] ?? null
+        if (newValue !== oldValue) {
+          ;(updates as any)[field] = newValue
+        }
       }
 
       if (Object.keys(updates).length === 0) {
@@ -81,6 +127,7 @@ export const EditRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
       toast.success('Region quota updated successfully')
       onSuccess()
       onClose()
+      showApiWarnings(response)
     } catch (error) {
       handleUpdateError(error, 'Failed to update region quota')
     } finally {
@@ -90,7 +137,7 @@ export const EditRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[560px]">
         <DialogHeader>
           <DialogTitle>Edit Region Quota</DialogTitle>
           <DialogDescription>
@@ -100,41 +147,100 @@ export const EditRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="totalCpuQuota">CPU Quota (cores)</Label>
-            <Input
-              id="totalCpuQuota"
-              type="number"
-              min={0}
-              value={formData.totalCpuQuota || ''}
-              onChange={(e) => setFormData((prev) => ({ ...prev, totalCpuQuota: Number(e.target.value) }))}
-              required
-            />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold">Region Totals</h3>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="totalCpuQuota">CPU (cores)</Label>
+                <Input
+                  id="totalCpuQuota"
+                  type="number"
+                  min={0}
+                  value={formData.totalCpuQuota}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, totalCpuQuota: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="totalMemoryQuota">Memory (GB)</Label>
+                <Input
+                  id="totalMemoryQuota"
+                  type="number"
+                  min={0}
+                  value={formData.totalMemoryQuota}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, totalMemoryQuota: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="totalDiskQuota">Disk (GB)</Label>
+                <Input
+                  id="totalDiskQuota"
+                  type="number"
+                  min={0}
+                  value={formData.totalDiskQuota}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, totalDiskQuota: e.target.value }))}
+                  required
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="totalMemoryQuota">Memory Quota (GB)</Label>
-            <Input
-              id="totalMemoryQuota"
-              type="number"
-              min={0}
-              value={formData.totalMemoryQuota || ''}
-              onChange={(e) => setFormData((prev) => ({ ...prev, totalMemoryQuota: Number(e.target.value) }))}
-              required
-            />
-          </div>
+          <Separator />
 
-          <div className="space-y-2">
-            <Label htmlFor="totalDiskQuota">Disk Quota (GB)</Label>
-            <Input
-              id="totalDiskQuota"
-              type="number"
-              min={0}
-              value={formData.totalDiskQuota || ''}
-              onChange={(e) => setFormData((prev) => ({ ...prev, totalDiskQuota: Number(e.target.value) }))}
-              required
-            />
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold">Per-Sandbox Caps in this Region</h3>
+            <p className="text-xs text-muted-foreground">
+              Leave empty to inherit the organization default. <code>0</code> on “non-ephemeral disk” disables
+              non-ephemeral sandboxes in this region.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="maxCpuPerSandbox">Max CPU / sandbox</Label>
+                <Input
+                  id="maxCpuPerSandbox"
+                  type="number"
+                  min={1}
+                  placeholder="(inherit)"
+                  value={formData.maxCpuPerSandbox}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, maxCpuPerSandbox: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maxMemoryPerSandbox">Max Memory / sandbox (GB)</Label>
+                <Input
+                  id="maxMemoryPerSandbox"
+                  type="number"
+                  min={1}
+                  placeholder="(inherit)"
+                  value={formData.maxMemoryPerSandbox}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, maxMemoryPerSandbox: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maxDiskPerSandbox">Max Disk / sandbox (GB)</Label>
+                <Input
+                  id="maxDiskPerSandbox"
+                  type="number"
+                  min={1}
+                  placeholder="(inherit)"
+                  value={formData.maxDiskPerSandbox}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, maxDiskPerSandbox: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maxDiskPerNonEphemeralSandbox">Max Disk / non-ephemeral (GB)</Label>
+                <Input
+                  id="maxDiskPerNonEphemeralSandbox"
+                  type="number"
+                  min={0}
+                  placeholder="(fall back to disk cap)"
+                  value={formData.maxDiskPerNonEphemeralSandbox}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, maxDiskPerNonEphemeralSandbox: e.target.value }))}
+                />
+              </div>
+            </div>
           </div>
 
           <DialogFooter>

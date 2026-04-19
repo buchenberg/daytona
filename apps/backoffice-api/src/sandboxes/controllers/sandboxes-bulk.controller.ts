@@ -7,9 +7,8 @@ import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common'
 import { BulkUpdateResponseDto } from '../../common/dto/bulk-response.dto'
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger'
 import { FlexibleAuthGuard, AuthenticatedRequest } from '../../common/guards/flexible-auth.guard'
-import { RolesGuard } from '../../common/guards/roles.guard'
-import { Roles } from '../../common/decorators/roles.decorator'
-import { BackofficeRole } from '../../common/enums/backoffice-role.enum'
+import { PermissionsGuard } from '../../common/guards/permissions.guard'
+import { RequirePermission } from '../../common/decorators/require-permission.decorator'
 import { SandboxesBulkService } from '../services'
 import { BulkUpdateSandboxDto } from '../dto'
 import { Audit } from '../../audit/decorators/audit.decorator'
@@ -18,13 +17,13 @@ import { AuditTarget } from '../../audit/enums/audit-target.enum'
 
 @ApiTags('sandboxes')
 @ApiSecurity('bearerAuth')
-@UseGuards(FlexibleAuthGuard, RolesGuard)
-@Roles([BackofficeRole.ADMIN])
+@UseGuards(FlexibleAuthGuard, PermissionsGuard)
 @Controller('sandboxes')
 export class SandboxesBulkController {
   constructor(private readonly sandboxesBulkService: SandboxesBulkService) {}
 
   @Post('bulk-update')
+  @RequirePermission(['sandboxes', 'write-bulk'])
   @ApiOperation({ summary: 'Bulk update sandboxes' })
   @ApiResponse({ status: 200, description: 'Bulk update completed', type: BulkUpdateResponseDto })
   @ApiResponse({ status: 400, description: 'Validation error' })

@@ -6,6 +6,7 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { AuthenticatedRequest } from '../interfaces/authenticated-request.interface'
+import { SUPER_ADMIN_PERMISSIONS } from '../permissions'
 
 // Re-export for backward compatibility
 export { AuthenticatedRequest }
@@ -44,7 +45,7 @@ export class BasicAuthGuard implements CanActivate {
         request.user = {
           id: 'admin-user-id',
           email: 'admin@daytona.io',
-          role: 'admin',
+          permissions: SUPER_ADMIN_PERMISSIONS,
         }
         return true
       }

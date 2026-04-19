@@ -3,13 +3,12 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common'
+import { Controller, Post, Body, UseGuards } from '@nestjs/common'
 import { BulkUpdateResponseDto } from '../../common/dto/bulk-response.dto'
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger'
-import { FlexibleAuthGuard, AuthenticatedRequest } from '../../common/guards/flexible-auth.guard'
-import { RolesGuard } from '../../common/guards/roles.guard'
-import { Roles } from '../../common/decorators/roles.decorator'
-import { BackofficeRole } from '../../common/enums/backoffice-role.enum'
+import { FlexibleAuthGuard } from '../../common/guards/flexible-auth.guard'
+import { PermissionsGuard } from '../../common/guards/permissions.guard'
+import { RequirePermission } from '../../common/decorators/require-permission.decorator'
 import { OrganizationUsersBulkService } from '../services'
 import { BulkUpdateOrganizationUserDto } from '../dto'
 import { Audit } from '../../audit/decorators/audit.decorator'
@@ -18,13 +17,13 @@ import { AuditTarget } from '../../audit/enums/audit-target.enum'
 
 @ApiTags('organization-users')
 @ApiSecurity('bearerAuth')
-@UseGuards(FlexibleAuthGuard, RolesGuard)
-@Roles([BackofficeRole.ADMIN])
+@UseGuards(FlexibleAuthGuard, PermissionsGuard)
 @Controller('organization-users')
 export class OrganizationUsersBulkController {
   constructor(private readonly organizationUsersBulkService: OrganizationUsersBulkService) {}
 
   @Post('bulk-update')
+  @RequirePermission(['organizationUsers', 'write-bulk'])
   @ApiOperation({ summary: 'Bulk update organization-users' })
   @ApiResponse({ status: 200, description: 'Bulk update completed', type: BulkUpdateResponseDto })
   @ApiResponse({ status: 400, description: 'Validation error' })
@@ -34,10 +33,7 @@ export class OrganizationUsersBulkController {
     targetIdsFromRequest: (req) =>
       req.body?.ids?.map((id: { organizationId: string; userId: string }) => `${id.organizationId}:${id.userId}`),
   })
-  async bulkUpdate(
-    @Body() bulkUpdateDto: BulkUpdateOrganizationUserDto,
-    @Req() req: AuthenticatedRequest,
-  ): Promise<BulkUpdateResponseDto> {
+  async bulkUpdate(@Body() bulkUpdateDto: BulkUpdateOrganizationUserDto): Promise<BulkUpdateResponseDto> {
     return this.organizationUsersBulkService.bulkUpdate(bulkUpdateDto)
   }
 }
