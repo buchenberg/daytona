@@ -5,16 +5,18 @@
 
 import { Permissions, ACTIONS_BY_RESOURCE, ALL_RESOURCES, PermissionResource } from './types'
 
-export const SUPER_ADMIN_PERMISSIONS: Permissions = { superAdmin: true }
+export const SUPER_ADMIN_PERMISSIONS: Permissions = Object.freeze({ superAdmin: true })
 
-export const VIEWER_PERMISSIONS: Permissions = ALL_RESOURCES.reduce((acc, resource) => {
-  const actions = ACTIONS_BY_RESOURCE[resource]
-  const readable = (actions as readonly string[]).includes('read') ? ['read'] : []
-  if (readable.length > 0) (acc as any)[resource] = readable
-  return acc
-}, {} as Permissions)
+export const VIEWER_PERMISSIONS: Permissions = Object.freeze(
+  ALL_RESOURCES.reduce((acc, resource) => {
+    if ((ACTIONS_BY_RESOURCE[resource] as readonly string[]).includes('read')) {
+      Object.assign(acc, { [resource]: Object.freeze(['read']) })
+    }
+    return acc
+  }, {} as Permissions),
+)
 
-export const EMPTY_PERMISSIONS: Permissions = {}
+export const EMPTY_PERMISSIONS: Permissions = Object.freeze({})
 
 export type PermissionPresetName = 'superAdmin' | 'viewer' | 'custom' | 'none'
 

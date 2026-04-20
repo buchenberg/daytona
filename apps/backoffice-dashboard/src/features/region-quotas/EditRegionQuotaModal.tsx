@@ -93,18 +93,18 @@ export const EditRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
       }
 
       // Per-sandbox caps (nullable; empty input clears override)
-      const perSandboxFields: Array<
-        keyof Pick<
-          FormState,
-          'maxCpuPerSandbox' | 'maxMemoryPerSandbox' | 'maxDiskPerSandbox' | 'maxDiskPerNonEphemeralSandbox'
-        >
-      > = ['maxCpuPerSandbox', 'maxMemoryPerSandbox', 'maxDiskPerSandbox', 'maxDiskPerNonEphemeralSandbox']
+      const perSandboxFields = [
+        'maxCpuPerSandbox',
+        'maxMemoryPerSandbox',
+        'maxDiskPerSandbox',
+        'maxDiskPerNonEphemeralSandbox',
+      ] as const
 
       for (const field of perSandboxFields) {
         const newValue = numberOrNull(formData[field])
-        const oldValue = (regionQuota as any)[field] ?? null
+        const oldValue = regionQuota[field] ?? null
         if (newValue !== oldValue) {
-          ;(updates as any)[field] = newValue
+          updates[field] = newValue
         }
       }
 

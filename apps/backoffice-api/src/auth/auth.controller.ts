@@ -172,9 +172,11 @@ export class AuthController {
       // revocation gate.
       const payload = await this.jwtService.verifyAsync(cookie, { ignoreExpiration: true })
 
+      // Missing iat collapses to 0, which the age check below naturally rejects
+      // (Date.now() is many orders of magnitude larger than maxRefreshAgeMs).
       const issuedAtMs = (payload.iat ?? 0) * 1000
       const maxRefreshAgeMs = this.configService.getOrThrow<number>('jwt.maxRefreshAgeSeconds') * 1000
-      if (!issuedAtMs || Date.now() - issuedAtMs > maxRefreshAgeMs) {
+      if (Date.now() - issuedAtMs > maxRefreshAgeMs) {
         res.clearCookie('backoffice_session', { path: '/' })
         throw new UnauthorizedException({
           success: false,

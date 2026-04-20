@@ -68,7 +68,7 @@ export const EditOrganizationModal = ({ organization, open, onClose, onSuccess }
         snapshotQuota: organization.snapshotQuota ?? '',
         volumeQuota: organization.volumeQuota ?? '',
         sandboxLimitedNetworkEgress: organization.sandboxLimitedNetworkEgress,
-        snapshotDeactivationTimeoutMinutes: (organization as any).snapshotDeactivationTimeoutMinutes ?? '',
+        snapshotDeactivationTimeoutMinutes: organization.snapshotDeactivationTimeoutMinutes ?? '',
         authenticatedRateLimit: nullableToString(organization.authenticatedRateLimit),
         sandboxCreateRateLimit: nullableToString(organization.sandboxCreateRateLimit),
         sandboxLifecycleRateLimit: nullableToString(organization.sandboxLifecycleRateLimit),
@@ -137,9 +137,9 @@ export const EditOrganizationModal = ({ organization, open, onClose, onSuccess }
 
       for (const field of numericFields) {
         const newValue = formData[field] === '' ? undefined : Number(formData[field])
-        const oldValue = (organization as Record<string, any>)[field] ?? undefined
+        const oldValue = organization[field] ?? undefined
         if (newValue !== oldValue) {
-          ;(updates as any)[field] = newValue
+          updates[field] = newValue
         }
       }
 
@@ -155,9 +155,9 @@ export const EditOrganizationModal = ({ organization, open, onClose, onSuccess }
 
       for (const field of nullableFields) {
         const newValue = formData[field] === '' ? null : Number(formData[field])
-        const oldValue = (organization as Record<string, any>)[field] ?? null
+        const oldValue = organization[field] ?? null
         if (newValue !== oldValue) {
-          ;(updates as any)[field] = newValue
+          updates[field] = newValue
         }
       }
 

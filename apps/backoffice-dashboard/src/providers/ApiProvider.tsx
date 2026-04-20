@@ -48,20 +48,25 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Refresh session token; returns user data from the refresh response on success
+  // Refresh session token.
+  //   resolves AuthUser  → success, slide forward
+  //   resolves null      → genuine 401 (session truly expired) → caller should redirect
+  //   throws             → transient (network blip, 5xx, offline) → caller should swallow
+  // The narrow contract matters because a brief WiFi blip when returning to a tab
+  // would otherwise be indistinguishable from a real session expiry and bounce the
+  // user through OAuth.
   const refreshSession = useCallback(async (): Promise<AuthUser | null> => {
-    try {
-      const response = await fetch('/api/v1/auth/refresh', {
-        method: 'POST',
-        credentials: 'include',
-      })
-      if (!response.ok) return null
-      const data = await response.json()
-      lastRefreshAtRef.current = Date.now()
-      return (data?.data?.user as AuthUser) ?? null
-    } catch {
-      return null
+    const response = await fetch('/api/v1/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+    })
+    if (response.status === 401) return null
+    if (!response.ok) {
+      throw new Error(`Refresh failed with status ${response.status}`)
     }
+    const data = await response.json()
+    lastRefreshAtRef.current = Date.now()
+    return (data?.data?.user as AuthUser) ?? null
   }, [])
 
   // Check authentication status
@@ -77,19 +82,24 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
           setUser(data?.data ?? null)
           setIsAuthenticated(true)
         } else if (response.status === 401) {
-          // Try to refresh the session
-          const refreshedUser = await refreshSession()
-          if (refreshedUser) {
-            setUser(refreshedUser)
-            setIsAuthenticated(true)
-          } else {
-            window.location.href = '/api/v1/auth/login'
+          // Try to refresh the session. A throw here means transient (network /
+          // 5xx) — leave the user on the loading screen and don't bounce them.
+          try {
+            const refreshedUser = await refreshSession()
+            if (refreshedUser) {
+              setUser(refreshedUser)
+              setIsAuthenticated(true)
+            } else {
+              window.location.href = '/api/v1/auth/login'
+            }
+          } catch {
+            // transient — stay on loading; the next /me load will retry
           }
         } else {
           window.location.href = '/api/v1/auth/login'
         }
       } catch {
-        window.location.href = '/api/v1/auth/login'
+        // network error fetching /me — don't bounce; user can refresh the page
       } finally {
         setIsLoading(false)
       }
@@ -103,12 +113,16 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
     if (!isAuthenticated) return
 
     const intervalId = setInterval(async () => {
-      const refreshedUser = await refreshSession()
-      if (!refreshedUser) {
-        // Session expired and couldn't refresh - redirect to login
-        window.location.href = '/api/v1/auth/login'
-      } else {
-        setUser(refreshedUser)
+      try {
+        const refreshedUser = await refreshSession()
+        if (!refreshedUser) {
+          // Genuine 401 — session really expired
+          window.location.href = '/api/v1/auth/login'
+        } else {
+          setUser(refreshedUser)
+        }
+      } catch {
+        // Transient network/5xx — let the next tick try again
       }
     }, REFRESH_INTERVAL_MS)
 
@@ -125,11 +139,16 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
       if (document.visibilityState !== 'visible') return
       if (Date.now() - lastRefreshAtRef.current < FOCUS_REFRESH_THROTTLE_MS) return
 
-      const refreshedUser = await refreshSession()
-      if (!refreshedUser) {
-        window.location.href = '/api/v1/auth/login'
-      } else {
-        setUser(refreshedUser)
+      try {
+        const refreshedUser = await refreshSession()
+        if (!refreshedUser) {
+          // Genuine 401 — session really expired
+          window.location.href = '/api/v1/auth/login'
+        } else {
+          setUser(refreshedUser)
+        }
+      } catch {
+        // Transient (offline / brief network blip on focus) — don't bounce
       }
     }
 

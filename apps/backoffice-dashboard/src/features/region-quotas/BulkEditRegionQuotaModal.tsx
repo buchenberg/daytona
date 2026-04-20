@@ -75,9 +75,9 @@ export const BulkEditRegionQuotaModal = ({ regionQuotas, open, onClose, onSucces
 
     for (const [field, mode, raw] of nullable) {
       if (mode === 'clear') {
-        ;(updates as any)[field] = null
+        updates[field] = null
       } else if (mode === 'set' && raw !== '') {
-        ;(updates as any)[field] = Number(raw)
+        updates[field] = Number(raw)
       }
     }
 
