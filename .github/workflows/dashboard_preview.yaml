@@ -65,4 +65,5 @@ jobs:
         run: aws s3 sync dist/apps/dashboard "s3://prod-daytona-preview/${{ steps.sha.outputs.short_sha }}/" --delete
 
       - name: Print preview URL
-        run: echo "Preview URL: https://${{ steps.sha.outputs.short_sha }}.p.daytona.work"
+        run: |
+          echo "Preview URL: https://${{ steps.sha.outputs.short_sha }}.p.daytona.work"
