@@ -1,0 +1,54 @@
+name: 'Dashboard Preview'
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch name to build'
+        required: true
+        type: string
+      use_oss:
+        description: 'Use OSS repo (daytonaio/daytona) instead of daytonaio/daytona-ai'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN }}
+
+jobs:
+  build:
+    name: Build dashboard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ${{ inputs.use_oss && 'daytonaio/daytona' || 'daytonaio/daytona-ai' }}
+          ref: ${{ inputs.branch }}
+          persist-credentials: false
+
+      - name: Checkout setup-toolchain action
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          path: _workflow_repo
+          sparse-checkout: |
+            .github/actions
+          persist-credentials: false
+
+      - uses: ./_workflow_repo/.github/actions/setup-toolchain
+        with:
+          install-go: 'false'
+          install-python: 'false'
+          install-ruby: 'false'
+          install-java: 'false'
+          install-poetry: 'false'
+          install-swag: 'false'
+          run-poetry-install: 'false'
+          run-go-work-sync: 'false'
+
+      - name: Build dashboard
+        run: yarn nx build dashboard --configuration production
