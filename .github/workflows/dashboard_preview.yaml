@@ -50,5 +50,19 @@ jobs:
           run-poetry-install: 'false'
           run-go-work-sync: 'false'
 
+      - name: Get short commit SHA
+        id: sha
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Build dashboard
         run: yarn nx build dashboard --configuration production
+
+      - name: Upload to S3
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.PREVIEW_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.PREVIEW_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+        run: aws s3 sync dist/apps/dashboard "s3://prod-daytona-preview/${{ steps.sha.outputs.short_sha }}/" --delete
+
+      - name: Print preview URL
+        run: echo "Preview URL: https://${{ steps.sha.outputs.short_sha }}.p.daytona.work"
