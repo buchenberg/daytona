@@ -6,7 +6,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import BackofficeApiClient from '../api/BackofficeApiClient'
-import { Permissions, PermissionResource, ActionFor, hasPermission, isSuperAdmin } from '@backoffice-api/permissions'
+import { Permissions, PermissionResource, ActionFor, hasPermission } from '@backoffice-api/permissions'
 
 interface AuthUser {
   id: string
@@ -33,8 +33,6 @@ export const useApi = () => {
 export const useUser = () => useContext(UserContext)
 
 export const usePermissions = (): Permissions => useContext(UserContext)?.permissions ?? {}
-
-export const useIsSuperAdmin = (): boolean => isSuperAdmin(usePermissions())
 
 export function useHasPermission<R extends PermissionResource>(resource: R, action: ActionFor<R>): boolean {
   return hasPermission(usePermissions(), resource, action)

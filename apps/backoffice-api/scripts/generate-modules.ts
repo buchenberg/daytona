@@ -63,18 +63,21 @@ function generateController(config: ModuleConfig): string {
 
 import { Controller, Param, Body, Patch, UseGuards, Req } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity, ApiParam } from '@nestjs/swagger'
-import { BasicAuthGuard, AuthenticatedRequest } from '../../common/guards/basic-auth.guard'
+import { FlexibleAuthGuard, AuthenticatedRequest } from '../../common/guards/flexible-auth.guard'
+import { PermissionsGuard } from '../../common/guards/permissions.guard'
+import { RequirePermission } from '../../common/decorators/require-permission.decorator'
 import { ${className}Service } from '../services'
 import { Update${config.entityName}Dto } from '../dto'
 
 @ApiTags('${config.name}')
-@ApiSecurity('basicAuth')
-@UseGuards(BasicAuthGuard)
+@ApiSecurity('bearerAuth')
+@UseGuards(FlexibleAuthGuard, PermissionsGuard)
 @Controller('${config.name}')
 export class ${className}Controller {
   constructor(private readonly ${config.pluralName}Service: ${className}Service) {}
 
   @Patch(':id')
+  @RequirePermission(['${config.pluralName}', 'write'])
   @ApiOperation({ summary: 'Update a ${config.entityName.toLowerCase()}' })
   @ApiParam({ name: 'id', description: '${config.entityName} ID' })
   @ApiResponse({ status: 200, description: '${config.entityName} updated successfully' })
@@ -114,18 +117,21 @@ function generateBulkController(config: ModuleConfig): string {
 
 import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger'
-import { BasicAuthGuard, AuthenticatedRequest } from '../../common/guards/basic-auth.guard'
+import { FlexibleAuthGuard, AuthenticatedRequest } from '../../common/guards/flexible-auth.guard'
+import { PermissionsGuard } from '../../common/guards/permissions.guard'
+import { RequirePermission } from '../../common/decorators/require-permission.decorator'
 import { ${className}BulkService } from '../services'
 import { BulkUpdate${config.entityName}Dto } from '../dto'
 
 @ApiTags('${config.name}')
-@ApiSecurity('basicAuth')
-@UseGuards(BasicAuthGuard)
+@ApiSecurity('bearerAuth')
+@UseGuards(FlexibleAuthGuard, PermissionsGuard)
 @Controller('${config.name}')
 export class ${className}BulkController {
   constructor(private readonly ${config.pluralName}BulkService: ${className}BulkService) {}
 
   @Post('bulk-update')
+  @RequirePermission(['${config.pluralName}', 'write-bulk'])
   @ApiOperation({ summary: 'Bulk update ${config.name}' })
   @ApiResponse({ status: 200, description: 'Bulk update completed' })
   async bulkUpdate(@Body() bulkUpdateDto: BulkUpdate${config.entityName}Dto, @Req() req: AuthenticatedRequest) {
@@ -162,18 +168,21 @@ function generateSearchController(config: ModuleConfig): string {
 
 import { Controller, Post, Body, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger'
-import { BasicAuthGuard } from '../../common/guards/basic-auth.guard'
+import { FlexibleAuthGuard } from '../../common/guards/flexible-auth.guard'
+import { PermissionsGuard } from '../../common/guards/permissions.guard'
+import { RequirePermission } from '../../common/decorators/require-permission.decorator'
 import { ${className}SearchService } from '../services'
 import { Search${config.entityName}Dto } from '../dto'
 
 @ApiTags('${config.name}')
-@ApiSecurity('basicAuth')
-@UseGuards(BasicAuthGuard)
+@ApiSecurity('bearerAuth')
+@UseGuards(FlexibleAuthGuard, PermissionsGuard)
 @Controller('${config.name}')
 export class ${className}SearchController {
   constructor(private readonly ${config.pluralName}SearchService: ${className}SearchService) {}
 
   @Post('search')
+  @RequirePermission(['${config.pluralName}', 'read'])
   @ApiOperation({ summary: 'Search ${config.name}' })
   @ApiResponse({ status: 200, description: 'Search results' })
   async search(@Body() searchDto: Search${config.entityName}Dto) {
