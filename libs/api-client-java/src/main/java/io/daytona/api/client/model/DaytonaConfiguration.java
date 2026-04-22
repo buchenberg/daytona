@@ -132,6 +132,11 @@ public class DaytonaConfiguration {
   @javax.annotation.Nullable
   private String analyticsApiUrl;
 
+  public static final String SERIALIZED_NAME_STRIPE_PUBLISHABLE_KEY = "stripePublishableKey";
+  @SerializedName(SERIALIZED_NAME_STRIPE_PUBLISHABLE_KEY)
+  @javax.annotation.Nullable
+  private String stripePublishableKey;
+
   public static final String SERIALIZED_NAME_SSH_GATEWAY_COMMAND = "sshGatewayCommand";
   @SerializedName(SERIALIZED_NAME_SSH_GATEWAY_COMMAND)
   @javax.annotation.Nullable
@@ -443,6 +448,25 @@ public class DaytonaConfiguration {
   }
 
 
+  public DaytonaConfiguration stripePublishableKey(@javax.annotation.Nullable String stripePublishableKey) {
+    this.stripePublishableKey = stripePublishableKey;
+    return this;
+  }
+
+  /**
+   * Stripe publishable key for client-side Stripe.js
+   * @return stripePublishableKey
+   */
+  @javax.annotation.Nullable
+  public String getStripePublishableKey() {
+    return stripePublishableKey;
+  }
+
+  public void setStripePublishableKey(@javax.annotation.Nullable String stripePublishableKey) {
+    this.stripePublishableKey = stripePublishableKey;
+  }
+
+
   public DaytonaConfiguration sshGatewayCommand(@javax.annotation.Nullable String sshGatewayCommand) {
     this.sshGatewayCommand = sshGatewayCommand;
     return this;
@@ -569,6 +593,7 @@ public class DaytonaConfiguration {
         Objects.equals(this.environment, daytonaConfiguration.environment) &&
         Objects.equals(this.billingApiUrl, daytonaConfiguration.billingApiUrl) &&
         Objects.equals(this.analyticsApiUrl, daytonaConfiguration.analyticsApiUrl) &&
+        Objects.equals(this.stripePublishableKey, daytonaConfiguration.stripePublishableKey) &&
         Objects.equals(this.sshGatewayCommand, daytonaConfiguration.sshGatewayCommand) &&
         Objects.equals(this.sshGatewayPublicKey, daytonaConfiguration.sshGatewayPublicKey) &&
         Objects.equals(this.rateLimit, daytonaConfiguration.rateLimit)&&
@@ -577,7 +602,7 @@ public class DaytonaConfiguration {
 
   @Override
   public int hashCode() {
-    return Objects.hash(version, posthog, oidc, linkedAccountsEnabled, announcements, pylonAppId, proxyTemplateUrl, proxyToolboxUrl, defaultSnapshot, dashboardUrl, maxAutoArchiveInterval, maintananceMode, environment, billingApiUrl, analyticsApiUrl, sshGatewayCommand, sshGatewayPublicKey, rateLimit, additionalProperties);
+    return Objects.hash(version, posthog, oidc, linkedAccountsEnabled, announcements, pylonAppId, proxyTemplateUrl, proxyToolboxUrl, defaultSnapshot, dashboardUrl, maxAutoArchiveInterval, maintananceMode, environment, billingApiUrl, analyticsApiUrl, stripePublishableKey, sshGatewayCommand, sshGatewayPublicKey, rateLimit, additionalProperties);
   }
 
   @Override
@@ -599,6 +624,7 @@ public class DaytonaConfiguration {
     sb.append("    environment: ").append(toIndentedString(environment)).append("\n");
     sb.append("    billingApiUrl: ").append(toIndentedString(billingApiUrl)).append("\n");
     sb.append("    analyticsApiUrl: ").append(toIndentedString(analyticsApiUrl)).append("\n");
+    sb.append("    stripePublishableKey: ").append(toIndentedString(stripePublishableKey)).append("\n");
     sb.append("    sshGatewayCommand: ").append(toIndentedString(sshGatewayCommand)).append("\n");
     sb.append("    sshGatewayPublicKey: ").append(toIndentedString(sshGatewayPublicKey)).append("\n");
     sb.append("    rateLimit: ").append(toIndentedString(rateLimit)).append("\n");
@@ -640,6 +666,7 @@ public class DaytonaConfiguration {
     openapiFields.add("environment");
     openapiFields.add("billingApiUrl");
     openapiFields.add("analyticsApiUrl");
+    openapiFields.add("stripePublishableKey");
     openapiFields.add("sshGatewayCommand");
     openapiFields.add("sshGatewayPublicKey");
     openapiFields.add("rateLimit");
@@ -711,6 +738,9 @@ public class DaytonaConfiguration {
       }
       if ((jsonObj.get("analyticsApiUrl") != null && !jsonObj.get("analyticsApiUrl").isJsonNull()) && !jsonObj.get("analyticsApiUrl").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format("Expected the field `analyticsApiUrl` to be a primitive type in the JSON string but got `%s`", jsonObj.get("analyticsApiUrl").toString()));
+      }
+      if ((jsonObj.get("stripePublishableKey") != null && !jsonObj.get("stripePublishableKey").isJsonNull()) && !jsonObj.get("stripePublishableKey").isJsonPrimitive()) {
+        throw new IllegalArgumentException(String.format("Expected the field `stripePublishableKey` to be a primitive type in the JSON string but got `%s`", jsonObj.get("stripePublishableKey").toString()));
       }
       if ((jsonObj.get("sshGatewayCommand") != null && !jsonObj.get("sshGatewayCommand").isJsonNull()) && !jsonObj.get("sshGatewayCommand").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format("Expected the field `sshGatewayCommand` to be a primitive type in the JSON string but got `%s`", jsonObj.get("sshGatewayCommand").toString()));

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { UsageOverview, UsageOverviewSkeleton } from '@/components/UsageOverview'
+import { FeatureFlags } from '@/enums/FeatureFlags'
 import { RoutePath } from '@/enums/RoutePath'
 import { useOwnerTierQuery, useOwnerWalletQuery } from '@/hooks/queries/billingQueries'
 import { useOrganizationUsageOverviewQuery } from '@/hooks/queries/useOrganizationUsageOverviewQuery'
@@ -22,10 +23,16 @@ import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import { cn } from '@/lib/utils'
 import type { RegionUsageOverview } from '@daytona/api-client'
 import { keepPreviousData } from '@tanstack/react-query'
-import { RefreshCcw, ShieldAlert, ExternalLinkIcon, Globe } from 'lucide-react'
+import { handleApiError } from '@/lib/error-handling'
+import { useVerifyInternetAccessMutation } from '@/hooks/mutations/useVerifyInternetAccessMutation'
+import { useOrganizations } from '@/hooks/useOrganizations'
+import { useStripe } from '@/hooks/useStripe'
+import { Globe, Loader2, RefreshCcw, ShieldAlert, ExternalLinkIcon } from 'lucide-react'
+import { useFeatureFlagEnabled } from 'posthog-js/react'
 import { ReactNode, useEffect, useMemo, useState } from 'react'
 import { useAuth } from 'react-oidc-context'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 
 export default function Limits() {
   const { user } = useAuth()
@@ -41,6 +48,7 @@ export default function Limits() {
   const { getRegionName } = useRegions()
   const [selectedRegionId, setSelectedRegionId] = useState<string | undefined>(undefined)
   const config = useConfig()
+  const stripeAbuseVerificationEnabled = useFeatureFlagEnabled(FeatureFlags.STRIPE_ABUSE_VERIFICATION)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -234,7 +242,7 @@ export default function Limits() {
                   }}
                 />
 
-                <Card className="mb-10">
+                <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center mb-2">Limits</CardTitle>
                   </CardHeader>
@@ -251,6 +259,13 @@ export default function Limits() {
                     <AdditionalFeatures />
                   </CardContent>
                 </Card>
+
+                {selectedOrganization.sandboxLimitedNetworkEgress && stripeAbuseVerificationEnabled && (
+                  <InternetAccessVerification
+                    organizationId={selectedOrganization.id}
+                    evaluationFailed={!!organizationTier?.radarEvaluatedAt && !organizationTier?.radarVerified}
+                  />
+                )}
               </>
             )}
           </>
@@ -361,5 +376,65 @@ function AdditionalFeatures({ className }: { className?: string }) {
         </a>
       </div>
     </div>
+  )
+}
+
+function InternetAccessVerification({
+  organizationId,
+  evaluationFailed,
+}: {
+  organizationId: string
+  evaluationFailed: boolean
+}) {
+  const { createRadarSession } = useStripe()
+  const verifyMutation = useVerifyInternetAccessMutation()
+  const { refreshOrganizations } = useOrganizations()
+  const [isVerifying, setIsVerifying] = useState(false)
+
+  const handleVerify = async () => {
+    setIsVerifying(true)
+    try {
+      const radarSessionToken = await createRadarSession()
+      await verifyMutation.mutateAsync({ organizationId, radarSessionToken })
+      toast.success('Internet access verified. Your sandboxes now have unrestricted network access.')
+      // Success: reload so the org data (sandboxLimitedNetworkEgress) refreshes and the card hides.
+      // Failure-path tier invalidation is handled inside the mutation's onError.
+      refreshOrganizations()
+    } catch (error) {
+      handleApiError(error, 'Failed to verify internet access')
+    } finally {
+      setIsVerifying(false)
+    }
+  }
+
+  return (
+    <Card id="internet-access-verification">
+      <CardContent className="p-4 flex items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <Globe size={16} className="text-amber-500 mt-0.5 flex-shrink-0" />
+          <div className="flex flex-col gap-1">
+            <div className="text-sm font-medium">Restricted Internet Access</div>
+            <div className="text-muted-foreground text-sm">
+              Sandboxes are currently limited to essential development services.{' '}
+              {evaluationFailed ? (
+                <>
+                  Your account could not be verified — please contact{' '}
+                  <a href="mailto:support@daytona.io" className="text-primary underline">
+                    support@daytona.io
+                  </a>{' '}
+                  to unlock unrestricted internet access.
+                </>
+              ) : (
+                <>Verify your account to unlock unrestricted internet access.</>
+              )}
+            </div>
+          </div>
+        </div>
+        <Button onClick={handleVerify} disabled={isVerifying || evaluationFailed} className="flex-shrink-0">
+          {isVerifying && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+          Verify
+        </Button>
+      </CardContent>
+    </Card>
   )
 }

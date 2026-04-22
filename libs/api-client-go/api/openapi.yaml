@@ -9155,6 +9155,7 @@ components:
         sshGatewayPublicKey: ssh-gateway-public-key
         billingApiUrl: https://billing.example.com
         linkedAccountsEnabled: true
+        stripePublishableKey: pk_live_...
         version: 0.0.1
         oidc: ""
         proxyToolboxUrl: https://proxy.example.com/toolbox
@@ -9235,6 +9236,10 @@ components:
         analyticsApiUrl:
           description: Analytics API URL
           example: https://analytics.example.com
+          type: string
+        stripePublishableKey:
+          description: Stripe publishable key for client-side Stripe.js
+          example: pk_live_...
           type: string
         sshGatewayCommand:
           description: SSH Gateway command

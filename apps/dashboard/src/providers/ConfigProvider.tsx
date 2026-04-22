@@ -6,9 +6,10 @@
 import { RoutePath } from '@/enums/RoutePath'
 import { queryKeys } from '@/hooks/queries/queryKeys'
 import { DaytonaConfiguration } from '@daytona/api-client'
+import { initStripe } from '@/hooks/useStripe'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { InMemoryWebStorage, WebStorageStateStore } from 'oidc-client-ts'
-import { ReactNode, useMemo } from 'react'
+import { ReactNode, useEffect, useMemo } from 'react'
 import { AuthProvider, AuthProviderProps } from 'react-oidc-context'
 import { ConfigContext } from '../contexts/ConfigContext'
 
@@ -29,6 +30,13 @@ export function ConfigProvider(props: Props) {
       return res.json() as Promise<DaytonaConfiguration>
     },
   })
+
+  // Initialize Stripe.js for passive behavioral signal collection
+  useEffect(() => {
+    if (config.stripePublishableKey) {
+      initStripe(config.stripePublishableKey)
+    }
+  }, [config.stripePublishableKey])
 
   const oidcConfig: AuthProviderProps = useMemo(() => {
     const isLocalhost = window.location.hostname === 'localhost'

@@ -11,4 +11,5 @@ export enum FeatureFlags {
   SANDBOX_SPENDING = 'sandbox_spending',
   DASHBOARD_CREATE_SANDBOX = 'dashboard_create-sandbox',
   SANDBOX_LINUX_VM = 'sandbox_linux_vm',
+  STRIPE_ABUSE_VERIFICATION = 'stripe_abuse_verification',
 }

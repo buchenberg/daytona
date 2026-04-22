@@ -84,6 +84,8 @@ export class BillingApiClient {
       largestSuccessfulPaymentCents: response.data.largestSuccessfulPaymentCents,
       expiresAt: response.data.expiresAt ? new Date(response.data.expiresAt) : undefined,
       hasVerifiedBusinessEmail: response.data.hasVerifiedBusinessEmail,
+      radarVerified: response.data.radarVerified,
+      radarEvaluatedAt: response.data.radarEvaluatedAt ? new Date(response.data.radarEvaluatedAt) : undefined,
     }
 
     return orgTier
@@ -147,6 +149,10 @@ export class BillingApiClient {
 
   public async voidInvoice(organizationId: string, invoiceId: string): Promise<void> {
     await this.axiosInstance.post(`/organization/${organizationId}/invoices/${invoiceId}/void`)
+  }
+
+  public async verifyInternetAccess(organizationId: string, radarSessionToken: string): Promise<void> {
+    await this.axiosInstance.post(`/organization/${organizationId}/verify-internet-access`, { radarSessionToken })
   }
 
   public async topUpWallet(organizationId: string, amountCents: number): Promise<PaymentUrl> {

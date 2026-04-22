@@ -51,6 +51,8 @@ type DaytonaConfiguration struct {
 	BillingApiUrl *string `json:"billingApiUrl,omitempty"`
 	// Analytics API URL
 	AnalyticsApiUrl *string `json:"analyticsApiUrl,omitempty"`
+	// Stripe publishable key for client-side Stripe.js
+	StripePublishableKey *string `json:"stripePublishableKey,omitempty"`
 	// SSH Gateway command
 	SshGatewayCommand *string `json:"sshGatewayCommand,omitempty"`
 	// Base64 encoded SSH Gateway public key
@@ -482,6 +484,38 @@ func (o *DaytonaConfiguration) SetAnalyticsApiUrl(v string) {
 	o.AnalyticsApiUrl = &v
 }
 
+// GetStripePublishableKey returns the StripePublishableKey field value if set, zero value otherwise.
+func (o *DaytonaConfiguration) GetStripePublishableKey() string {
+	if o == nil || IsNil(o.StripePublishableKey) {
+		var ret string
+		return ret
+	}
+	return *o.StripePublishableKey
+}
+
+// GetStripePublishableKeyOk returns a tuple with the StripePublishableKey field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *DaytonaConfiguration) GetStripePublishableKeyOk() (*string, bool) {
+	if o == nil || IsNil(o.StripePublishableKey) {
+		return nil, false
+	}
+	return o.StripePublishableKey, true
+}
+
+// HasStripePublishableKey returns a boolean if a field has been set.
+func (o *DaytonaConfiguration) HasStripePublishableKey() bool {
+	if o != nil && !IsNil(o.StripePublishableKey) {
+		return true
+	}
+
+	return false
+}
+
+// SetStripePublishableKey gets a reference to the given string and assigns it to the StripePublishableKey field.
+func (o *DaytonaConfiguration) SetStripePublishableKey(v string) {
+	o.StripePublishableKey = &v
+}
+
 // GetSshGatewayCommand returns the SshGatewayCommand field value if set, zero value otherwise.
 func (o *DaytonaConfiguration) GetSshGatewayCommand() string {
 	if o == nil || IsNil(o.SshGatewayCommand) {
@@ -611,6 +645,9 @@ func (o DaytonaConfiguration) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.AnalyticsApiUrl) {
 		toSerialize["analyticsApiUrl"] = o.AnalyticsApiUrl
 	}
+	if !IsNil(o.StripePublishableKey) {
+		toSerialize["stripePublishableKey"] = o.StripePublishableKey
+	}
 	if !IsNil(o.SshGatewayCommand) {
 		toSerialize["sshGatewayCommand"] = o.SshGatewayCommand
 	}
@@ -688,6 +725,7 @@ func (o *DaytonaConfiguration) UnmarshalJSON(data []byte) (err error) {
 		delete(additionalProperties, "environment")
 		delete(additionalProperties, "billingApiUrl")
 		delete(additionalProperties, "analyticsApiUrl")
+		delete(additionalProperties, "stripePublishableKey")
 		delete(additionalProperties, "sshGatewayCommand")
 		delete(additionalProperties, "sshGatewayPublicKey")
 		delete(additionalProperties, "rateLimit")

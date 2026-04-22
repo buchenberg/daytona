@@ -13612,6 +13612,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@stripe/stripe-js@npm:^9.1.0":
+  version: 9.1.0
+  resolution: "@stripe/stripe-js@npm:9.1.0"
+  checksum: 10c0/59097ea6260a7a28261ca4d6e67a6b1487f8c5b1d5f5e7ae822299d87f44dbe786bd2feb88628f3d951821430b97c36c1f7541bdc4a8e4108c075399869fd247
+  languageName: node
+  linkType: hard
+
 "@suites/core.unit@npm:^3.0.1":
   version: 3.0.1
   resolution: "@suites/core.unit@npm:3.0.1"
@@ -20550,6 +20557,7 @@ __metadata:
     "@storybook/react": "npm:8"
     "@storybook/react-vite": "npm:8"
     "@storybook/test": "npm:8"
+    "@stripe/stripe-js": "npm:^9.1.0"
     "@suites/unit": "npm:^3.0.1"
     "@swc-node/register": "npm:~1.9.1"
     "@swc/cli": "npm:0.6.0"

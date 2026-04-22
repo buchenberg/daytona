@@ -60,6 +60,9 @@ module DaytonaApiClient
     # Analytics API URL
     attr_accessor :analytics_api_url
 
+    # Stripe publishable key for client-side Stripe.js
+    attr_accessor :stripe_publishable_key
+
     # SSH Gateway command
     attr_accessor :ssh_gateway_command
 
@@ -87,6 +90,7 @@ module DaytonaApiClient
         :'environment' => :'environment',
         :'billing_api_url' => :'billingApiUrl',
         :'analytics_api_url' => :'analyticsApiUrl',
+        :'stripe_publishable_key' => :'stripePublishableKey',
         :'ssh_gateway_command' => :'sshGatewayCommand',
         :'ssh_gateway_public_key' => :'sshGatewayPublicKey',
         :'rate_limit' => :'rateLimit'
@@ -121,6 +125,7 @@ module DaytonaApiClient
         :'environment' => :'String',
         :'billing_api_url' => :'String',
         :'analytics_api_url' => :'String',
+        :'stripe_publishable_key' => :'String',
         :'ssh_gateway_command' => :'String',
         :'ssh_gateway_public_key' => :'String',
         :'rate_limit' => :'RateLimitConfig'
@@ -231,6 +236,10 @@ module DaytonaApiClient
 
       if attributes.key?(:'analytics_api_url')
         self.analytics_api_url = attributes[:'analytics_api_url']
+      end
+
+      if attributes.key?(:'stripe_publishable_key')
+        self.stripe_publishable_key = attributes[:'stripe_publishable_key']
       end
 
       if attributes.key?(:'ssh_gateway_command')
@@ -446,6 +455,7 @@ module DaytonaApiClient
           environment == o.environment &&
           billing_api_url == o.billing_api_url &&
           analytics_api_url == o.analytics_api_url &&
+          stripe_publishable_key == o.stripe_publishable_key &&
           ssh_gateway_command == o.ssh_gateway_command &&
           ssh_gateway_public_key == o.ssh_gateway_public_key &&
           rate_limit == o.rate_limit
@@ -460,7 +470,7 @@ module DaytonaApiClient
     # Calculates hash code according to all attributes.
     # @return [Integer] Hash code
     def hash
-      [version, posthog, oidc, linked_accounts_enabled, announcements, pylon_app_id, proxy_template_url, proxy_toolbox_url, default_snapshot, dashboard_url, max_auto_archive_interval, maintanance_mode, environment, billing_api_url, analytics_api_url, ssh_gateway_command, ssh_gateway_public_key, rate_limit].hash
+      [version, posthog, oidc, linked_accounts_enabled, announcements, pylon_app_id, proxy_template_url, proxy_toolbox_url, default_snapshot, dashboard_url, max_auto_archive_interval, maintanance_mode, environment, billing_api_url, analytics_api_url, stripe_publishable_key, ssh_gateway_command, ssh_gateway_public_key, rate_limit].hash
     end
 
     # Builds the object from hash

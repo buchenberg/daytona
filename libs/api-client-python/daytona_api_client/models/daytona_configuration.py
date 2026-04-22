@@ -49,11 +49,12 @@ class DaytonaConfiguration(BaseModel):
     environment: StrictStr = Field(description="Current environment")
     billing_api_url: Optional[StrictStr] = Field(default=None, description="Billing API URL", serialization_alias="billingApiUrl")
     analytics_api_url: Optional[StrictStr] = Field(default=None, description="Analytics API URL", serialization_alias="analyticsApiUrl")
+    stripe_publishable_key: Optional[StrictStr] = Field(default=None, description="Stripe publishable key for client-side Stripe.js", serialization_alias="stripePublishableKey")
     ssh_gateway_command: Optional[StrictStr] = Field(default=None, description="SSH Gateway command", serialization_alias="sshGatewayCommand")
     ssh_gateway_public_key: Optional[StrictStr] = Field(default=None, description="Base64 encoded SSH Gateway public key", serialization_alias="sshGatewayPublicKey")
     rate_limit: Optional[RateLimitConfig] = Field(default=None, description="Rate limit configuration", serialization_alias="rateLimit")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["version", "posthog", "oidc", "linkedAccountsEnabled", "announcements", "pylonAppId", "proxyTemplateUrl", "proxyToolboxUrl", "defaultSnapshot", "dashboardUrl", "maxAutoArchiveInterval", "maintananceMode", "environment", "billingApiUrl", "analyticsApiUrl", "sshGatewayCommand", "sshGatewayPublicKey", "rateLimit"]
+    __properties: ClassVar[List[str]] = ["version", "posthog", "oidc", "linkedAccountsEnabled", "announcements", "pylonAppId", "proxyTemplateUrl", "proxyToolboxUrl", "defaultSnapshot", "dashboardUrl", "maxAutoArchiveInterval", "maintananceMode", "environment", "billingApiUrl", "analyticsApiUrl", "stripePublishableKey", "sshGatewayCommand", "sshGatewayPublicKey", "rateLimit"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -148,6 +149,7 @@ class DaytonaConfiguration(BaseModel):
             "environment": obj.get("environment"),
             "billing_api_url": obj.get("billingApiUrl"),
             "analytics_api_url": obj.get("analyticsApiUrl"),
+            "stripe_publishable_key": obj.get("stripePublishableKey"),
             "ssh_gateway_command": obj.get("sshGatewayCommand"),
             "ssh_gateway_public_key": obj.get("sshGatewayPublicKey"),
             "rate_limit": RateLimitConfig.from_dict(obj["rateLimit"]) if obj.get("rateLimit") is not None else None

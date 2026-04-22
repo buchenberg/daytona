@@ -165,6 +165,14 @@ public class DaytonaConfigurationTest {
     }
 
     /**
+     * Test the property 'stripePublishableKey'
+     */
+    @Test
+    public void stripePublishableKeyTest() {
+        // TODO: test stripePublishableKey
+    }
+
+    /**
      * Test the property 'sshGatewayCommand'
      */
     @Test

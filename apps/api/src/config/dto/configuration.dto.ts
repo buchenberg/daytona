@@ -227,6 +227,14 @@ export class ConfigurationDto {
   analyticsApiUrl?: string
 
   @ApiPropertyOptional({
+    description: 'Stripe publishable key for client-side Stripe.js',
+    example: 'pk_live_...',
+  })
+  @IsString()
+  @IsOptional()
+  stripePublishableKey?: string
+
+  @ApiPropertyOptional({
     description: 'SSH Gateway command',
     example: 'ssh -p 2222 {{TOKEN}}@localhost',
   })
@@ -275,6 +283,10 @@ export class ConfigurationDto {
 
     if (configService.get('analyticsApiUrl')) {
       this.analyticsApiUrl = configService.get('analyticsApiUrl')
+    }
+
+    if (configService.get('stripePublishableKey')) {
+      this.stripePublishableKey = configService.get('stripePublishableKey')
     }
 
     if (configService.get('posthog.apiKey')) {

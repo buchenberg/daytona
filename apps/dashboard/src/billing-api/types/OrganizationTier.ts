@@ -9,4 +9,6 @@ export type OrganizationTier = {
   largestSuccessfulPaymentCents: number
   expiresAt?: Date
   hasVerifiedBusinessEmail: boolean
+  radarVerified: boolean
+  radarEvaluatedAt?: Date
 }

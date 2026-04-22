@@ -85,6 +85,8 @@ export const handlers = [
       largestSuccessfulPaymentCents: 1000,
       expiresAt: new Date(),
       hasVerifiedBusinessEmail: true,
+      radarVerified: false,
+      radarEvaluatedAt: undefined,
     })
   }),
   http.get(`${BILLING_API_URL}/organization/:organizationId/email`, async () => {
