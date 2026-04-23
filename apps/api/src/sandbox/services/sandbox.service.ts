@@ -759,6 +759,14 @@ export class SandboxService {
 
       try {
         const declarativeBuildScoreThreshold = this.configService.get('runnerScore.thresholds.declarativeBuild')
+        const maxSandboxesPerRunner = this.configService.getOrThrow('buildInfo.maxSandboxesPerRunner')
+        const excludedRunnerIds =
+          maxSandboxesPerRunner > 0
+            ? await this.runnerService.getRunnersWithMaxBuildInfoSnapshotRefSandboxes(
+                buildInfoSnapshotRef,
+                maxSandboxesPerRunner,
+              )
+            : []
         runner = await this.runnerService.getRandomAvailableRunner({
           regions: [
             resolveEffectiveRegion(sandbox.organizationId, sandbox.region, this.configService, {
@@ -769,6 +777,7 @@ export class SandboxService {
           ],
           sandboxClass: sandbox.class,
           snapshotRef: buildInfoSnapshotRef,
+          ...(excludedRunnerIds.length > 0 && { excludedRunnerIds }),
           ...(declarativeBuildScoreThreshold !== undefined && {
             availabilityScoreThreshold: declarativeBuildScoreThreshold,
           }),
