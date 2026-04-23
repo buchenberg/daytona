@@ -1,0 +1,126 @@
+name: 'Docs Preview'
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch name to build'
+        required: true
+        type: string
+      use_oss:
+        description: 'Use OSS repo (daytonaio/daytona) instead of daytonaio/daytona-ai'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN }}
+
+jobs:
+  build:
+    name: Build docs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      short_sha: ${{ steps.sha.outputs.short_sha }}
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ${{ inputs.use_oss && 'daytonaio/daytona' || 'daytonaio/daytona-ai' }}
+          ref: ${{ inputs.branch }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-toolchain
+        with:
+          install-go: 'false'
+          install-python: 'false'
+          install-ruby: 'false'
+          install-java: 'false'
+          install-poetry: 'false'
+          install-swag: 'false'
+          run-poetry-install: 'false'
+          run-go-work-sync: 'false'
+
+      - name: Get short commit SHA
+        id: sha
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Rewrite docker image refs in nx.json for OSS
+        if: ${{ inputs.use_oss }}
+        run: |
+          sed -i 's|daytonaio/daytona-|ghcr.io/daytonaio/daytona-|g' nx.json
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Build and push docs docker image
+        env:
+          VERSION: v0.0.0-${{ steps.sha.outputs.short_sha }}
+          ARCH: -amd64
+          PUBLIC_ALGOLIA_DOCS_INDEX_NAME: docs
+          PUBLIC_ALGOLIA_CLI_INDEX_NAME: cli
+          PUBLIC_ALGOLIA_SDK_INDEX_NAME: sdk
+          PUBLIC_ALGOLIA_API_INDEX_NAME: api
+          PUBLIC_WEB_URL: https://www.daytona.io
+          PUBLIC_ALGOLIA_APP_ID: YDP75YK0IL
+          PUBLIC_ALGOLIA_API_KEY: cc397b32946b98577d305737dc98befa
+        run: yarn nx docker docs --configuration production --output-style stream
+
+      - name: Print preview image
+        run: |
+          echo "Docs image: ghcr.io/daytonaio/daytona-docs:v0.0.0-${{ steps.sha.outputs.short_sha }}-amd64"
+
+      - name: Cleanup credentials
+        if: always()
+        run: |
+          docker logout docker.io 2>/dev/null || true
+          docker logout ghcr.io 2>/dev/null || true
+
+  deploy:
+    name: Deploy to stage
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Helm
+        uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
+
+      - name: Set up kubeconfig
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.STAGE_KUBECONFIG }}" > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install docs-preview-${{ needs.build.outputs.short_sha }} ./charts/docs-preview \
+            --namespace gha-docs \
+            --set image.tag="v0.0.0-${{ needs.build.outputs.short_sha }}-amd64" \
+            --set ingress.host="${{ needs.build.outputs.short_sha }}.docs.stage.daytona.work" \
+            --wait \
+            --timeout 5m
+
+      - name: Clean up old releases
+        run: |
+          helm list --namespace gha-docs --filter '^docs-preview-' --date --reverse -q | tail -n +11 | xargs -r -I {} helm uninstall {} --namespace gha-docs
+
+      - name: Print preview URL
+        run: |
+          echo "Preview URL: https://${{ needs.build.outputs.short_sha }}.docs.stage.daytona.work"
