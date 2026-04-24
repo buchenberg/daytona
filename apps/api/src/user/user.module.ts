@@ -8,11 +8,13 @@ import { UserController } from './user.controller'
 import { UserService } from './user.service'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { User } from './user.entity'
+import { EmailDomainWhitelist } from './email-domain-whitelist.entity'
+import { EmailDomainWhitelistService } from './email-domain-whitelist.service'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User])],
+  imports: [TypeOrmModule.forFeature([User, EmailDomainWhitelist])],
   controllers: [UserController],
-  providers: [UserService],
-  exports: [UserService],
+  providers: [UserService, EmailDomainWhitelistService],
+  exports: [UserService, EmailDomainWhitelistService],
 })
 export class UserModule {}
