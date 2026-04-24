@@ -74,7 +74,7 @@ jobs:
           PUBLIC_ALGOLIA_CLI_INDEX_NAME: cli
           PUBLIC_ALGOLIA_SDK_INDEX_NAME: sdk
           PUBLIC_ALGOLIA_API_INDEX_NAME: api
-          PUBLIC_WEB_URL: https://www.daytona.io
+          PUBLIC_WEB_URL: https://${{ steps.sha.outputs.short_sha }}.docs.stage.daytona.work
           PUBLIC_ALGOLIA_APP_ID: YDP75YK0IL
           PUBLIC_ALGOLIA_API_KEY: cc397b32946b98577d305737dc98befa
         run: yarn nx docker docs --configuration production --output-style stream
