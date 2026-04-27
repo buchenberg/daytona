@@ -30,6 +30,7 @@ import { HealthCheckAuthContext } from '../common/interfaces/health-check-auth-c
 import { handleAuthError } from './utils/handle-auth-error.util'
 import { BillingAuthContext } from '../common/interfaces/billing-auth-context.interface'
 import { RunnerCleanupToolAuthContext } from '../common/interfaces/runner-cleanup-tool-auth-context.interface'
+import { UserManagementAuthContext } from '../common/interfaces/user-management-auth-context.interface'
 
 type ApiKeyAuthContext =
   | UserAuthContext
@@ -42,6 +43,7 @@ type ApiKeyAuthContext =
   | HealthCheckAuthContext
   | BillingAuthContext
   | RunnerCleanupToolAuthContext
+  | UserManagementAuthContext
 
 type UserCache = {
   userId: string
@@ -108,6 +110,11 @@ export class ApiKeyStrategy extends PassportStrategy(Strategy, AuthStrategyType.
     const runnerCleanupToolApiKey = this.configService.get('runnerCleanupTool.apiKey')
     if (runnerCleanupToolApiKey && runnerCleanupToolApiKey === token) {
       return { role: 'runner-cleanup-tool' } satisfies RunnerCleanupToolAuthContext
+    }
+
+    const userManagementApiKey = this.configService.get('userManagement.apiKey')
+    if (userManagementApiKey && userManagementApiKey === token) {
+      return { role: 'user-management' } satisfies UserManagementAuthContext
     }
 
     /**

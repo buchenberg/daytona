@@ -11,7 +11,6 @@ import { AdminWebhookController } from './controllers/webhook.controller'
 import { AdminDockerRegistryController } from './controllers/docker-registry.controller'
 import { AdminSnapshotController } from './controllers/snapshot.controller'
 import { AdminAuditController } from './controllers/audit.controller'
-import { AdminEmailDomainWhitelistController } from './controllers/email-domain-whitelist.controller'
 import { SandboxModule } from '../sandbox/sandbox.module'
 import { RegionModule } from '../region/region.module'
 import { OrganizationModule } from '../organization/organization.module'
@@ -38,7 +37,6 @@ import { AuditModule } from '../audit/audit.module'
     AdminDockerRegistryController,
     AdminSnapshotController,
     AdminAuditController,
-    AdminEmailDomainWhitelistController,
   ],
 })
 export class AdminModule {}

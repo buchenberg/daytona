@@ -12,6 +12,7 @@ import {
   createMockUserAuthContext,
   createMockRunnerAuthContext,
   createMockRunnerCleanupToolAuthContext,
+  createMockUserManagementAuthContext,
   createMockProxyAuthContext,
   createMockSshGatewayAuthContext,
   createMockRegionProxyAuthContext,
@@ -72,6 +73,7 @@ describe('[AUTH] OrganizationAuthContextGuard', () => {
     ['OtelCollector', createMockOtelCollectorAuthContext],
     ['Billing', createMockBillingAuthContext],
     ['RunnerCleanupTool', createMockRunnerCleanupToolAuthContext],
+    ['UserManagement', createMockUserManagementAuthContext],
   ])('should reject %sAuthContext', async (_name, factory) => {
     const { context } = createMockExecutionContext({ user: factory() })
     await expect(guard.canActivate(context)).rejects.toThrow(InvalidAuthenticationContextException)

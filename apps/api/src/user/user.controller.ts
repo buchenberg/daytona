@@ -18,7 +18,7 @@ import {
   UseGuards,
 } from '@nestjs/common'
 import { UserService } from './user.service'
-import { ApiOAuth2, ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger'
+import { ApiOAuth2, ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger'
 import { IsUserAuthContext } from '../common/decorators/auth-context.decorator'
 import { UserAuthContext } from '../common/interfaces/user-auth-context.interface'
 import { UserDto } from './dto/user.dto'
@@ -34,6 +34,7 @@ import { AuthenticatedRateLimitGuard } from '../common/guards/authenticated-rate
 import { AuthStrategy } from '../auth/decorators/auth-strategy.decorator'
 import { AuthStrategyType } from '../auth/enums/auth-strategy-type.enum'
 import { UserAuthContextGuard } from './guards/user-auth-context.guard'
+import { UserManagementAuthContextGuard } from './guards/user-management-auth-context.guard'
 
 @Controller('users')
 @ApiTags('users')
@@ -41,7 +42,6 @@ import { UserAuthContextGuard } from './guards/user-auth-context.guard'
 @ApiBearerAuth()
 @AuthStrategy(AuthStrategyType.JWT)
 @UseGuards(AuthenticatedRateLimitGuard)
-@UseGuards(UserAuthContextGuard)
 export class UserController {
   private readonly logger = new Logger(UserController.name)
 
@@ -60,6 +60,7 @@ export class UserController {
     description: 'User details',
     type: UserDto,
   })
+  @UseGuards(UserAuthContextGuard)
   async getAuthenticatedUser(@IsUserAuthContext() authContext: UserAuthContext): Promise<UserDto> {
     const user = await this.userService.findOne(authContext.userId)
     if (!user) {
@@ -79,6 +80,7 @@ export class UserController {
     description: 'Available account providers',
     type: [AccountProviderDto],
   })
+  @UseGuards(UserAuthContextGuard)
   async getAvailableAccountProviders(): Promise<AccountProviderDto[]> {
     if (!this.configService.get('oidc.managementApi.enabled')) {
       this.logger.warn('OIDC Management API is not enabled')
@@ -131,6 +133,7 @@ export class UserController {
       }),
     },
   })
+  @UseGuards(UserAuthContextGuard)
   async linkAccount(
     @IsUserAuthContext() authContext: UserAuthContext,
     @Body() createLinkedAccountDto: CreateLinkedAccountDto,
@@ -210,6 +213,7 @@ export class UserController {
       }),
     },
   })
+  @UseGuards(UserAuthContextGuard)
   async unlinkAccount(
     @IsUserAuthContext() authContext: UserAuthContext,
     @Param('provider') provider: string,
@@ -247,6 +251,7 @@ export class UserController {
     description: 'SMS MFA enrollment URL',
     type: String,
   })
+  @UseGuards(UserAuthContextGuard)
   async enrollInSmsMfa(@IsUserAuthContext() authContext: UserAuthContext): Promise<string> {
     if (!this.configService.get('oidc.managementApi.enabled')) {
       this.logger.warn('OIDC Management API is not enabled')
@@ -273,6 +278,19 @@ export class UserController {
       this.logger.error('Failed to enable SMS MFA', error?.message || String(error))
       throw new UnauthorizedException()
     }
+  }
+
+  @Get('/:id')
+  @ApiExcludeEndpoint(true)
+  @AuthStrategy(AuthStrategyType.API_KEY)
+  @UseGuards(UserManagementAuthContextGuard)
+  async getUserById(@Param('id') id: string): Promise<UserDto> {
+    const user = await this.userService.findOne(id)
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`)
+    }
+
+    return UserDto.fromUser(user)
   }
 
   private async getManagementApiToken(): Promise<string> {

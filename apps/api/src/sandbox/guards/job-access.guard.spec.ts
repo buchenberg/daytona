@@ -18,6 +18,7 @@ import {
   createMockUserAuthContext,
   createMockBillingAuthContext,
   createMockRunnerCleanupToolAuthContext,
+  createMockUserManagementAuthContext,
 } from '../../test/helpers/auth-context.factory'
 import { createMockExecutionContext } from '../../test/helpers/execution-context.factory'
 
@@ -57,6 +58,7 @@ describe('[AUTH] JobAccessGuard', () => {
     ['OtelCollector', createMockOtelCollectorAuthContext],
     ['Billing', createMockBillingAuthContext],
     ['RunnerCleanupTool', createMockRunnerCleanupToolAuthContext],
+    ['UserManagement', createMockUserManagementAuthContext],
   ])('rejects %sAuthContext', async (_name, factory) => {
     const { context } = createMockExecutionContext({ user: factory(), params: { id: 'job-1' } })
     await expect(guard.canActivate(context)).rejects.toThrow(InvalidAuthenticationContextException)

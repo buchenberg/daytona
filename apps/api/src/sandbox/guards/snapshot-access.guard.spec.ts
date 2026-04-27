@@ -13,6 +13,7 @@ import {
   createMockRegionSshGatewayAuthContext,
   createMockRunnerAuthContext,
   createMockSshGatewayAuthContext,
+  createMockUserManagementAuthContext,
   createMockRegionAuthContext,
   createMockOrganizationAuthContext,
   createMockUserAuthContext,
@@ -93,6 +94,7 @@ describe('[AUTH] SnapshotAccessGuard', () => {
     ['OtelCollector', createMockOtelCollectorAuthContext],
     ['Billing', createMockBillingAuthContext],
     ['RunnerCleanupTool', createMockRunnerCleanupToolAuthContext],
+    ['UserManagement', createMockUserManagementAuthContext],
   ])('rejects %sAuthContext', async (_name, factory) => {
     const snapshot = { id: 'snap-1', organizationId: 'org-1', regionId: 'r1' }
     snapshotService.getSnapshot.mockReturnValue(snapshot)

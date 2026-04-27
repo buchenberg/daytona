@@ -19,6 +19,7 @@ import {
   createMockOtelCollectorAuthContext,
   createMockBillingAuthContext,
   createMockRunnerCleanupToolAuthContext,
+  createMockUserManagementAuthContext,
 } from '../../test/helpers/auth-context.factory'
 import { IS_PUBLIC_KEY } from '../../auth/decorators/public.decorator'
 import { RequiredSystemRole } from '../decorators/required-system-role.decorator'
@@ -107,6 +108,7 @@ describe('[AUTH] SystemActionGuard', () => {
     ['OtelCollector', createMockOtelCollectorAuthContext],
     ['Billing', createMockBillingAuthContext],
     ['RunnerCleanupTool', createMockRunnerCleanupToolAuthContext],
+    ['UserManagement', createMockUserManagementAuthContext],
   ])('rejects %sAuthContext', async (_name, factory) => {
     const { context } = createMockExecutionContext({ user: factory() })
     jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key) => {

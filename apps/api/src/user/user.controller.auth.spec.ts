@@ -13,6 +13,7 @@ import {
   isPublicEndpoint,
 } from '../test/helpers/controller-metadata.helper'
 import { UserAuthContextGuard } from './guards/user-auth-context.guard'
+import { UserManagementAuthContextGuard } from './guards/user-management-auth-context.guard'
 
 describe('[AUTH] UserController', () => {
   const trackMethod = createCoverageTracker(UserController)
@@ -51,5 +52,12 @@ describe('[AUTH] UserController', () => {
     expect(isPublicEndpoint(UserController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(UserController, methodName), [AuthStrategyType.JWT])
     expectArrayMatch(getAuthContextGuards(UserController, methodName), [UserAuthContextGuard])
+  })
+
+  it('getUserById', () => {
+    const methodName = trackMethod('getUserById')
+    expect(isPublicEndpoint(UserController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(UserController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(UserController, methodName), [UserManagementAuthContextGuard])
   })
 })

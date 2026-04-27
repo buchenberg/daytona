@@ -15,6 +15,7 @@ import {
   createMockRegionSshGatewayAuthContext,
   createMockRunnerAuthContext,
   createMockRunnerCleanupToolAuthContext,
+  createMockUserManagementAuthContext,
   createMockSshGatewayAuthContext,
   createMockUserAuthContext,
 } from '../../test/helpers/auth-context.factory'
@@ -56,6 +57,7 @@ describe('[AUTH] VolumeAccessGuard', () => {
     ['OtelCollector', createMockOtelCollectorAuthContext],
     ['Billing', createMockBillingAuthContext],
     ['RunnerCleanupTool', createMockRunnerCleanupToolAuthContext],
+    ['UserManagement', createMockUserManagementAuthContext],
   ])('rejects %sAuthContext', async (_name, factory) => {
     const { context } = createMockExecutionContext({ user: factory(), params: { id: 'vol-1' } } as any)
     await expect(guard.canActivate(context)).rejects.toThrow(NotFoundException)

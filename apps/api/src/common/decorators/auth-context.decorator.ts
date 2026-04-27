@@ -8,6 +8,7 @@ import { BaseAuthContext, isBaseAuthContext } from '../interfaces/base-auth-cont
 import { isUserAuthContext } from '../interfaces/user-auth-context.interface'
 import { isOrganizationAuthContext } from '../interfaces/organization-auth-context.interface'
 import { isRunnerAuthContext } from '../interfaces/runner-auth-context.interface'
+import { isUserManagementAuthContext } from '../interfaces/user-management-auth-context.interface'
 import { getAuthContext } from '../utils/get-auth-context'
 
 /**
@@ -48,3 +49,10 @@ export const IsOrganizationAuthContext = () => AuthContext(isOrganizationAuthCon
  * Extracts the authenticated user context and validates it is a {@link RunnerAuthContext} at runtime.
  */
 export const IsRunnerAuthContext = () => AuthContext(isRunnerAuthContext)
+
+/**
+ * Shorthand for `@AuthContext(isUserManagementAuthContext)`.
+ *
+ * Extracts the authenticated user context and validates it is a {@link UserManagementAuthContext} at runtime.
+ */
+export const IsUserManagementAuthContext = () => AuthContext(isUserManagementAuthContext)

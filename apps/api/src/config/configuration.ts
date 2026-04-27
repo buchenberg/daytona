@@ -328,6 +328,9 @@ const configuration = {
   runnerCleanupTool: {
     apiKey: process.env.RUNNER_CLEANUP_TOOL_API_KEY,
   },
+  userManagement: {
+    apiKey: process.env.USER_MANAGEMENT_API_KEY,
+  },
   clickhouse: {
     host: process.env.CLICKHOUSE_HOST,
     port: parseInt(process.env.CLICKHOUSE_PORT || '8123', 10),

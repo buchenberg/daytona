@@ -18,6 +18,7 @@ import {
   createMockUserAuthContext,
   createMockBillingAuthContext,
   createMockRunnerCleanupToolAuthContext,
+  createMockUserManagementAuthContext,
 } from '../../test/helpers/auth-context.factory'
 import { createMockExecutionContext } from '../../test/helpers/execution-context.factory'
 
@@ -101,6 +102,7 @@ describe('[AUTH] SnapshotReadAccessGuard', () => {
     ['OtelCollector', createMockOtelCollectorAuthContext],
     ['Billing', createMockBillingAuthContext],
     ['RunnerCleanupTool', createMockRunnerCleanupToolAuthContext],
+    ['UserManagement', createMockUserManagementAuthContext],
   ])('rejects %sAuthContext', async (_name, factory) => {
     const snapshot = { id: 'snap-1', general: false, organizationId: 'any-org' }
     snapshotService.getSnapshot.mockResolvedValue(snapshot)

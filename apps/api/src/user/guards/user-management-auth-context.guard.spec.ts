@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { HealthCheckAuthContextGuard } from './health-check-auth-context.guard'
+import { UserManagementAuthContextGuard } from './user-management-auth-context.guard'
 import { InvalidAuthenticationContextException } from '../../common/exceptions/invalid-authentication-context.exception'
 import {
   createMockBillingAuthContext,
@@ -15,21 +15,21 @@ import {
   createMockRegionSshGatewayAuthContext,
   createMockRunnerAuthContext,
   createMockRunnerCleanupToolAuthContext,
-  createMockUserManagementAuthContext,
   createMockSshGatewayAuthContext,
   createMockUserAuthContext,
+  createMockUserManagementAuthContext,
 } from '../../test/helpers/auth-context.factory'
 import { createMockExecutionContext } from '../../test/helpers/execution-context.factory'
 
-describe('[AUTH] HealthCheckAuthContextGuard', () => {
-  let guard: HealthCheckAuthContextGuard
+describe('[AUTH] UserManagementAuthContextGuard', () => {
+  let guard: UserManagementAuthContextGuard
 
   beforeEach(() => {
-    guard = new HealthCheckAuthContextGuard()
+    guard = new UserManagementAuthContextGuard()
   })
 
-  it('allows HealthCheckAuthContext', async () => {
-    const { context } = createMockExecutionContext({ user: createMockHealthCheckAuthContext() })
+  it('allows UserManagementAuthContext', async () => {
+    const { context } = createMockExecutionContext({ user: createMockUserManagementAuthContext() })
     await expect(guard.canActivate(context)).resolves.toBe(true)
   })
 
@@ -41,10 +41,10 @@ describe('[AUTH] HealthCheckAuthContextGuard', () => {
     ['SshGateway', createMockSshGatewayAuthContext],
     ['RegionProxy', createMockRegionProxyAuthContext],
     ['RegionSshGateway', createMockRegionSshGatewayAuthContext],
+    ['HealthCheck', createMockHealthCheckAuthContext],
     ['OtelCollector', createMockOtelCollectorAuthContext],
     ['Billing', createMockBillingAuthContext],
     ['RunnerCleanupTool', createMockRunnerCleanupToolAuthContext],
-    ['UserManagement', createMockUserManagementAuthContext],
   ])('rejects %sAuthContext', async (_name, factory) => {
     const { context } = createMockExecutionContext({ user: factory() })
     await expect(guard.canActivate(context)).rejects.toThrow(InvalidAuthenticationContextException)

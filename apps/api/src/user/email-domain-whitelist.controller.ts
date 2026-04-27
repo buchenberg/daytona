@@ -4,22 +4,21 @@
  */
 
 import { Body, Controller, Delete, Get, HttpCode, NotFoundException, Param, Post, UseGuards } from '@nestjs/common'
-import { AuthenticatedRateLimitGuard } from '../../common/guards/authenticated-rate-limit.guard'
-import { RequiredSystemRole } from '../../user/decorators/required-system-role.decorator'
-import { SystemRole } from '../../user/enums/system-role.enum'
-import { AuthStrategy } from '../../auth/decorators/auth-strategy.decorator'
-import { AuthStrategyType } from '../../auth/enums/auth-strategy-type.enum'
-import { EmailDomainWhitelistService } from '../../user/email-domain-whitelist.service'
-import { EmailDomainWhitelistDto } from '../../user/dto/email-domain-whitelist.dto'
-import { AddDomainWhitelistDto } from '../../user/dto/add-domain-whitelist.dto'
+import { AuthenticatedRateLimitGuard } from '../common/guards/authenticated-rate-limit.guard'
+import { AuthStrategy } from '../auth/decorators/auth-strategy.decorator'
+import { AuthStrategyType } from '../auth/enums/auth-strategy-type.enum'
+import { EmailDomainWhitelistService } from './email-domain-whitelist.service'
+import { EmailDomainWhitelistDto } from './dto/email-domain-whitelist.dto'
+import { AddDomainWhitelistDto } from './dto/add-domain-whitelist.dto'
 import { ApiExcludeController } from '@nestjs/swagger'
+import { UserManagementAuthContextGuard } from './guards/user-management-auth-context.guard'
 
 @ApiExcludeController()
-@Controller('admin/email-domain-whitelist')
-@AuthStrategy([AuthStrategyType.API_KEY, AuthStrategyType.JWT])
-@RequiredSystemRole(SystemRole.ADMIN)
+@Controller('email-domain-whitelist')
+@AuthStrategy(AuthStrategyType.API_KEY)
 @UseGuards(AuthenticatedRateLimitGuard)
-export class AdminEmailDomainWhitelistController {
+@UseGuards(UserManagementAuthContextGuard)
+export class EmailDomainWhitelistController {
   constructor(private readonly emailDomainWhitelistService: EmailDomainWhitelistService) {}
 
   @Get()
