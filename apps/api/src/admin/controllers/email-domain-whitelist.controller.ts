@@ -12,7 +12,9 @@ import { AuthStrategyType } from '../../auth/enums/auth-strategy-type.enum'
 import { EmailDomainWhitelistService } from '../../user/email-domain-whitelist.service'
 import { EmailDomainWhitelistDto } from '../../user/dto/email-domain-whitelist.dto'
 import { AddDomainWhitelistDto } from '../../user/dto/add-domain-whitelist.dto'
+import { ApiExcludeController } from '@nestjs/swagger'
 
+@ApiExcludeController()
 @Controller('admin/email-domain-whitelist')
 @AuthStrategy([AuthStrategyType.API_KEY, AuthStrategyType.JWT])
 @RequiredSystemRole(SystemRole.ADMIN)
