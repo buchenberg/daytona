@@ -55,7 +55,7 @@ jobs:
           echo "branch_slug=$slug" >> "$GITHUB_OUTPUT"
 
       - name: Build dashboard
-        run: yarn nx build dashboard --configuration production
+        run: echo VITE_API_URL=https://app.daytona.io/api > apps/dashboard/.env && yarn nx build dashboard --configuration production --skip-nx-cache
 
       - name: Upload to S3
         env:
