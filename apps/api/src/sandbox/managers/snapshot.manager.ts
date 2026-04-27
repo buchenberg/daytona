@@ -1015,11 +1015,10 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
   }
 
   /**
-   * Blocks until the snapshot is propagated to significant share of the target number of RL runners, or until timeout.
-   * E.g. if snapshot needs to be propagated to 100 runners, it will be marked as ACTIVE when it's propagated to at least 75 of them.
+   * Blocks until the snapshot is propagated to at least two RL runners, or until timeout.
    *
    * Works on a best effort basis to propagate the snapshot to the target number of RL runners.
-   * If the snapshot is not propagated to the target number of RL runners, it will eventually be marked as ACTIVE with partial propagation by the caller.
+   * If the snapshot is not propagated to enough RL runners, it will eventually be marked as ACTIVE with partial propagation by the caller.
    */
   private async waitForRLRegionPropagation(snapshot: Snapshot): Promise<void> {
     const regionQuota = await this.organizationService.getRegionQuota(snapshot.organizationId, RL_REGION)
@@ -1039,9 +1038,9 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     })
     const runnerIds = runners.map((r) => r.id)
 
-    const targetReadyPercentage = 0.75
     const targetRunnerCount = Math.max(minimumRunners, Math.ceil(propagationFactor * runners.length))
-    const targetReadyCount = Math.ceil(targetReadyPercentage * targetRunnerCount)
+    const minimumReadyRunners = 2
+    const targetReadyCount = Math.min(targetRunnerCount, minimumReadyRunners)
 
     const startedAt = Date.now()
     const waitTimeMs = 5 * 60 * 1000 // 5 minutes
