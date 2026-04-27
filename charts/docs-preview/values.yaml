@@ -3,10 +3,12 @@ replicaCount: 1
 image:
   repository: ghcr.io/daytonaio/daytona-docs
   tag: "latest"
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 imagePullSecrets:
   - name: daytonabot-token
+
+podAnnotations: {}
 
 containerPort: 4321
 
