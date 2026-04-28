@@ -662,7 +662,7 @@ export class RunnerService {
     }
   }
 
-  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'check-decommission-runners', waitForCompletion: true })
+  // @Cron(CronExpression.EVERY_10_SECONDS, { name: 'check-decommission-runners', waitForCompletion: true })
   @LogExecution('check-decommission-runners')
   @WithInstrumentation()
   private async handleCheckDecommissionRunners() {
