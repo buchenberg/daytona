@@ -82,6 +82,7 @@ export const WRITER_ORGS = [
   '815f0cf1-037d-4514-a7ec-2251b0b33596',
   '6780b872-df13-44b6-bc6a-59c56ca469c3',
   'd3df4094-226d-400b-804a-e4f9aa5a60d0',
+  '13dd8c35-0468-444a-a248-398e0d2d02d2',
 ]
 
 /*
@@ -122,6 +123,7 @@ export const DEDICATED_REGIONS_PER_ORGANIZATION: Record<string, string[]> = (() 
     { orgs: WRITER_ORGS, regions: [WRITER_DEDICATED_US, WRITER_DEDICATED_EU] },
     { orgs: LARGE_SANDBOX_ORGS, regions: [LARGE_SANDBOX_SHARED_REGION] },
     { orgs: LG_ORGS, regions: [ELEMENTOR_DEDICATED_REGION] },
+    { orgs: ['9f4f4bb5-a521-47a2-9263-462dc409db1d'], regions: [WRITER_DEDICATED_US] },
   ]
 
   // orgId -> regions
