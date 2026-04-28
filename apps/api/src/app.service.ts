@@ -47,6 +47,15 @@ export class AppService implements OnApplicationBootstrap, OnApplicationShutdown
   }
 
   async onApplicationBootstrap() {
+    if (process.env.ONLY_RUNNER_POLLER === 'true') {
+      this.logger.log('ONLY_RUNNER_POLLER is set to true, stopping all cron jobs except check-runners')
+      for (const cronName of this.schedulerRegistry.getCronJobs().keys()) {
+        if (cronName !== 'check-runners') {
+          this.schedulerRegistry.deleteCronJob(cronName)
+        }
+      }
+    }
+
     if (this.configService.get('disableCronJobs') || this.configService.get('maintananceMode')) {
       await this.stopAllCronJobs()
     }
