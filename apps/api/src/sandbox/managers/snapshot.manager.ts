@@ -40,7 +40,7 @@ import {
 import { areResourcesLargerThanDefault } from '../utils/resources'
 import { LogExecution } from '../../common/decorators/log-execution.decorator'
 import { WithInstrumentation } from '../../common/decorators/otel.decorator'
-import { RunnerAdapterFactory } from '../runner-adapter/runnerAdapter'
+import { RunnerAdapterFactory, SnapshotDigestResponse } from '../runner-adapter/runnerAdapter'
 import { SnapshotStateError } from '../errors/snapshot-state-error'
 import { SnapshotEvents } from '../constants/snapshot-events'
 import { SnapshotCreatedEvent } from '../events/snapshot-created.event'
@@ -1122,11 +1122,22 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       return DONT_SYNC_AGAIN
     }
 
+    let inspectedSnapshotDigest: SnapshotDigestResponse | undefined
     try {
-      await runnerAdapter.inspectSnapshotInRegistry(snapshot.ref, internalRegistry)
+      inspectedSnapshotDigest = await runnerAdapter.inspectSnapshotInRegistry(snapshot.ref, internalRegistry)
     } catch (error) {
       this.logger.error(`Failed to inspect snapshot ${snapshot.ref} in registry: ${error}`)
       return DONT_SYNC_AGAIN
+    }
+
+    if (snapshot.size == null && typeof inspectedSnapshotDigest?.sizeGB === 'number') {
+      await this.processSnapshotDigest(
+        snapshot,
+        internalRegistry,
+        snapshotInfoResponse.hash,
+        inspectedSnapshotDigest.sizeGB,
+        snapshotInfoResponse.entrypoint,
+      )
     }
 
     try {
@@ -1161,9 +1172,15 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       await this.runnerService.createSnapshotRunnerEntry(runner.id, snapshot.ref, SnapshotRunnerState.READY)
     }
 
+    if (snapshot.size == null) {
+      this.logger.warn(`Snapshot ${snapshot.id} has no resolved size yet; deferring activation`)
+      return DONT_SYNC_AGAIN
+    }
+
     if (runner.region === RL_REGION) {
       await this.waitForRLRegionPropagation(snapshot)
     }
+
     await this.updateSnapshotState(snapshot, SnapshotState.ACTIVE)
 
     // Best effort removal of old snapshot from transient registry
@@ -1651,7 +1668,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     snapshot: Snapshot,
     internalRegistry: DockerRegistry,
     hash: string,
-    sizeGB: number,
+    sizeGB?: number,
     entrypoint?: string[] | string,
   ) {
     const updateData: Partial<Snapshot> = {}
@@ -1661,7 +1678,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       updateData.ref = `${sanitizedUrl}/${internalRegistry.project || 'daytona'}/daytona-${hash}:daytona`
     }
 
-    if (!snapshot.size) {
+    if (snapshot.size == null && typeof sizeGB === 'number') {
       const organization = await this.organizationService.findOne(snapshot.organizationId)
       if (!organization) {
         throw new NotFoundException(`Organization with ID ${snapshot.organizationId} not found`)
