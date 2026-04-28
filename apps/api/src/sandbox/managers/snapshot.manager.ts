@@ -36,6 +36,7 @@ import {
   WRITER_ORGS,
   RL_REGION,
   ELEMENTOR_DEDICATED_REGION,
+  getFallbackRegion,
 } from '../constants/dedicated-regions.constant'
 import { areResourcesLargerThanDefault } from '../utils/resources'
 import { LogExecution } from '../../common/decorators/log-execution.decorator'
@@ -335,9 +336,11 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
                   snapshot.ref,
                   SnapshotRunnerState.PULLING_SNAPSHOT,
                 )
+                // Use base region for registry lookup (dedicated regions may not have registry configs)
+                const regionForRegistry = getFallbackRegion(runner.region) ?? runner.region
                 const dockerRegistry = await this.dockerRegistryService.findInternalRegistryBySnapshotRef(
                   snapshot.ref,
-                  runner.region,
+                  regionForRegistry,
                 )
                 return this.pullSnapshotRunner(runner, snapshot.ref, dockerRegistry)
               }),
@@ -721,13 +724,15 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     const retryTimeoutMinutes = 10
     const retryTimeoutMs = retryTimeoutMinutes * 60 * 1000
     if (Date.now() - snapshotRunner.createdAt.getTime() > retryTimeoutMs) {
+      // Use base region for registry lookup (dedicated regions may not have registry configs)
+      const regionForRegistry = getFallbackRegion(runner.region) ?? runner.region
       const internalRegistry = await this.dockerRegistryService.findInternalRegistryBySnapshotRef(
         snapshotRunner.snapshotRef,
-        runner.region,
+        regionForRegistry,
       )
       if (!internalRegistry) {
         throw new Error(
-          `No internal registry found for snapshot ${snapshotRunner.snapshotRef} in region ${runner.region}`,
+          `No internal registry found for snapshot ${snapshotRunner.snapshotRef} in region ${regionForRegistry}`,
         )
       }
       await this.pullSnapshotRunner(runner, snapshotRunner.snapshotRef, internalRegistry)
@@ -1105,7 +1110,9 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       }
     }
 
-    const internalRegistry = await this.dockerRegistryService.getAvailableInternalRegistry(runner.region)
+    // Use base region for registry lookup (dedicated regions may not have registry configs)
+    const regionForRegistry = getFallbackRegion(runner.region) ?? runner.region
+    const internalRegistry = await this.dockerRegistryService.getAvailableInternalRegistry(regionForRegistry)
     if (!internalRegistry) {
       throw new Error('No internal registry found for snapshot')
     }
@@ -1184,9 +1191,11 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     await this.updateSnapshotState(snapshot, SnapshotState.ACTIVE)
 
     // Best effort removal of old snapshot from transient registry
+    // Use base region for registry lookup (dedicated regions may not have registry configs)
+    const regionForTransientRegistry = getFallbackRegion(runner.region) ?? runner.region
     const transientRegistry = await this.dockerRegistryService.findTransientRegistryBySnapshotImageName(
       snapshot.imageName,
-      runner.region,
+      regionForTransientRegistry,
     )
     if (transientRegistry) {
       try {
@@ -1279,15 +1288,18 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       return DONT_SYNC_AGAIN
     }
 
+    // Use base region for registry lookups (dedicated regions may not have registry configs)
+    const regionForRegistry = getFallbackRegion(runner.region) ?? runner.region
+
     let sourceRegistry = await this.dockerRegistryService.findSourceRegistryBySnapshotImageName(
       snapshot.imageName,
-      runner.region,
+      regionForRegistry,
       snapshot.organizationId,
     )
     if (!sourceRegistry) {
       sourceRegistry = await this.dockerRegistryService.getDefaultDockerHubRegistry()
     }
-    const destinationRegistry = await this.dockerRegistryService.getAvailableInternalRegistry(runner.region)
+    const destinationRegistry = await this.dockerRegistryService.getAvailableInternalRegistry(regionForRegistry)
 
     // Fire pull request (runner returns 202 immediately)
     // Post-processing (digest, cleanup) is handled by handleCheckInitialRunnerSnapshot on the next poll cycle
@@ -1308,7 +1320,9 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
   async processBuildOnRunner(snapshot: Snapshot, runner: Runner) {
     try {
-      const registry = await this.dockerRegistryService.getAvailableInternalRegistry(runner.region)
+      // Use base region for registry lookup (dedicated regions may not have registry configs)
+      const regionForRegistry = getFallbackRegion(runner.region) ?? runner.region
+      const registry = await this.dockerRegistryService.getAvailableInternalRegistry(regionForRegistry)
 
       const sourceRegistries = await this.dockerRegistryService.getSourceRegistriesForDockerfile(
         snapshot.buildInfo.dockerfileContent,
@@ -1405,6 +1419,9 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       initialRunner = await this.runnerService.findOneOrFail(snapshot.initialRunnerId)
     }
 
+    // Use base region for registry lookups (dedicated regions may not have registry configs)
+    const regionForRegistryLookup = getFallbackRegion(initialRunner.region) ?? initialRunner.region
+
     if (snapshot.buildInfo) {
       await this.updateSnapshotState(snapshot, SnapshotState.BUILDING)
       await this.runnerService.createSnapshotRunnerEntry(
@@ -1418,7 +1435,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         const runnerAdapter = await this.runnerAdapterFactory.create(initialRunner)
         const registry = await this.dockerRegistryService.findRegistryByImageName(
           snapshot.imageName,
-          initialRunner.region,
+          regionForRegistryLookup,
           snapshot.organizationId,
         )
 
@@ -1428,7 +1445,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         }
         const imageName = image.getFullName()
 
-        const internalRegistry = await this.dockerRegistryService.getAvailableInternalRegistry(initialRunner.region)
+        const internalRegistry = await this.dockerRegistryService.getAvailableInternalRegistry(regionForRegistryLookup)
         if (!internalRegistry) {
           throw new Error('No internal registry found for snapshot')
         }

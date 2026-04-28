@@ -24,7 +24,7 @@ import { Snapshot } from '../../entities/snapshot.entity'
 import { OrganizationService } from '../../../organization/services/organization.service'
 import { TypedConfigService } from '../../../config/typed-config.service'
 import { Runner } from '../../entities/runner.entity'
-import { resolveEffectiveRegion } from '../../constants/dedicated-regions.constant'
+import { resolveEffectiveRegion, getFallbackRegion } from '../../constants/dedicated-regions.constant'
 import { Organization } from '../../../organization/entities/organization.entity'
 import { LockCode, RedisLockProvider } from '../../common/redis-lock.provider'
 import { InjectRedis } from '@nestjs-modules/ioredis'
@@ -294,9 +294,11 @@ export class SandboxStartAction extends SandboxAction {
   }
 
   async pullSnapshotToRunner(snapshot: Snapshot, runner: Runner) {
+    // Use base region for registry lookup (dedicated regions may not have registry configs)
+    const regionForRegistry = getFallbackRegion(runner.region) ?? runner.region
     const internalRegistry = await this.dockerRegistryService.findInternalRegistryBySnapshotRef(
       snapshot.ref,
-      runner.region,
+      regionForRegistry,
     )
     if (!internalRegistry) {
       throw new Error('No internal registry found for sandbox snapshot')
@@ -399,12 +401,17 @@ export class SandboxStartAction extends SandboxAction {
     let internalRegistry: DockerRegistry
     let entrypoint: string[]
     let snapshotRef: string
+    // Use base region for registry lookup (dedicated regions may not have registry configs)
+    const regionForRegistry = getFallbackRegion(runner.region) ?? runner.region
     if (!sandbox.buildInfo) {
       //  get internal snapshot name
       const snapshot = await this.snapshotService.getSnapshotByName(sandbox.snapshot, sandbox.organizationId)
       snapshotRef = snapshot.ref
 
-      internalRegistry = await this.dockerRegistryService.findInternalRegistryBySnapshotRef(snapshotRef, runner.region)
+      internalRegistry = await this.dockerRegistryService.findInternalRegistryBySnapshotRef(
+        snapshotRef,
+        regionForRegistry,
+      )
       if (!internalRegistry) {
         throw new Error('No registry found for snapshot')
       }
