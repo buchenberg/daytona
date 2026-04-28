@@ -19,10 +19,11 @@ export const REGION_PROPAGATION_TIERS: Record<string, { threshold: number; perce
     { threshold: 0, percentage: 8, minimum: 0 },
   ],
   default: [
-    { threshold: 5000, percentage: 66, minimum: 0 },
-    { threshold: 1000, percentage: 33, minimum: 0 },
-    { threshold: 250, percentage: 16, minimum: 0 },
-    { threshold: 0, percentage: 12, minimum: 0 },
+    { threshold: 5000, percentage: 60, minimum: 0 },
+    { threshold: 1000, percentage: 30, minimum: 0 },
+    { threshold: 250, percentage: 12, minimum: 10 },
+    { threshold: 100, percentage: 7, minimum: 5 },
+    { threshold: 0, percentage: 5, minimum: 3 },
   ],
 }
 
