@@ -27,8 +27,7 @@ jobs:
       contents: read
       packages: write
     outputs:
-      branch_slug: ${{ steps.slug.outputs.branch_slug }}
-      short_sha: ${{ steps.sha.outputs.short_sha }}
+      deployment_slug: ${{ steps.slug.outputs.deployment_slug }}
     steps:
       - name: Checkout target repo
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -48,21 +47,18 @@ jobs:
           run-poetry-install: 'false'
           run-go-work-sync: 'false'
 
-      - name: Compute branch slug
+      - name: Compute deployment slug
         id: slug
         env:
           BRANCH: ${{ inputs.branch }}
         run: |
-          slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-+//; s/-+$//' | cut -c1-63 | sed -E 's/-+$//')
-          if [ -z "$slug" ]; then
+          branch_slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-+//; s/-+$//' | cut -c1-20 | sed -E 's/-+$//')
+          if [ -z "$branch_slug" ]; then
             echo "Branch name '$BRANCH' produced an empty slug" >&2
             exit 1
           fi
-          echo "branch_slug=$slug" >> "$GITHUB_OUTPUT"
-
-      - name: Get short commit SHA
-        id: sha
-        run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          short_sha=$(git rev-parse --short HEAD)
+          echo "deployment_slug=${branch_slug}-${short_sha}" >> "$GITHUB_OUTPUT"
 
       - name: Rewrite docker image refs in nx.json for OSS
         if: ${{ inputs.use_oss }}
@@ -81,20 +77,20 @@ jobs:
 
       - name: Build and push docs docker image
         env:
-          VERSION: v0.0.0-${{ steps.slug.outputs.branch_slug }}
+          VERSION: v0.0.0-${{ steps.slug.outputs.deployment_slug }}
           ARCH: -amd64
           PUBLIC_ALGOLIA_DOCS_INDEX_NAME: docs
           PUBLIC_ALGOLIA_CLI_INDEX_NAME: cli
           PUBLIC_ALGOLIA_SDK_INDEX_NAME: sdk
           PUBLIC_ALGOLIA_API_INDEX_NAME: api
-          PUBLIC_WEB_URL: https://${{ steps.slug.outputs.branch_slug }}.docs.stage.daytona.work
+          PUBLIC_WEB_URL: https://${{ steps.slug.outputs.deployment_slug }}.docs.stage.daytona.work
           PUBLIC_ALGOLIA_APP_ID: YDP75YK0IL
           PUBLIC_ALGOLIA_API_KEY: cc397b32946b98577d305737dc98befa
         run: yarn nx docker docs --configuration production --output-style stream
 
       - name: Print preview image
         run: |
-          echo "Docs image: ghcr.io/daytonaio/daytona-docs:v0.0.0-${{ steps.slug.outputs.branch_slug }}-amd64"
+          echo "Docs image: ghcr.io/daytonaio/daytona-docs:v0.0.0-${{ steps.slug.outputs.deployment_slug }}-amd64"
 
       - name: Cleanup credentials
         if: always()
@@ -123,11 +119,10 @@ jobs:
 
       - name: Deploy with Helm
         run: |
-          helm upgrade --install docs-preview-${{ needs.build.outputs.branch_slug }} ./charts/docs-preview \
+          helm upgrade --install docs-preview-${{ needs.build.outputs.deployment_slug }} ./charts/docs-preview \
             --namespace gha-docs \
-            --set image.tag="v0.0.0-${{ needs.build.outputs.branch_slug }}-amd64" \
-            --set ingress.host="${{ needs.build.outputs.branch_slug }}.docs.stage.daytona.work" \
-            --set podAnnotations.revision="${{ needs.build.outputs.short_sha }}" \
+            --set image.tag="v0.0.0-${{ needs.build.outputs.deployment_slug }}-amd64" \
+            --set ingress.host="${{ needs.build.outputs.deployment_slug }}.docs.stage.daytona.work" \
             --wait \
             --timeout 5m
 
@@ -137,4 +132,4 @@ jobs:
 
       - name: Print preview URL
         run: |
-          echo "Preview URL: https://${{ needs.build.outputs.branch_slug }}.docs.stage.daytona.work"
+          echo "Preview URL: https://${{ needs.build.outputs.deployment_slug }}.docs.stage.daytona.work"

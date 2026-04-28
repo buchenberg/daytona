@@ -42,17 +42,18 @@ jobs:
           run-poetry-install: 'false'
           run-go-work-sync: 'false'
 
-      - name: Compute branch slug
+      - name: Compute deployment slug
         id: slug
         env:
           BRANCH: ${{ inputs.branch }}
         run: |
-          slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-+//; s/-+$//' | cut -c1-63 | sed -E 's/-+$//')
-          if [ -z "$slug" ]; then
+          branch_slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-+//; s/-+$//' | cut -c1-20 | sed -E 's/-+$//')
+          if [ -z "$branch_slug" ]; then
             echo "Branch name '$BRANCH' produced an empty slug" >&2
             exit 1
           fi
-          echo "branch_slug=$slug" >> "$GITHUB_OUTPUT"
+          short_sha=$(git rev-parse --short HEAD)
+          echo "deployment_slug=${branch_slug}-${short_sha}" >> "$GITHUB_OUTPUT"
 
       - name: Build dashboard
         run: echo VITE_API_URL=https://app.daytona.io/api > apps/dashboard/.env && yarn nx build dashboard --configuration production --skip-nx-cache
@@ -62,8 +63,8 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.PREVIEW_S3_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.PREVIEW_S3_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
-        run: aws s3 sync dist/apps/dashboard "s3://prod-daytona-preview/${{ steps.slug.outputs.branch_slug }}/" --delete
+        run: aws s3 sync dist/apps/dashboard "s3://prod-daytona-preview/${{ steps.slug.outputs.deployment_slug }}/" --delete
 
       - name: Print preview URL
         run: |
-          echo "Preview URL: https://${{ steps.slug.outputs.branch_slug }}.p.daytona.work"
+          echo "Preview URL: https://${{ steps.slug.outputs.deployment_slug }}.p.daytona.work"
