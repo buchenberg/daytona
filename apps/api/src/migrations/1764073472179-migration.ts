@@ -129,21 +129,23 @@ export class Migration1764073472179 implements MigrationInterface {
     )
 
     // custom organization regions (visible, quotas enforced)
-    await queryRunner.query(
-      `INSERT INTO "region" 
-        ("id", "name", "organizationId", "hidden", "enforceQuotas") 
-        VALUES 
-          ('codeany', 'codeany', '26a8fb68-6fb1-4429-b766-5df6795a5ab0', false, true),
-          ('codeany-free', 'codeany-free', '26a8fb68-6fb1-4429-b766-5df6795a5ab0', false, true),
-          ('browser-use', 'browser-use', '9187b39a-b22a-4207-be3b-c67b42ae10d0', false, true),
-          ('us-ext-sandbox', 'us-ext-sandbox', 'ebe1abc6-dc31-4b49-8f4f-953b096ecf40', false, true),
-          ('us-ext-577151', 'us-ext-577151', '0fcf06b6-2dc2-4899-8c59-41460e2760ce', false, true),
-          ('us-ext-777185', 'us-ext-777185', 'f48ca04b-3a47-4c81-b626-da44bb888bb1', false, true),
-          ('us-ext-840021', 'us-ext-840021', 'e7395d35-9f0c-40be-8fdb-84165ae48e82', false, true),
-          ('kepler-dedicated-regular', 'kepler-dedicated-regular', '83e127af-2de9-4549-903c-b7bf907ecb58', false, true),
-          ('kepler-dedicated-large', 'kepler-dedicated-large', '83e127af-2de9-4549-903c-b7bf907ecb58', false, true)
-        `,
-    )
+    // Only insert rows whose target organization actually exists so this is a no-op on a fresh DB.
+    await queryRunner.query(`
+      INSERT INTO "region" ("id", "name", "organizationId", "hidden", "enforceQuotas")
+      SELECT v."id", v."name", v."organizationId"::uuid, v."hidden", v."enforceQuotas"
+      FROM (VALUES
+        ('codeany', 'codeany', '26a8fb68-6fb1-4429-b766-5df6795a5ab0', false, true),
+        ('codeany-free', 'codeany-free', '26a8fb68-6fb1-4429-b766-5df6795a5ab0', false, true),
+        ('browser-use', 'browser-use', '9187b39a-b22a-4207-be3b-c67b42ae10d0', false, true),
+        ('us-ext-sandbox', 'us-ext-sandbox', 'ebe1abc6-dc31-4b49-8f4f-953b096ecf40', false, true),
+        ('us-ext-577151', 'us-ext-577151', '0fcf06b6-2dc2-4899-8c59-41460e2760ce', false, true),
+        ('us-ext-777185', 'us-ext-777185', 'f48ca04b-3a47-4c81-b626-da44bb888bb1', false, true),
+        ('us-ext-840021', 'us-ext-840021', 'e7395d35-9f0c-40be-8fdb-84165ae48e82', false, true),
+        ('kepler-dedicated-regular', 'kepler-dedicated-regular', '83e127af-2de9-4549-903c-b7bf907ecb58', false, true),
+        ('kepler-dedicated-large', 'kepler-dedicated-large', '83e127af-2de9-4549-903c-b7bf907ecb58', false, true)
+      ) AS v("id", "name", "organizationId", "hidden", "enforceQuotas")
+      WHERE EXISTS (SELECT 1 FROM "organization" WHERE "id" = v."organizationId"::uuid)
+    `)
 
     // Codeanywhere org has "us" as default region, decrease their quotas
     await queryRunner.query(`
@@ -205,28 +207,25 @@ export class Migration1764073472179 implements MigrationInterface {
      * us-ext-840021 - same as their default "us" region quotas
      * custom-region-test - tier 3 limits to daytona members
      */
+    // Only insert quotas whose target organization and region actually exist so this is a no-op on a fresh DB.
     await queryRunner.query(`
-      INSERT INTO "region_quota" 
-        ("organizationId", "regionId", "total_cpu_quota", "total_memory_quota", "total_disk_quota")
-      VALUES
+      INSERT INTO "region_quota" ("organizationId", "regionId", "total_cpu_quota", "total_memory_quota", "total_disk_quota")
+      SELECT v."organizationId"::uuid, v."regionId", v."total_cpu_quota", v."total_memory_quota", v."total_disk_quota"
+      FROM (VALUES
         ('26a8fb68-6fb1-4429-b766-5df6795a5ab0', 'codeany', 2500, 5000, 50000),
-
         ('26a8fb68-6fb1-4429-b766-5df6795a5ab0', 'codeany-free', 2500, 5000, 50000),
-
         ('9187b39a-b22a-4207-be3b-c67b42ae10d0', 'browser-use', 250, 500, 2000),
-
         ('ebe1abc6-dc31-4b49-8f4f-953b096ecf40', 'us-ext-sandbox', 100, 350, 3000),
-
         ('0fcf06b6-2dc2-4899-8c59-41460e2760ce', 'us-ext-577151', 100, 350, 3000),
-
         ('f48ca04b-3a47-4c81-b626-da44bb888bb1', 'us-ext-777185', 100, 350, 3000),
-        
         ('e7395d35-9f0c-40be-8fdb-84165ae48e82', 'us-ext-840021', 100, 350, 3000),
-
         ('3ae0ced2-f32b-4c06-ba3b-51e5bb22e6e6', 'custom-region-test', 250, 500, 2000),
         ('bf29e0f2-5fa9-48db-b80c-c7fae9c4e29c', 'custom-region-test', 250, 500, 2000),
         ('1db02bc5-acae-447b-b6ad-f5fa323d3cf6', 'custom-region-test', 250, 500, 2000),
         ('99c32bbf-0ba0-4980-af71-22f50376032e', 'custom-region-test', 250, 500, 2000)
+      ) AS v("organizationId", "regionId", "total_cpu_quota", "total_memory_quota", "total_disk_quota")
+      WHERE EXISTS (SELECT 1 FROM "organization" WHERE "id" = v."organizationId"::uuid)
+        AND EXISTS (SELECT 1 FROM "region" WHERE "id" = v."regionId")
     `)
     /*
      *
