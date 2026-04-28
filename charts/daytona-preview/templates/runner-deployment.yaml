@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ include "preview.namespace" . }}
+  name: {{ include "preview.fullname" . }}-runner
+  labels:
+    {{- include "preview.labels" . | nindent 4 }}
+    app.kubernetes.io/component: runner
+  {{- with .Values.services.runner.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.services.runner.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "preview.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: runner
+  template:
+    metadata:
+      {{- with .Values.services.runner.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "preview.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: runner
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "preview.serviceAccountName" (dict "ctx" . "component" "runner") }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: runner
+          securityContext:
+            privileged: true
+          image: {{ include "preview.image" (dict "repo" .Values.services.runner.image.repository "svcTag" .Values.services.runner.image.tag "Values" .Values) | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.registry.enabled }}
+          # Inject the in-cluster registry into dockerd's insecure-registries list
+          # before the daemon starts. The image bakes in a daemon.json with a
+          # different host, so we rewrite it here.
+          command:
+            - sh
+            - -c
+            - |
+              echo '{"insecure-registries": ["{{ include "preview.fullname" . }}-registry:{{ .Values.registry.service.port }}"]}' > /etc/docker/daemon.json
+              /usr/local/bin/dockerd-entrypoint.sh & daytona-runner
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.services.runner.env.API_PORT | default 3003 }}
+              protocol: TCP
+          env:
+            - name: API_PORT
+              value: {{ .Values.services.runner.env.API_PORT | default "3003" | quote }}
+            - name: ENVIRONMENT
+              value: {{ .Values.services.runner.env.ENVIRONMENT | default "preview" | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.services.runner.env.LOG_LEVEL | default "info" | quote }}
+            - name: DAYTONA_API_URL
+              value: {{ printf "http://%s-api:%s/api" (include "preview.fullname" .) (.Values.services.api.env.PORT | default "3000") | quote }}
+            - name: SERVER_URL
+              value: {{ printf "http://%s-api:%s/api" (include "preview.fullname" .) (.Values.services.api.env.PORT | default "3000") | quote }}
+            - name: API_TOKEN
+              value: {{ .Values.services.runner.env.API_TOKEN | default "preview_runner_token" | quote }}
+            - name: DAYTONA_RUNNER_TOKEN
+              value: {{ .Values.services.runner.env.API_TOKEN | default "preview_runner_token" | quote }}
+            - name: RESOURCE_LIMITS_DISABLED
+              value: {{ .Values.services.runner.env.RESOURCE_LIMITS_DISABLED | default "true" | quote }}
+            {{- if .Values.services.runner.extraEnv }}
+            {{- toYaml .Values.services.runner.extraEnv | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.services.runner.resources | nindent 12 }}
+      {{- with .Values.services.runner.nodeSelector | default .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.runner.affinity | default .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.runner.tolerations | default .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,13 @@
+Daytona Preview — {{ .Values.branchSlug }}
+================================================
+
+API:   https://{{ include "preview.apiHost" . }}
+Proxy: https://{{ include "preview.proxyHost" . }}
+
+Helm hooks executed:
+  post-install : migration:run:init → migration:run:pre-deploy
+  pre-upgrade  : migration:run:pre-deploy
+  post-upgrade : migration:run:post-deploy
+
+To tear down:
+  helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }}

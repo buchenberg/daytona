@@ -1,0 +1,60 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  namespace: {{ include "preview.namespace" . }}
+  name: {{ include "preview.fullname" . }}-migration-post-deploy
+  labels:
+    {{- include "preview.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-migration
+  annotations:
+    "helm.sh/hook": post-upgrade
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "preview.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api-migration
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "preview.serviceAccountName" (dict "ctx" . "component" "api") }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      restartPolicy: Never
+      containers:
+        - name: migration
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "preview.image" (dict "repo" .Values.services.api.image.repository "svcTag" .Values.services.api.image.tag "Values" .Values) | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["yarn"]
+          args: ["migration:run:post-deploy"]
+          env:
+            {{- include "preview.env.api" . | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: var-run
+              mountPath: /var/run
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: var-run
+          emptyDir: {}
+      {{- with .Values.services.api.nodeSelector | default .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.api.affinity | default .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.api.tolerations | default .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

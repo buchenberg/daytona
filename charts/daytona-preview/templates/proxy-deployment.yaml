@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ include "preview.namespace" . }}
+  name: {{ include "preview.fullname" . }}-proxy
+  labels:
+    {{- include "preview.labels" . | nindent 4 }}
+    app.kubernetes.io/component: proxy
+  {{- with .Values.services.proxy.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.services.proxy.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "preview.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: proxy
+  template:
+    metadata:
+      {{- with .Values.services.proxy.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "preview.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: proxy
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "preview.serviceAccountName" (dict "ctx" . "component" "proxy") }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: proxy
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "preview.image" (dict "repo" .Values.services.proxy.image.repository "svcTag" .Values.services.proxy.image.tag "Values" .Values) | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.services.proxy.env.PROXY_PORT | default 4000 }}
+              protocol: TCP
+          env:
+            {{- include "preview.env.redis" . | nindent 12 }}
+            - name: OIDC_CLIENT_ID
+              value: {{ .Values.services.proxy.env.OIDC_CLIENT_ID | default "daytona" | quote }}
+            - name: OIDC_CLIENT_SECRET
+              {{- if .Values.services.proxy.oidcClientSecret.secretName }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.services.proxy.oidcClientSecret.secretName | quote }}
+                  key: {{ .Values.services.proxy.oidcClientSecret.secretKey | default "OIDC_CLIENT_SECRET" | quote }}
+              {{- else }}
+              value: ""
+              {{- end }}
+            - name: OIDC_DOMAIN
+              value: {{ .Values.services.proxy.env.OIDC_ISSUER_BASE_URL | default .Values.services.api.env.OIDC_ISSUER_BASE_URL | default "" | quote }}
+            - name: OIDC_PUBLIC_DOMAIN
+              value: {{ .Values.services.proxy.env.OIDC_ISSUER_BASE_URL | default .Values.services.api.env.OIDC_ISSUER_BASE_URL | default "" | quote }}
+            - name: OIDC_AUDIENCE
+              value: {{ .Values.services.proxy.env.OIDC_AUDIENCE | default "daytona" | quote }}
+            - name: PROXY_API_KEY
+              value: {{ .Values.services.proxy.env.PROXY_API_KEY | default "preview_proxy_api_key" | quote }}
+            - name: PROXY_PORT
+              value: {{ .Values.services.proxy.env.PROXY_PORT | default "4000" | quote }}
+            - name: PROXY_PROTOCOL
+              value: {{ .Values.services.proxy.env.PROXY_PROTOCOL | default "https" | quote }}
+            - name: PROXY_DOMAIN
+              value: {{ include "preview.proxyHost" . | quote }}
+            - name: DAYTONA_API_URL
+              value: {{ printf "http://%s-api:%s/api" (include "preview.fullname" .) (.Values.services.api.env.PORT | default "3000") | quote }}
+            - name: COOKIE_DOMAIN
+              value: {{ .Values.proxyDomain | quote }}
+            {{- if .Values.services.proxy.extraEnv }}
+            {{- toYaml .Values.services.proxy.extraEnv | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.services.proxy.resources | nindent 12 }}
+      {{- with .Values.services.proxy.nodeSelector | default .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.proxy.affinity | default .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.proxy.tolerations | default .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

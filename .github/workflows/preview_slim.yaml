@@ -1,0 +1,161 @@
+name: 'Preview Slim'
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch name to build'
+        required: true
+        type: string
+      use_oss:
+        description: 'Use OSS repo (daytonaio/daytona) instead of daytonaio/daytona-ai'
+        required: true
+        type: boolean
+        default: false
+      from_scratch:
+        description: 'Tear down the existing release first (wipes the per-preview db/redis/minio data)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.project }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [api, proxy, runner]
+    outputs:
+      branch_slug: ${{ steps.slug.outputs.branch_slug }}
+      version_slug: ${{ steps.slug.outputs.version_slug }}
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ${{ inputs.use_oss && 'daytonaio/daytona' || 'daytonaio/daytona-ai' }}
+          ref: ${{ inputs.branch }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-toolchain
+        with:
+          install-go: 'false'
+          install-python: 'false'
+          install-ruby: 'false'
+          install-java: 'false'
+          install-poetry: 'false'
+          install-swag: 'false'
+          run-poetry-install: 'false'
+          run-go-work-sync: 'false'
+
+      - name: Compute branch and version slugs
+        id: slug
+        env:
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          # branch_slug — stable across redeploys of the same branch.
+          # Used as the helm release name + ingress hostname prefix.
+          slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-+//; s/-+$//' | cut -c1-20 | sed -E 's/-+$//')
+          if [ -z "$slug" ]; then
+            echo "Branch name '$BRANCH' produced an empty slug" >&2
+            exit 1
+          fi
+          # version_slug — bumps every commit. Used as the image tag so api/proxy/runner
+          # pods roll on each redeploy. Trimmed to leave headroom for the -amd64 suffix.
+          short_sha=$(git rev-parse --short HEAD)
+          echo "branch_slug=$slug" >> "$GITHUB_OUTPUT"
+          echo "version_slug=${slug}-${short_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Rewrite docker image refs in nx.json for OSS
+        if: ${{ inputs.use_oss }}
+        run: |
+          sed -i 's|daytonaio/daytona-|ghcr.io/daytonaio/daytona-|g' nx.json
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Build and push ${{ matrix.project }} docker image
+        env:
+          VERSION: v0.0.0-${{ steps.slug.outputs.version_slug }}
+          ARCH: -amd64
+        run: yarn nx docker ${{ matrix.project }} --configuration production --output-style stream
+
+      - name: Print preview image
+        run: |
+          echo "${{ matrix.project }} image: ghcr.io/daytonaio/daytona-${{ matrix.project }}:v0.0.0-${{ steps.slug.outputs.version_slug }}-amd64"
+
+      - name: Cleanup credentials
+        if: always()
+        run: |
+          docker logout docker.io 2>/dev/null || true
+          docker logout ghcr.io 2>/dev/null || true
+
+  deploy:
+    name: Deploy to stage
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Helm
+        uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
+
+      - name: Set up kubeconfig
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.STAGE_KUBECONFIG }}" > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Tear down existing release (from_scratch)
+        if: ${{ inputs.from_scratch }}
+        env:
+          BRANCH_SLUG: ${{ needs.build.outputs.branch_slug }}
+        run: |
+          # Wipes per-preview postgres/redis/minio data (emptyDir volumes are deleted with the pods).
+          helm uninstall "$BRANCH_SLUG" --namespace preview --ignore-not-found --wait
+
+      - name: Deploy with Helm
+        env:
+          BRANCH_SLUG: ${{ needs.build.outputs.branch_slug }}
+          VERSION_SLUG: ${{ needs.build.outputs.version_slug }}
+        run: |
+          helm dependency build ./charts/daytona-preview
+          helm upgrade --install "$BRANCH_SLUG" ./charts/daytona-preview \
+            --namespace preview \
+            --set branchSlug="$BRANCH_SLUG" \
+            --set image.tag="v0.0.0-${VERSION_SLUG}-amd64" \
+            --set services.api.ingress.tlsSecretName=api-p-stage-tls \
+            --set services.proxy.ingress.tlsSecretName=proxy-p-stage-tls \
+            --set services.proxy.oidcClientSecret.secretName=stage-preview-job \
+            --wait \
+            --timeout 10m
+
+      - name: Clean up old releases
+        run: |
+          helm list --namespace preview --date --reverse -q | tail -n +11 | xargs -r -I {} helm uninstall {} --namespace preview
+
+      - name: Print preview URLs
+        env:
+          BRANCH_SLUG: ${{ needs.build.outputs.branch_slug }}
+        run: |
+          echo "API:   https://${BRANCH_SLUG}.api.p.stage.daytona.work"
+          echo "Proxy: https://${BRANCH_SLUG}.proxy.p.stage.daytona.work"

@@ -1,0 +1,344 @@
+# Daytona Preview Chart — values.yaml
+#
+# Usage:
+#   helm install my-branch ./charts/daytona-preview \
+#     -n preview --create-namespace \
+#     --set branchSlug=my-feature-branch
+
+# ---------------------------------------------------------------------------
+# REQUIRED — CI must set this to the slugified branch name
+# ---------------------------------------------------------------------------
+branchSlug: ''
+
+# ---------------------------------------------------------------------------
+# Domain configuration
+# Each preview gets:
+#   API:   {branchSlug}.{apiDomain}        (e.g. feat-x.api.p.stage.daytona.work)
+#   Proxy: {branchSlug}.{proxyDomain}      (e.g. feat-x.proxy.p.stage.daytona.work)
+#   Proxy wildcard: *.{branchSlug}.{proxyDomain} (for sandbox subdomains)
+# ---------------------------------------------------------------------------
+apiDomain: 'api.p.stage.daytona.work'
+proxyDomain: 'proxy.p.stage.daytona.work'
+
+# ---------------------------------------------------------------------------
+# Global image settings
+# ---------------------------------------------------------------------------
+image:
+  registry: ghcr.io
+  # Default tag is computed as v0.0.0-{branchSlug}-amd64 (see _helpers.tpl)
+  tag: ''
+  pullPolicy: Always
+  # Pre-create a docker-registry secret named "ghcr-creds" in the namespace
+  pullSecrets:
+    - name: daytonabot-token
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+services:
+  # ---- API ----------------------------------------------------------------
+  api:
+    image:
+      repository: daytonaio/daytona-api
+      tag: '' # per-service override; falls back to global
+    replicaCount: 1
+    service:
+      type: ClusterIP
+      port: 3000
+      annotations: {}
+    ingress:
+      enabled: true
+      className: 'nginx'
+      annotations:
+        # Long-lived websocket connections (socket.io) — bump nginx timeouts
+        # past the default 60s so the API's ws stream isn't dropped.
+        nginx.ingress.kubernetes.io/proxy-read-timeout: '3600'
+        nginx.ingress.kubernetes.io/proxy-send-timeout: '3600'
+      tls: true
+      # Shared wildcard cert covering *.api.p.stage.daytona.work
+      tlsSecretName: 'api-p-stage-daytona-work-tls'
+    env:
+      ENVIRONMENT: 'preview'
+      PORT: '3000'
+      SKIP_USER_EMAIL_VERIFICATION: 'true'
+      NOTIFICATION_GATEWAY_DISABLED: 'false'
+      MAINTENANCE_MODE: 'false'
+      OTEL_ENABLED: 'false'
+      DISABLE_CRON_JOBS: 'false'
+      RUN_MIGRATIONS: 'false' # migrations run via helm hooks
+      # OIDC — point to shared Dex or external IdP
+      OIDC_CLIENT_ID: 'R0UIj1ZOitwBJNKwmKNs3y2uPuY61Egn'
+      OIDC_ISSUER_BASE_URL: 'https://daytonastage.us.auth0.com'
+      OIDC_AUDIENCE: 'https://api.stage.daytona.work'
+      # Encryption (override for production-grade previews)
+      ENCRYPTION_KEY: 'preview_32_char_encryption_key!!'
+      ENCRYPTION_SALT: 'preview_encryption_salt_value'
+      # Registry — defaults to in-cluster registry service (see top-level `registry:`).
+      # Leave URLs empty to let the helper fall back to the in-cluster registry.
+      TRANSIENT_REGISTRY_URL: ''
+      TRANSIENT_REGISTRY_ADMIN: ''
+      TRANSIENT_REGISTRY_PASSWORD: ''
+      TRANSIENT_REGISTRY_PROJECT_ID: 'daytona'
+      INTERNAL_REGISTRY_URL: ''
+      INTERNAL_REGISTRY_ADMIN: ''
+      INTERNAL_REGISTRY_PASSWORD: ''
+      INTERNAL_REGISTRY_PROJECT_ID: 'daytona'
+      # Default snapshot
+      DEFAULT_SNAPSHOT: 'daytonaio/sandbox:0.6.0-slim'
+      # S3 (optional — leave empty to disable)
+      S3_ENDPOINT: ''
+      S3_STS_ENDPOINT: ''
+      S3_REGION: 'us-east-1'
+      S3_ACCESS_KEY: ''
+      S3_SECRET_KEY: ''
+      S3_DEFAULT_BUCKET: ''
+      S3_ACCOUNT_ID: '/'
+      S3_ROLE_NAME: '/'
+      # Admin bootstrap
+      ADMIN_API_KEY: ''
+      ADMIN_TOTAL_CPU_QUOTA: '10000'
+      ADMIN_TOTAL_MEMORY_QUOTA: '10000'
+      ADMIN_TOTAL_DISK_QUOTA: '100000'
+      ADMIN_MAX_CPU_PER_SANDBOX: '100'
+      ADMIN_MAX_MEMORY_PER_SANDBOX: '100'
+      ADMIN_MAX_DISK_PER_SANDBOX: '1000'
+      ADMIN_SNAPSHOT_QUOTA: '1000'
+      ADMIN_MAX_SNAPSHOT_SIZE: '1000'
+      ADMIN_VOLUME_QUOTA: '10000'
+      # Org quotas
+      DEFAULT_ORG_QUOTA_TOTAL_CPU_QUOTA: '10000'
+      DEFAULT_ORG_QUOTA_TOTAL_MEMORY_QUOTA: '10000'
+      DEFAULT_ORG_QUOTA_TOTAL_DISK_QUOTA: '100000'
+      DEFAULT_ORG_QUOTA_MAX_CPU_PER_SANDBOX: '100'
+      DEFAULT_ORG_QUOTA_MAX_MEMORY_PER_SANDBOX: '100'
+      DEFAULT_ORG_QUOTA_MAX_DISK_PER_SANDBOX: '1000'
+      DEFAULT_ORG_QUOTA_SNAPSHOT_QUOTA: '1000'
+      DEFAULT_ORG_QUOTA_MAX_SNAPSHOT_SIZE: '1000'
+      DEFAULT_ORG_QUOTA_VOLUME_QUOTA: '10000'
+      DEFAULT_REGION_ENFORCE_QUOTAS: 'false'
+      # Health
+      HEALTH_CHECK_API_KEY: 'preview_health_check_key'
+      RUNNER_AVAILABILITY_SCORE_THRESHOLD: '0'
+      # SMTP (disabled for preview)
+      SMTP_HOST: ''
+      SMTP_PORT: ''
+      SMTP_USER: ''
+      SMTP_PASSWORD: ''
+      SMTP_SECURE: ''
+      SMTP_EMAIL_FROM: ''
+      DB_QUERY_TIMEOUT_MS: '0'
+      # SSH Gateway
+      SSH_GATEWAY_API_KEY: 'preview_ssh_gateway_api_key'
+    extraEnv: []
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ''
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    annotations: {}
+    podAnnotations: {}
+
+  # ---- Proxy --------------------------------------------------------------
+  proxy:
+    image:
+      repository: daytonaio/daytona-proxy
+      tag: ''
+    replicaCount: 1
+    service:
+      type: ClusterIP
+      port: 4000
+      annotations: {}
+    ingress:
+      enabled: true
+      className: 'nginx'
+      annotations: {}
+      tls: true
+      # Per-preview cert for *.{slug}.proxy.p.stage.daytona.work
+      # Use cert-manager or pre-provision; leave empty to auto-generate name
+      tlsSecretName: ''
+    env:
+      PROXY_PORT: '4000'
+      PROXY_API_KEY: 'preview_proxy_api_key'
+      PROXY_PROTOCOL: 'https'
+      OIDC_CLIENT_ID: 'R0UIj1ZOitwBJNKwmKNs3y2uPuY61Egn'
+      OIDC_ISSUER_BASE_URL: 'https://daytonastage.us.auth0.com/'
+      OIDC_AUDIENCE: 'https://api.stage.daytona.work'
+    oidcClientSecret:
+      secretName: ''
+      secretKey: 'OIDC_CLIENT_SECRET'
+    extraEnv: []
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 64Mi
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ''
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    annotations: {}
+    podAnnotations: {}
+
+  # ---- Runner (Deployment, not DaemonSet) ---------------------------------
+  runner:
+    image:
+      repository: daytonaio/daytona-runner
+      tag: ''
+    replicaCount: 1
+    service:
+      type: ClusterIP
+      port: 3003
+      annotations: {}
+    env:
+      API_PORT: '3003'
+      ENVIRONMENT: 'preview'
+      LOG_LEVEL: 'info'
+      # Token must match services.api.env.DEFAULT_RUNNER_API_KEY (set via runner.apiToken)
+      API_TOKEN: 'preview_runner_token'
+      RESOURCE_LIMITS_DISABLED: 'true'
+    # Runner resources (needs more than API/proxy for sandbox management)
+    extraEnv: []
+    resources:
+      limits:
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ''
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    annotations: {}
+    podAnnotations: {}
+
+# ---------------------------------------------------------------------------
+# Runner connection config (sets corresponding env vars on the API)
+# ---------------------------------------------------------------------------
+runner:
+  apiToken: 'preview_runner_token'
+  cpu: 4
+  memory: 8
+  disk: 50
+  name: 'default'
+
+# ---------------------------------------------------------------------------
+# Pod / container security
+# ---------------------------------------------------------------------------
+podSecurityContext:
+  fsGroup: 2000
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: false
+  runAsUser: 0
+
+# Global fallbacks
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# ---------------------------------------------------------------------------
+# In-cluster MinIO (per-preview instance)
+# Used by the API as the S3-compatible object store for volumes & backups.
+# ---------------------------------------------------------------------------
+minio:
+  enabled: true
+  image:
+    repository: minio/minio
+    tag: 'RELEASE.2025-09-07T16-13-09Z'
+  service:
+    port: 9000
+  rootUser: 'minioadmin'
+  rootPassword: 'minioadmin'
+  region: 'us-east-1'
+  defaultBucket: 'daytona'
+  resources:
+    limits:
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+# ---------------------------------------------------------------------------
+# In-cluster Docker registry (per-preview instance)
+# Used by the API to push/pull sandbox snapshots.
+# ---------------------------------------------------------------------------
+registry:
+  enabled: true
+  image:
+    repository: registry
+    tag: '2.8.2'
+  service:
+    port: 5000
+  # The registry image runs without auth; these creds are passed to the API
+  # but the registry itself accepts any value.
+  admin: 'admin'
+  password: 'password'
+  resources:
+    limits:
+      memory: 512Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# ---------------------------------------------------------------------------
+# PostgreSQL subchart (per-preview instance)
+# ---------------------------------------------------------------------------
+postgresql:
+  enabled: true
+  global:
+    security:
+      allowInsecureImages: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/postgresql
+    tag: 17.6.0-debian-12-r0
+  auth:
+    postgresPassword: 'pass'
+    username: 'user'
+    password: 'pass'
+    database: 'daytona_preview'
+  primary:
+    persistence:
+      enabled: false
+
+# ---------------------------------------------------------------------------
+# Redis subchart (per-preview instance)
+# ---------------------------------------------------------------------------
+redis:
+  enabled: true
+  global:
+    security:
+      allowInsecureImages: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/redis
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: false
+  replica:
+    replicaCount: 0
+    persistence:
+      enabled: false
+  containerPorts:
+    redis: 6379

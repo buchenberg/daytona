@@ -1,0 +1,50 @@
+{{- if .Values.services.proxy.ingress.enabled -}}
+{{- $fullName      := include "preview.fullname" . -}}
+{{- $svcPort       := .Values.services.proxy.service.port -}}
+{{- $proxyHost     := include "preview.proxyHost" . -}}
+{{- $wildcardHost  := include "preview.proxyWildcardHost" . -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-proxy
+  namespace: {{ include "preview.namespace" . }}
+  labels:
+    {{- include "preview.labels" . | nindent 4 }}
+    app.kubernetes.io/component: proxy
+  {{- with .Values.services.proxy.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.services.proxy.ingress.className }}
+  ingressClassName: {{ .Values.services.proxy.ingress.className }}
+  {{- end }}
+  rules:
+    - host: {{ $proxyHost | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-proxy
+                port:
+                  number: {{ $svcPort }}
+    - host: {{ $wildcardHost | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}-proxy
+                port:
+                  number: {{ $svcPort }}
+  {{- if .Values.services.proxy.ingress.tls }}
+  tls:
+    - hosts:
+        - {{ $proxyHost | quote }}
+        - {{ $wildcardHost | quote }}
+      secretName: {{ .Values.services.proxy.ingress.tlsSecretName | default (printf "%s.%s-tls" .Values.branchSlug .Values.proxyDomain) }}
+  {{- end }}
+{{- end }}
