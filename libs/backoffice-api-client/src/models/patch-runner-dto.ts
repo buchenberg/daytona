@@ -12,26 +12,19 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { UpdateRunnerDto } from './update-runner-dto'
+import type { UpdateRunnerDto } from './update-runner-dto';
 
-/**
- *
- * @export
- * @interface PatchRunnerDto
- */
 export interface PatchRunnerDto {
-  /**
-   * Fields to update
-   * @type {UpdateRunnerDto}
-   * @memberof PatchRunnerDto
-   */
-  updates: UpdateRunnerDto
-  /**
-   * Expected current values for optimistic concurrency control. Update fails with 409 if any field does not match.
-   * @type {UpdateRunnerDto}
-   * @memberof PatchRunnerDto
-   */
-  preconditions?: UpdateRunnerDto
+    /**
+     * Fields to update
+     */
+    'updates': UpdateRunnerDto;
+    /**
+     * Expected current values for optimistic concurrency control. Update fails with 409 if any field does not match.
+     */
+    'preconditions'?: UpdateRunnerDto;
 }
+

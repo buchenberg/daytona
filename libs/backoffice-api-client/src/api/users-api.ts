@@ -12,362 +12,278 @@
  * Do not edit the class manually.
  */
 
-import type { Configuration } from '../configuration'
-import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from 'axios'
-import globalAxios from 'axios'
+
+import type { Configuration } from '../configuration';
+import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from 'axios';
+import globalAxios from 'axios';
 // Some imports not used depending on template conditions
 // @ts-ignore
-import {
-  DUMMY_BASE_URL,
-  assertParamExists,
-  setApiKeyToObject,
-  setBasicAuthToObject,
-  setBearerAuthToObject,
-  setOAuthToObject,
-  setSearchParams,
-  serializeDataIfNeeded,
-  toPathString,
-  createRequestFunction,
-} from '../common'
+import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObject, setBearerAuthToObject, setOAuthToObject, setSearchParams, serializeDataIfNeeded, toPathString, createRequestFunction, replaceWithSerializableTypeIfNeeded } from '../common';
 // @ts-ignore
-import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base'
+import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
 // @ts-ignore
-import type { SearchUsersDto } from '../models'
+import type { SearchUsersDto } from '../models';
 // @ts-ignore
-import type { UserDeletionPreviewDto } from '../models'
+import type { UserDeletionPreviewDto } from '../models';
 // @ts-ignore
-import type { UserDeletionRequestDto } from '../models'
+import type { UserDeletionRequestDto } from '../models';
 // @ts-ignore
-import type { UserDeletionResponseDto } from '../models'
+import type { UserDeletionResponseDto } from '../models';
 // @ts-ignore
-import type { UserSearchResponseDto } from '../models'
+import type { UserSearchResponseDto } from '../models';
 /**
  * UsersApi - axios parameter creator
- * @export
  */
 export const UsersApiAxiosParamCreator = function (configuration?: Configuration) {
-  return {
-    /**
-     *
-     * @summary Delete user and associated resources
-     * @param {string} userId User ID
-     * @param {UserDeletionRequestDto} userDeletionRequestDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    userDeletionControllerDeleteUser: async (
-      userId: string,
-      userDeletionRequestDto: UserDeletionRequestDto,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'userId' is not null or undefined
-      assertParamExists('userDeletionControllerDeleteUser', 'userId', userId)
-      // verify required parameter 'userDeletionRequestDto' is not null or undefined
-      assertParamExists('userDeletionControllerDeleteUser', 'userDeletionRequestDto', userDeletionRequestDto)
-      const localVarPath = `/users/{userId}/delete`.replace(`{${'userId'}}`, encodeURIComponent(String(userId)))
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+    return {
+        /**
+         * 
+         * @summary Delete user and associated resources
+         * @param {string} userId User ID
+         * @param {UserDeletionRequestDto} userDeletionRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        userDeletionControllerDeleteUser: async (userId: string, userDeletionRequestDto: UserDeletionRequestDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('userDeletionControllerDeleteUser', 'userId', userId)
+            // verify required parameter 'userDeletionRequestDto' is not null or undefined
+            assertParamExists('userDeletionControllerDeleteUser', 'userDeletionRequestDto', userDeletionRequestDto)
+            const localVarPath = `/users/{userId}/delete`
+                .replace(`{${"userId"}}`, encodeURIComponent(String(userId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      localVarHeaderParameter['Content-Type'] = 'application/json'
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
-      localVarRequestOptions.data = serializeDataIfNeeded(userDeletionRequestDto, localVarRequestOptions, configuration)
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(userDeletionRequestDto, localVarRequestOptions, configuration)
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary Preview user deletion impact
-     * @param {string} userId User ID
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    userDeletionControllerPreviewDeletion: async (
-      userId: string,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'userId' is not null or undefined
-      assertParamExists('userDeletionControllerPreviewDeletion', 'userId', userId)
-      const localVarPath = `/users/{userId}/deletion-preview`.replace(
-        `{${'userId'}}`,
-        encodeURIComponent(String(userId)),
-      )
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Preview user deletion impact
+         * @param {string} userId User ID
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        userDeletionControllerPreviewDeletion: async (userId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('userDeletionControllerPreviewDeletion', 'userId', userId)
+            const localVarPath = `/users/{userId}/deletion-preview`
+                .replace(`{${"userId"}}`, encodeURIComponent(String(userId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
+            localVarHeaderParameter['Accept'] = 'application/json';
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary Search users
-     * @param {SearchUsersDto} searchUsersDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    usersSearchControllerSearch: async (
-      searchUsersDto: SearchUsersDto,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'searchUsersDto' is not null or undefined
-      assertParamExists('usersSearchControllerSearch', 'searchUsersDto', searchUsersDto)
-      const localVarPath = `/users/search`
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
-      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Search users
+         * @param {SearchUsersDto} searchUsersDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        usersSearchControllerSearch: async (searchUsersDto: SearchUsersDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'searchUsersDto' is not null or undefined
+            assertParamExists('usersSearchControllerSearch', 'searchUsersDto', searchUsersDto)
+            const localVarPath = `/users/search`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      localVarHeaderParameter['Content-Type'] = 'application/json'
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
-      localVarRequestOptions.data = serializeDataIfNeeded(searchUsersDto, localVarRequestOptions, configuration)
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-  }
-}
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(searchUsersDto, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
 
 /**
  * UsersApi - functional programming interface
- * @export
  */
-export const UsersApiFp = function (configuration?: Configuration) {
-  const localVarAxiosParamCreator = UsersApiAxiosParamCreator(configuration)
-  return {
-    /**
-     *
-     * @summary Delete user and associated resources
-     * @param {string} userId User ID
-     * @param {UserDeletionRequestDto} userDeletionRequestDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async userDeletionControllerDeleteUser(
-      userId: string,
-      userDeletionRequestDto: UserDeletionRequestDto,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserDeletionResponseDto>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.userDeletionControllerDeleteUser(
-        userId,
-        userDeletionRequestDto,
-        options,
-      )
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['UsersApi.userDeletionControllerDeleteUser']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary Preview user deletion impact
-     * @param {string} userId User ID
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async userDeletionControllerPreviewDeletion(
-      userId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserDeletionPreviewDto>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.userDeletionControllerPreviewDeletion(userId, options)
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['UsersApi.userDeletionControllerPreviewDeletion']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary Search users
-     * @param {SearchUsersDto} searchUsersDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async usersSearchControllerSearch(
-      searchUsersDto: SearchUsersDto,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserSearchResponseDto>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.usersSearchControllerSearch(searchUsersDto, options)
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['UsersApi.usersSearchControllerSearch']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-  }
-}
+export const UsersApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = UsersApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary Delete user and associated resources
+         * @param {string} userId User ID
+         * @param {UserDeletionRequestDto} userDeletionRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async userDeletionControllerDeleteUser(userId: string, userDeletionRequestDto: UserDeletionRequestDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserDeletionResponseDto>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.userDeletionControllerDeleteUser(userId, userDeletionRequestDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['UsersApi.userDeletionControllerDeleteUser']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Preview user deletion impact
+         * @param {string} userId User ID
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async userDeletionControllerPreviewDeletion(userId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserDeletionPreviewDto>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.userDeletionControllerPreviewDeletion(userId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['UsersApi.userDeletionControllerPreviewDeletion']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Search users
+         * @param {SearchUsersDto} searchUsersDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async usersSearchControllerSearch(searchUsersDto: SearchUsersDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserSearchResponseDto>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.usersSearchControllerSearch(searchUsersDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['UsersApi.usersSearchControllerSearch']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
 
 /**
  * UsersApi - factory interface
- * @export
  */
 export const UsersApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
-  const localVarFp = UsersApiFp(configuration)
-  return {
+    const localVarFp = UsersApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary Delete user and associated resources
+         * @param {string} userId User ID
+         * @param {UserDeletionRequestDto} userDeletionRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        userDeletionControllerDeleteUser(userId: string, userDeletionRequestDto: UserDeletionRequestDto, options?: RawAxiosRequestConfig): AxiosPromise<UserDeletionResponseDto> {
+            return localVarFp.userDeletionControllerDeleteUser(userId, userDeletionRequestDto, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Preview user deletion impact
+         * @param {string} userId User ID
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        userDeletionControllerPreviewDeletion(userId: string, options?: RawAxiosRequestConfig): AxiosPromise<UserDeletionPreviewDto> {
+            return localVarFp.userDeletionControllerPreviewDeletion(userId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Search users
+         * @param {SearchUsersDto} searchUsersDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        usersSearchControllerSearch(searchUsersDto: SearchUsersDto, options?: RawAxiosRequestConfig): AxiosPromise<UserSearchResponseDto> {
+            return localVarFp.usersSearchControllerSearch(searchUsersDto, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * UsersApi - object-oriented interface
+ */
+export class UsersApi extends BaseAPI {
     /**
-     *
+     * 
      * @summary Delete user and associated resources
      * @param {string} userId User ID
-     * @param {UserDeletionRequestDto} userDeletionRequestDto
+     * @param {UserDeletionRequestDto} userDeletionRequestDto 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    userDeletionControllerDeleteUser(
-      userId: string,
-      userDeletionRequestDto: UserDeletionRequestDto,
-      options?: RawAxiosRequestConfig,
-    ): AxiosPromise<UserDeletionResponseDto> {
-      return localVarFp
-        .userDeletionControllerDeleteUser(userId, userDeletionRequestDto, options)
-        .then((request) => request(axios, basePath))
-    },
+    public userDeletionControllerDeleteUser(userId: string, userDeletionRequestDto: UserDeletionRequestDto, options?: RawAxiosRequestConfig) {
+        return UsersApiFp(this.configuration).userDeletionControllerDeleteUser(userId, userDeletionRequestDto, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary Preview user deletion impact
      * @param {string} userId User ID
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    userDeletionControllerPreviewDeletion(
-      userId: string,
-      options?: RawAxiosRequestConfig,
-    ): AxiosPromise<UserDeletionPreviewDto> {
-      return localVarFp
-        .userDeletionControllerPreviewDeletion(userId, options)
-        .then((request) => request(axios, basePath))
-    },
+    public userDeletionControllerPreviewDeletion(userId: string, options?: RawAxiosRequestConfig) {
+        return UsersApiFp(this.configuration).userDeletionControllerPreviewDeletion(userId, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary Search users
-     * @param {SearchUsersDto} searchUsersDto
+     * @param {SearchUsersDto} searchUsersDto 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    usersSearchControllerSearch(
-      searchUsersDto: SearchUsersDto,
-      options?: RawAxiosRequestConfig,
-    ): AxiosPromise<UserSearchResponseDto> {
-      return localVarFp.usersSearchControllerSearch(searchUsersDto, options).then((request) => request(axios, basePath))
-    },
-  }
+    public usersSearchControllerSearch(searchUsersDto: SearchUsersDto, options?: RawAxiosRequestConfig) {
+        return UsersApiFp(this.configuration).usersSearchControllerSearch(searchUsersDto, options).then((request) => request(this.axios, this.basePath));
+    }
 }
 
-/**
- * UsersApi - object-oriented interface
- * @export
- * @class UsersApi
- * @extends {BaseAPI}
- */
-export class UsersApi extends BaseAPI {
-  /**
-   *
-   * @summary Delete user and associated resources
-   * @param {string} userId User ID
-   * @param {UserDeletionRequestDto} userDeletionRequestDto
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof UsersApi
-   */
-  public userDeletionControllerDeleteUser(
-    userId: string,
-    userDeletionRequestDto: UserDeletionRequestDto,
-    options?: RawAxiosRequestConfig,
-  ) {
-    return UsersApiFp(this.configuration)
-      .userDeletionControllerDeleteUser(userId, userDeletionRequestDto, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary Preview user deletion impact
-   * @param {string} userId User ID
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof UsersApi
-   */
-  public userDeletionControllerPreviewDeletion(userId: string, options?: RawAxiosRequestConfig) {
-    return UsersApiFp(this.configuration)
-      .userDeletionControllerPreviewDeletion(userId, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary Search users
-   * @param {SearchUsersDto} searchUsersDto
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof UsersApi
-   */
-  public usersSearchControllerSearch(searchUsersDto: SearchUsersDto, options?: RawAxiosRequestConfig) {
-    return UsersApiFp(this.configuration)
-      .usersSearchControllerSearch(searchUsersDto, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-}

@@ -12,35 +12,26 @@
  * Do not edit the class manually.
  */
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { PaginationResponseDto } from './pagination-response-dto'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { RegionQuotaSearchDataDto } from './region-quota-search-data-dto'
 
-/**
- *
- * @export
- * @interface RegionQuotaSearchResponseDto
- */
+// May contain unused imports in some cases
+// @ts-ignore
+import type { PaginationResponseDto } from './pagination-response-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { RegionQuotaSearchDataDto } from './region-quota-search-data-dto';
+
 export interface RegionQuotaSearchResponseDto {
-  /**
-   * Operation success status
-   * @type {boolean}
-   * @memberof RegionQuotaSearchResponseDto
-   */
-  success: boolean
-  /**
-   * Search results data
-   * @type {RegionQuotaSearchDataDto}
-   * @memberof RegionQuotaSearchResponseDto
-   */
-  data: RegionQuotaSearchDataDto
-  /**
-   * Pagination information
-   * @type {PaginationResponseDto}
-   * @memberof RegionQuotaSearchResponseDto
-   */
-  pagination: PaginationResponseDto
+    /**
+     * Operation success status
+     */
+    'success': boolean;
+    /**
+     * Search results data
+     */
+    'data': RegionQuotaSearchDataDto;
+    /**
+     * Pagination information
+     */
+    'pagination': PaginationResponseDto;
 }
+

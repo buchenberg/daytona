@@ -12,16 +12,12 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface StopChatRequestDto
- */
+
+
 export interface StopChatRequestDto {
-  /**
-   * Conversation ID to stop streaming
-   * @type {string}
-   * @memberof StopChatRequestDto
-   */
-  conversationId: string
+    /**
+     * Conversation ID to stop streaming
+     */
+    'conversationId': string;
 }
+

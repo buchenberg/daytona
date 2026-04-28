@@ -12,62 +12,47 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface UpdateRunnerDto
- */
+
+
 export interface UpdateRunnerDto {
-  /**
-   * Runner state
-   * @type {string}
-   * @memberof UpdateRunnerDto
-   */
-  state?: UpdateRunnerDtoStateEnum
-  /**
-   * Unschedulable flag
-   * @type {boolean}
-   * @memberof UpdateRunnerDto
-   */
-  unschedulable?: boolean
-  /**
-   * Draining flag
-   * @type {boolean}
-   * @memberof UpdateRunnerDto
-   */
-  draining?: boolean
-  /**
-   * Runner region
-   * @type {string}
-   * @memberof UpdateRunnerDto
-   */
-  region?: string
-  /**
-   * CPU cores
-   * @type {number}
-   * @memberof UpdateRunnerDto
-   */
-  cpu?: number
-  /**
-   * Memory in GiB
-   * @type {number}
-   * @memberof UpdateRunnerDto
-   */
-  memoryGiB?: number
-  /**
-   * Disk in GiB
-   * @type {number}
-   * @memberof UpdateRunnerDto
-   */
-  diskGiB?: number
+    /**
+     * Runner state
+     */
+    'state'?: UpdateRunnerDtoStateEnum;
+    /**
+     * Unschedulable flag
+     */
+    'unschedulable'?: boolean;
+    /**
+     * Draining flag
+     */
+    'draining'?: boolean;
+    /**
+     * Runner region
+     */
+    'region'?: string;
+    /**
+     * CPU cores
+     */
+    'cpu'?: number;
+    /**
+     * Memory in GiB
+     */
+    'memoryGiB'?: number;
+    /**
+     * Disk in GiB
+     */
+    'diskGiB'?: number;
 }
 
 export const UpdateRunnerDtoStateEnum = {
-  INITIALIZING: 'initializing',
-  READY: 'ready',
-  DISABLED: 'disabled',
-  DECOMMISSIONED: 'decommissioned',
-  UNRESPONSIVE: 'unresponsive',
-} as const
+    INITIALIZING: 'initializing',
+    READY: 'ready',
+    DISABLED: 'disabled',
+    DECOMMISSIONED: 'decommissioned',
+    UNRESPONSIVE: 'unresponsive',
+} as const;
 
-export type UpdateRunnerDtoStateEnum = (typeof UpdateRunnerDtoStateEnum)[keyof typeof UpdateRunnerDtoStateEnum]
+export type UpdateRunnerDtoStateEnum = typeof UpdateRunnerDtoStateEnum[keyof typeof UpdateRunnerDtoStateEnum];
+
+

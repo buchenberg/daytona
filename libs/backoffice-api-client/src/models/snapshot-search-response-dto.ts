@@ -12,35 +12,26 @@
  * Do not edit the class manually.
  */
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { PaginationResponseDto } from './pagination-response-dto'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { SnapshotSearchDataDto } from './snapshot-search-data-dto'
 
-/**
- *
- * @export
- * @interface SnapshotSearchResponseDto
- */
+// May contain unused imports in some cases
+// @ts-ignore
+import type { PaginationResponseDto } from './pagination-response-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { SnapshotSearchDataDto } from './snapshot-search-data-dto';
+
 export interface SnapshotSearchResponseDto {
-  /**
-   * Operation success status
-   * @type {boolean}
-   * @memberof SnapshotSearchResponseDto
-   */
-  success: boolean
-  /**
-   * Search results data
-   * @type {SnapshotSearchDataDto}
-   * @memberof SnapshotSearchResponseDto
-   */
-  data: SnapshotSearchDataDto
-  /**
-   * Pagination information
-   * @type {PaginationResponseDto}
-   * @memberof SnapshotSearchResponseDto
-   */
-  pagination: PaginationResponseDto
+    /**
+     * Operation success status
+     */
+    'success': boolean;
+    /**
+     * Search results data
+     */
+    'data': SnapshotSearchDataDto;
+    /**
+     * Pagination information
+     */
+    'pagination': PaginationResponseDto;
 }
+

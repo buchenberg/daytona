@@ -12,418 +12,285 @@
  * Do not edit the class manually.
  */
 
-import type { Configuration } from '../configuration'
-import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from 'axios'
-import globalAxios from 'axios'
+
+import type { Configuration } from '../configuration';
+import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from 'axios';
+import globalAxios from 'axios';
 // Some imports not used depending on template conditions
 // @ts-ignore
-import {
-  DUMMY_BASE_URL,
-  assertParamExists,
-  setApiKeyToObject,
-  setBasicAuthToObject,
-  setBearerAuthToObject,
-  setOAuthToObject,
-  setSearchParams,
-  serializeDataIfNeeded,
-  toPathString,
-  createRequestFunction,
-} from '../common'
+import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObject, setBearerAuthToObject, setOAuthToObject, setSearchParams, serializeDataIfNeeded, toPathString, createRequestFunction, replaceWithSerializableTypeIfNeeded } from '../common';
 // @ts-ignore
-import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base'
+import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
 // @ts-ignore
-import type { BulkUpdateOrganizationUserDto } from '../models'
+import type { BulkUpdateOrganizationUserDto } from '../models';
 // @ts-ignore
-import type { BulkUpdateResponseDto } from '../models'
+import type { BulkUpdateResponseDto } from '../models';
 // @ts-ignore
-import type { OrganizationUserSearchResponseDto } from '../models'
+import type { OrganizationUserSearchResponseDto } from '../models';
 // @ts-ignore
-import type { PatchOrganizationUserDto } from '../models'
+import type { PatchOrganizationUserDto } from '../models';
 // @ts-ignore
-import type { SearchOrganizationUserDto } from '../models'
+import type { SearchOrganizationUserDto } from '../models';
 /**
  * OrganizationUsersApi - axios parameter creator
- * @export
  */
 export const OrganizationUsersApiAxiosParamCreator = function (configuration?: Configuration) {
-  return {
-    /**
-     *
-     * @summary Bulk update organization-users
-     * @param {BulkUpdateOrganizationUserDto} bulkUpdateOrganizationUserDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    organizationUsersBulkControllerBulkUpdate: async (
-      bulkUpdateOrganizationUserDto: BulkUpdateOrganizationUserDto,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'bulkUpdateOrganizationUserDto' is not null or undefined
-      assertParamExists(
-        'organizationUsersBulkControllerBulkUpdate',
-        'bulkUpdateOrganizationUserDto',
-        bulkUpdateOrganizationUserDto,
-      )
-      const localVarPath = `/organization-users/bulk-update`
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+    return {
+        /**
+         * 
+         * @summary Bulk update organization-users
+         * @param {BulkUpdateOrganizationUserDto} bulkUpdateOrganizationUserDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        organizationUsersBulkControllerBulkUpdate: async (bulkUpdateOrganizationUserDto: BulkUpdateOrganizationUserDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'bulkUpdateOrganizationUserDto' is not null or undefined
+            assertParamExists('organizationUsersBulkControllerBulkUpdate', 'bulkUpdateOrganizationUserDto', bulkUpdateOrganizationUserDto)
+            const localVarPath = `/organization-users/bulk-update`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      localVarHeaderParameter['Content-Type'] = 'application/json'
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
-      localVarRequestOptions.data = serializeDataIfNeeded(
-        bulkUpdateOrganizationUserDto,
-        localVarRequestOptions,
-        configuration,
-      )
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(bulkUpdateOrganizationUserDto, localVarRequestOptions, configuration)
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary Update an organization user
-     * @param {string} organizationId Organization ID
-     * @param {string} userId User ID
-     * @param {PatchOrganizationUserDto} patchOrganizationUserDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    organizationUsersControllerUpdate: async (
-      organizationId: string,
-      userId: string,
-      patchOrganizationUserDto: PatchOrganizationUserDto,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'organizationId' is not null or undefined
-      assertParamExists('organizationUsersControllerUpdate', 'organizationId', organizationId)
-      // verify required parameter 'userId' is not null or undefined
-      assertParamExists('organizationUsersControllerUpdate', 'userId', userId)
-      // verify required parameter 'patchOrganizationUserDto' is not null or undefined
-      assertParamExists('organizationUsersControllerUpdate', 'patchOrganizationUserDto', patchOrganizationUserDto)
-      const localVarPath = `/organization-users/{organizationId}/{userId}`
-        .replace(`{${'organizationId'}}`, encodeURIComponent(String(organizationId)))
-        .replace(`{${'userId'}}`, encodeURIComponent(String(userId)))
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Update an organization user
+         * @param {string} organizationId Organization ID
+         * @param {string} userId User ID
+         * @param {PatchOrganizationUserDto} patchOrganizationUserDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        organizationUsersControllerUpdate: async (organizationId: string, userId: string, patchOrganizationUserDto: PatchOrganizationUserDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'organizationId' is not null or undefined
+            assertParamExists('organizationUsersControllerUpdate', 'organizationId', organizationId)
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('organizationUsersControllerUpdate', 'userId', userId)
+            // verify required parameter 'patchOrganizationUserDto' is not null or undefined
+            assertParamExists('organizationUsersControllerUpdate', 'patchOrganizationUserDto', patchOrganizationUserDto)
+            const localVarPath = `/organization-users/{organizationId}/{userId}`
+                .replace(`{${"organizationId"}}`, encodeURIComponent(String(organizationId)))
+                .replace(`{${"userId"}}`, encodeURIComponent(String(userId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      const localVarRequestOptions = { method: 'PATCH', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            const localVarRequestOptions = { method: 'PATCH', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      localVarHeaderParameter['Content-Type'] = 'application/json'
+            localVarHeaderParameter['Content-Type'] = 'application/json';
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
-      localVarRequestOptions.data = serializeDataIfNeeded(
-        patchOrganizationUserDto,
-        localVarRequestOptions,
-        configuration,
-      )
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(patchOrganizationUserDto, localVarRequestOptions, configuration)
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary Search organization-users
-     * @param {SearchOrganizationUserDto} searchOrganizationUserDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    organizationUsersSearchControllerSearch: async (
-      searchOrganizationUserDto: SearchOrganizationUserDto,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'searchOrganizationUserDto' is not null or undefined
-      assertParamExists(
-        'organizationUsersSearchControllerSearch',
-        'searchOrganizationUserDto',
-        searchOrganizationUserDto,
-      )
-      const localVarPath = `/organization-users/search`
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Search organization-users
+         * @param {SearchOrganizationUserDto} searchOrganizationUserDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        organizationUsersSearchControllerSearch: async (searchOrganizationUserDto: SearchOrganizationUserDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'searchOrganizationUserDto' is not null or undefined
+            assertParamExists('organizationUsersSearchControllerSearch', 'searchOrganizationUserDto', searchOrganizationUserDto)
+            const localVarPath = `/organization-users/search`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      localVarHeaderParameter['Content-Type'] = 'application/json'
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
-      localVarRequestOptions.data = serializeDataIfNeeded(
-        searchOrganizationUserDto,
-        localVarRequestOptions,
-        configuration,
-      )
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(searchOrganizationUserDto, localVarRequestOptions, configuration)
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-  }
-}
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
 
 /**
  * OrganizationUsersApi - functional programming interface
- * @export
  */
-export const OrganizationUsersApiFp = function (configuration?: Configuration) {
-  const localVarAxiosParamCreator = OrganizationUsersApiAxiosParamCreator(configuration)
-  return {
-    /**
-     *
-     * @summary Bulk update organization-users
-     * @param {BulkUpdateOrganizationUserDto} bulkUpdateOrganizationUserDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async organizationUsersBulkControllerBulkUpdate(
-      bulkUpdateOrganizationUserDto: BulkUpdateOrganizationUserDto,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<BulkUpdateResponseDto>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.organizationUsersBulkControllerBulkUpdate(
-        bulkUpdateOrganizationUserDto,
-        options,
-      )
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['OrganizationUsersApi.organizationUsersBulkControllerBulkUpdate']?.[
-          localVarOperationServerIndex
-        ]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary Update an organization user
-     * @param {string} organizationId Organization ID
-     * @param {string} userId User ID
-     * @param {PatchOrganizationUserDto} patchOrganizationUserDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async organizationUsersControllerUpdate(
-      organizationId: string,
-      userId: string,
-      patchOrganizationUserDto: PatchOrganizationUserDto,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.organizationUsersControllerUpdate(
-        organizationId,
-        userId,
-        patchOrganizationUserDto,
-        options,
-      )
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['OrganizationUsersApi.organizationUsersControllerUpdate']?.[localVarOperationServerIndex]
-          ?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary Search organization-users
-     * @param {SearchOrganizationUserDto} searchOrganizationUserDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async organizationUsersSearchControllerSearch(
-      searchOrganizationUserDto: SearchOrganizationUserDto,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<OrganizationUserSearchResponseDto>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.organizationUsersSearchControllerSearch(
-        searchOrganizationUserDto,
-        options,
-      )
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['OrganizationUsersApi.organizationUsersSearchControllerSearch']?.[
-          localVarOperationServerIndex
-        ]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-  }
-}
+export const OrganizationUsersApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = OrganizationUsersApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary Bulk update organization-users
+         * @param {BulkUpdateOrganizationUserDto} bulkUpdateOrganizationUserDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async organizationUsersBulkControllerBulkUpdate(bulkUpdateOrganizationUserDto: BulkUpdateOrganizationUserDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<BulkUpdateResponseDto>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.organizationUsersBulkControllerBulkUpdate(bulkUpdateOrganizationUserDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['OrganizationUsersApi.organizationUsersBulkControllerBulkUpdate']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Update an organization user
+         * @param {string} organizationId Organization ID
+         * @param {string} userId User ID
+         * @param {PatchOrganizationUserDto} patchOrganizationUserDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async organizationUsersControllerUpdate(organizationId: string, userId: string, patchOrganizationUserDto: PatchOrganizationUserDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.organizationUsersControllerUpdate(organizationId, userId, patchOrganizationUserDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['OrganizationUsersApi.organizationUsersControllerUpdate']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Search organization-users
+         * @param {SearchOrganizationUserDto} searchOrganizationUserDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async organizationUsersSearchControllerSearch(searchOrganizationUserDto: SearchOrganizationUserDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<OrganizationUserSearchResponseDto>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.organizationUsersSearchControllerSearch(searchOrganizationUserDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['OrganizationUsersApi.organizationUsersSearchControllerSearch']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
 
 /**
  * OrganizationUsersApi - factory interface
- * @export
  */
-export const OrganizationUsersApiFactory = function (
-  configuration?: Configuration,
-  basePath?: string,
-  axios?: AxiosInstance,
-) {
-  const localVarFp = OrganizationUsersApiFp(configuration)
-  return {
-    /**
-     *
-     * @summary Bulk update organization-users
-     * @param {BulkUpdateOrganizationUserDto} bulkUpdateOrganizationUserDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    organizationUsersBulkControllerBulkUpdate(
-      bulkUpdateOrganizationUserDto: BulkUpdateOrganizationUserDto,
-      options?: RawAxiosRequestConfig,
-    ): AxiosPromise<BulkUpdateResponseDto> {
-      return localVarFp
-        .organizationUsersBulkControllerBulkUpdate(bulkUpdateOrganizationUserDto, options)
-        .then((request) => request(axios, basePath))
-    },
-    /**
-     *
-     * @summary Update an organization user
-     * @param {string} organizationId Organization ID
-     * @param {string} userId User ID
-     * @param {PatchOrganizationUserDto} patchOrganizationUserDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    organizationUsersControllerUpdate(
-      organizationId: string,
-      userId: string,
-      patchOrganizationUserDto: PatchOrganizationUserDto,
-      options?: RawAxiosRequestConfig,
-    ): AxiosPromise<void> {
-      return localVarFp
-        .organizationUsersControllerUpdate(organizationId, userId, patchOrganizationUserDto, options)
-        .then((request) => request(axios, basePath))
-    },
-    /**
-     *
-     * @summary Search organization-users
-     * @param {SearchOrganizationUserDto} searchOrganizationUserDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    organizationUsersSearchControllerSearch(
-      searchOrganizationUserDto: SearchOrganizationUserDto,
-      options?: RawAxiosRequestConfig,
-    ): AxiosPromise<OrganizationUserSearchResponseDto> {
-      return localVarFp
-        .organizationUsersSearchControllerSearch(searchOrganizationUserDto, options)
-        .then((request) => request(axios, basePath))
-    },
-  }
-}
+export const OrganizationUsersApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = OrganizationUsersApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary Bulk update organization-users
+         * @param {BulkUpdateOrganizationUserDto} bulkUpdateOrganizationUserDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        organizationUsersBulkControllerBulkUpdate(bulkUpdateOrganizationUserDto: BulkUpdateOrganizationUserDto, options?: RawAxiosRequestConfig): AxiosPromise<BulkUpdateResponseDto> {
+            return localVarFp.organizationUsersBulkControllerBulkUpdate(bulkUpdateOrganizationUserDto, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Update an organization user
+         * @param {string} organizationId Organization ID
+         * @param {string} userId User ID
+         * @param {PatchOrganizationUserDto} patchOrganizationUserDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        organizationUsersControllerUpdate(organizationId: string, userId: string, patchOrganizationUserDto: PatchOrganizationUserDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.organizationUsersControllerUpdate(organizationId, userId, patchOrganizationUserDto, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Search organization-users
+         * @param {SearchOrganizationUserDto} searchOrganizationUserDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        organizationUsersSearchControllerSearch(searchOrganizationUserDto: SearchOrganizationUserDto, options?: RawAxiosRequestConfig): AxiosPromise<OrganizationUserSearchResponseDto> {
+            return localVarFp.organizationUsersSearchControllerSearch(searchOrganizationUserDto, options).then((request) => request(axios, basePath));
+        },
+    };
+};
 
 /**
  * OrganizationUsersApi - object-oriented interface
- * @export
- * @class OrganizationUsersApi
- * @extends {BaseAPI}
  */
 export class OrganizationUsersApi extends BaseAPI {
-  /**
-   *
-   * @summary Bulk update organization-users
-   * @param {BulkUpdateOrganizationUserDto} bulkUpdateOrganizationUserDto
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof OrganizationUsersApi
-   */
-  public organizationUsersBulkControllerBulkUpdate(
-    bulkUpdateOrganizationUserDto: BulkUpdateOrganizationUserDto,
-    options?: RawAxiosRequestConfig,
-  ) {
-    return OrganizationUsersApiFp(this.configuration)
-      .organizationUsersBulkControllerBulkUpdate(bulkUpdateOrganizationUserDto, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
+    /**
+     * 
+     * @summary Bulk update organization-users
+     * @param {BulkUpdateOrganizationUserDto} bulkUpdateOrganizationUserDto 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public organizationUsersBulkControllerBulkUpdate(bulkUpdateOrganizationUserDto: BulkUpdateOrganizationUserDto, options?: RawAxiosRequestConfig) {
+        return OrganizationUsersApiFp(this.configuration).organizationUsersBulkControllerBulkUpdate(bulkUpdateOrganizationUserDto, options).then((request) => request(this.axios, this.basePath));
+    }
 
-  /**
-   *
-   * @summary Update an organization user
-   * @param {string} organizationId Organization ID
-   * @param {string} userId User ID
-   * @param {PatchOrganizationUserDto} patchOrganizationUserDto
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof OrganizationUsersApi
-   */
-  public organizationUsersControllerUpdate(
-    organizationId: string,
-    userId: string,
-    patchOrganizationUserDto: PatchOrganizationUserDto,
-    options?: RawAxiosRequestConfig,
-  ) {
-    return OrganizationUsersApiFp(this.configuration)
-      .organizationUsersControllerUpdate(organizationId, userId, patchOrganizationUserDto, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
+    /**
+     * 
+     * @summary Update an organization user
+     * @param {string} organizationId Organization ID
+     * @param {string} userId User ID
+     * @param {PatchOrganizationUserDto} patchOrganizationUserDto 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public organizationUsersControllerUpdate(organizationId: string, userId: string, patchOrganizationUserDto: PatchOrganizationUserDto, options?: RawAxiosRequestConfig) {
+        return OrganizationUsersApiFp(this.configuration).organizationUsersControllerUpdate(organizationId, userId, patchOrganizationUserDto, options).then((request) => request(this.axios, this.basePath));
+    }
 
-  /**
-   *
-   * @summary Search organization-users
-   * @param {SearchOrganizationUserDto} searchOrganizationUserDto
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof OrganizationUsersApi
-   */
-  public organizationUsersSearchControllerSearch(
-    searchOrganizationUserDto: SearchOrganizationUserDto,
-    options?: RawAxiosRequestConfig,
-  ) {
-    return OrganizationUsersApiFp(this.configuration)
-      .organizationUsersSearchControllerSearch(searchOrganizationUserDto, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
+    /**
+     * 
+     * @summary Search organization-users
+     * @param {SearchOrganizationUserDto} searchOrganizationUserDto 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public organizationUsersSearchControllerSearch(searchOrganizationUserDto: SearchOrganizationUserDto, options?: RawAxiosRequestConfig) {
+        return OrganizationUsersApiFp(this.configuration).organizationUsersSearchControllerSearch(searchOrganizationUserDto, options).then((request) => request(this.axios, this.basePath));
+    }
 }
+

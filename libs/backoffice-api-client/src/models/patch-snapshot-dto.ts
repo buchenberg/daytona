@@ -12,26 +12,19 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { UpdateSnapshotDto } from './update-snapshot-dto'
+import type { UpdateSnapshotDto } from './update-snapshot-dto';
 
-/**
- *
- * @export
- * @interface PatchSnapshotDto
- */
 export interface PatchSnapshotDto {
-  /**
-   * Fields to update
-   * @type {UpdateSnapshotDto}
-   * @memberof PatchSnapshotDto
-   */
-  updates: UpdateSnapshotDto
-  /**
-   * Expected current values for optimistic concurrency control. Update fails with 409 if any field does not match.
-   * @type {UpdateSnapshotDto}
-   * @memberof PatchSnapshotDto
-   */
-  preconditions?: UpdateSnapshotDto
+    /**
+     * Fields to update
+     */
+    'updates': UpdateSnapshotDto;
+    /**
+     * Expected current values for optimistic concurrency control. Update fails with 409 if any field does not match.
+     */
+    'preconditions'?: UpdateSnapshotDto;
 }
+

@@ -12,28 +12,20 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface OrganizationPreviewDto
- */
+
+
 export interface OrganizationPreviewDto {
-  /**
-   * Organization ID
-   * @type {string}
-   * @memberof OrganizationPreviewDto
-   */
-  id: string
-  /**
-   * Organization name
-   * @type {string}
-   * @memberof OrganizationPreviewDto
-   */
-  name: string
-  /**
-   * User role in organization
-   * @type {string}
-   * @memberof OrganizationPreviewDto
-   */
-  role: string
+    /**
+     * Organization ID
+     */
+    'id': string;
+    /**
+     * Organization name
+     */
+    'name': string;
+    /**
+     * User role in organization
+     */
+    'role': string;
 }
+

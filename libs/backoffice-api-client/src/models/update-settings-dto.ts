@@ -12,28 +12,20 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface UpdateSettingsDto
- */
+
+
 export interface UpdateSettingsDto {
-  /**
-   * Daytona API key for sandbox tools
-   * @type {string}
-   * @memberof UpdateSettingsDto
-   */
-  daytonaApiKey?: string
-  /**
-   * GitHub repository URL for automated PRs
-   * @type {string}
-   * @memberof UpdateSettingsDto
-   */
-  githubRepoUrl?: string
-  /**
-   * GitHub Personal Access Token
-   * @type {string}
-   * @memberof UpdateSettingsDto
-   */
-  githubPat?: string
+    /**
+     * Daytona API key for sandbox tools
+     */
+    'daytonaApiKey'?: string;
+    /**
+     * GitHub repository URL for automated PRs
+     */
+    'githubRepoUrl'?: string;
+    /**
+     * GitHub Personal Access Token
+     */
+    'githubPat'?: string;
 }
+

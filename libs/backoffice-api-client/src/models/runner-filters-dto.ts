@@ -12,97 +12,73 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { RangeDto } from './range-dto'
+import type { RangeDto } from './range-dto';
 
-/**
- *
- * @export
- * @interface RunnerFiltersDto
- */
 export interface RunnerFiltersDto {
-  /**
-   * Search by domain or id (OR match)
-   * @type {string}
-   * @memberof RunnerFiltersDto
-   */
-  search?: string
-  /**
-   * Filter by region
-   * @type {string}
-   * @memberof RunnerFiltersDto
-   */
-  region?: string
-  /**
-   * Filter by runner state
-   * @type {Array<string>}
-   * @memberof RunnerFiltersDto
-   */
-  state?: Array<RunnerFiltersDtoStateEnum>
-  /**
-   * Filter by runner class
-   * @type {Array<string>}
-   * @memberof RunnerFiltersDto
-   */
-  class?: Array<RunnerFiltersDtoClassEnum>
-  /**
-   * Filter by unschedulable status
-   * @type {boolean}
-   * @memberof RunnerFiltersDto
-   */
-  unschedulable?: boolean
-  /**
-   * Filter by CPU usage percentage range
-   * @type {RangeDto}
-   * @memberof RunnerFiltersDto
-   */
-  cpuUsage?: RangeDto
-  /**
-   * Filter by memory usage percentage range
-   * @type {RangeDto}
-   * @memberof RunnerFiltersDto
-   */
-  memoryUsage?: RangeDto
-  /**
-   * Filter by disk usage percentage range
-   * @type {RangeDto}
-   * @memberof RunnerFiltersDto
-   */
-  diskUsage?: RangeDto
-  /**
-   * Filter by availability score range
-   * @type {RangeDto}
-   * @memberof RunnerFiltersDto
-   */
-  availabilityScore?: RangeDto
-  /**
-   * Filter by last checked after date
-   * @type {Date}
-   * @memberof RunnerFiltersDto
-   */
-  lastCheckedAfter?: Date
-  /**
-   * Filter by last checked before date
-   * @type {Date}
-   * @memberof RunnerFiltersDto
-   */
-  lastCheckedBefore?: Date
+    /**
+     * Search by domain or id (OR match)
+     */
+    'search'?: string;
+    /**
+     * Filter by region
+     */
+    'region'?: string;
+    /**
+     * Filter by runner state
+     */
+    'state'?: Array<RunnerFiltersDtoStateEnum>;
+    /**
+     * Filter by runner class
+     */
+    'class'?: Array<RunnerFiltersDtoClassEnum>;
+    /**
+     * Filter by unschedulable status
+     */
+    'unschedulable'?: boolean;
+    /**
+     * Filter by CPU usage percentage range
+     */
+    'cpuUsage'?: RangeDto;
+    /**
+     * Filter by memory usage percentage range
+     */
+    'memoryUsage'?: RangeDto;
+    /**
+     * Filter by disk usage percentage range
+     */
+    'diskUsage'?: RangeDto;
+    /**
+     * Filter by availability score range
+     */
+    'availabilityScore'?: RangeDto;
+    /**
+     * Filter by last checked after date
+     */
+    'lastCheckedAfter'?: Date;
+    /**
+     * Filter by last checked before date
+     */
+    'lastCheckedBefore'?: Date;
 }
 
 export const RunnerFiltersDtoStateEnum = {
-  INITIALIZING: 'initializing',
-  READY: 'ready',
-  DISABLED: 'disabled',
-  DECOMMISSIONED: 'decommissioned',
-  UNRESPONSIVE: 'unresponsive',
-} as const
+    INITIALIZING: 'initializing',
+    READY: 'ready',
+    DISABLED: 'disabled',
+    DECOMMISSIONED: 'decommissioned',
+    UNRESPONSIVE: 'unresponsive',
+} as const;
 
-export type RunnerFiltersDtoStateEnum = (typeof RunnerFiltersDtoStateEnum)[keyof typeof RunnerFiltersDtoStateEnum]
+export type RunnerFiltersDtoStateEnum = typeof RunnerFiltersDtoStateEnum[keyof typeof RunnerFiltersDtoStateEnum];
 export const RunnerFiltersDtoClassEnum = {
-  SMALL: 'small',
-  MEDIUM: 'medium',
-  LARGE: 'large',
-} as const
+    SMALL: 'small',
+    MEDIUM: 'medium',
+    LARGE: 'large',
+} as const;
 
-export type RunnerFiltersDtoClassEnum = (typeof RunnerFiltersDtoClassEnum)[keyof typeof RunnerFiltersDtoClassEnum]
+export type RunnerFiltersDtoClassEnum = typeof RunnerFiltersDtoClassEnum[keyof typeof RunnerFiltersDtoClassEnum];
+
+

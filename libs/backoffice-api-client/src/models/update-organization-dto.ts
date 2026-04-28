@@ -12,124 +12,84 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface UpdateOrganizationDto
- */
+
+
 export interface UpdateOrganizationDto {
-  /**
-   * Organization name
-   * @type {string}
-   * @memberof UpdateOrganizationDto
-   */
-  name?: string
-  /**
-   * Is organization suspended
-   * @type {boolean}
-   * @memberof UpdateOrganizationDto
-   */
-  suspended?: boolean
-  /**
-   * Suspension end date
-   * @type {Date}
-   * @memberof UpdateOrganizationDto
-   */
-  suspendedUntil?: Date
-  /**
-   * Default region ID
-   * @type {string}
-   * @memberof UpdateOrganizationDto
-   */
-  defaultRegionId?: string
-  /**
-   * Telemetry enabled
-   * @type {boolean}
-   * @memberof UpdateOrganizationDto
-   */
-  telemetryEnabled?: boolean
-  /**
-   * Max CPU per sandbox
-   * @type {number}
-   * @memberof UpdateOrganizationDto
-   */
-  maxCpuPerSandbox?: number
-  /**
-   * Max memory per sandbox in GB
-   * @type {number}
-   * @memberof UpdateOrganizationDto
-   */
-  maxMemoryPerSandbox?: number
-  /**
-   * Max disk per sandbox in GB
-   * @type {number}
-   * @memberof UpdateOrganizationDto
-   */
-  maxDiskPerSandbox?: number
-  /**
-   * Max snapshot size in GB
-   * @type {number}
-   * @memberof UpdateOrganizationDto
-   */
-  maxSnapshotSize?: number
-  /**
-   * Snapshot quota in GB
-   * @type {number}
-   * @memberof UpdateOrganizationDto
-   */
-  snapshotQuota?: number
-  /**
-   * Volume quota in GB
-   * @type {number}
-   * @memberof UpdateOrganizationDto
-   */
-  volumeQuota?: number
-  /**
-   * Limit network egress for sandboxes
-   * @type {boolean}
-   * @memberof UpdateOrganizationDto
-   */
-  sandboxLimitedNetworkEgress?: boolean
-  /**
-   * Snapshot deactivation timeout in minutes (default 20160 = 14 days). Min 1.
-   * @type {number}
-   * @memberof UpdateOrganizationDto
-   */
-  snapshotDeactivationTimeoutMinutes?: number
-  /**
-   * Authenticated request rate limit (requests per TTL window). null = use global default.
-   * @type {number}
-   * @memberof UpdateOrganizationDto
-   */
-  authenticatedRateLimit?: number | null
-  /**
-   * Sandbox create rate limit. null = use global default.
-   * @type {number}
-   * @memberof UpdateOrganizationDto
-   */
-  sandboxCreateRateLimit?: number | null
-  /**
-   * Sandbox lifecycle (start/stop/etc) rate limit. null = use global default.
-   * @type {number}
-   * @memberof UpdateOrganizationDto
-   */
-  sandboxLifecycleRateLimit?: number | null
-  /**
-   * TTL window (seconds) for authenticatedRateLimit. null = use global default.
-   * @type {number}
-   * @memberof UpdateOrganizationDto
-   */
-  authenticatedRateLimitTtlSeconds?: number | null
-  /**
-   * TTL window (seconds) for sandboxCreateRateLimit. null = use global default.
-   * @type {number}
-   * @memberof UpdateOrganizationDto
-   */
-  sandboxCreateRateLimitTtlSeconds?: number | null
-  /**
-   * TTL window (seconds) for sandboxLifecycleRateLimit. null = use global default.
-   * @type {number}
-   * @memberof UpdateOrganizationDto
-   */
-  sandboxLifecycleRateLimitTtlSeconds?: number | null
+    /**
+     * Organization name
+     */
+    'name'?: string;
+    /**
+     * Is organization suspended
+     */
+    'suspended'?: boolean;
+    /**
+     * Suspension end date
+     */
+    'suspendedUntil'?: Date;
+    /**
+     * Default region ID
+     */
+    'defaultRegionId'?: string;
+    /**
+     * Telemetry enabled
+     */
+    'telemetryEnabled'?: boolean;
+    /**
+     * Max CPU per sandbox
+     */
+    'maxCpuPerSandbox'?: number;
+    /**
+     * Max memory per sandbox in GB
+     */
+    'maxMemoryPerSandbox'?: number;
+    /**
+     * Max disk per sandbox in GB
+     */
+    'maxDiskPerSandbox'?: number;
+    /**
+     * Max snapshot size in GB
+     */
+    'maxSnapshotSize'?: number;
+    /**
+     * Snapshot quota in GB
+     */
+    'snapshotQuota'?: number;
+    /**
+     * Volume quota in GB
+     */
+    'volumeQuota'?: number;
+    /**
+     * Limit network egress for sandboxes
+     */
+    'sandboxLimitedNetworkEgress'?: boolean;
+    /**
+     * Snapshot deactivation timeout in minutes (default 20160 = 14 days). Min 1.
+     */
+    'snapshotDeactivationTimeoutMinutes'?: number;
+    /**
+     * Authenticated request rate limit (requests per TTL window). null = use global default.
+     */
+    'authenticatedRateLimit'?: number | null;
+    /**
+     * Sandbox create rate limit. null = use global default.
+     */
+    'sandboxCreateRateLimit'?: number | null;
+    /**
+     * Sandbox lifecycle (start/stop/etc) rate limit. null = use global default.
+     */
+    'sandboxLifecycleRateLimit'?: number | null;
+    /**
+     * TTL window (seconds) for authenticatedRateLimit. null = use global default.
+     */
+    'authenticatedRateLimitTtlSeconds'?: number | null;
+    /**
+     * TTL window (seconds) for sandboxCreateRateLimit. null = use global default.
+     */
+    'sandboxCreateRateLimitTtlSeconds'?: number | null;
+    /**
+     * TTL window (seconds) for sandboxLifecycleRateLimit. null = use global default.
+     */
+    'sandboxLifecycleRateLimitTtlSeconds'?: number | null;
 }
+

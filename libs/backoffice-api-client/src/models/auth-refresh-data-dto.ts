@@ -12,20 +12,12 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { AuthUserDto } from './auth-user-dto'
+import type { AuthUserDto } from './auth-user-dto';
 
-/**
- *
- * @export
- * @interface AuthRefreshDataDto
- */
 export interface AuthRefreshDataDto {
-  /**
-   *
-   * @type {AuthUserDto}
-   * @memberof AuthRefreshDataDto
-   */
-  user: AuthUserDto
+    'user': AuthUserDto;
 }
+

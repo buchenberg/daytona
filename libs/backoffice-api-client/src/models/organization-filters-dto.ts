@@ -12,70 +12,48 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface OrganizationFiltersDto
- */
+
+
 export interface OrganizationFiltersDto {
-  /**
-   * Search by name or id (partial match)
-   * @type {string}
-   * @memberof OrganizationFiltersDto
-   */
-  search?: string
-  /**
-   * Filter by organization name (partial match)
-   * @type {string}
-   * @memberof OrganizationFiltersDto
-   */
-  name?: string
-  /**
-   * Filter by personal organizations
-   * @type {boolean}
-   * @memberof OrganizationFiltersDto
-   */
-  personal?: boolean
-  /**
-   * Filter by suspended status
-   * @type {boolean}
-   * @memberof OrganizationFiltersDto
-   */
-  suspended?: boolean
-  /**
-   * Filter by telemetry enabled
-   * @type {boolean}
-   * @memberof OrganizationFiltersDto
-   */
-  telemetryEnabled?: boolean
-  /**
-   * Filter by creator user ID
-   * @type {string}
-   * @memberof OrganizationFiltersDto
-   */
-  createdBy?: string
-  /**
-   * Filter by created after date
-   * @type {Date}
-   * @memberof OrganizationFiltersDto
-   */
-  createdAfter?: Date
-  /**
-   * Filter by created before date
-   * @type {Date}
-   * @memberof OrganizationFiltersDto
-   */
-  createdBefore?: Date
-  /**
-   * Filter by suspended after date
-   * @type {Date}
-   * @memberof OrganizationFiltersDto
-   */
-  suspendedAfter?: Date
-  /**
-   * Filter by suspended before date
-   * @type {Date}
-   * @memberof OrganizationFiltersDto
-   */
-  suspendedBefore?: Date
+    /**
+     * Search by name or id (partial match)
+     */
+    'search'?: string;
+    /**
+     * Filter by organization name (partial match)
+     */
+    'name'?: string;
+    /**
+     * Filter by personal organizations
+     */
+    'personal'?: boolean;
+    /**
+     * Filter by suspended status
+     */
+    'suspended'?: boolean;
+    /**
+     * Filter by telemetry enabled
+     */
+    'telemetryEnabled'?: boolean;
+    /**
+     * Filter by creator user ID
+     */
+    'createdBy'?: string;
+    /**
+     * Filter by created after date
+     */
+    'createdAfter'?: Date;
+    /**
+     * Filter by created before date
+     */
+    'createdBefore'?: Date;
+    /**
+     * Filter by suspended after date
+     */
+    'suspendedAfter'?: Date;
+    /**
+     * Filter by suspended before date
+     */
+    'suspendedBefore'?: Date;
 }
+

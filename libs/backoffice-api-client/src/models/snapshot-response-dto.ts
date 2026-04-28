@@ -12,114 +12,37 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface SnapshotResponseDto
- */
+
+
 export interface SnapshotResponseDto {
-  /**
-   *
-   * @type {string}
-   * @memberof SnapshotResponseDto
-   */
-  id: string
-  /**
-   *
-   * @type {string}
-   * @memberof SnapshotResponseDto
-   */
-  name: string
-  /**
-   *
-   * @type {string}
-   * @memberof SnapshotResponseDto
-   */
-  errorReason?: string
-  /**
-   *
-   * @type {string}
-   * @memberof SnapshotResponseDto
-   */
-  organizationId: string
-  /**
-   *
-   * @type {string}
-   * @memberof SnapshotResponseDto
-   */
-  imageName: string
-  /**
-   *
-   * @type {string}
-   * @memberof SnapshotResponseDto
-   */
-  state: SnapshotResponseDtoStateEnum
-  /**
-   *
-   * @type {boolean}
-   * @memberof SnapshotResponseDto
-   */
-  general: boolean
-  /**
-   *
-   * @type {boolean}
-   * @memberof SnapshotResponseDto
-   */
-  hideFromUsers: boolean
-  /**
-   *
-   * @type {number}
-   * @memberof SnapshotResponseDto
-   */
-  size?: number
-  /**
-   *
-   * @type {number}
-   * @memberof SnapshotResponseDto
-   */
-  cpu: number
-  /**
-   *
-   * @type {number}
-   * @memberof SnapshotResponseDto
-   */
-  mem: number
-  /**
-   *
-   * @type {number}
-   * @memberof SnapshotResponseDto
-   */
-  disk: number
-  /**
-   *
-   * @type {number}
-   * @memberof SnapshotResponseDto
-   */
-  gpu: number
-  /**
-   *
-   * @type {Date}
-   * @memberof SnapshotResponseDto
-   */
-  createdAt: Date
-  /**
-   *
-   * @type {Date}
-   * @memberof SnapshotResponseDto
-   */
-  lastUsedAt?: Date
+    'id': string;
+    'name': string;
+    'errorReason'?: string;
+    'organizationId': string;
+    'imageName': string;
+    'state': SnapshotResponseDtoStateEnum;
+    'general': boolean;
+    'hideFromUsers': boolean;
+    'size'?: number;
+    'cpu': number;
+    'mem': number;
+    'disk': number;
+    'gpu': number;
+    'createdAt': Date;
+    'lastUsedAt'?: Date;
 }
 
 export const SnapshotResponseDtoStateEnum = {
-  BUILDING: 'building',
-  PENDING: 'pending',
-  PULLING: 'pulling',
-  ACTIVE: 'active',
-  INACTIVE: 'inactive',
-  ERROR: 'error',
-  BUILD_FAILED: 'build_failed',
-  REMOVING: 'removing',
-} as const
+    BUILDING: 'building',
+    PENDING: 'pending',
+    PULLING: 'pulling',
+    ACTIVE: 'active',
+    INACTIVE: 'inactive',
+    ERROR: 'error',
+    BUILD_FAILED: 'build_failed',
+    REMOVING: 'removing',
+} as const;
 
-export type SnapshotResponseDtoStateEnum =
-  (typeof SnapshotResponseDtoStateEnum)[keyof typeof SnapshotResponseDtoStateEnum]
+export type SnapshotResponseDtoStateEnum = typeof SnapshotResponseDtoStateEnum[keyof typeof SnapshotResponseDtoStateEnum];
+
+

@@ -12,24 +12,20 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface UpdateOrganizationUserDto
- */
+
+
 export interface UpdateOrganizationUserDto {
-  /**
-   * User role
-   * @type {string}
-   * @memberof UpdateOrganizationUserDto
-   */
-  role?: UpdateOrganizationUserDtoRoleEnum
+    /**
+     * User role
+     */
+    'role'?: UpdateOrganizationUserDtoRoleEnum;
 }
 
 export const UpdateOrganizationUserDtoRoleEnum = {
-  OWNER: 'owner',
-  MEMBER: 'member',
-} as const
+    OWNER: 'owner',
+    MEMBER: 'member',
+} as const;
 
-export type UpdateOrganizationUserDtoRoleEnum =
-  (typeof UpdateOrganizationUserDtoRoleEnum)[keyof typeof UpdateOrganizationUserDtoRoleEnum]
+export type UpdateOrganizationUserDtoRoleEnum = typeof UpdateOrganizationUserDtoRoleEnum[keyof typeof UpdateOrganizationUserDtoRoleEnum];
+
+

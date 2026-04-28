@@ -12,166 +12,112 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface OrganizationResponseDto
- */
+
+
 export interface OrganizationResponseDto {
-  /**
-   * Organization ID
-   * @type {string}
-   * @memberof OrganizationResponseDto
-   */
-  id: string
-  /**
-   * Organization name
-   * @type {string}
-   * @memberof OrganizationResponseDto
-   */
-  name: string
-  /**
-   * Created by user ID
-   * @type {string}
-   * @memberof OrganizationResponseDto
-   */
-  createdBy: string
-  /**
-   * Is personal organization
-   * @type {boolean}
-   * @memberof OrganizationResponseDto
-   */
-  personal: boolean
-  /**
-   * Telemetry enabled
-   * @type {boolean}
-   * @memberof OrganizationResponseDto
-   */
-  telemetryEnabled: boolean
-  /**
-   * Is suspended
-   * @type {boolean}
-   * @memberof OrganizationResponseDto
-   */
-  suspended: boolean
-  /**
-   * Suspended at
-   * @type {Date}
-   * @memberof OrganizationResponseDto
-   */
-  suspendedAt?: Date
-  /**
-   * Created at
-   * @type {Date}
-   * @memberof OrganizationResponseDto
-   */
-  createdAt: Date
-  /**
-   * Default region ID
-   * @type {string}
-   * @memberof OrganizationResponseDto
-   */
-  defaultRegionId?: string
-  /**
-   * Max CPU per sandbox
-   * @type {number}
-   * @memberof OrganizationResponseDto
-   */
-  maxCpuPerSandbox: number
-  /**
-   * Max memory per sandbox in GB
-   * @type {number}
-   * @memberof OrganizationResponseDto
-   */
-  maxMemoryPerSandbox: number
-  /**
-   * Max disk per sandbox in GB
-   * @type {number}
-   * @memberof OrganizationResponseDto
-   */
-  maxDiskPerSandbox: number
-  /**
-   * Max snapshot size in GB
-   * @type {number}
-   * @memberof OrganizationResponseDto
-   */
-  maxSnapshotSize: number
-  /**
-   * Snapshot quota in GB
-   * @type {number}
-   * @memberof OrganizationResponseDto
-   */
-  snapshotQuota: number
-  /**
-   * Volume quota in GB
-   * @type {number}
-   * @memberof OrganizationResponseDto
-   */
-  volumeQuota: number
-  /**
-   * Limit network egress for sandboxes
-   * @type {boolean}
-   * @memberof OrganizationResponseDto
-   */
-  sandboxLimitedNetworkEgress: boolean
-  /**
-   * Suspended until date
-   * @type {Date}
-   * @memberof OrganizationResponseDto
-   */
-  suspendedUntil?: Date
-  /**
-   * Suspension reason
-   * @type {string}
-   * @memberof OrganizationResponseDto
-   */
-  suspensionReason?: string
-  /**
-   * Suspension cleanup grace period in hours
-   * @type {number}
-   * @memberof OrganizationResponseDto
-   */
-  suspensionCleanupGracePeriodHours: number
-  /**
-   * Authenticated rate limit
-   * @type {number}
-   * @memberof OrganizationResponseDto
-   */
-  authenticatedRateLimit?: number
-  /**
-   * Sandbox create rate limit
-   * @type {number}
-   * @memberof OrganizationResponseDto
-   */
-  sandboxCreateRateLimit?: number
-  /**
-   * Sandbox lifecycle rate limit
-   * @type {number}
-   * @memberof OrganizationResponseDto
-   */
-  sandboxLifecycleRateLimit?: number
-  /**
-   * Authenticated rate limit TTL in seconds
-   * @type {number}
-   * @memberof OrganizationResponseDto
-   */
-  authenticatedRateLimitTtlSeconds?: number
-  /**
-   * Sandbox create rate limit TTL in seconds
-   * @type {number}
-   * @memberof OrganizationResponseDto
-   */
-  sandboxCreateRateLimitTtlSeconds?: number
-  /**
-   * Sandbox lifecycle rate limit TTL in seconds
-   * @type {number}
-   * @memberof OrganizationResponseDto
-   */
-  sandboxLifecycleRateLimitTtlSeconds?: number
-  /**
-   * Snapshot deactivation timeout in minutes (default 20160 = 14 days)
-   * @type {number}
-   * @memberof OrganizationResponseDto
-   */
-  snapshotDeactivationTimeoutMinutes: number
+    /**
+     * Organization ID
+     */
+    'id': string;
+    /**
+     * Organization name
+     */
+    'name': string;
+    /**
+     * Created by user ID
+     */
+    'createdBy': string;
+    /**
+     * Is personal organization
+     */
+    'personal': boolean;
+    /**
+     * Telemetry enabled
+     */
+    'telemetryEnabled': boolean;
+    /**
+     * Is suspended
+     */
+    'suspended': boolean;
+    /**
+     * Suspended at
+     */
+    'suspendedAt'?: Date;
+    /**
+     * Created at
+     */
+    'createdAt': Date;
+    /**
+     * Default region ID
+     */
+    'defaultRegionId'?: string;
+    /**
+     * Max CPU per sandbox
+     */
+    'maxCpuPerSandbox': number;
+    /**
+     * Max memory per sandbox in GB
+     */
+    'maxMemoryPerSandbox': number;
+    /**
+     * Max disk per sandbox in GB
+     */
+    'maxDiskPerSandbox': number;
+    /**
+     * Max snapshot size in GB
+     */
+    'maxSnapshotSize': number;
+    /**
+     * Snapshot quota in GB
+     */
+    'snapshotQuota': number;
+    /**
+     * Volume quota in GB
+     */
+    'volumeQuota': number;
+    /**
+     * Limit network egress for sandboxes
+     */
+    'sandboxLimitedNetworkEgress': boolean;
+    /**
+     * Suspended until date
+     */
+    'suspendedUntil'?: Date;
+    /**
+     * Suspension reason
+     */
+    'suspensionReason'?: string;
+    /**
+     * Suspension cleanup grace period in hours
+     */
+    'suspensionCleanupGracePeriodHours': number;
+    /**
+     * Authenticated rate limit
+     */
+    'authenticatedRateLimit'?: number;
+    /**
+     * Sandbox create rate limit
+     */
+    'sandboxCreateRateLimit'?: number;
+    /**
+     * Sandbox lifecycle rate limit
+     */
+    'sandboxLifecycleRateLimit'?: number;
+    /**
+     * Authenticated rate limit TTL in seconds
+     */
+    'authenticatedRateLimitTtlSeconds'?: number;
+    /**
+     * Sandbox create rate limit TTL in seconds
+     */
+    'sandboxCreateRateLimitTtlSeconds'?: number;
+    /**
+     * Sandbox lifecycle rate limit TTL in seconds
+     */
+    'sandboxLifecycleRateLimitTtlSeconds'?: number;
+    /**
+     * Snapshot deactivation timeout in minutes (default 20160 = 14 days)
+     */
+    'snapshotDeactivationTimeoutMinutes': number;
 }
+

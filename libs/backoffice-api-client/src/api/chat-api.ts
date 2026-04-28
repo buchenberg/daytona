@@ -12,750 +12,606 @@
  * Do not edit the class manually.
  */
 
-import type { Configuration } from '../configuration'
-import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from 'axios'
-import globalAxios from 'axios'
+
+import type { Configuration } from '../configuration';
+import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from 'axios';
+import globalAxios from 'axios';
 // Some imports not used depending on template conditions
 // @ts-ignore
-import {
-  DUMMY_BASE_URL,
-  assertParamExists,
-  setApiKeyToObject,
-  setBasicAuthToObject,
-  setBearerAuthToObject,
-  setOAuthToObject,
-  setSearchParams,
-  serializeDataIfNeeded,
-  toPathString,
-  createRequestFunction,
-} from '../common'
+import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObject, setBearerAuthToObject, setOAuthToObject, setSearchParams, serializeDataIfNeeded, toPathString, createRequestFunction, replaceWithSerializableTypeIfNeeded } from '../common';
 // @ts-ignore
-import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base'
+import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
 // @ts-ignore
-import type { ChatRequestDto } from '../models'
+import type { ChatRequestDto } from '../models';
 // @ts-ignore
-import type { ContinueChatRequestDto } from '../models'
+import type { ContinueChatRequestDto } from '../models';
 // @ts-ignore
-import type { StopChatRequestDto } from '../models'
+import type { StopChatRequestDto } from '../models';
 /**
  * ChatApi - axios parameter creator
- * @export
  */
 export const ChatApiAxiosParamCreator = function (configuration?: Configuration) {
-  return {
-    /**
-     *
-     * @summary Compact conversation history by summarizing old messages
-     * @param {string} conversationId
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    chatControllerCompact: async (
-      conversationId: string,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'conversationId' is not null or undefined
-      assertParamExists('chatControllerCompact', 'conversationId', conversationId)
-      const localVarPath = `/chat/compact/{conversationId}`.replace(
-        `{${'conversationId'}}`,
-        encodeURIComponent(String(conversationId)),
-      )
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+    return {
+        /**
+         * 
+         * @summary Compact conversation history by summarizing old messages
+         * @param {string} conversationId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        chatControllerCompact: async (conversationId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'conversationId' is not null or undefined
+            assertParamExists('chatControllerCompact', 'conversationId', conversationId)
+            const localVarPath = `/chat/compact/{conversationId}`
+                .replace(`{${"conversationId"}}`, encodeURIComponent(String(conversationId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary Continue a conversation after max_rounds
-     * @param {ContinueChatRequestDto} continueChatRequestDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    chatControllerContinueChat: async (
-      continueChatRequestDto: ContinueChatRequestDto,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'continueChatRequestDto' is not null or undefined
-      assertParamExists('chatControllerContinueChat', 'continueChatRequestDto', continueChatRequestDto)
-      const localVarPath = `/chat/continue`
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
-      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Continue a conversation after max_rounds
+         * @param {ContinueChatRequestDto} continueChatRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        chatControllerContinueChat: async (continueChatRequestDto: ContinueChatRequestDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'continueChatRequestDto' is not null or undefined
+            assertParamExists('chatControllerContinueChat', 'continueChatRequestDto', continueChatRequestDto)
+            const localVarPath = `/chat/continue`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      localVarHeaderParameter['Content-Type'] = 'application/json'
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
-      localVarRequestOptions.data = serializeDataIfNeeded(continueChatRequestDto, localVarRequestOptions, configuration)
+            localVarHeaderParameter['Content-Type'] = 'application/json';
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary Delete a memory entry by key
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    chatControllerForget: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-      const localVarPath = `/chat/forget`
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(continueChatRequestDto, localVarRequestOptions, configuration)
 
-      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Delete a memory entry by key
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        chatControllerForget: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/chat/forget`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary List all shared memory entries
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    chatControllerListMemories: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-      const localVarPath = `/chat/memories`
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
 
-      const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary List all shared memory entries
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        chatControllerListMemories: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/chat/memories`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary Extract and store a memory from recent conversation messages
-     * @param {string} conversationId
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    chatControllerRemember: async (
-      conversationId: string,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'conversationId' is not null or undefined
-      assertParamExists('chatControllerRemember', 'conversationId', conversationId)
-      const localVarPath = `/chat/remember/{conversationId}`.replace(
-        `{${'conversationId'}}`,
-        encodeURIComponent(String(conversationId)),
-      )
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Extract and store a memory from recent conversation messages
+         * @param {string} conversationId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        chatControllerRemember: async (conversationId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'conversationId' is not null or undefined
+            assertParamExists('chatControllerRemember', 'conversationId', conversationId)
+            const localVarPath = `/chat/remember/{conversationId}`
+                .replace(`{${"conversationId"}}`, encodeURIComponent(String(conversationId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary Stop an in-progress chat stream
-     * @param {StopChatRequestDto} stopChatRequestDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    chatControllerStop: async (
-      stopChatRequestDto: StopChatRequestDto,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'stopChatRequestDto' is not null or undefined
-      assertParamExists('chatControllerStop', 'stopChatRequestDto', stopChatRequestDto)
-      const localVarPath = `/chat/stop`
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      localVarHeaderParameter['Content-Type'] = 'application/json'
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
-      localVarRequestOptions.data = serializeDataIfNeeded(stopChatRequestDto, localVarRequestOptions, configuration)
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Stop an in-progress chat stream
+         * @param {StopChatRequestDto} stopChatRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        chatControllerStop: async (stopChatRequestDto: StopChatRequestDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'stopChatRequestDto' is not null or undefined
+            assertParamExists('chatControllerStop', 'stopChatRequestDto', stopChatRequestDto)
+            const localVarPath = `/chat/stop`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary Stream a chat response via SSE
-     * @param {ChatRequestDto} chatRequestDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    chatControllerStream: async (
-      chatRequestDto: ChatRequestDto,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'chatRequestDto' is not null or undefined
-      assertParamExists('chatControllerStream', 'chatRequestDto', chatRequestDto)
-      const localVarPath = `/chat/stream`
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            localVarHeaderParameter['Content-Type'] = 'application/json';
 
-      localVarHeaderParameter['Content-Type'] = 'application/json'
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(stopChatRequestDto, localVarRequestOptions, configuration)
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
-      localVarRequestOptions.data = serializeDataIfNeeded(chatRequestDto, localVarRequestOptions, configuration)
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Stream a chat response via SSE
+         * @param {ChatRequestDto} chatRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        chatControllerStream: async (chatRequestDto: ChatRequestDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'chatRequestDto' is not null or undefined
+            assertParamExists('chatControllerStream', 'chatRequestDto', chatRequestDto)
+            const localVarPath = `/chat/stream`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary Generate follow-up suggestions for a conversation
-     * @param {string} conversationId
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    chatControllerSuggestions: async (
-      conversationId: string,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'conversationId' is not null or undefined
-      assertParamExists('chatControllerSuggestions', 'conversationId', conversationId)
-      const localVarPath = `/chat/suggestions/{conversationId}`.replace(
-        `{${'conversationId'}}`,
-        encodeURIComponent(String(conversationId)),
-      )
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            localVarHeaderParameter['Content-Type'] = 'application/json';
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(chatRequestDto, localVarRequestOptions, configuration)
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-  }
-}
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Generate follow-up suggestions for a conversation
+         * @param {string} conversationId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        chatControllerSuggestions: async (conversationId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'conversationId' is not null or undefined
+            assertParamExists('chatControllerSuggestions', 'conversationId', conversationId)
+            const localVarPath = `/chat/suggestions/{conversationId}`
+                .replace(`{${"conversationId"}}`, encodeURIComponent(String(conversationId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
 
 /**
  * ChatApi - functional programming interface
- * @export
  */
-export const ChatApiFp = function (configuration?: Configuration) {
-  const localVarAxiosParamCreator = ChatApiAxiosParamCreator(configuration)
-  return {
-    /**
-     *
-     * @summary Compact conversation history by summarizing old messages
-     * @param {string} conversationId
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async chatControllerCompact(
-      conversationId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.chatControllerCompact(conversationId, options)
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ChatApi.chatControllerCompact']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary Continue a conversation after max_rounds
-     * @param {ContinueChatRequestDto} continueChatRequestDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async chatControllerContinueChat(
-      continueChatRequestDto: ContinueChatRequestDto,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.chatControllerContinueChat(
-        continueChatRequestDto,
-        options,
-      )
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ChatApi.chatControllerContinueChat']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary Delete a memory entry by key
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async chatControllerForget(
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.chatControllerForget(options)
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ChatApi.chatControllerForget']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary List all shared memory entries
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async chatControllerListMemories(
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.chatControllerListMemories(options)
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ChatApi.chatControllerListMemories']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary Extract and store a memory from recent conversation messages
-     * @param {string} conversationId
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async chatControllerRemember(
-      conversationId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.chatControllerRemember(conversationId, options)
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ChatApi.chatControllerRemember']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary Stop an in-progress chat stream
-     * @param {StopChatRequestDto} stopChatRequestDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async chatControllerStop(
-      stopChatRequestDto: StopChatRequestDto,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.chatControllerStop(stopChatRequestDto, options)
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ChatApi.chatControllerStop']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary Stream a chat response via SSE
-     * @param {ChatRequestDto} chatRequestDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async chatControllerStream(
-      chatRequestDto: ChatRequestDto,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.chatControllerStream(chatRequestDto, options)
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ChatApi.chatControllerStream']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary Generate follow-up suggestions for a conversation
-     * @param {string} conversationId
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async chatControllerSuggestions(
-      conversationId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.chatControllerSuggestions(conversationId, options)
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ChatApi.chatControllerSuggestions']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-  }
-}
+export const ChatApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = ChatApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary Compact conversation history by summarizing old messages
+         * @param {string} conversationId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async chatControllerCompact(conversationId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.chatControllerCompact(conversationId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ChatApi.chatControllerCompact']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Continue a conversation after max_rounds
+         * @param {ContinueChatRequestDto} continueChatRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async chatControllerContinueChat(continueChatRequestDto: ContinueChatRequestDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.chatControllerContinueChat(continueChatRequestDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ChatApi.chatControllerContinueChat']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Delete a memory entry by key
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async chatControllerForget(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.chatControllerForget(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ChatApi.chatControllerForget']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary List all shared memory entries
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async chatControllerListMemories(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.chatControllerListMemories(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ChatApi.chatControllerListMemories']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Extract and store a memory from recent conversation messages
+         * @param {string} conversationId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async chatControllerRemember(conversationId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.chatControllerRemember(conversationId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ChatApi.chatControllerRemember']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Stop an in-progress chat stream
+         * @param {StopChatRequestDto} stopChatRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async chatControllerStop(stopChatRequestDto: StopChatRequestDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.chatControllerStop(stopChatRequestDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ChatApi.chatControllerStop']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Stream a chat response via SSE
+         * @param {ChatRequestDto} chatRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async chatControllerStream(chatRequestDto: ChatRequestDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.chatControllerStream(chatRequestDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ChatApi.chatControllerStream']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Generate follow-up suggestions for a conversation
+         * @param {string} conversationId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async chatControllerSuggestions(conversationId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.chatControllerSuggestions(conversationId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ChatApi.chatControllerSuggestions']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
 
 /**
  * ChatApi - factory interface
- * @export
  */
 export const ChatApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
-  const localVarFp = ChatApiFp(configuration)
-  return {
+    const localVarFp = ChatApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary Compact conversation history by summarizing old messages
+         * @param {string} conversationId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        chatControllerCompact(conversationId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.chatControllerCompact(conversationId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Continue a conversation after max_rounds
+         * @param {ContinueChatRequestDto} continueChatRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        chatControllerContinueChat(continueChatRequestDto: ContinueChatRequestDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.chatControllerContinueChat(continueChatRequestDto, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Delete a memory entry by key
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        chatControllerForget(options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.chatControllerForget(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary List all shared memory entries
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        chatControllerListMemories(options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.chatControllerListMemories(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Extract and store a memory from recent conversation messages
+         * @param {string} conversationId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        chatControllerRemember(conversationId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.chatControllerRemember(conversationId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Stop an in-progress chat stream
+         * @param {StopChatRequestDto} stopChatRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        chatControllerStop(stopChatRequestDto: StopChatRequestDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.chatControllerStop(stopChatRequestDto, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Stream a chat response via SSE
+         * @param {ChatRequestDto} chatRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        chatControllerStream(chatRequestDto: ChatRequestDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.chatControllerStream(chatRequestDto, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Generate follow-up suggestions for a conversation
+         * @param {string} conversationId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        chatControllerSuggestions(conversationId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.chatControllerSuggestions(conversationId, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * ChatApi - object-oriented interface
+ */
+export class ChatApi extends BaseAPI {
     /**
-     *
+     * 
      * @summary Compact conversation history by summarizing old messages
-     * @param {string} conversationId
+     * @param {string} conversationId 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    chatControllerCompact(conversationId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-      return localVarFp.chatControllerCompact(conversationId, options).then((request) => request(axios, basePath))
-    },
+    public chatControllerCompact(conversationId: string, options?: RawAxiosRequestConfig) {
+        return ChatApiFp(this.configuration).chatControllerCompact(conversationId, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary Continue a conversation after max_rounds
-     * @param {ContinueChatRequestDto} continueChatRequestDto
+     * @param {ContinueChatRequestDto} continueChatRequestDto 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    chatControllerContinueChat(
-      continueChatRequestDto: ContinueChatRequestDto,
-      options?: RawAxiosRequestConfig,
-    ): AxiosPromise<void> {
-      return localVarFp
-        .chatControllerContinueChat(continueChatRequestDto, options)
-        .then((request) => request(axios, basePath))
-    },
+    public chatControllerContinueChat(continueChatRequestDto: ContinueChatRequestDto, options?: RawAxiosRequestConfig) {
+        return ChatApiFp(this.configuration).chatControllerContinueChat(continueChatRequestDto, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary Delete a memory entry by key
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    chatControllerForget(options?: RawAxiosRequestConfig): AxiosPromise<void> {
-      return localVarFp.chatControllerForget(options).then((request) => request(axios, basePath))
-    },
+    public chatControllerForget(options?: RawAxiosRequestConfig) {
+        return ChatApiFp(this.configuration).chatControllerForget(options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary List all shared memory entries
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    chatControllerListMemories(options?: RawAxiosRequestConfig): AxiosPromise<void> {
-      return localVarFp.chatControllerListMemories(options).then((request) => request(axios, basePath))
-    },
+    public chatControllerListMemories(options?: RawAxiosRequestConfig) {
+        return ChatApiFp(this.configuration).chatControllerListMemories(options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary Extract and store a memory from recent conversation messages
-     * @param {string} conversationId
+     * @param {string} conversationId 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    chatControllerRemember(conversationId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-      return localVarFp.chatControllerRemember(conversationId, options).then((request) => request(axios, basePath))
-    },
+    public chatControllerRemember(conversationId: string, options?: RawAxiosRequestConfig) {
+        return ChatApiFp(this.configuration).chatControllerRemember(conversationId, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary Stop an in-progress chat stream
-     * @param {StopChatRequestDto} stopChatRequestDto
+     * @param {StopChatRequestDto} stopChatRequestDto 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    chatControllerStop(stopChatRequestDto: StopChatRequestDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-      return localVarFp.chatControllerStop(stopChatRequestDto, options).then((request) => request(axios, basePath))
-    },
+    public chatControllerStop(stopChatRequestDto: StopChatRequestDto, options?: RawAxiosRequestConfig) {
+        return ChatApiFp(this.configuration).chatControllerStop(stopChatRequestDto, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary Stream a chat response via SSE
-     * @param {ChatRequestDto} chatRequestDto
+     * @param {ChatRequestDto} chatRequestDto 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    chatControllerStream(chatRequestDto: ChatRequestDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-      return localVarFp.chatControllerStream(chatRequestDto, options).then((request) => request(axios, basePath))
-    },
+    public chatControllerStream(chatRequestDto: ChatRequestDto, options?: RawAxiosRequestConfig) {
+        return ChatApiFp(this.configuration).chatControllerStream(chatRequestDto, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary Generate follow-up suggestions for a conversation
-     * @param {string} conversationId
+     * @param {string} conversationId 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    chatControllerSuggestions(conversationId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-      return localVarFp.chatControllerSuggestions(conversationId, options).then((request) => request(axios, basePath))
-    },
-  }
+    public chatControllerSuggestions(conversationId: string, options?: RawAxiosRequestConfig) {
+        return ChatApiFp(this.configuration).chatControllerSuggestions(conversationId, options).then((request) => request(this.axios, this.basePath));
+    }
 }
 
-/**
- * ChatApi - object-oriented interface
- * @export
- * @class ChatApi
- * @extends {BaseAPI}
- */
-export class ChatApi extends BaseAPI {
-  /**
-   *
-   * @summary Compact conversation history by summarizing old messages
-   * @param {string} conversationId
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ChatApi
-   */
-  public chatControllerCompact(conversationId: string, options?: RawAxiosRequestConfig) {
-    return ChatApiFp(this.configuration)
-      .chatControllerCompact(conversationId, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary Continue a conversation after max_rounds
-   * @param {ContinueChatRequestDto} continueChatRequestDto
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ChatApi
-   */
-  public chatControllerContinueChat(continueChatRequestDto: ContinueChatRequestDto, options?: RawAxiosRequestConfig) {
-    return ChatApiFp(this.configuration)
-      .chatControllerContinueChat(continueChatRequestDto, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary Delete a memory entry by key
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ChatApi
-   */
-  public chatControllerForget(options?: RawAxiosRequestConfig) {
-    return ChatApiFp(this.configuration)
-      .chatControllerForget(options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary List all shared memory entries
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ChatApi
-   */
-  public chatControllerListMemories(options?: RawAxiosRequestConfig) {
-    return ChatApiFp(this.configuration)
-      .chatControllerListMemories(options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary Extract and store a memory from recent conversation messages
-   * @param {string} conversationId
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ChatApi
-   */
-  public chatControllerRemember(conversationId: string, options?: RawAxiosRequestConfig) {
-    return ChatApiFp(this.configuration)
-      .chatControllerRemember(conversationId, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary Stop an in-progress chat stream
-   * @param {StopChatRequestDto} stopChatRequestDto
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ChatApi
-   */
-  public chatControllerStop(stopChatRequestDto: StopChatRequestDto, options?: RawAxiosRequestConfig) {
-    return ChatApiFp(this.configuration)
-      .chatControllerStop(stopChatRequestDto, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary Stream a chat response via SSE
-   * @param {ChatRequestDto} chatRequestDto
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ChatApi
-   */
-  public chatControllerStream(chatRequestDto: ChatRequestDto, options?: RawAxiosRequestConfig) {
-    return ChatApiFp(this.configuration)
-      .chatControllerStream(chatRequestDto, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary Generate follow-up suggestions for a conversation
-   * @param {string} conversationId
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ChatApi
-   */
-  public chatControllerSuggestions(conversationId: string, options?: RawAxiosRequestConfig) {
-    return ChatApiFp(this.configuration)
-      .chatControllerSuggestions(conversationId, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-}

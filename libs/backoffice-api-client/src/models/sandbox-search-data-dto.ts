@@ -12,20 +12,15 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { SandboxResponseDto } from './sandbox-response-dto'
+import type { SandboxResponseDto } from './sandbox-response-dto';
 
-/**
- *
- * @export
- * @interface SandboxSearchDataDto
- */
 export interface SandboxSearchDataDto {
-  /**
-   * List of sandboxes
-   * @type {Array<SandboxResponseDto>}
-   * @memberof SandboxSearchDataDto
-   */
-  sandboxes: Array<SandboxResponseDto>
+    /**
+     * List of sandboxes
+     */
+    'sandboxes': Array<SandboxResponseDto>;
 }
+

@@ -12,38 +12,29 @@
  * Do not edit the class manually.
  */
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { PaginationDto } from './pagination-dto'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { RunnerFiltersDto } from './runner-filters-dto'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { SortDto } from './sort-dto'
 
-/**
- *
- * @export
- * @interface SearchRunnerDto
- */
+// May contain unused imports in some cases
+// @ts-ignore
+import type { PaginationDto } from './pagination-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { RunnerFiltersDto } from './runner-filters-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { SortDto } from './sort-dto';
+
 export interface SearchRunnerDto {
-  /**
-   * Pagination options
-   * @type {PaginationDto}
-   * @memberof SearchRunnerDto
-   */
-  pagination?: PaginationDto
-  /**
-   * Sort options
-   * @type {SortDto}
-   * @memberof SearchRunnerDto
-   */
-  sort?: SortDto
-  /**
-   * Filter options
-   * @type {RunnerFiltersDto}
-   * @memberof SearchRunnerDto
-   */
-  filters?: RunnerFiltersDto
+    /**
+     * Pagination options
+     */
+    'pagination'?: PaginationDto;
+    /**
+     * Sort options
+     */
+    'sort'?: SortDto;
+    /**
+     * Filter options
+     */
+    'filters'?: RunnerFiltersDto;
 }
+

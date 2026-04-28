@@ -12,82 +12,56 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface AuditLogResponseDto
- */
+
+
 export interface AuditLogResponseDto {
-  /**
-   * Audit log ID
-   * @type {string}
-   * @memberof AuditLogResponseDto
-   */
-  id: string
-  /**
-   * Actor ID
-   * @type {string}
-   * @memberof AuditLogResponseDto
-   */
-  actorId: string
-  /**
-   * Actor email
-   * @type {string}
-   * @memberof AuditLogResponseDto
-   */
-  actorEmail: string
-  /**
-   * Action performed
-   * @type {string}
-   * @memberof AuditLogResponseDto
-   */
-  action: string
-  /**
-   * Target entity type
-   * @type {string}
-   * @memberof AuditLogResponseDto
-   */
-  targetType?: string
-  /**
-   * Target entity ID
-   * @type {string}
-   * @memberof AuditLogResponseDto
-   */
-  targetId?: string
-  /**
-   * HTTP status code
-   * @type {number}
-   * @memberof AuditLogResponseDto
-   */
-  statusCode?: number
-  /**
-   * Error message if any
-   * @type {string}
-   * @memberof AuditLogResponseDto
-   */
-  errorMessage?: string
-  /**
-   * IP address
-   * @type {string}
-   * @memberof AuditLogResponseDto
-   */
-  ipAddress?: string
-  /**
-   * User agent
-   * @type {string}
-   * @memberof AuditLogResponseDto
-   */
-  userAgent?: string
-  /**
-   * Additional metadata
-   * @type {object}
-   * @memberof AuditLogResponseDto
-   */
-  metadata?: object
-  /**
-   * Created timestamp
-   * @type {Date}
-   * @memberof AuditLogResponseDto
-   */
-  createdAt: Date
+    /**
+     * Audit log ID
+     */
+    'id': string;
+    /**
+     * Actor ID
+     */
+    'actorId': string;
+    /**
+     * Actor email
+     */
+    'actorEmail': string;
+    /**
+     * Action performed
+     */
+    'action': string;
+    /**
+     * Target entity type
+     */
+    'targetType'?: string;
+    /**
+     * Target entity ID
+     */
+    'targetId'?: string;
+    /**
+     * HTTP status code
+     */
+    'statusCode'?: number;
+    /**
+     * Error message if any
+     */
+    'errorMessage'?: string;
+    /**
+     * IP address
+     */
+    'ipAddress'?: string;
+    /**
+     * User agent
+     */
+    'userAgent'?: string;
+    /**
+     * Additional metadata
+     */
+    'metadata'?: object;
+    /**
+     * Created timestamp
+     */
+    'createdAt': Date;
 }
+

@@ -12,1000 +12,785 @@
  * Do not edit the class manually.
  */
 
-import type { Configuration } from '../configuration'
-import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from 'axios'
-import globalAxios from 'axios'
+
+import type { Configuration } from '../configuration';
+import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from 'axios';
+import globalAxios from 'axios';
 // Some imports not used depending on template conditions
 // @ts-ignore
-import {
-  DUMMY_BASE_URL,
-  assertParamExists,
-  setApiKeyToObject,
-  setBasicAuthToObject,
-  setBearerAuthToObject,
-  setOAuthToObject,
-  setSearchParams,
-  serializeDataIfNeeded,
-  toPathString,
-  createRequestFunction,
-} from '../common'
+import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObject, setBearerAuthToObject, setOAuthToObject, setSearchParams, serializeDataIfNeeded, toPathString, createRequestFunction, replaceWithSerializableTypeIfNeeded } from '../common';
 // @ts-ignore
-import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base'
+import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
 // @ts-ignore
-import type { AddCollaboratorDto } from '../models'
+import type { AddCollaboratorDto } from '../models';
 // @ts-ignore
-import type { UpdateConversationDto } from '../models'
+import type { UpdateConversationDto } from '../models';
 /**
  * ConversationsApi - axios parameter creator
- * @export
  */
 export const ConversationsApiAxiosParamCreator = function (configuration?: Configuration) {
-  return {
-    /**
-     *
-     * @summary Add collaborator to conversation
-     * @param {string} id
-     * @param {AddCollaboratorDto} addCollaboratorDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    conversationsControllerAddCollaborator: async (
-      id: string,
-      addCollaboratorDto: AddCollaboratorDto,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'id' is not null or undefined
-      assertParamExists('conversationsControllerAddCollaborator', 'id', id)
-      // verify required parameter 'addCollaboratorDto' is not null or undefined
-      assertParamExists('conversationsControllerAddCollaborator', 'addCollaboratorDto', addCollaboratorDto)
-      const localVarPath = `/conversations/{id}/collaborators`.replace(`{${'id'}}`, encodeURIComponent(String(id)))
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+    return {
+        /**
+         * 
+         * @summary Add collaborator to conversation
+         * @param {string} id 
+         * @param {AddCollaboratorDto} addCollaboratorDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerAddCollaborator: async (id: string, addCollaboratorDto: AddCollaboratorDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('conversationsControllerAddCollaborator', 'id', id)
+            // verify required parameter 'addCollaboratorDto' is not null or undefined
+            assertParamExists('conversationsControllerAddCollaborator', 'addCollaboratorDto', addCollaboratorDto)
+            const localVarPath = `/conversations/{id}/collaborators`
+                .replace(`{${"id"}}`, encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      localVarHeaderParameter['Content-Type'] = 'application/json'
+            localVarHeaderParameter['Content-Type'] = 'application/json';
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
-      localVarRequestOptions.data = serializeDataIfNeeded(addCollaboratorDto, localVarRequestOptions, configuration)
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(addCollaboratorDto, localVarRequestOptions, configuration)
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary Create empty conversation
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    conversationsControllerCreate: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-      const localVarPath = `/conversations`
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Create empty conversation
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerCreate: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/conversations`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary Delete conversation
-     * @param {string} id
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    conversationsControllerDelete: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-      // verify required parameter 'id' is not null or undefined
-      assertParamExists('conversationsControllerDelete', 'id', id)
-      const localVarPath = `/conversations/{id}`.replace(`{${'id'}}`, encodeURIComponent(String(id)))
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
-      const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Delete conversation
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerDelete: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('conversationsControllerDelete', 'id', id)
+            const localVarPath = `/conversations/{id}`
+                .replace(`{${"id"}}`, encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary Delete messages after a certain point (for edit/reset)
-     * @param {string} id
-     * @param {number} keepCount
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    conversationsControllerDeleteMessages: async (
-      id: string,
-      keepCount: number,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'id' is not null or undefined
-      assertParamExists('conversationsControllerDeleteMessages', 'id', id)
-      // verify required parameter 'keepCount' is not null or undefined
-      assertParamExists('conversationsControllerDeleteMessages', 'keepCount', keepCount)
-      const localVarPath = `/conversations/{id}/messages`.replace(`{${'id'}}`, encodeURIComponent(String(id)))
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
 
-      const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Delete messages after a certain point (for edit/reset)
+         * @param {string} id 
+         * @param {number} keepCount 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerDeleteMessages: async (id: string, keepCount: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('conversationsControllerDeleteMessages', 'id', id)
+            // verify required parameter 'keepCount' is not null or undefined
+            assertParamExists('conversationsControllerDeleteMessages', 'keepCount', keepCount)
+            const localVarPath = `/conversations/{id}/messages`
+                .replace(`{${"id"}}`, encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      if (keepCount !== undefined) {
-        localVarQueryParameter['keepCount'] = keepCount
-      }
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary Get conversation with messages in assistant-ui format
-     * @param {string} id
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    conversationsControllerGet: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-      // verify required parameter 'id' is not null or undefined
-      assertParamExists('conversationsControllerGet', 'id', id)
-      const localVarPath = `/conversations/{id}`.replace(`{${'id'}}`, encodeURIComponent(String(id)))
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            if (keepCount !== undefined) {
+                localVarQueryParameter['keepCount'] = keepCount;
+            }
 
-      const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Get conversation with messages in assistant-ui format
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerGet: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('conversationsControllerGet', 'id', id)
+            const localVarPath = `/conversations/{id}`
+                .replace(`{${"id"}}`, encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary List conversations (owned + collaborated)
-     * @param {number} [limit]
-     * @param {number} [offset]
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    conversationsControllerList: async (
-      limit?: number,
-      offset?: number,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      const localVarPath = `/conversations`
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      if (limit !== undefined) {
-        localVarQueryParameter['limit'] = limit
-      }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
-      if (offset !== undefined) {
-        localVarQueryParameter['offset'] = offset
-      }
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary List conversations (owned + collaborated)
+         * @param {number} [limit] 
+         * @param {number} [offset] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerList: async (limit?: number, offset?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/conversations`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary List collaborators for conversation
-     * @param {string} id
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    conversationsControllerListCollaborators: async (
-      id: string,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'id' is not null or undefined
-      assertParamExists('conversationsControllerListCollaborators', 'id', id)
-      const localVarPath = `/conversations/{id}/collaborators`.replace(`{${'id'}}`, encodeURIComponent(String(id)))
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            if (limit !== undefined) {
+                localVarQueryParameter['limit'] = limit;
+            }
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            if (offset !== undefined) {
+                localVarQueryParameter['offset'] = offset;
+            }
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary List backoffice users for collaborator picker
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    conversationsControllerListUsers: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-      const localVarPath = `/conversations/users`
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
-      const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary List collaborators for conversation
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerListCollaborators: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('conversationsControllerListCollaborators', 'id', id)
+            const localVarPath = `/conversations/{id}/collaborators`
+                .replace(`{${"id"}}`, encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary Remove collaborator from conversation
-     * @param {string} id
-     * @param {string} targetUserId
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    conversationsControllerRemoveCollaborator: async (
-      id: string,
-      targetUserId: string,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'id' is not null or undefined
-      assertParamExists('conversationsControllerRemoveCollaborator', 'id', id)
-      // verify required parameter 'targetUserId' is not null or undefined
-      assertParamExists('conversationsControllerRemoveCollaborator', 'targetUserId', targetUserId)
-      const localVarPath = `/conversations/{id}/collaborators/{targetUserId}`
-        .replace(`{${'id'}}`, encodeURIComponent(String(id)))
-        .replace(`{${'targetUserId'}}`, encodeURIComponent(String(targetUserId)))
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
 
-      const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary List backoffice users for collaborator picker
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerListUsers: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/conversations/users`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-    /**
-     *
-     * @summary Rename conversation
-     * @param {string} id
-     * @param {UpdateConversationDto} updateConversationDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    conversationsControllerRename: async (
-      id: string,
-      updateConversationDto: UpdateConversationDto,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'id' is not null or undefined
-      assertParamExists('conversationsControllerRename', 'id', id)
-      // verify required parameter 'updateConversationDto' is not null or undefined
-      assertParamExists('conversationsControllerRename', 'updateConversationDto', updateConversationDto)
-      const localVarPath = `/conversations/{id}`.replace(`{${'id'}}`, encodeURIComponent(String(id)))
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      const localVarRequestOptions = { method: 'PATCH', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
-      localVarHeaderParameter['Content-Type'] = 'application/json'
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Remove collaborator from conversation
+         * @param {string} id 
+         * @param {string} targetUserId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerRemoveCollaborator: async (id: string, targetUserId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('conversationsControllerRemoveCollaborator', 'id', id)
+            // verify required parameter 'targetUserId' is not null or undefined
+            assertParamExists('conversationsControllerRemoveCollaborator', 'targetUserId', targetUserId)
+            const localVarPath = `/conversations/{id}/collaborators/{targetUserId}`
+                .replace(`{${"id"}}`, encodeURIComponent(String(id)))
+                .replace(`{${"targetUserId"}}`, encodeURIComponent(String(targetUserId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
-      localVarRequestOptions.data = serializeDataIfNeeded(updateConversationDto, localVarRequestOptions, configuration)
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-  }
-}
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Rename conversation
+         * @param {string} id 
+         * @param {UpdateConversationDto} updateConversationDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerRename: async (id: string, updateConversationDto: UpdateConversationDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'id' is not null or undefined
+            assertParamExists('conversationsControllerRename', 'id', id)
+            // verify required parameter 'updateConversationDto' is not null or undefined
+            assertParamExists('conversationsControllerRename', 'updateConversationDto', updateConversationDto)
+            const localVarPath = `/conversations/{id}`
+                .replace(`{${"id"}}`, encodeURIComponent(String(id)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PATCH', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(updateConversationDto, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
 
 /**
  * ConversationsApi - functional programming interface
- * @export
  */
-export const ConversationsApiFp = function (configuration?: Configuration) {
-  const localVarAxiosParamCreator = ConversationsApiAxiosParamCreator(configuration)
-  return {
-    /**
-     *
-     * @summary Add collaborator to conversation
-     * @param {string} id
-     * @param {AddCollaboratorDto} addCollaboratorDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async conversationsControllerAddCollaborator(
-      id: string,
-      addCollaboratorDto: AddCollaboratorDto,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerAddCollaborator(
-        id,
-        addCollaboratorDto,
-        options,
-      )
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ConversationsApi.conversationsControllerAddCollaborator']?.[localVarOperationServerIndex]
-          ?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary Create empty conversation
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async conversationsControllerCreate(
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerCreate(options)
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ConversationsApi.conversationsControllerCreate']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary Delete conversation
-     * @param {string} id
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async conversationsControllerDelete(
-      id: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerDelete(id, options)
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ConversationsApi.conversationsControllerDelete']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary Delete messages after a certain point (for edit/reset)
-     * @param {string} id
-     * @param {number} keepCount
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async conversationsControllerDeleteMessages(
-      id: string,
-      keepCount: number,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerDeleteMessages(
-        id,
-        keepCount,
-        options,
-      )
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ConversationsApi.conversationsControllerDeleteMessages']?.[localVarOperationServerIndex]
-          ?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary Get conversation with messages in assistant-ui format
-     * @param {string} id
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async conversationsControllerGet(
-      id: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerGet(id, options)
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ConversationsApi.conversationsControllerGet']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary List conversations (owned + collaborated)
-     * @param {number} [limit]
-     * @param {number} [offset]
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async conversationsControllerList(
-      limit?: number,
-      offset?: number,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerList(limit, offset, options)
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ConversationsApi.conversationsControllerList']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary List collaborators for conversation
-     * @param {string} id
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async conversationsControllerListCollaborators(
-      id: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerListCollaborators(id, options)
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ConversationsApi.conversationsControllerListCollaborators']?.[localVarOperationServerIndex]
-          ?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary List backoffice users for collaborator picker
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async conversationsControllerListUsers(
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerListUsers(options)
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ConversationsApi.conversationsControllerListUsers']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary Remove collaborator from conversation
-     * @param {string} id
-     * @param {string} targetUserId
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async conversationsControllerRemoveCollaborator(
-      id: string,
-      targetUserId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerRemoveCollaborator(
-        id,
-        targetUserId,
-        options,
-      )
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ConversationsApi.conversationsControllerRemoveCollaborator']?.[localVarOperationServerIndex]
-          ?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-    /**
-     *
-     * @summary Rename conversation
-     * @param {string} id
-     * @param {UpdateConversationDto} updateConversationDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async conversationsControllerRename(
-      id: string,
-      updateConversationDto: UpdateConversationDto,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerRename(
-        id,
-        updateConversationDto,
-        options,
-      )
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['ConversationsApi.conversationsControllerRename']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-  }
-}
+export const ConversationsApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = ConversationsApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary Add collaborator to conversation
+         * @param {string} id 
+         * @param {AddCollaboratorDto} addCollaboratorDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async conversationsControllerAddCollaborator(id: string, addCollaboratorDto: AddCollaboratorDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerAddCollaborator(id, addCollaboratorDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ConversationsApi.conversationsControllerAddCollaborator']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Create empty conversation
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async conversationsControllerCreate(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerCreate(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ConversationsApi.conversationsControllerCreate']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Delete conversation
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async conversationsControllerDelete(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerDelete(id, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ConversationsApi.conversationsControllerDelete']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Delete messages after a certain point (for edit/reset)
+         * @param {string} id 
+         * @param {number} keepCount 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async conversationsControllerDeleteMessages(id: string, keepCount: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerDeleteMessages(id, keepCount, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ConversationsApi.conversationsControllerDeleteMessages']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Get conversation with messages in assistant-ui format
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async conversationsControllerGet(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerGet(id, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ConversationsApi.conversationsControllerGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary List conversations (owned + collaborated)
+         * @param {number} [limit] 
+         * @param {number} [offset] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async conversationsControllerList(limit?: number, offset?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerList(limit, offset, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ConversationsApi.conversationsControllerList']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary List collaborators for conversation
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async conversationsControllerListCollaborators(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerListCollaborators(id, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ConversationsApi.conversationsControllerListCollaborators']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary List backoffice users for collaborator picker
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async conversationsControllerListUsers(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerListUsers(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ConversationsApi.conversationsControllerListUsers']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Remove collaborator from conversation
+         * @param {string} id 
+         * @param {string} targetUserId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async conversationsControllerRemoveCollaborator(id: string, targetUserId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerRemoveCollaborator(id, targetUserId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ConversationsApi.conversationsControllerRemoveCollaborator']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Rename conversation
+         * @param {string} id 
+         * @param {UpdateConversationDto} updateConversationDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async conversationsControllerRename(id: string, updateConversationDto: UpdateConversationDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerRename(id, updateConversationDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ConversationsApi.conversationsControllerRename']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
 
 /**
  * ConversationsApi - factory interface
- * @export
  */
-export const ConversationsApiFactory = function (
-  configuration?: Configuration,
-  basePath?: string,
-  axios?: AxiosInstance,
-) {
-  const localVarFp = ConversationsApiFp(configuration)
-  return {
+export const ConversationsApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = ConversationsApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary Add collaborator to conversation
+         * @param {string} id 
+         * @param {AddCollaboratorDto} addCollaboratorDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerAddCollaborator(id: string, addCollaboratorDto: AddCollaboratorDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.conversationsControllerAddCollaborator(id, addCollaboratorDto, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Create empty conversation
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerCreate(options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.conversationsControllerCreate(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Delete conversation
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerDelete(id: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.conversationsControllerDelete(id, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Delete messages after a certain point (for edit/reset)
+         * @param {string} id 
+         * @param {number} keepCount 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerDeleteMessages(id: string, keepCount: number, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.conversationsControllerDeleteMessages(id, keepCount, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Get conversation with messages in assistant-ui format
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerGet(id: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.conversationsControllerGet(id, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary List conversations (owned + collaborated)
+         * @param {number} [limit] 
+         * @param {number} [offset] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerList(limit?: number, offset?: number, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.conversationsControllerList(limit, offset, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary List collaborators for conversation
+         * @param {string} id 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerListCollaborators(id: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.conversationsControllerListCollaborators(id, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary List backoffice users for collaborator picker
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerListUsers(options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.conversationsControllerListUsers(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Remove collaborator from conversation
+         * @param {string} id 
+         * @param {string} targetUserId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerRemoveCollaborator(id: string, targetUserId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.conversationsControllerRemoveCollaborator(id, targetUserId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Rename conversation
+         * @param {string} id 
+         * @param {UpdateConversationDto} updateConversationDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        conversationsControllerRename(id: string, updateConversationDto: UpdateConversationDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.conversationsControllerRename(id, updateConversationDto, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * ConversationsApi - object-oriented interface
+ */
+export class ConversationsApi extends BaseAPI {
     /**
-     *
+     * 
      * @summary Add collaborator to conversation
-     * @param {string} id
-     * @param {AddCollaboratorDto} addCollaboratorDto
+     * @param {string} id 
+     * @param {AddCollaboratorDto} addCollaboratorDto 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    conversationsControllerAddCollaborator(
-      id: string,
-      addCollaboratorDto: AddCollaboratorDto,
-      options?: RawAxiosRequestConfig,
-    ): AxiosPromise<void> {
-      return localVarFp
-        .conversationsControllerAddCollaborator(id, addCollaboratorDto, options)
-        .then((request) => request(axios, basePath))
-    },
+    public conversationsControllerAddCollaborator(id: string, addCollaboratorDto: AddCollaboratorDto, options?: RawAxiosRequestConfig) {
+        return ConversationsApiFp(this.configuration).conversationsControllerAddCollaborator(id, addCollaboratorDto, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary Create empty conversation
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    conversationsControllerCreate(options?: RawAxiosRequestConfig): AxiosPromise<void> {
-      return localVarFp.conversationsControllerCreate(options).then((request) => request(axios, basePath))
-    },
+    public conversationsControllerCreate(options?: RawAxiosRequestConfig) {
+        return ConversationsApiFp(this.configuration).conversationsControllerCreate(options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary Delete conversation
-     * @param {string} id
+     * @param {string} id 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    conversationsControllerDelete(id: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-      return localVarFp.conversationsControllerDelete(id, options).then((request) => request(axios, basePath))
-    },
+    public conversationsControllerDelete(id: string, options?: RawAxiosRequestConfig) {
+        return ConversationsApiFp(this.configuration).conversationsControllerDelete(id, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary Delete messages after a certain point (for edit/reset)
-     * @param {string} id
-     * @param {number} keepCount
+     * @param {string} id 
+     * @param {number} keepCount 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    conversationsControllerDeleteMessages(
-      id: string,
-      keepCount: number,
-      options?: RawAxiosRequestConfig,
-    ): AxiosPromise<void> {
-      return localVarFp
-        .conversationsControllerDeleteMessages(id, keepCount, options)
-        .then((request) => request(axios, basePath))
-    },
+    public conversationsControllerDeleteMessages(id: string, keepCount: number, options?: RawAxiosRequestConfig) {
+        return ConversationsApiFp(this.configuration).conversationsControllerDeleteMessages(id, keepCount, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary Get conversation with messages in assistant-ui format
-     * @param {string} id
+     * @param {string} id 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    conversationsControllerGet(id: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-      return localVarFp.conversationsControllerGet(id, options).then((request) => request(axios, basePath))
-    },
+    public conversationsControllerGet(id: string, options?: RawAxiosRequestConfig) {
+        return ConversationsApiFp(this.configuration).conversationsControllerGet(id, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary List conversations (owned + collaborated)
-     * @param {number} [limit]
-     * @param {number} [offset]
+     * @param {number} [limit] 
+     * @param {number} [offset] 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    conversationsControllerList(limit?: number, offset?: number, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-      return localVarFp.conversationsControllerList(limit, offset, options).then((request) => request(axios, basePath))
-    },
+    public conversationsControllerList(limit?: number, offset?: number, options?: RawAxiosRequestConfig) {
+        return ConversationsApiFp(this.configuration).conversationsControllerList(limit, offset, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary List collaborators for conversation
-     * @param {string} id
+     * @param {string} id 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    conversationsControllerListCollaborators(id: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-      return localVarFp
-        .conversationsControllerListCollaborators(id, options)
-        .then((request) => request(axios, basePath))
-    },
+    public conversationsControllerListCollaborators(id: string, options?: RawAxiosRequestConfig) {
+        return ConversationsApiFp(this.configuration).conversationsControllerListCollaborators(id, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary List backoffice users for collaborator picker
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    conversationsControllerListUsers(options?: RawAxiosRequestConfig): AxiosPromise<void> {
-      return localVarFp.conversationsControllerListUsers(options).then((request) => request(axios, basePath))
-    },
+    public conversationsControllerListUsers(options?: RawAxiosRequestConfig) {
+        return ConversationsApiFp(this.configuration).conversationsControllerListUsers(options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary Remove collaborator from conversation
-     * @param {string} id
-     * @param {string} targetUserId
+     * @param {string} id 
+     * @param {string} targetUserId 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    conversationsControllerRemoveCollaborator(
-      id: string,
-      targetUserId: string,
-      options?: RawAxiosRequestConfig,
-    ): AxiosPromise<void> {
-      return localVarFp
-        .conversationsControllerRemoveCollaborator(id, targetUserId, options)
-        .then((request) => request(axios, basePath))
-    },
+    public conversationsControllerRemoveCollaborator(id: string, targetUserId: string, options?: RawAxiosRequestConfig) {
+        return ConversationsApiFp(this.configuration).conversationsControllerRemoveCollaborator(id, targetUserId, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
-     *
+     * 
      * @summary Rename conversation
-     * @param {string} id
-     * @param {UpdateConversationDto} updateConversationDto
+     * @param {string} id 
+     * @param {UpdateConversationDto} updateConversationDto 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    conversationsControllerRename(
-      id: string,
-      updateConversationDto: UpdateConversationDto,
-      options?: RawAxiosRequestConfig,
-    ): AxiosPromise<void> {
-      return localVarFp
-        .conversationsControllerRename(id, updateConversationDto, options)
-        .then((request) => request(axios, basePath))
-    },
-  }
+    public conversationsControllerRename(id: string, updateConversationDto: UpdateConversationDto, options?: RawAxiosRequestConfig) {
+        return ConversationsApiFp(this.configuration).conversationsControllerRename(id, updateConversationDto, options).then((request) => request(this.axios, this.basePath));
+    }
 }
 
-/**
- * ConversationsApi - object-oriented interface
- * @export
- * @class ConversationsApi
- * @extends {BaseAPI}
- */
-export class ConversationsApi extends BaseAPI {
-  /**
-   *
-   * @summary Add collaborator to conversation
-   * @param {string} id
-   * @param {AddCollaboratorDto} addCollaboratorDto
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ConversationsApi
-   */
-  public conversationsControllerAddCollaborator(
-    id: string,
-    addCollaboratorDto: AddCollaboratorDto,
-    options?: RawAxiosRequestConfig,
-  ) {
-    return ConversationsApiFp(this.configuration)
-      .conversationsControllerAddCollaborator(id, addCollaboratorDto, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary Create empty conversation
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ConversationsApi
-   */
-  public conversationsControllerCreate(options?: RawAxiosRequestConfig) {
-    return ConversationsApiFp(this.configuration)
-      .conversationsControllerCreate(options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary Delete conversation
-   * @param {string} id
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ConversationsApi
-   */
-  public conversationsControllerDelete(id: string, options?: RawAxiosRequestConfig) {
-    return ConversationsApiFp(this.configuration)
-      .conversationsControllerDelete(id, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary Delete messages after a certain point (for edit/reset)
-   * @param {string} id
-   * @param {number} keepCount
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ConversationsApi
-   */
-  public conversationsControllerDeleteMessages(id: string, keepCount: number, options?: RawAxiosRequestConfig) {
-    return ConversationsApiFp(this.configuration)
-      .conversationsControllerDeleteMessages(id, keepCount, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary Get conversation with messages in assistant-ui format
-   * @param {string} id
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ConversationsApi
-   */
-  public conversationsControllerGet(id: string, options?: RawAxiosRequestConfig) {
-    return ConversationsApiFp(this.configuration)
-      .conversationsControllerGet(id, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary List conversations (owned + collaborated)
-   * @param {number} [limit]
-   * @param {number} [offset]
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ConversationsApi
-   */
-  public conversationsControllerList(limit?: number, offset?: number, options?: RawAxiosRequestConfig) {
-    return ConversationsApiFp(this.configuration)
-      .conversationsControllerList(limit, offset, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary List collaborators for conversation
-   * @param {string} id
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ConversationsApi
-   */
-  public conversationsControllerListCollaborators(id: string, options?: RawAxiosRequestConfig) {
-    return ConversationsApiFp(this.configuration)
-      .conversationsControllerListCollaborators(id, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary List backoffice users for collaborator picker
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ConversationsApi
-   */
-  public conversationsControllerListUsers(options?: RawAxiosRequestConfig) {
-    return ConversationsApiFp(this.configuration)
-      .conversationsControllerListUsers(options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary Remove collaborator from conversation
-   * @param {string} id
-   * @param {string} targetUserId
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ConversationsApi
-   */
-  public conversationsControllerRemoveCollaborator(id: string, targetUserId: string, options?: RawAxiosRequestConfig) {
-    return ConversationsApiFp(this.configuration)
-      .conversationsControllerRemoveCollaborator(id, targetUserId, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-
-  /**
-   *
-   * @summary Rename conversation
-   * @param {string} id
-   * @param {UpdateConversationDto} updateConversationDto
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof ConversationsApi
-   */
-  public conversationsControllerRename(
-    id: string,
-    updateConversationDto: UpdateConversationDto,
-    options?: RawAxiosRequestConfig,
-  ) {
-    return ConversationsApiFp(this.configuration)
-      .conversationsControllerRename(id, updateConversationDto, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
-}

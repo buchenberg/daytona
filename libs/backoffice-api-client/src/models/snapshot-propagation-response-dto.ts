@@ -12,56 +12,39 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { SnapshotPropagationStatusDto } from './snapshot-propagation-status-dto'
+import type { SnapshotPropagationStatusDto } from './snapshot-propagation-status-dto';
 
-/**
- *
- * @export
- * @interface SnapshotPropagationResponseDto
- */
 export interface SnapshotPropagationResponseDto {
-  /**
-   * Operation success status
-   * @type {boolean}
-   * @memberof SnapshotPropagationResponseDto
-   */
-  success: boolean
-  /**
-   * Snapshot reference (internal name)
-   * @type {string}
-   * @memberof SnapshotPropagationResponseDto
-   */
-  snapshotRef: string
-  /**
-   * Target region
-   * @type {string}
-   * @memberof SnapshotPropagationResponseDto
-   */
-  region: string
-  /**
-   * Number of eligible runners found
-   * @type {number}
-   * @memberof SnapshotPropagationResponseDto
-   */
-  eligibleRunners: number
-  /**
-   * Number of records inserted (0 if dry run)
-   * @type {number}
-   * @memberof SnapshotPropagationResponseDto
-   */
-  insertedRecords: number
-  /**
-   * Current propagation status by state
-   * @type {SnapshotPropagationStatusDto}
-   * @memberof SnapshotPropagationResponseDto
-   */
-  currentStatus: SnapshotPropagationStatusDto
-  /**
-   * Warnings or notices
-   * @type {Array<string>}
-   * @memberof SnapshotPropagationResponseDto
-   */
-  warnings: Array<string>
+    /**
+     * Operation success status
+     */
+    'success': boolean;
+    /**
+     * Snapshot reference (internal name)
+     */
+    'snapshotRef': string;
+    /**
+     * Target region
+     */
+    'region': string;
+    /**
+     * Number of eligible runners found
+     */
+    'eligibleRunners': number;
+    /**
+     * Number of records inserted (0 if dry run)
+     */
+    'insertedRecords': number;
+    /**
+     * Current propagation status by state
+     */
+    'currentStatus': SnapshotPropagationStatusDto;
+    /**
+     * Warnings or notices
+     */
+    'warnings': Array<string>;
 }
+

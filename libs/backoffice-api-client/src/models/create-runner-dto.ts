@@ -12,93 +12,70 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface CreateRunnerDto
- */
+
+
 export interface CreateRunnerDto {
-  /**
-   * Runner domain name
-   * @type {string}
-   * @memberof CreateRunnerDto
-   */
-  domain: string
-  /**
-   * Runner API key
-   * @type {string}
-   * @memberof CreateRunnerDto
-   */
-  apiKey: string
-  /**
-   * Region ID
-   * @type {string}
-   * @memberof CreateRunnerDto
-   */
-  region: string
-  /**
-   * CPU cores
-   * @type {number}
-   * @memberof CreateRunnerDto
-   */
-  cpu: number
-  /**
-   * Memory in GB
-   * @type {number}
-   * @memberof CreateRunnerDto
-   */
-  memoryGiB: number
-  /**
-   * Disk in GB
-   * @type {number}
-   * @memberof CreateRunnerDto
-   */
-  diskGiB: number
-  /**
-   * Sandbox class
-   * @type {string}
-   * @memberof CreateRunnerDto
-   */
-  class: CreateRunnerDtoClassEnum
-  /**
-   * GPU count
-   * @type {number}
-   * @memberof CreateRunnerDto
-   */
-  gpu?: number
-  /**
-   * GPU type
-   * @type {string}
-   * @memberof CreateRunnerDto
-   */
-  gpuType?: string
-  /**
-   * Runner state
-   * @type {string}
-   * @memberof CreateRunnerDto
-   */
-  state?: CreateRunnerDtoStateEnum
-  /**
-   * Is runner unschedulable
-   * @type {boolean}
-   * @memberof CreateRunnerDto
-   */
-  unschedulable?: boolean
+    /**
+     * Runner domain name
+     */
+    'domain': string;
+    /**
+     * Runner API key
+     */
+    'apiKey': string;
+    /**
+     * Region ID
+     */
+    'region': string;
+    /**
+     * CPU cores
+     */
+    'cpu': number;
+    /**
+     * Memory in GB
+     */
+    'memoryGiB': number;
+    /**
+     * Disk in GB
+     */
+    'diskGiB': number;
+    /**
+     * Sandbox class
+     */
+    'class': CreateRunnerDtoClassEnum;
+    /**
+     * GPU count
+     */
+    'gpu'?: number;
+    /**
+     * GPU type
+     */
+    'gpuType'?: string;
+    /**
+     * Runner state
+     */
+    'state'?: CreateRunnerDtoStateEnum;
+    /**
+     * Is runner unschedulable
+     */
+    'unschedulable'?: boolean;
 }
 
 export const CreateRunnerDtoClassEnum = {
-  SMALL: 'small',
-  MEDIUM: 'medium',
-  LARGE: 'large',
-} as const
+    SMALL: 'small',
+    MEDIUM: 'medium',
+    LARGE: 'large',
+} as const;
 
-export type CreateRunnerDtoClassEnum = (typeof CreateRunnerDtoClassEnum)[keyof typeof CreateRunnerDtoClassEnum]
+export type CreateRunnerDtoClassEnum = typeof CreateRunnerDtoClassEnum[keyof typeof CreateRunnerDtoClassEnum];
 export const CreateRunnerDtoStateEnum = {
-  INITIALIZING: 'initializing',
-  READY: 'ready',
-  DISABLED: 'disabled',
-  DECOMMISSIONED: 'decommissioned',
-  UNRESPONSIVE: 'unresponsive',
-} as const
+    INITIALIZING: 'initializing',
+    READY: 'ready',
+    DISABLED: 'disabled',
+    DECOMMISSIONED: 'decommissioned',
+    UNRESPONSIVE: 'unresponsive',
+} as const;
 
-export type CreateRunnerDtoStateEnum = (typeof CreateRunnerDtoStateEnum)[keyof typeof CreateRunnerDtoStateEnum]
+export type CreateRunnerDtoStateEnum = typeof CreateRunnerDtoStateEnum[keyof typeof CreateRunnerDtoStateEnum];
+
+

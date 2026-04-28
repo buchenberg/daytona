@@ -12,29 +12,24 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface SortDto
- */
+
+
 export interface SortDto {
-  /**
-   * Field to sort by
-   * @type {string}
-   * @memberof SortDto
-   */
-  field?: string
-  /**
-   * Sort order
-   * @type {string}
-   * @memberof SortDto
-   */
-  order?: SortDtoOrderEnum
+    /**
+     * Field to sort by
+     */
+    'field'?: string;
+    /**
+     * Sort order
+     */
+    'order'?: SortDtoOrderEnum;
 }
 
 export const SortDtoOrderEnum = {
-  ASC: 'asc',
-  DESC: 'desc',
-} as const
+    ASC: 'asc',
+    DESC: 'desc',
+} as const;
 
-export type SortDtoOrderEnum = (typeof SortDtoOrderEnum)[keyof typeof SortDtoOrderEnum]
+export type SortDtoOrderEnum = typeof SortDtoOrderEnum[keyof typeof SortDtoOrderEnum];
+
+

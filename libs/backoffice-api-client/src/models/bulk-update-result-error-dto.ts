@@ -12,22 +12,10 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface BulkUpdateResultErrorDto
- */
+
+
 export interface BulkUpdateResultErrorDto {
-  /**
-   *
-   * @type {string}
-   * @memberof BulkUpdateResultErrorDto
-   */
-  code: string
-  /**
-   *
-   * @type {string}
-   * @memberof BulkUpdateResultErrorDto
-   */
-  message: string
+    'code': string;
+    'message': string;
 }
+

@@ -12,20 +12,15 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { UserResponseDto } from './user-response-dto'
+import type { UserResponseDto } from './user-response-dto';
 
-/**
- *
- * @export
- * @interface UserSearchDataDto
- */
 export interface UserSearchDataDto {
-  /**
-   * List of users
-   * @type {Array<UserResponseDto>}
-   * @memberof UserSearchDataDto
-   */
-  users: Array<UserResponseDto>
+    /**
+     * List of users
+     */
+    'users': Array<UserResponseDto>;
 }
+

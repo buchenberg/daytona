@@ -12,29 +12,24 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface AddToWarmPoolDto
- */
+
+
 export interface AddToWarmPoolDto {
-  /**
-   * Pool number
-   * @type {number}
-   * @memberof AddToWarmPoolDto
-   */
-  pool: number
-  /**
-   * Target region
-   * @type {string}
-   * @memberof AddToWarmPoolDto
-   */
-  target: AddToWarmPoolDtoTargetEnum
+    /**
+     * Pool number
+     */
+    'pool': number;
+    /**
+     * Target region
+     */
+    'target': AddToWarmPoolDtoTargetEnum;
 }
 
 export const AddToWarmPoolDtoTargetEnum = {
-  US: 'us',
-  EU: 'eu',
-} as const
+    US: 'us',
+    EU: 'eu',
+} as const;
 
-export type AddToWarmPoolDtoTargetEnum = (typeof AddToWarmPoolDtoTargetEnum)[keyof typeof AddToWarmPoolDtoTargetEnum]
+export type AddToWarmPoolDtoTargetEnum = typeof AddToWarmPoolDtoTargetEnum[keyof typeof AddToWarmPoolDtoTargetEnum];
+
+

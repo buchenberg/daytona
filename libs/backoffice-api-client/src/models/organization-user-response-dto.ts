@@ -12,54 +12,22 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface OrganizationUserResponseDto
- */
+
+
 export interface OrganizationUserResponseDto {
-  /**
-   *
-   * @type {string}
-   * @memberof OrganizationUserResponseDto
-   */
-  organizationId: string
-  /**
-   *
-   * @type {string}
-   * @memberof OrganizationUserResponseDto
-   */
-  userId: string
-  /**
-   *
-   * @type {string}
-   * @memberof OrganizationUserResponseDto
-   */
-  role: OrganizationUserResponseDtoRoleEnum
-  /**
-   *
-   * @type {Date}
-   * @memberof OrganizationUserResponseDto
-   */
-  createdAt: Date
-  /**
-   *
-   * @type {Date}
-   * @memberof OrganizationUserResponseDto
-   */
-  updatedAt: Date
-  /**
-   *
-   * @type {string}
-   * @memberof OrganizationUserResponseDto
-   */
-  userEmail?: string
+    'organizationId': string;
+    'userId': string;
+    'role': OrganizationUserResponseDtoRoleEnum;
+    'createdAt': Date;
+    'updatedAt': Date;
+    'userEmail'?: string;
 }
 
 export const OrganizationUserResponseDtoRoleEnum = {
-  OWNER: 'owner',
-  MEMBER: 'member',
-} as const
+    OWNER: 'owner',
+    MEMBER: 'member',
+} as const;
 
-export type OrganizationUserResponseDtoRoleEnum =
-  (typeof OrganizationUserResponseDtoRoleEnum)[keyof typeof OrganizationUserResponseDtoRoleEnum]
+export type OrganizationUserResponseDtoRoleEnum = typeof OrganizationUserResponseDtoRoleEnum[keyof typeof OrganizationUserResponseDtoRoleEnum];
+
+

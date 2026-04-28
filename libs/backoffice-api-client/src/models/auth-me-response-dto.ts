@@ -12,26 +12,13 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { AuthUserDto } from './auth-user-dto'
+import type { AuthUserDto } from './auth-user-dto';
 
-/**
- *
- * @export
- * @interface AuthMeResponseDto
- */
 export interface AuthMeResponseDto {
-  /**
-   *
-   * @type {boolean}
-   * @memberof AuthMeResponseDto
-   */
-  success: boolean
-  /**
-   *
-   * @type {AuthUserDto}
-   * @memberof AuthMeResponseDto
-   */
-  data: AuthUserDto
+    'success': boolean;
+    'data': AuthUserDto;
 }
+

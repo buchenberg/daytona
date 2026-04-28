@@ -12,26 +12,19 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { UpdateOrganizationUserDto } from './update-organization-user-dto'
+import type { UpdateOrganizationUserDto } from './update-organization-user-dto';
 
-/**
- *
- * @export
- * @interface PatchOrganizationUserDto
- */
 export interface PatchOrganizationUserDto {
-  /**
-   * Fields to update
-   * @type {UpdateOrganizationUserDto}
-   * @memberof PatchOrganizationUserDto
-   */
-  updates: UpdateOrganizationUserDto
-  /**
-   * Expected current values for optimistic concurrency control. Update fails with 409 if any field does not match.
-   * @type {UpdateOrganizationUserDto}
-   * @memberof PatchOrganizationUserDto
-   */
-  preconditions?: UpdateOrganizationUserDto
+    /**
+     * Fields to update
+     */
+    'updates': UpdateOrganizationUserDto;
+    /**
+     * Expected current values for optimistic concurrency control. Update fails with 409 if any field does not match.
+     */
+    'preconditions'?: UpdateOrganizationUserDto;
 }
+

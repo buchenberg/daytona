@@ -12,32 +12,17 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { UpdateRunnerDto } from './update-runner-dto'
+import type { UpdateRunnerDto } from './update-runner-dto';
 
-/**
- *
- * @export
- * @interface BulkUpdateRunnerDto
- */
 export interface BulkUpdateRunnerDto {
-  /**
-   *
-   * @type {Array<string>}
-   * @memberof BulkUpdateRunnerDto
-   */
-  ids: Array<string>
-  /**
-   * Updates to apply to all runners
-   * @type {UpdateRunnerDto}
-   * @memberof BulkUpdateRunnerDto
-   */
-  updates: UpdateRunnerDto
-  /**
-   *
-   * @type {boolean}
-   * @memberof BulkUpdateRunnerDto
-   */
-  dryRun?: boolean
+    'ids': Array<string>;
+    /**
+     * Updates to apply to all runners
+     */
+    'updates': UpdateRunnerDto;
+    'dryRun'?: boolean;
 }
+

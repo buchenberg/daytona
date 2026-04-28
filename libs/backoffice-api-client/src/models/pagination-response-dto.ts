@@ -12,34 +12,24 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface PaginationResponseDto
- */
+
+
 export interface PaginationResponseDto {
-  /**
-   * Current page number
-   * @type {number}
-   * @memberof PaginationResponseDto
-   */
-  page?: number
-  /**
-   * Items per page
-   * @type {number}
-   * @memberof PaginationResponseDto
-   */
-  pageSize?: number
-  /**
-   * Total number of items
-   * @type {number}
-   * @memberof PaginationResponseDto
-   */
-  total?: number
-  /**
-   * Total number of pages
-   * @type {number}
-   * @memberof PaginationResponseDto
-   */
-  totalPages?: number
+    /**
+     * Current page number
+     */
+    'page'?: number;
+    /**
+     * Items per page
+     */
+    'pageSize'?: number;
+    /**
+     * Total number of items
+     */
+    'total'?: number;
+    /**
+     * Total number of pages
+     */
+    'totalPages'?: number;
 }
+

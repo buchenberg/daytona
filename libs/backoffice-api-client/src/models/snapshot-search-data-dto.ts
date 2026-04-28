@@ -12,20 +12,15 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { SnapshotResponseDto } from './snapshot-response-dto'
+import type { SnapshotResponseDto } from './snapshot-response-dto';
 
-/**
- *
- * @export
- * @interface SnapshotSearchDataDto
- */
 export interface SnapshotSearchDataDto {
-  /**
-   * List of snapshots
-   * @type {Array<SnapshotResponseDto>}
-   * @memberof SnapshotSearchDataDto
-   */
-  snapshots: Array<SnapshotResponseDto>
+    /**
+     * List of snapshots
+     */
+    'snapshots': Array<SnapshotResponseDto>;
 }
+

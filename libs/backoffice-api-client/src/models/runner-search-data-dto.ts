@@ -12,20 +12,15 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { RunnerResponseDto } from './runner-response-dto'
+import type { RunnerResponseDto } from './runner-response-dto';
 
-/**
- *
- * @export
- * @interface RunnerSearchDataDto
- */
 export interface RunnerSearchDataDto {
-  /**
-   * List of runners
-   * @type {Array<RunnerResponseDto>}
-   * @memberof RunnerSearchDataDto
-   */
-  runners: Array<RunnerResponseDto>
+    /**
+     * List of runners
+     */
+    'runners': Array<RunnerResponseDto>;
 }
+

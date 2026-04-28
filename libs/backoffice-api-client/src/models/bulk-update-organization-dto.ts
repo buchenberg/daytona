@@ -12,32 +12,23 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { UpdateOrganizationDto } from './update-organization-dto'
+import type { UpdateOrganizationDto } from './update-organization-dto';
 
-/**
- *
- * @export
- * @interface BulkUpdateOrganizationDto
- */
 export interface BulkUpdateOrganizationDto {
-  /**
-   * Array of organization IDs to update
-   * @type {Array<string>}
-   * @memberof BulkUpdateOrganizationDto
-   */
-  ids: Array<string>
-  /**
-   * Updates to apply to all organizations
-   * @type {UpdateOrganizationDto}
-   * @memberof BulkUpdateOrganizationDto
-   */
-  updates: UpdateOrganizationDto
-  /**
-   * Dry run mode - validate without applying changes
-   * @type {boolean}
-   * @memberof BulkUpdateOrganizationDto
-   */
-  dryRun?: boolean
+    /**
+     * Array of organization IDs to update
+     */
+    'ids': Array<string>;
+    /**
+     * Updates to apply to all organizations
+     */
+    'updates': UpdateOrganizationDto;
+    /**
+     * Dry run mode - validate without applying changes
+     */
+    'dryRun'?: boolean;
 }
+

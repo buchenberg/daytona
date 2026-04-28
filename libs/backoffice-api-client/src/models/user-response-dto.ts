@@ -12,46 +12,32 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface UserResponseDto
- */
+
+
 export interface UserResponseDto {
-  /**
-   * User ID
-   * @type {string}
-   * @memberof UserResponseDto
-   */
-  id: string
-  /**
-   * User name
-   * @type {string}
-   * @memberof UserResponseDto
-   */
-  name: string
-  /**
-   * User email
-   * @type {string}
-   * @memberof UserResponseDto
-   */
-  email: string
-  /**
-   * Email verified status
-   * @type {boolean}
-   * @memberof UserResponseDto
-   */
-  emailVerified: boolean
-  /**
-   * Created at
-   * @type {Date}
-   * @memberof UserResponseDto
-   */
-  createdAt: Date
-  /**
-   * Number of organizations user owns
-   * @type {number}
-   * @memberof UserResponseDto
-   */
-  organizationsCount?: number
+    /**
+     * User ID
+     */
+    'id': string;
+    /**
+     * User name
+     */
+    'name': string;
+    /**
+     * User email
+     */
+    'email': string;
+    /**
+     * Email verified status
+     */
+    'emailVerified': boolean;
+    /**
+     * Created at
+     */
+    'createdAt': Date;
+    /**
+     * Number of organizations user owns
+     */
+    'organizationsCount'?: number;
 }
+

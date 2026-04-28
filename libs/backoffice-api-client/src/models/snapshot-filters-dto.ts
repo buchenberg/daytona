@@ -12,93 +12,69 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { RangeDto } from './range-dto'
+import type { RangeDto } from './range-dto';
 
-/**
- *
- * @export
- * @interface SnapshotFiltersDto
- */
 export interface SnapshotFiltersDto {
-  /**
-   * Filter by organization ID
-   * @type {string}
-   * @memberof SnapshotFiltersDto
-   */
-  organizationId?: string
-  /**
-   * Filter by snapshot name (partial match)
-   * @type {string}
-   * @memberof SnapshotFiltersDto
-   */
-  name?: string
-  /**
-   * Filter by snapshot state
-   * @type {Array<string>}
-   * @memberof SnapshotFiltersDto
-   */
-  state?: Array<SnapshotFiltersDtoStateEnum>
-  /**
-   * Filter by general snapshots
-   * @type {boolean}
-   * @memberof SnapshotFiltersDto
-   */
-  general?: boolean
-  /**
-   * Filter by hide from users status
-   * @type {boolean}
-   * @memberof SnapshotFiltersDto
-   */
-  hideFromUsers?: boolean
-  /**
-   * Filter by has error status
-   * @type {boolean}
-   * @memberof SnapshotFiltersDto
-   */
-  hasError?: boolean
-  /**
-   * Filter by size range
-   * @type {RangeDto}
-   * @memberof SnapshotFiltersDto
-   */
-  size?: RangeDto
-  /**
-   * Filter by created after date
-   * @type {Date}
-   * @memberof SnapshotFiltersDto
-   */
-  createdAfter?: Date
-  /**
-   * Filter by created before date
-   * @type {Date}
-   * @memberof SnapshotFiltersDto
-   */
-  createdBefore?: Date
-  /**
-   * Filter by last used after date
-   * @type {Date}
-   * @memberof SnapshotFiltersDto
-   */
-  lastUsedAfter?: Date
-  /**
-   * Filter by last used before date
-   * @type {Date}
-   * @memberof SnapshotFiltersDto
-   */
-  lastUsedBefore?: Date
+    /**
+     * Filter by organization ID
+     */
+    'organizationId'?: string;
+    /**
+     * Filter by snapshot name (partial match)
+     */
+    'name'?: string;
+    /**
+     * Filter by snapshot state
+     */
+    'state'?: Array<SnapshotFiltersDtoStateEnum>;
+    /**
+     * Filter by general snapshots
+     */
+    'general'?: boolean;
+    /**
+     * Filter by hide from users status
+     */
+    'hideFromUsers'?: boolean;
+    /**
+     * Filter by has error status
+     */
+    'hasError'?: boolean;
+    /**
+     * Filter by size range
+     */
+    'size'?: RangeDto;
+    /**
+     * Filter by created after date
+     */
+    'createdAfter'?: Date;
+    /**
+     * Filter by created before date
+     */
+    'createdBefore'?: Date;
+    /**
+     * Filter by last used after date
+     */
+    'lastUsedAfter'?: Date;
+    /**
+     * Filter by last used before date
+     */
+    'lastUsedBefore'?: Date;
 }
 
 export const SnapshotFiltersDtoStateEnum = {
-  BUILDING: 'building',
-  PENDING: 'pending',
-  PULLING: 'pulling',
-  ACTIVE: 'active',
-  INACTIVE: 'inactive',
-  ERROR: 'error',
-  BUILD_FAILED: 'build_failed',
-  REMOVING: 'removing',
-} as const
+    BUILDING: 'building',
+    PENDING: 'pending',
+    PULLING: 'pulling',
+    ACTIVE: 'active',
+    INACTIVE: 'inactive',
+    ERROR: 'error',
+    BUILD_FAILED: 'build_failed',
+    REMOVING: 'removing',
+} as const;
 
-export type SnapshotFiltersDtoStateEnum = (typeof SnapshotFiltersDtoStateEnum)[keyof typeof SnapshotFiltersDtoStateEnum]
+export type SnapshotFiltersDtoStateEnum = typeof SnapshotFiltersDtoStateEnum[keyof typeof SnapshotFiltersDtoStateEnum];
+
+

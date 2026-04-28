@@ -12,28 +12,20 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface SnapshotPropagationStatusDto
- */
+
+
 export interface SnapshotPropagationStatusDto {
-  /**
-   * Number of runners with snapshot ready
-   * @type {number}
-   * @memberof SnapshotPropagationStatusDto
-   */
-  ready: number
-  /**
-   * Number of runners currently pulling snapshot
-   * @type {number}
-   * @memberof SnapshotPropagationStatusDto
-   */
-  pulling_snapshot: number
-  /**
-   * Number of runners with failed snapshot pull
-   * @type {number}
-   * @memberof SnapshotPropagationStatusDto
-   */
-  failed: number
+    /**
+     * Number of runners with snapshot ready
+     */
+    'ready': number;
+    /**
+     * Number of runners currently pulling snapshot
+     */
+    'pulling_snapshot': number;
+    /**
+     * Number of runners with failed snapshot pull
+     */
+    'failed': number;
 }
+

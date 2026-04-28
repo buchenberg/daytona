@@ -12,38 +12,27 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { BulkInsertErrorDto } from './bulk-insert-error-dto'
+import type { BulkInsertErrorDto } from './bulk-insert-error-dto';
 
-/**
- *
- * @export
- * @interface BulkInsertResultDto
- */
 export interface BulkInsertResultDto {
-  /**
-   * Runner domain
-   * @type {string}
-   * @memberof BulkInsertResultDto
-   */
-  domain: string
-  /**
-   * Whether the insert was successful
-   * @type {boolean}
-   * @memberof BulkInsertResultDto
-   */
-  success: boolean
-  /**
-   * Inserted runner data
-   * @type {object}
-   * @memberof BulkInsertResultDto
-   */
-  data?: object
-  /**
-   * Error details if insert failed
-   * @type {BulkInsertErrorDto}
-   * @memberof BulkInsertResultDto
-   */
-  error?: BulkInsertErrorDto
+    /**
+     * Runner domain
+     */
+    'domain': string;
+    /**
+     * Whether the insert was successful
+     */
+    'success': boolean;
+    /**
+     * Inserted runner data
+     */
+    'data'?: object;
+    /**
+     * Error details if insert failed
+     */
+    'error'?: BulkInsertErrorDto;
 }
+

@@ -12,127 +12,81 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface PermissionsDto
- */
+
+
 export interface PermissionsDto {
-  /**
-   * Bypasses all permission checks.
-   * @type {boolean}
-   * @memberof PermissionsDto
-   */
-  superAdmin?: boolean
-  /**
-   *
-   * @type {Array<string>}
-   * @memberof PermissionsDto
-   */
-  sandboxes?: Array<PermissionsDtoSandboxesEnum>
-  /**
-   *
-   * @type {Array<string>}
-   * @memberof PermissionsDto
-   */
-  snapshots?: Array<PermissionsDtoSnapshotsEnum>
-  /**
-   *
-   * @type {Array<string>}
-   * @memberof PermissionsDto
-   */
-  runners?: Array<PermissionsDtoRunnersEnum>
-  /**
-   *
-   * @type {Array<string>}
-   * @memberof PermissionsDto
-   */
-  organizations?: Array<PermissionsDtoOrganizationsEnum>
-  /**
-   *
-   * @type {Array<string>}
-   * @memberof PermissionsDto
-   */
-  organizationUsers?: Array<PermissionsDtoOrganizationUsersEnum>
-  /**
-   *
-   * @type {Array<string>}
-   * @memberof PermissionsDto
-   */
-  regionQuotas?: Array<PermissionsDtoRegionQuotasEnum>
-  /**
-   *
-   * @type {Array<string>}
-   * @memberof PermissionsDto
-   */
-  users?: Array<PermissionsDtoUsersEnum>
-  /**
-   *
-   * @type {Array<string>}
-   * @memberof PermissionsDto
-   */
-  auditLogs?: Array<PermissionsDtoAuditLogsEnum>
+    /**
+     * Bypasses all permission checks.
+     */
+    'superAdmin'?: boolean;
+    'sandboxes'?: Array<PermissionsDtoSandboxesEnum>;
+    'snapshots'?: Array<PermissionsDtoSnapshotsEnum>;
+    'runners'?: Array<PermissionsDtoRunnersEnum>;
+    'organizations'?: Array<PermissionsDtoOrganizationsEnum>;
+    'organizationUsers'?: Array<PermissionsDtoOrganizationUsersEnum>;
+    'regionQuotas'?: Array<PermissionsDtoRegionQuotasEnum>;
+    'users'?: Array<PermissionsDtoUsersEnum>;
+    'auditLogs'?: Array<PermissionsDtoAuditLogsEnum>;
 }
 
 export const PermissionsDtoSandboxesEnum = {
-  READ: 'read',
-  WRITE: 'write',
-  WRITE_BULK: 'write-bulk',
-  DELETE: 'delete',
-} as const
+    READ: 'read',
+    WRITE: 'write',
+    WRITE_BULK: 'write-bulk',
+    DELETE: 'delete',
+} as const;
 
-export type PermissionsDtoSandboxesEnum = (typeof PermissionsDtoSandboxesEnum)[keyof typeof PermissionsDtoSandboxesEnum]
+export type PermissionsDtoSandboxesEnum = typeof PermissionsDtoSandboxesEnum[keyof typeof PermissionsDtoSandboxesEnum];
 export const PermissionsDtoSnapshotsEnum = {
-  READ: 'read',
-  WRITE: 'write',
-  WRITE_BULK: 'write-bulk',
-  DELETE: 'delete',
-} as const
+    READ: 'read',
+    WRITE: 'write',
+    WRITE_BULK: 'write-bulk',
+    DELETE: 'delete',
+} as const;
 
-export type PermissionsDtoSnapshotsEnum = (typeof PermissionsDtoSnapshotsEnum)[keyof typeof PermissionsDtoSnapshotsEnum]
+export type PermissionsDtoSnapshotsEnum = typeof PermissionsDtoSnapshotsEnum[keyof typeof PermissionsDtoSnapshotsEnum];
 export const PermissionsDtoRunnersEnum = {
-  READ: 'read',
-  WRITE: 'write',
-  WRITE_BULK: 'write-bulk',
-  DELETE: 'delete',
-} as const
+    READ: 'read',
+    WRITE: 'write',
+    WRITE_BULK: 'write-bulk',
+    DELETE: 'delete',
+} as const;
 
-export type PermissionsDtoRunnersEnum = (typeof PermissionsDtoRunnersEnum)[keyof typeof PermissionsDtoRunnersEnum]
+export type PermissionsDtoRunnersEnum = typeof PermissionsDtoRunnersEnum[keyof typeof PermissionsDtoRunnersEnum];
 export const PermissionsDtoOrganizationsEnum = {
-  READ: 'read',
-  WRITE: 'write',
-  WRITE_BULK: 'write-bulk',
-  DELETE: 'delete',
-} as const
+    READ: 'read',
+    WRITE: 'write',
+    WRITE_BULK: 'write-bulk',
+    DELETE: 'delete',
+} as const;
 
-export type PermissionsDtoOrganizationsEnum =
-  (typeof PermissionsDtoOrganizationsEnum)[keyof typeof PermissionsDtoOrganizationsEnum]
+export type PermissionsDtoOrganizationsEnum = typeof PermissionsDtoOrganizationsEnum[keyof typeof PermissionsDtoOrganizationsEnum];
 export const PermissionsDtoOrganizationUsersEnum = {
-  READ: 'read',
-  WRITE: 'write',
-  WRITE_BULK: 'write-bulk',
-  DELETE: 'delete',
-} as const
+    READ: 'read',
+    WRITE: 'write',
+    WRITE_BULK: 'write-bulk',
+    DELETE: 'delete',
+} as const;
 
-export type PermissionsDtoOrganizationUsersEnum =
-  (typeof PermissionsDtoOrganizationUsersEnum)[keyof typeof PermissionsDtoOrganizationUsersEnum]
+export type PermissionsDtoOrganizationUsersEnum = typeof PermissionsDtoOrganizationUsersEnum[keyof typeof PermissionsDtoOrganizationUsersEnum];
 export const PermissionsDtoRegionQuotasEnum = {
-  READ: 'read',
-  WRITE: 'write',
-  WRITE_BULK: 'write-bulk',
-  DELETE: 'delete',
-} as const
+    READ: 'read',
+    WRITE: 'write',
+    WRITE_BULK: 'write-bulk',
+    DELETE: 'delete',
+} as const;
 
-export type PermissionsDtoRegionQuotasEnum =
-  (typeof PermissionsDtoRegionQuotasEnum)[keyof typeof PermissionsDtoRegionQuotasEnum]
+export type PermissionsDtoRegionQuotasEnum = typeof PermissionsDtoRegionQuotasEnum[keyof typeof PermissionsDtoRegionQuotasEnum];
 export const PermissionsDtoUsersEnum = {
-  READ: 'read',
-  DELETE: 'delete',
-} as const
+    READ: 'read',
+    DELETE: 'delete',
+} as const;
 
-export type PermissionsDtoUsersEnum = (typeof PermissionsDtoUsersEnum)[keyof typeof PermissionsDtoUsersEnum]
+export type PermissionsDtoUsersEnum = typeof PermissionsDtoUsersEnum[keyof typeof PermissionsDtoUsersEnum];
 export const PermissionsDtoAuditLogsEnum = {
-  READ: 'read',
-} as const
+    READ: 'read',
+} as const;
 
-export type PermissionsDtoAuditLogsEnum = (typeof PermissionsDtoAuditLogsEnum)[keyof typeof PermissionsDtoAuditLogsEnum]
+export type PermissionsDtoAuditLogsEnum = typeof PermissionsDtoAuditLogsEnum[keyof typeof PermissionsDtoAuditLogsEnum];
+
+

@@ -12,38 +12,29 @@
  * Do not edit the class manually.
  */
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { PaginationDto } from './pagination-dto'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { SandboxFiltersDto } from './sandbox-filters-dto'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { SortDto } from './sort-dto'
 
-/**
- *
- * @export
- * @interface SearchSandboxDto
- */
+// May contain unused imports in some cases
+// @ts-ignore
+import type { PaginationDto } from './pagination-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { SandboxFiltersDto } from './sandbox-filters-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { SortDto } from './sort-dto';
+
 export interface SearchSandboxDto {
-  /**
-   * Pagination options
-   * @type {PaginationDto}
-   * @memberof SearchSandboxDto
-   */
-  pagination?: PaginationDto
-  /**
-   * Sort options
-   * @type {SortDto}
-   * @memberof SearchSandboxDto
-   */
-  sort?: SortDto
-  /**
-   * Filter options
-   * @type {SandboxFiltersDto}
-   * @memberof SearchSandboxDto
-   */
-  filters?: SandboxFiltersDto
+    /**
+     * Pagination options
+     */
+    'pagination'?: PaginationDto;
+    /**
+     * Sort options
+     */
+    'sort'?: SortDto;
+    /**
+     * Filter options
+     */
+    'filters'?: SandboxFiltersDto;
 }
+

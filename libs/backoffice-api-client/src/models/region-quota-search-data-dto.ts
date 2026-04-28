@@ -12,20 +12,15 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { RegionQuotaResponseDto } from './region-quota-response-dto'
+import type { RegionQuotaResponseDto } from './region-quota-response-dto';
 
-/**
- *
- * @export
- * @interface RegionQuotaSearchDataDto
- */
 export interface RegionQuotaSearchDataDto {
-  /**
-   * List of region quotas
-   * @type {Array<RegionQuotaResponseDto>}
-   * @memberof RegionQuotaSearchDataDto
-   */
-  regionQuotas: Array<RegionQuotaResponseDto>
+    /**
+     * List of region quotas
+     */
+    'regionQuotas': Array<RegionQuotaResponseDto>;
 }
+

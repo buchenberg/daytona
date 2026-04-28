@@ -12,16 +12,12 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface UpdateConversationDto
- */
+
+
 export interface UpdateConversationDto {
-  /**
-   * New conversation title
-   * @type {string}
-   * @memberof UpdateConversationDto
-   */
-  title: string
+    /**
+     * New conversation title
+     */
+    'title': string;
 }
+

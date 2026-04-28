@@ -12,28 +12,20 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface SandboxPreviewDto
- */
+
+
 export interface SandboxPreviewDto {
-  /**
-   * Sandbox ID
-   * @type {string}
-   * @memberof SandboxPreviewDto
-   */
-  id: string
-  /**
-   * Sandbox name
-   * @type {string}
-   * @memberof SandboxPreviewDto
-   */
-  name: string
-  /**
-   * Sandbox state
-   * @type {string}
-   * @memberof SandboxPreviewDto
-   */
-  state: string
+    /**
+     * Sandbox ID
+     */
+    'id': string;
+    /**
+     * Sandbox name
+     */
+    'name': string;
+    /**
+     * Sandbox state
+     */
+    'state': string;
 }
+

@@ -12,35 +12,26 @@
  * Do not edit the class manually.
  */
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { AuditLogSearchDataDto } from './audit-log-search-data-dto'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { PaginationResponseDto } from './pagination-response-dto'
 
-/**
- *
- * @export
- * @interface AuditLogSearchResponseDto
- */
+// May contain unused imports in some cases
+// @ts-ignore
+import type { AuditLogSearchDataDto } from './audit-log-search-data-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { PaginationResponseDto } from './pagination-response-dto';
+
 export interface AuditLogSearchResponseDto {
-  /**
-   * Operation success status
-   * @type {boolean}
-   * @memberof AuditLogSearchResponseDto
-   */
-  success: boolean
-  /**
-   * Search results data
-   * @type {AuditLogSearchDataDto}
-   * @memberof AuditLogSearchResponseDto
-   */
-  data: AuditLogSearchDataDto
-  /**
-   * Pagination information
-   * @type {PaginationResponseDto}
-   * @memberof AuditLogSearchResponseDto
-   */
-  pagination: PaginationResponseDto
+    /**
+     * Operation success status
+     */
+    'success': boolean;
+    /**
+     * Search results data
+     */
+    'data': AuditLogSearchDataDto;
+    /**
+     * Pagination information
+     */
+    'pagination': PaginationResponseDto;
 }
+

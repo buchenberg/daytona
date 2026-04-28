@@ -12,38 +12,29 @@
  * Do not edit the class manually.
  */
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { OrganizationUserFiltersDto } from './organization-user-filters-dto'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { PaginationDto } from './pagination-dto'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { SortDto } from './sort-dto'
 
-/**
- *
- * @export
- * @interface SearchOrganizationUserDto
- */
+// May contain unused imports in some cases
+// @ts-ignore
+import type { OrganizationUserFiltersDto } from './organization-user-filters-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { PaginationDto } from './pagination-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { SortDto } from './sort-dto';
+
 export interface SearchOrganizationUserDto {
-  /**
-   * Pagination options
-   * @type {PaginationDto}
-   * @memberof SearchOrganizationUserDto
-   */
-  pagination?: PaginationDto
-  /**
-   * Sort options
-   * @type {SortDto}
-   * @memberof SearchOrganizationUserDto
-   */
-  sort?: SortDto
-  /**
-   * Filter options
-   * @type {OrganizationUserFiltersDto}
-   * @memberof SearchOrganizationUserDto
-   */
-  filters?: OrganizationUserFiltersDto
+    /**
+     * Pagination options
+     */
+    'pagination'?: PaginationDto;
+    /**
+     * Sort options
+     */
+    'sort'?: SortDto;
+    /**
+     * Filter options
+     */
+    'filters'?: OrganizationUserFiltersDto;
 }
+

@@ -12,20 +12,15 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { UserDeletionOptionsDto } from './user-deletion-options-dto'
+import type { UserDeletionOptionsDto } from './user-deletion-options-dto';
 
-/**
- *
- * @export
- * @interface UserDeletionRequestDto
- */
 export interface UserDeletionRequestDto {
-  /**
-   * Deletion options for destructive actions
-   * @type {UserDeletionOptionsDto}
-   * @memberof UserDeletionRequestDto
-   */
-  options: UserDeletionOptionsDto
+    /**
+     * Deletion options for destructive actions
+     */
+    'options': UserDeletionOptionsDto;
 }
+

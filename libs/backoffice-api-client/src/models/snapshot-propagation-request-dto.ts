@@ -12,28 +12,20 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface SnapshotPropagationRequestDto
- */
+
+
 export interface SnapshotPropagationRequestDto {
-  /**
-   * Region to propagate snapshot to
-   * @type {string}
-   * @memberof SnapshotPropagationRequestDto
-   */
-  region: string
-  /**
-   * Maximum number of runners to propagate to
-   * @type {number}
-   * @memberof SnapshotPropagationRequestDto
-   */
-  maxRunners: number
-  /**
-   * Dry run mode - validate without inserting
-   * @type {boolean}
-   * @memberof SnapshotPropagationRequestDto
-   */
-  dryRun?: boolean
+    /**
+     * Region to propagate snapshot to
+     */
+    'region': string;
+    /**
+     * Maximum number of runners to propagate to
+     */
+    'maxRunners': number;
+    /**
+     * Dry run mode - validate without inserting
+     */
+    'dryRun'?: boolean;
 }
+

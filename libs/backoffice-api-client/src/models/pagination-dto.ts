@@ -12,22 +12,16 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface PaginationDto
- */
+
+
 export interface PaginationDto {
-  /**
-   * Page number (1-indexed)
-   * @type {number}
-   * @memberof PaginationDto
-   */
-  page?: number
-  /**
-   * Items per page
-   * @type {number}
-   * @memberof PaginationDto
-   */
-  pageSize?: number
+    /**
+     * Page number (1-indexed)
+     */
+    'page'?: number;
+    /**
+     * Items per page
+     */
+    'pageSize'?: number;
 }
+

@@ -12,34 +12,24 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface AddToWarmPoolResponseDto
- */
+
+
 export interface AddToWarmPoolResponseDto {
-  /**
-   * Whether the operation was successful
-   * @type {boolean}
-   * @memberof AddToWarmPoolResponseDto
-   */
-  success: boolean
-  /**
-   * ID of the created warm pool entry
-   * @type {string}
-   * @memberof AddToWarmPoolResponseDto
-   */
-  warmPoolId?: string
-  /**
-   * ID of the copied snapshot
-   * @type {string}
-   * @memberof AddToWarmPoolResponseDto
-   */
-  copiedSnapshotId?: string
-  /**
-   * Error message if operation failed
-   * @type {string}
-   * @memberof AddToWarmPoolResponseDto
-   */
-  error?: string
+    /**
+     * Whether the operation was successful
+     */
+    'success': boolean;
+    /**
+     * ID of the created warm pool entry
+     */
+    'warmPoolId'?: string;
+    /**
+     * ID of the copied snapshot
+     */
+    'copiedSnapshotId'?: string;
+    /**
+     * Error message if operation failed
+     */
+    'error'?: string;
 }
+

@@ -12,20 +12,15 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { OrganizationUserResponseDto } from './organization-user-response-dto'
+import type { OrganizationUserResponseDto } from './organization-user-response-dto';
 
-/**
- *
- * @export
- * @interface OrganizationUserSearchDataDto
- */
 export interface OrganizationUserSearchDataDto {
-  /**
-   * List of organization users
-   * @type {Array<OrganizationUserResponseDto>}
-   * @memberof OrganizationUserSearchDataDto
-   */
-  organizationUsers: Array<OrganizationUserResponseDto>
+    /**
+     * List of organization users
+     */
+    'organizationUsers': Array<OrganizationUserResponseDto>;
 }
+

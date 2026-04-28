@@ -12,74 +12,53 @@
  * Do not edit the class manually.
  */
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { OrganizationPreviewDto } from './organization-preview-dto'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { SandboxPreviewDto } from './sandbox-preview-dto'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { SnapshotPreviewDto } from './snapshot-preview-dto'
 
-/**
- *
- * @export
- * @interface UserDeletionPreviewDto
- */
+// May contain unused imports in some cases
+// @ts-ignore
+import type { OrganizationPreviewDto } from './organization-preview-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { SandboxPreviewDto } from './sandbox-preview-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { SnapshotPreviewDto } from './snapshot-preview-dto';
+
 export interface UserDeletionPreviewDto {
-  /**
-   * User ID
-   * @type {string}
-   * @memberof UserDeletionPreviewDto
-   */
-  userId: string
-  /**
-   * User email
-   * @type {string}
-   * @memberof UserDeletionPreviewDto
-   */
-  email: string
-  /**
-   * User name
-   * @type {string}
-   * @memberof UserDeletionPreviewDto
-   */
-  name: string
-  /**
-   * Organizations where user is owner
-   * @type {Array<OrganizationPreviewDto>}
-   * @memberof UserDeletionPreviewDto
-   */
-  organizations: Array<OrganizationPreviewDto>
-  /**
-   * Sandboxes in owned organizations
-   * @type {Array<SandboxPreviewDto>}
-   * @memberof UserDeletionPreviewDto
-   */
-  sandboxes: Array<SandboxPreviewDto>
-  /**
-   * Snapshots in owned organizations
-   * @type {Array<SnapshotPreviewDto>}
-   * @memberof UserDeletionPreviewDto
-   */
-  snapshots: Array<SnapshotPreviewDto>
-  /**
-   * Number of API keys in owned organizations
-   * @type {number}
-   * @memberof UserDeletionPreviewDto
-   */
-  apiKeys: number
-  /**
-   * Number of sandbox templates in owned organizations
-   * @type {number}
-   * @memberof UserDeletionPreviewDto
-   */
-  sandboxTemplates: number
-  /**
-   * Estimated impact description
-   * @type {string}
-   * @memberof UserDeletionPreviewDto
-   */
-  estimatedImpact: string
+    /**
+     * User ID
+     */
+    'userId': string;
+    /**
+     * User email
+     */
+    'email': string;
+    /**
+     * User name
+     */
+    'name': string;
+    /**
+     * Organizations where user is owner
+     */
+    'organizations': Array<OrganizationPreviewDto>;
+    /**
+     * Sandboxes in owned organizations
+     */
+    'sandboxes': Array<SandboxPreviewDto>;
+    /**
+     * Snapshots in owned organizations
+     */
+    'snapshots': Array<SnapshotPreviewDto>;
+    /**
+     * Number of API keys in owned organizations
+     */
+    'apiKeys': number;
+    /**
+     * Number of sandbox templates in owned organizations
+     */
+    'sandboxTemplates': number;
+    /**
+     * Estimated impact description
+     */
+    'estimatedImpact': string;
 }
+

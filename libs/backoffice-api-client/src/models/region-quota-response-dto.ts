@@ -12,88 +12,21 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface RegionQuotaResponseDto
- */
+
+
 export interface RegionQuotaResponseDto {
-  /**
-   *
-   * @type {string}
-   * @memberof RegionQuotaResponseDto
-   */
-  organizationId: string
-  /**
-   *
-   * @type {string}
-   * @memberof RegionQuotaResponseDto
-   */
-  regionId: string
-  /**
-   *
-   * @type {number}
-   * @memberof RegionQuotaResponseDto
-   */
-  totalCpuQuota: number
-  /**
-   *
-   * @type {number}
-   * @memberof RegionQuotaResponseDto
-   */
-  totalMemoryQuota: number
-  /**
-   *
-   * @type {number}
-   * @memberof RegionQuotaResponseDto
-   */
-  totalDiskQuota: number
-  /**
-   *
-   * @type {number}
-   * @memberof RegionQuotaResponseDto
-   */
-  maxCpuPerSandbox?: number | null
-  /**
-   *
-   * @type {number}
-   * @memberof RegionQuotaResponseDto
-   */
-  maxMemoryPerSandbox?: number | null
-  /**
-   *
-   * @type {number}
-   * @memberof RegionQuotaResponseDto
-   */
-  maxDiskPerSandbox?: number | null
-  /**
-   *
-   * @type {number}
-   * @memberof RegionQuotaResponseDto
-   */
-  maxDiskPerNonEphemeralSandbox?: number | null
-  /**
-   *
-   * @type {number}
-   * @memberof RegionQuotaResponseDto
-   */
-  sandboxQuota?: number
-  /**
-   *
-   * @type {Date}
-   * @memberof RegionQuotaResponseDto
-   */
-  createdAt: Date
-  /**
-   *
-   * @type {Date}
-   * @memberof RegionQuotaResponseDto
-   */
-  updatedAt: Date
-  /**
-   *
-   * @type {string}
-   * @memberof RegionQuotaResponseDto
-   */
-  organizationName?: string
+    'organizationId': string;
+    'regionId': string;
+    'totalCpuQuota': number;
+    'totalMemoryQuota': number;
+    'totalDiskQuota': number;
+    'maxCpuPerSandbox'?: number | null;
+    'maxMemoryPerSandbox'?: number | null;
+    'maxDiskPerSandbox'?: number | null;
+    'maxDiskPerNonEphemeralSandbox'?: number | null;
+    'sandboxQuota'?: number;
+    'createdAt': Date;
+    'updatedAt': Date;
+    'organizationName'?: string;
 }
+

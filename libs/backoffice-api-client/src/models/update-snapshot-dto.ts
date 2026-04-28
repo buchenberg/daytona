@@ -12,28 +12,20 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface UpdateSnapshotDto
- */
+
+
 export interface UpdateSnapshotDto {
-  /**
-   * Snapshot name
-   * @type {string}
-   * @memberof UpdateSnapshotDto
-   */
-  name?: string
-  /**
-   * Hide from users
-   * @type {boolean}
-   * @memberof UpdateSnapshotDto
-   */
-  hideFromUsers?: boolean
-  /**
-   * General snapshot (available to all)
-   * @type {boolean}
-   * @memberof UpdateSnapshotDto
-   */
-  general?: boolean
+    /**
+     * Snapshot name
+     */
+    'name'?: string;
+    /**
+     * Hide from users
+     */
+    'hideFromUsers'?: boolean;
+    /**
+     * General snapshot (available to all)
+     */
+    'general'?: boolean;
 }
+

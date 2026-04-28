@@ -89,8 +89,6 @@ export interface DaytonaConfiguration {
     'analyticsApiUrl'?: string;
     /**
      * Stripe publishable key for client-side Stripe.js
-     * @type {string}
-     * @memberof DaytonaConfiguration
      */
     'stripePublishableKey'?: string;
     /**

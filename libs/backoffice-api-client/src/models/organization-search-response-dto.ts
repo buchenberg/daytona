@@ -12,35 +12,26 @@
  * Do not edit the class manually.
  */
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { OrganizationSearchDataDto } from './organization-search-data-dto'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { PaginationResponseDto } from './pagination-response-dto'
 
-/**
- *
- * @export
- * @interface OrganizationSearchResponseDto
- */
+// May contain unused imports in some cases
+// @ts-ignore
+import type { OrganizationSearchDataDto } from './organization-search-data-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { PaginationResponseDto } from './pagination-response-dto';
+
 export interface OrganizationSearchResponseDto {
-  /**
-   * Operation success status
-   * @type {boolean}
-   * @memberof OrganizationSearchResponseDto
-   */
-  success: boolean
-  /**
-   * Search results data
-   * @type {OrganizationSearchDataDto}
-   * @memberof OrganizationSearchResponseDto
-   */
-  data: OrganizationSearchDataDto
-  /**
-   * Pagination information
-   * @type {PaginationResponseDto}
-   * @memberof OrganizationSearchResponseDto
-   */
-  pagination: PaginationResponseDto
+    /**
+     * Operation success status
+     */
+    'success': boolean;
+    /**
+     * Search results data
+     */
+    'data': OrganizationSearchDataDto;
+    /**
+     * Pagination information
+     */
+    'pagination': PaginationResponseDto;
 }
+

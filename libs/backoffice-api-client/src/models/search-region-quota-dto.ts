@@ -12,38 +12,29 @@
  * Do not edit the class manually.
  */
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { PaginationDto } from './pagination-dto'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { RegionQuotaFiltersDto } from './region-quota-filters-dto'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { SortDto } from './sort-dto'
 
-/**
- *
- * @export
- * @interface SearchRegionQuotaDto
- */
+// May contain unused imports in some cases
+// @ts-ignore
+import type { PaginationDto } from './pagination-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { RegionQuotaFiltersDto } from './region-quota-filters-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { SortDto } from './sort-dto';
+
 export interface SearchRegionQuotaDto {
-  /**
-   * Pagination options
-   * @type {PaginationDto}
-   * @memberof SearchRegionQuotaDto
-   */
-  pagination?: PaginationDto
-  /**
-   * Sort options
-   * @type {SortDto}
-   * @memberof SearchRegionQuotaDto
-   */
-  sort?: SortDto
-  /**
-   * Filter options
-   * @type {RegionQuotaFiltersDto}
-   * @memberof SearchRegionQuotaDto
-   */
-  filters?: RegionQuotaFiltersDto
+    /**
+     * Pagination options
+     */
+    'pagination'?: PaginationDto;
+    /**
+     * Sort options
+     */
+    'sort'?: SortDto;
+    /**
+     * Filter options
+     */
+    'filters'?: RegionQuotaFiltersDto;
 }
+

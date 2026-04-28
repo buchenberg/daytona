@@ -12,32 +12,23 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { CreateRunnerDto } from './create-runner-dto'
+import type { CreateRunnerDto } from './create-runner-dto';
 
-/**
- *
- * @export
- * @interface BulkInsertRunnerDto
- */
 export interface BulkInsertRunnerDto {
-  /**
-   * Array of runner data to insert
-   * @type {Array<CreateRunnerDto>}
-   * @memberof BulkInsertRunnerDto
-   */
-  runners: Array<CreateRunnerDto>
-  /**
-   * Dry run mode - validate without inserting
-   * @type {boolean}
-   * @memberof BulkInsertRunnerDto
-   */
-  dryRun?: boolean
-  /**
-   * Skip validation errors and insert valid runners only
-   * @type {boolean}
-   * @memberof BulkInsertRunnerDto
-   */
-  skipErrors?: boolean
+    /**
+     * Array of runner data to insert
+     */
+    'runners': Array<CreateRunnerDto>;
+    /**
+     * Dry run mode - validate without inserting
+     */
+    'dryRun'?: boolean;
+    /**
+     * Skip validation errors and insert valid runners only
+     */
+    'skipErrors'?: boolean;
 }
+

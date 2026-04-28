@@ -12,46 +12,32 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface AuditLogFiltersDto
- */
+
+
 export interface AuditLogFiltersDto {
-  /**
-   * Filter by actor email
-   * @type {string}
-   * @memberof AuditLogFiltersDto
-   */
-  actorEmail?: string
-  /**
-   * Filter by action type
-   * @type {string}
-   * @memberof AuditLogFiltersDto
-   */
-  action?: string
-  /**
-   * Filter by target type
-   * @type {string}
-   * @memberof AuditLogFiltersDto
-   */
-  targetType?: string
-  /**
-   * Filter by target ID
-   * @type {string}
-   * @memberof AuditLogFiltersDto
-   */
-  targetId?: string
-  /**
-   * Filter by start date
-   * @type {Date}
-   * @memberof AuditLogFiltersDto
-   */
-  startDate?: Date
-  /**
-   * Filter by end date
-   * @type {Date}
-   * @memberof AuditLogFiltersDto
-   */
-  endDate?: Date
+    /**
+     * Filter by actor email
+     */
+    'actorEmail'?: string;
+    /**
+     * Filter by action type
+     */
+    'action'?: string;
+    /**
+     * Filter by target type
+     */
+    'targetType'?: string;
+    /**
+     * Filter by target ID
+     */
+    'targetId'?: string;
+    /**
+     * Filter by start date
+     */
+    'startDate'?: Date;
+    /**
+     * Filter by end date
+     */
+    'endDate'?: Date;
 }
+

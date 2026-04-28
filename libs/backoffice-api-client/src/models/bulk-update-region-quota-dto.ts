@@ -12,35 +12,20 @@
  * Do not edit the class manually.
  */
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { RegionQuotaCompositeKey } from './region-quota-composite-key'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { UpdateRegionQuotaDto } from './update-region-quota-dto'
 
-/**
- *
- * @export
- * @interface BulkUpdateRegionQuotaDto
- */
+// May contain unused imports in some cases
+// @ts-ignore
+import type { RegionQuotaCompositeKey } from './region-quota-composite-key';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { UpdateRegionQuotaDto } from './update-region-quota-dto';
+
 export interface BulkUpdateRegionQuotaDto {
-  /**
-   *
-   * @type {Array<RegionQuotaCompositeKey>}
-   * @memberof BulkUpdateRegionQuotaDto
-   */
-  ids: Array<RegionQuotaCompositeKey>
-  /**
-   * Updates to apply to all region quotas
-   * @type {UpdateRegionQuotaDto}
-   * @memberof BulkUpdateRegionQuotaDto
-   */
-  updates: UpdateRegionQuotaDto
-  /**
-   *
-   * @type {boolean}
-   * @memberof BulkUpdateRegionQuotaDto
-   */
-  dryRun?: boolean
+    'ids': Array<RegionQuotaCompositeKey>;
+    /**
+     * Updates to apply to all region quotas
+     */
+    'updates': UpdateRegionQuotaDto;
+    'dryRun'?: boolean;
 }
+

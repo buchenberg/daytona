@@ -12,26 +12,19 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { UpdateSandboxDto } from './update-sandbox-dto'
+import type { UpdateSandboxDto } from './update-sandbox-dto';
 
-/**
- *
- * @export
- * @interface PatchSandboxDto
- */
 export interface PatchSandboxDto {
-  /**
-   * Fields to update
-   * @type {UpdateSandboxDto}
-   * @memberof PatchSandboxDto
-   */
-  updates: UpdateSandboxDto
-  /**
-   * Expected current values for optimistic concurrency control. Update fails with 409 if any field does not match.
-   * @type {UpdateSandboxDto}
-   * @memberof PatchSandboxDto
-   */
-  preconditions?: UpdateSandboxDto
+    /**
+     * Fields to update
+     */
+    'updates': UpdateSandboxDto;
+    /**
+     * Expected current values for optimistic concurrency control. Update fails with 409 if any field does not match.
+     */
+    'preconditions'?: UpdateSandboxDto;
 }
+

@@ -12,28 +12,20 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface UserDeletionOptionsDto
- */
+
+
 export interface UserDeletionOptionsDto {
-  /**
-   * Delete sandbox templates (hard delete)
-   * @type {boolean}
-   * @memberof UserDeletionOptionsDto
-   */
-  deleteSandboxTemplates?: boolean
-  /**
-   * Delete API keys (hard delete)
-   * @type {boolean}
-   * @memberof UserDeletionOptionsDto
-   */
-  deleteApiKeys?: boolean
-  /**
-   * Delete organization memberships (hard delete)
-   * @type {boolean}
-   * @memberof UserDeletionOptionsDto
-   */
-  deleteOrgMemberships?: boolean
+    /**
+     * Delete sandbox templates (hard delete)
+     */
+    'deleteSandboxTemplates'?: boolean;
+    /**
+     * Delete API keys (hard delete)
+     */
+    'deleteApiKeys'?: boolean;
+    /**
+     * Delete organization memberships (hard delete)
+     */
+    'deleteOrgMemberships'?: boolean;
 }
+

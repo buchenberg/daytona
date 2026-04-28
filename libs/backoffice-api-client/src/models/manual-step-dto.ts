@@ -12,28 +12,20 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface ManualStepDto
- */
+
+
 export interface ManualStepDto {
-  /**
-   * External service name
-   * @type {string}
-   * @memberof ManualStepDto
-   */
-  service: string
-  /**
-   * Instruction for manual action
-   * @type {string}
-   * @memberof ManualStepDto
-   */
-  instruction: string
-  /**
-   * Relevant identifier (user ID, customer ID, etc.)
-   * @type {string}
-   * @memberof ManualStepDto
-   */
-  identifier: string
+    /**
+     * External service name
+     */
+    'service': string;
+    /**
+     * Instruction for manual action
+     */
+    'instruction': string;
+    /**
+     * Relevant identifier (user ID, customer ID, etc.)
+     */
+    'identifier': string;
 }
+

@@ -12,32 +12,17 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { UpdateSandboxDto } from './update-sandbox-dto'
+import type { UpdateSandboxDto } from './update-sandbox-dto';
 
-/**
- *
- * @export
- * @interface BulkUpdateSandboxDto
- */
 export interface BulkUpdateSandboxDto {
-  /**
-   *
-   * @type {Array<string>}
-   * @memberof BulkUpdateSandboxDto
-   */
-  ids: Array<string>
-  /**
-   * Updates to apply to all sandboxes
-   * @type {UpdateSandboxDto}
-   * @memberof BulkUpdateSandboxDto
-   */
-  updates: UpdateSandboxDto
-  /**
-   *
-   * @type {boolean}
-   * @memberof BulkUpdateSandboxDto
-   */
-  dryRun?: boolean
+    'ids': Array<string>;
+    /**
+     * Updates to apply to all sandboxes
+     */
+    'updates': UpdateSandboxDto;
+    'dryRun'?: boolean;
 }
+

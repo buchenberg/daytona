@@ -12,35 +12,26 @@
  * Do not edit the class manually.
  */
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { PaginationResponseDto } from './pagination-response-dto'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { RunnerSearchDataDto } from './runner-search-data-dto'
 
-/**
- *
- * @export
- * @interface RunnerSearchResponseDto
- */
+// May contain unused imports in some cases
+// @ts-ignore
+import type { PaginationResponseDto } from './pagination-response-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { RunnerSearchDataDto } from './runner-search-data-dto';
+
 export interface RunnerSearchResponseDto {
-  /**
-   * Operation success status
-   * @type {boolean}
-   * @memberof RunnerSearchResponseDto
-   */
-  success: boolean
-  /**
-   * Search results data
-   * @type {RunnerSearchDataDto}
-   * @memberof RunnerSearchResponseDto
-   */
-  data: RunnerSearchDataDto
-  /**
-   * Pagination information
-   * @type {PaginationResponseDto}
-   * @memberof RunnerSearchResponseDto
-   */
-  pagination: PaginationResponseDto
+    /**
+     * Operation success status
+     */
+    'success': boolean;
+    /**
+     * Search results data
+     */
+    'data': RunnerSearchDataDto;
+    /**
+     * Pagination information
+     */
+    'pagination': PaginationResponseDto;
 }
+

@@ -12,168 +12,127 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface UpdateSandboxDto
- */
+
+
 export interface UpdateSandboxDto {
-  /**
-   * Sandbox state
-   * @type {string}
-   * @memberof UpdateSandboxDto
-   */
-  state?: UpdateSandboxDtoStateEnum
-  /**
-   * Desired sandbox state
-   * @type {string}
-   * @memberof UpdateSandboxDto
-   */
-  desiredState?: UpdateSandboxDtoDesiredStateEnum
-  /**
-   * Runner ID
-   * @type {string}
-   * @memberof UpdateSandboxDto
-   */
-  runnerId?: string
-  /**
-   * Error reason
-   * @type {string}
-   * @memberof UpdateSandboxDto
-   */
-  errorReason?: string
-  /**
-   * Block all network traffic
-   * @type {boolean}
-   * @memberof UpdateSandboxDto
-   */
-  networkBlockAll?: boolean
-  /**
-   * Network allow list
-   * @type {string}
-   * @memberof UpdateSandboxDto
-   */
-  networkAllowList?: string
-  /**
-   * Labels (key-value pairs)
-   * @type {object}
-   * @memberof UpdateSandboxDto
-   */
-  labels?: object
-  /**
-   * Backup state
-   * @type {string}
-   * @memberof UpdateSandboxDto
-   */
-  backupState?: UpdateSandboxDtoBackupStateEnum
-  /**
-   * Backup error reason
-   * @type {string}
-   * @memberof UpdateSandboxDto
-   */
-  backupErrorReason?: string
-  /**
-   * Auto-stop interval in minutes
-   * @type {number}
-   * @memberof UpdateSandboxDto
-   */
-  autoStopInterval?: number
-  /**
-   * Auto-archive interval in minutes
-   * @type {number}
-   * @memberof UpdateSandboxDto
-   */
-  autoArchiveInterval?: number
-  /**
-   * Auto-delete interval in minutes
-   * @type {number}
-   * @memberof UpdateSandboxDto
-   */
-  autoDeleteInterval?: number
-  /**
-   * Is pending
-   * @type {boolean}
-   * @memberof UpdateSandboxDto
-   */
-  pending?: boolean
-  /**
-   * Authentication token
-   * @type {string}
-   * @memberof UpdateSandboxDto
-   */
-  authToken?: string
-  /**
-   * CPU cores
-   * @type {number}
-   * @memberof UpdateSandboxDto
-   */
-  cpu?: number
-  /**
-   * Memory in GiB
-   * @type {number}
-   * @memberof UpdateSandboxDto
-   */
-  mem?: number
-  /**
-   * Disk in GiB
-   * @type {number}
-   * @memberof UpdateSandboxDto
-   */
-  disk?: number
-  /**
-   * Is public
-   * @type {boolean}
-   * @memberof UpdateSandboxDto
-   */
-  public?: boolean
-  /**
-   * Is recoverable
-   * @type {boolean}
-   * @memberof UpdateSandboxDto
-   */
-  recoverable?: boolean
+    /**
+     * Sandbox state
+     */
+    'state'?: UpdateSandboxDtoStateEnum;
+    /**
+     * Desired sandbox state
+     */
+    'desiredState'?: UpdateSandboxDtoDesiredStateEnum;
+    /**
+     * Runner ID
+     */
+    'runnerId'?: string;
+    /**
+     * Error reason
+     */
+    'errorReason'?: string;
+    /**
+     * Block all network traffic
+     */
+    'networkBlockAll'?: boolean;
+    /**
+     * Network allow list
+     */
+    'networkAllowList'?: string;
+    /**
+     * Labels (key-value pairs)
+     */
+    'labels'?: object;
+    /**
+     * Backup state
+     */
+    'backupState'?: UpdateSandboxDtoBackupStateEnum;
+    /**
+     * Backup error reason
+     */
+    'backupErrorReason'?: string;
+    /**
+     * Auto-stop interval in minutes
+     */
+    'autoStopInterval'?: number;
+    /**
+     * Auto-archive interval in minutes
+     */
+    'autoArchiveInterval'?: number;
+    /**
+     * Auto-delete interval in minutes
+     */
+    'autoDeleteInterval'?: number;
+    /**
+     * Is pending
+     */
+    'pending'?: boolean;
+    /**
+     * Authentication token
+     */
+    'authToken'?: string;
+    /**
+     * CPU cores
+     */
+    'cpu'?: number;
+    /**
+     * Memory in GiB
+     */
+    'mem'?: number;
+    /**
+     * Disk in GiB
+     */
+    'disk'?: number;
+    /**
+     * Is public
+     */
+    'public'?: boolean;
+    /**
+     * Is recoverable
+     */
+    'recoverable'?: boolean;
 }
 
 export const UpdateSandboxDtoStateEnum = {
-  CREATING: 'creating',
-  RESTORING: 'restoring',
-  DESTROYED: 'destroyed',
-  DESTROYING: 'destroying',
-  STARTED: 'started',
-  STOPPED: 'stopped',
-  STARTING: 'starting',
-  STOPPING: 'stopping',
-  ERROR: 'error',
-  BUILD_FAILED: 'build_failed',
-  PENDING_BUILD: 'pending_build',
-  BUILDING_SNAPSHOT: 'building_snapshot',
-  UNKNOWN: 'unknown',
-  PULLING_SNAPSHOT: 'pulling_snapshot',
-  ARCHIVED: 'archived',
-  ARCHIVING: 'archiving',
-  RESIZING: 'resizing',
-  SNAPSHOTTING: 'snapshotting',
-  FORKING: 'forking',
-} as const
+    CREATING: 'creating',
+    RESTORING: 'restoring',
+    DESTROYED: 'destroyed',
+    DESTROYING: 'destroying',
+    STARTED: 'started',
+    STOPPED: 'stopped',
+    STARTING: 'starting',
+    STOPPING: 'stopping',
+    ERROR: 'error',
+    BUILD_FAILED: 'build_failed',
+    PENDING_BUILD: 'pending_build',
+    BUILDING_SNAPSHOT: 'building_snapshot',
+    UNKNOWN: 'unknown',
+    PULLING_SNAPSHOT: 'pulling_snapshot',
+    ARCHIVED: 'archived',
+    ARCHIVING: 'archiving',
+    RESIZING: 'resizing',
+    SNAPSHOTTING: 'snapshotting',
+    FORKING: 'forking',
+} as const;
 
-export type UpdateSandboxDtoStateEnum = (typeof UpdateSandboxDtoStateEnum)[keyof typeof UpdateSandboxDtoStateEnum]
+export type UpdateSandboxDtoStateEnum = typeof UpdateSandboxDtoStateEnum[keyof typeof UpdateSandboxDtoStateEnum];
 export const UpdateSandboxDtoDesiredStateEnum = {
-  DESTROYED: 'destroyed',
-  STARTED: 'started',
-  STOPPED: 'stopped',
-  RESIZED: 'resized',
-  ARCHIVED: 'archived',
-} as const
+    DESTROYED: 'destroyed',
+    STARTED: 'started',
+    STOPPED: 'stopped',
+    RESIZED: 'resized',
+    ARCHIVED: 'archived',
+} as const;
 
-export type UpdateSandboxDtoDesiredStateEnum =
-  (typeof UpdateSandboxDtoDesiredStateEnum)[keyof typeof UpdateSandboxDtoDesiredStateEnum]
+export type UpdateSandboxDtoDesiredStateEnum = typeof UpdateSandboxDtoDesiredStateEnum[keyof typeof UpdateSandboxDtoDesiredStateEnum];
 export const UpdateSandboxDtoBackupStateEnum = {
-  NONE: 'None',
-  PENDING: 'Pending',
-  IN_PROGRESS: 'InProgress',
-  COMPLETED: 'Completed',
-  ERROR: 'Error',
-} as const
+    NONE: 'None',
+    PENDING: 'Pending',
+    IN_PROGRESS: 'InProgress',
+    COMPLETED: 'Completed',
+    ERROR: 'Error',
+} as const;
 
-export type UpdateSandboxDtoBackupStateEnum =
-  (typeof UpdateSandboxDtoBackupStateEnum)[keyof typeof UpdateSandboxDtoBackupStateEnum]
+export type UpdateSandboxDtoBackupStateEnum = typeof UpdateSandboxDtoBackupStateEnum[keyof typeof UpdateSandboxDtoBackupStateEnum];
+
+

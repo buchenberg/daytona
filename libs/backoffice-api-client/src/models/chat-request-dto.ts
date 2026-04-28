@@ -12,22 +12,16 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface ChatRequestDto
- */
+
+
 export interface ChatRequestDto {
-  /**
-   * Conversation ID to continue, or omit to create new
-   * @type {string}
-   * @memberof ChatRequestDto
-   */
-  conversationId?: string
-  /**
-   * User message text
-   * @type {string}
-   * @memberof ChatRequestDto
-   */
-  message: string
+    /**
+     * Conversation ID to continue, or omit to create new
+     */
+    'conversationId'?: string;
+    /**
+     * User message text
+     */
+    'message': string;
 }
+

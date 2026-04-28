@@ -12,32 +12,17 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { UpdateSnapshotDto } from './update-snapshot-dto'
+import type { UpdateSnapshotDto } from './update-snapshot-dto';
 
-/**
- *
- * @export
- * @interface BulkUpdateSnapshotDto
- */
 export interface BulkUpdateSnapshotDto {
-  /**
-   *
-   * @type {Array<string>}
-   * @memberof BulkUpdateSnapshotDto
-   */
-  ids: Array<string>
-  /**
-   * Updates to apply to all snapshots
-   * @type {UpdateSnapshotDto}
-   * @memberof BulkUpdateSnapshotDto
-   */
-  updates: UpdateSnapshotDto
-  /**
-   *
-   * @type {boolean}
-   * @memberof BulkUpdateSnapshotDto
-   */
-  dryRun?: boolean
+    'ids': Array<string>;
+    /**
+     * Updates to apply to all snapshots
+     */
+    'updates': UpdateSnapshotDto;
+    'dryRun'?: boolean;
 }
+

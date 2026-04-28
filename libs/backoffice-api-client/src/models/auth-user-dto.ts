@@ -12,38 +12,15 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { PermissionsDto } from './permissions-dto'
+import type { PermissionsDto } from './permissions-dto';
 
-/**
- *
- * @export
- * @interface AuthUserDto
- */
 export interface AuthUserDto {
-  /**
-   *
-   * @type {string}
-   * @memberof AuthUserDto
-   */
-  id: string
-  /**
-   *
-   * @type {string}
-   * @memberof AuthUserDto
-   */
-  email: string
-  /**
-   *
-   * @type {string}
-   * @memberof AuthUserDto
-   */
-  name?: string
-  /**
-   *
-   * @type {PermissionsDto}
-   * @memberof AuthUserDto
-   */
-  permissions: PermissionsDto
+    'id': string;
+    'email': string;
+    'name'?: string;
+    'permissions': PermissionsDto;
 }
+

@@ -12,129 +12,43 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface RunnerResponseDto
- */
+
+
 export interface RunnerResponseDto {
-  /**
-   *
-   * @type {string}
-   * @memberof RunnerResponseDto
-   */
-  id: string
-  /**
-   *
-   * @type {string}
-   * @memberof RunnerResponseDto
-   */
-  domain: string
-  /**
-   *
-   * @type {string}
-   * @memberof RunnerResponseDto
-   */
-  region: string
-  /**
-   *
-   * @type {string}
-   * @memberof RunnerResponseDto
-   */
-  state: RunnerResponseDtoStateEnum
-  /**
-   *
-   * @type {string}
-   * @memberof RunnerResponseDto
-   */
-  class: RunnerResponseDtoClassEnum
-  /**
-   *
-   * @type {number}
-   * @memberof RunnerResponseDto
-   */
-  currentCpuUsagePercentage: number
-  /**
-   *
-   * @type {number}
-   * @memberof RunnerResponseDto
-   */
-  currentMemoryUsagePercentage: number
-  /**
-   *
-   * @type {number}
-   * @memberof RunnerResponseDto
-   */
-  currentDiskUsagePercentage: number
-  /**
-   *
-   * @type {number}
-   * @memberof RunnerResponseDto
-   */
-  availabilityScore?: number
-  /**
-   *
-   * @type {number}
-   * @memberof RunnerResponseDto
-   */
-  cpu: number
-  /**
-   *
-   * @type {number}
-   * @memberof RunnerResponseDto
-   */
-  memoryGiB: number
-  /**
-   *
-   * @type {number}
-   * @memberof RunnerResponseDto
-   */
-  diskGiB: number
-  /**
-   *
-   * @type {Date}
-   * @memberof RunnerResponseDto
-   */
-  lastChecked?: Date
-  /**
-   *
-   * @type {boolean}
-   * @memberof RunnerResponseDto
-   */
-  unschedulable: boolean
-  /**
-   *
-   * @type {boolean}
-   * @memberof RunnerResponseDto
-   */
-  draining: boolean
-  /**
-   *
-   * @type {string}
-   * @memberof RunnerResponseDto
-   */
-  appVersion?: string | null
-  /**
-   *
-   * @type {string}
-   * @memberof RunnerResponseDto
-   */
-  apiVersion: string
+    'id': string;
+    'domain': string;
+    'region': string;
+    'state': RunnerResponseDtoStateEnum;
+    'class': RunnerResponseDtoClassEnum;
+    'currentCpuUsagePercentage': number;
+    'currentMemoryUsagePercentage': number;
+    'currentDiskUsagePercentage': number;
+    'availabilityScore'?: number;
+    'cpu': number;
+    'memoryGiB': number;
+    'diskGiB': number;
+    'lastChecked'?: Date;
+    'unschedulable': boolean;
+    'draining': boolean;
+    'appVersion'?: string | null;
+    'apiVersion': string;
 }
 
 export const RunnerResponseDtoStateEnum = {
-  INITIALIZING: 'initializing',
-  READY: 'ready',
-  DISABLED: 'disabled',
-  DECOMMISSIONED: 'decommissioned',
-  UNRESPONSIVE: 'unresponsive',
-} as const
+    INITIALIZING: 'initializing',
+    READY: 'ready',
+    DISABLED: 'disabled',
+    DECOMMISSIONED: 'decommissioned',
+    UNRESPONSIVE: 'unresponsive',
+} as const;
 
-export type RunnerResponseDtoStateEnum = (typeof RunnerResponseDtoStateEnum)[keyof typeof RunnerResponseDtoStateEnum]
+export type RunnerResponseDtoStateEnum = typeof RunnerResponseDtoStateEnum[keyof typeof RunnerResponseDtoStateEnum];
 export const RunnerResponseDtoClassEnum = {
-  SMALL: 'small',
-  MEDIUM: 'medium',
-  LARGE: 'large',
-} as const
+    SMALL: 'small',
+    MEDIUM: 'medium',
+    LARGE: 'large',
+} as const;
 
-export type RunnerResponseDtoClassEnum = (typeof RunnerResponseDtoClassEnum)[keyof typeof RunnerResponseDtoClassEnum]
+export type RunnerResponseDtoClassEnum = typeof RunnerResponseDtoClassEnum[keyof typeof RunnerResponseDtoClassEnum];
+
+

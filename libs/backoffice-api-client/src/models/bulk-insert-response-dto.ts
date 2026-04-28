@@ -12,50 +12,35 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { BulkInsertResultDto } from './bulk-insert-result-dto'
+import type { BulkInsertResultDto } from './bulk-insert-result-dto';
 
-/**
- *
- * @export
- * @interface BulkInsertResponseDto
- */
 export interface BulkInsertResponseDto {
-  /**
-   * Total number of runners processed
-   * @type {number}
-   * @memberof BulkInsertResponseDto
-   */
-  totalProcessed: number
-  /**
-   * Number of successful inserts
-   * @type {number}
-   * @memberof BulkInsertResponseDto
-   */
-  successCount: number
-  /**
-   * Number of failed inserts
-   * @type {number}
-   * @memberof BulkInsertResponseDto
-   */
-  failureCount: number
-  /**
-   * Number of skipped (duplicate) runners
-   * @type {number}
-   * @memberof BulkInsertResponseDto
-   */
-  skippedCount: number
-  /**
-   * Array of individual insert results
-   * @type {Array<BulkInsertResultDto>}
-   * @memberof BulkInsertResponseDto
-   */
-  results: Array<BulkInsertResultDto>
-  /**
-   * Array of warning messages
-   * @type {Array<string>}
-   * @memberof BulkInsertResponseDto
-   */
-  warnings: Array<string>
+    /**
+     * Total number of runners processed
+     */
+    'totalProcessed': number;
+    /**
+     * Number of successful inserts
+     */
+    'successCount': number;
+    /**
+     * Number of failed inserts
+     */
+    'failureCount': number;
+    /**
+     * Number of skipped (duplicate) runners
+     */
+    'skippedCount': number;
+    /**
+     * Array of individual insert results
+     */
+    'results': Array<BulkInsertResultDto>;
+    /**
+     * Array of warning messages
+     */
+    'warnings': Array<string>;
 }
+

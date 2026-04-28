@@ -12,32 +12,23 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { AuditLogFiltersDto } from './audit-log-filters-dto'
+import type { AuditLogFiltersDto } from './audit-log-filters-dto';
 
-/**
- *
- * @export
- * @interface SearchAuditLogsDto
- */
 export interface SearchAuditLogsDto {
-  /**
-   * Page number for pagination
-   * @type {number}
-   * @memberof SearchAuditLogsDto
-   */
-  page?: number
-  /**
-   * Number of items per page
-   * @type {number}
-   * @memberof SearchAuditLogsDto
-   */
-  pageSize?: number
-  /**
-   * Filters to apply
-   * @type {AuditLogFiltersDto}
-   * @memberof SearchAuditLogsDto
-   */
-  filters?: AuditLogFiltersDto
+    /**
+     * Page number for pagination
+     */
+    'page'?: number;
+    /**
+     * Number of items per page
+     */
+    'pageSize'?: number;
+    /**
+     * Filters to apply
+     */
+    'filters'?: AuditLogFiltersDto;
 }
+

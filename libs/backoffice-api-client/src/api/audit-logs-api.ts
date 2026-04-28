@@ -12,153 +12,120 @@
  * Do not edit the class manually.
  */
 
-import type { Configuration } from '../configuration'
-import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from 'axios'
-import globalAxios from 'axios'
+
+import type { Configuration } from '../configuration';
+import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from 'axios';
+import globalAxios from 'axios';
 // Some imports not used depending on template conditions
 // @ts-ignore
-import {
-  DUMMY_BASE_URL,
-  assertParamExists,
-  setApiKeyToObject,
-  setBasicAuthToObject,
-  setBearerAuthToObject,
-  setOAuthToObject,
-  setSearchParams,
-  serializeDataIfNeeded,
-  toPathString,
-  createRequestFunction,
-} from '../common'
+import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObject, setBearerAuthToObject, setOAuthToObject, setSearchParams, serializeDataIfNeeded, toPathString, createRequestFunction, replaceWithSerializableTypeIfNeeded } from '../common';
 // @ts-ignore
-import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base'
+import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
 // @ts-ignore
-import type { AuditLogSearchResponseDto } from '../models'
+import type { AuditLogSearchResponseDto } from '../models';
 // @ts-ignore
-import type { SearchAuditLogsDto } from '../models'
+import type { SearchAuditLogsDto } from '../models';
 /**
  * AuditLogsApi - axios parameter creator
- * @export
  */
 export const AuditLogsApiAxiosParamCreator = function (configuration?: Configuration) {
-  return {
-    /**
-     *
-     * @summary Search audit logs with filters
-     * @param {SearchAuditLogsDto} searchAuditLogsDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    auditControllerSearch: async (
-      searchAuditLogsDto: SearchAuditLogsDto,
-      options: RawAxiosRequestConfig = {},
-    ): Promise<RequestArgs> => {
-      // verify required parameter 'searchAuditLogsDto' is not null or undefined
-      assertParamExists('auditControllerSearch', 'searchAuditLogsDto', searchAuditLogsDto)
-      const localVarPath = `/audit-logs/search`
-      // use dummy base URL string because the URL constructor only accepts absolute URLs.
-      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL)
-      let baseOptions
-      if (configuration) {
-        baseOptions = configuration.baseOptions
-      }
+    return {
+        /**
+         * 
+         * @summary Search audit logs with filters
+         * @param {SearchAuditLogsDto} searchAuditLogsDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        auditControllerSearch: async (searchAuditLogsDto: SearchAuditLogsDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'searchAuditLogsDto' is not null or undefined
+            assertParamExists('auditControllerSearch', 'searchAuditLogsDto', searchAuditLogsDto)
+            const localVarPath = `/audit-logs/search`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
 
-      const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options }
-      const localVarHeaderParameter = {} as any
-      const localVarQueryParameter = {} as any
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
 
-      // authentication bearerAuth required
-      // http bearer authentication required
-      await setBearerAuthToObject(localVarHeaderParameter, configuration)
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-      localVarHeaderParameter['Content-Type'] = 'application/json'
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
 
-      setSearchParams(localVarUrlObj, localVarQueryParameter)
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {}
-      localVarRequestOptions.headers = { ...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers }
-      localVarRequestOptions.data = serializeDataIfNeeded(searchAuditLogsDto, localVarRequestOptions, configuration)
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(searchAuditLogsDto, localVarRequestOptions, configuration)
 
-      return {
-        url: toPathString(localVarUrlObj),
-        options: localVarRequestOptions,
-      }
-    },
-  }
-}
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
 
 /**
  * AuditLogsApi - functional programming interface
- * @export
  */
-export const AuditLogsApiFp = function (configuration?: Configuration) {
-  const localVarAxiosParamCreator = AuditLogsApiAxiosParamCreator(configuration)
-  return {
-    /**
-     *
-     * @summary Search audit logs with filters
-     * @param {SearchAuditLogsDto} searchAuditLogsDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    async auditControllerSearch(
-      searchAuditLogsDto: SearchAuditLogsDto,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AuditLogSearchResponseDto>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.auditControllerSearch(searchAuditLogsDto, options)
-      const localVarOperationServerIndex = configuration?.serverIndex ?? 0
-      const localVarOperationServerBasePath =
-        operationServerMap['AuditLogsApi.auditControllerSearch']?.[localVarOperationServerIndex]?.url
-      return (axios, basePath) =>
-        createRequestFunction(
-          localVarAxiosArgs,
-          globalAxios,
-          BASE_PATH,
-          configuration,
-        )(axios, localVarOperationServerBasePath || basePath)
-    },
-  }
-}
+export const AuditLogsApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = AuditLogsApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * 
+         * @summary Search audit logs with filters
+         * @param {SearchAuditLogsDto} searchAuditLogsDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async auditControllerSearch(searchAuditLogsDto: SearchAuditLogsDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AuditLogSearchResponseDto>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.auditControllerSearch(searchAuditLogsDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AuditLogsApi.auditControllerSearch']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
 
 /**
  * AuditLogsApi - factory interface
- * @export
  */
 export const AuditLogsApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
-  const localVarFp = AuditLogsApiFp(configuration)
-  return {
-    /**
-     *
-     * @summary Search audit logs with filters
-     * @param {SearchAuditLogsDto} searchAuditLogsDto
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     */
-    auditControllerSearch(
-      searchAuditLogsDto: SearchAuditLogsDto,
-      options?: RawAxiosRequestConfig,
-    ): AxiosPromise<AuditLogSearchResponseDto> {
-      return localVarFp.auditControllerSearch(searchAuditLogsDto, options).then((request) => request(axios, basePath))
-    },
-  }
-}
+    const localVarFp = AuditLogsApiFp(configuration)
+    return {
+        /**
+         * 
+         * @summary Search audit logs with filters
+         * @param {SearchAuditLogsDto} searchAuditLogsDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        auditControllerSearch(searchAuditLogsDto: SearchAuditLogsDto, options?: RawAxiosRequestConfig): AxiosPromise<AuditLogSearchResponseDto> {
+            return localVarFp.auditControllerSearch(searchAuditLogsDto, options).then((request) => request(axios, basePath));
+        },
+    };
+};
 
 /**
  * AuditLogsApi - object-oriented interface
- * @export
- * @class AuditLogsApi
- * @extends {BaseAPI}
  */
 export class AuditLogsApi extends BaseAPI {
-  /**
-   *
-   * @summary Search audit logs with filters
-   * @param {SearchAuditLogsDto} searchAuditLogsDto
-   * @param {*} [options] Override http request option.
-   * @throws {RequiredError}
-   * @memberof AuditLogsApi
-   */
-  public auditControllerSearch(searchAuditLogsDto: SearchAuditLogsDto, options?: RawAxiosRequestConfig) {
-    return AuditLogsApiFp(this.configuration)
-      .auditControllerSearch(searchAuditLogsDto, options)
-      .then((request) => request(this.axios, this.basePath))
-  }
+    /**
+     * 
+     * @summary Search audit logs with filters
+     * @param {SearchAuditLogsDto} searchAuditLogsDto 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public auditControllerSearch(searchAuditLogsDto: SearchAuditLogsDto, options?: RawAxiosRequestConfig) {
+        return AuditLogsApiFp(this.configuration).auditControllerSearch(searchAuditLogsDto, options).then((request) => request(this.axios, this.basePath));
+    }
 }
+

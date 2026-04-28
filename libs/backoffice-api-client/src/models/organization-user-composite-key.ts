@@ -12,22 +12,10 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface OrganizationUserCompositeKey
- */
+
+
 export interface OrganizationUserCompositeKey {
-  /**
-   *
-   * @type {string}
-   * @memberof OrganizationUserCompositeKey
-   */
-  organizationId: string
-  /**
-   *
-   * @type {string}
-   * @memberof OrganizationUserCompositeKey
-   */
-  userId: string
+    'organizationId': string;
+    'userId': string;
 }
+

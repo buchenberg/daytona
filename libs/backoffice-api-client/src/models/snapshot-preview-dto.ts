@@ -12,28 +12,20 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface SnapshotPreviewDto
- */
+
+
 export interface SnapshotPreviewDto {
-  /**
-   * Snapshot ID
-   * @type {string}
-   * @memberof SnapshotPreviewDto
-   */
-  id: string
-  /**
-   * Snapshot name
-   * @type {string}
-   * @memberof SnapshotPreviewDto
-   */
-  name: string
-  /**
-   * Snapshot state
-   * @type {string}
-   * @memberof SnapshotPreviewDto
-   */
-  state: string
+    /**
+     * Snapshot ID
+     */
+    'id': string;
+    /**
+     * Snapshot name
+     */
+    'name': string;
+    /**
+     * Snapshot state
+     */
+    'state': string;
 }
+

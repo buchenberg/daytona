@@ -12,35 +12,20 @@
  * Do not edit the class manually.
  */
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { OrganizationUserCompositeKey } from './organization-user-composite-key'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { UpdateOrganizationUserDto } from './update-organization-user-dto'
 
-/**
- *
- * @export
- * @interface BulkUpdateOrganizationUserDto
- */
+// May contain unused imports in some cases
+// @ts-ignore
+import type { OrganizationUserCompositeKey } from './organization-user-composite-key';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { UpdateOrganizationUserDto } from './update-organization-user-dto';
+
 export interface BulkUpdateOrganizationUserDto {
-  /**
-   *
-   * @type {Array<OrganizationUserCompositeKey>}
-   * @memberof BulkUpdateOrganizationUserDto
-   */
-  ids: Array<OrganizationUserCompositeKey>
-  /**
-   * Updates to apply to all organization users
-   * @type {UpdateOrganizationUserDto}
-   * @memberof BulkUpdateOrganizationUserDto
-   */
-  updates: UpdateOrganizationUserDto
-  /**
-   *
-   * @type {boolean}
-   * @memberof BulkUpdateOrganizationUserDto
-   */
-  dryRun?: boolean
+    'ids': Array<OrganizationUserCompositeKey>;
+    /**
+     * Updates to apply to all organization users
+     */
+    'updates': UpdateOrganizationUserDto;
+    'dryRun'?: boolean;
 }
+

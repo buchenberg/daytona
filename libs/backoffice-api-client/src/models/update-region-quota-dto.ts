@@ -12,52 +12,36 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface UpdateRegionQuotaDto
- */
+
+
 export interface UpdateRegionQuotaDto {
-  /**
-   * Total CPU quota
-   * @type {number}
-   * @memberof UpdateRegionQuotaDto
-   */
-  totalCpuQuota?: number
-  /**
-   * Total memory quota in GB
-   * @type {number}
-   * @memberof UpdateRegionQuotaDto
-   */
-  totalMemoryQuota?: number
-  /**
-   * Total disk quota in GB
-   * @type {number}
-   * @memberof UpdateRegionQuotaDto
-   */
-  totalDiskQuota?: number
-  /**
-   * Max CPU per sandbox in this region. null = use organization default.
-   * @type {number}
-   * @memberof UpdateRegionQuotaDto
-   */
-  maxCpuPerSandbox?: number | null
-  /**
-   * Max memory (GB) per sandbox in this region. null = use organization default.
-   * @type {number}
-   * @memberof UpdateRegionQuotaDto
-   */
-  maxMemoryPerSandbox?: number | null
-  /**
-   * Max disk (GB) per sandbox in this region. null = use organization default.
-   * @type {number}
-   * @memberof UpdateRegionQuotaDto
-   */
-  maxDiskPerSandbox?: number | null
-  /**
-   * Max disk (GB) for non-ephemeral sandboxes. null = fall back to maxDiskPerSandbox. 0 = non-ephemeral sandboxes disabled in this region.
-   * @type {number}
-   * @memberof UpdateRegionQuotaDto
-   */
-  maxDiskPerNonEphemeralSandbox?: number | null
+    /**
+     * Total CPU quota
+     */
+    'totalCpuQuota'?: number;
+    /**
+     * Total memory quota in GB
+     */
+    'totalMemoryQuota'?: number;
+    /**
+     * Total disk quota in GB
+     */
+    'totalDiskQuota'?: number;
+    /**
+     * Max CPU per sandbox in this region. null = use organization default.
+     */
+    'maxCpuPerSandbox'?: number | null;
+    /**
+     * Max memory (GB) per sandbox in this region. null = use organization default.
+     */
+    'maxMemoryPerSandbox'?: number | null;
+    /**
+     * Max disk (GB) per sandbox in this region. null = use organization default.
+     */
+    'maxDiskPerSandbox'?: number | null;
+    /**
+     * Max disk (GB) for non-ephemeral sandboxes. null = fall back to maxDiskPerSandbox. 0 = non-ephemeral sandboxes disabled in this region.
+     */
+    'maxDiskPerNonEphemeralSandbox'?: number | null;
 }
+

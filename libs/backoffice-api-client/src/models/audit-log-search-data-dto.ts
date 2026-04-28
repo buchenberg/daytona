@@ -12,20 +12,15 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { AuditLogResponseDto } from './audit-log-response-dto'
+import type { AuditLogResponseDto } from './audit-log-response-dto';
 
-/**
- *
- * @export
- * @interface AuditLogSearchDataDto
- */
 export interface AuditLogSearchDataDto {
-  /**
-   * List of audit logs
-   * @type {Array<AuditLogResponseDto>}
-   * @memberof AuditLogSearchDataDto
-   */
-  logs: Array<AuditLogResponseDto>
+    /**
+     * List of audit logs
+     */
+    'logs': Array<AuditLogResponseDto>;
 }
+

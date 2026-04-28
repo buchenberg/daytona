@@ -12,22 +12,16 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface BulkInsertErrorDto
- */
+
+
 export interface BulkInsertErrorDto {
-  /**
-   * Error code
-   * @type {string}
-   * @memberof BulkInsertErrorDto
-   */
-  code: string
-  /**
-   * Error message
-   * @type {string}
-   * @memberof BulkInsertErrorDto
-   */
-  message: string
+    /**
+     * Error code
+     */
+    'code': string;
+    /**
+     * Error message
+     */
+    'message': string;
 }
+

@@ -647,7 +647,7 @@ public class DaytonaConfiguration {
 
   static {
     // a set of all properties/fields (JSON key names)
-    openapiFields = new HashSet<String>(Arrays.asList("version", "posthog", "oidc", "linkedAccountsEnabled", "announcements", "pylonAppId", "proxyTemplateUrl", "proxyToolboxUrl", "defaultSnapshot", "dashboardUrl", "maxAutoArchiveInterval", "maintananceMode", "environment", "billingApiUrl", "analyticsApiUrl", "sshGatewayCommand", "sshGatewayPublicKey", "rateLimit"));
+    openapiFields = new HashSet<String>(Arrays.asList("version", "posthog", "oidc", "linkedAccountsEnabled", "announcements", "pylonAppId", "proxyTemplateUrl", "proxyToolboxUrl", "defaultSnapshot", "dashboardUrl", "maxAutoArchiveInterval", "maintananceMode", "environment", "billingApiUrl", "analyticsApiUrl", "stripePublishableKey", "sshGatewayCommand", "sshGatewayPublicKey", "rateLimit"));
 
     // a set of required properties/fields (JSON key names)
     openapiRequiredFields = new HashSet<String>(Arrays.asList("version", "oidc", "linkedAccountsEnabled", "announcements", "proxyTemplateUrl", "proxyToolboxUrl", "defaultSnapshot", "dashboardUrl", "maxAutoArchiveInterval", "maintananceMode", "environment"));
@@ -707,7 +707,7 @@ public class DaytonaConfiguration {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `analyticsApiUrl` to be a primitive type in the JSON string but got `%s`", jsonObj.get("analyticsApiUrl").toString()));
       }
       if ((jsonObj.get("stripePublishableKey") != null && !jsonObj.get("stripePublishableKey").isJsonNull()) && !jsonObj.get("stripePublishableKey").isJsonPrimitive()) {
-        throw new IllegalArgumentException(String.format("Expected the field `stripePublishableKey` to be a primitive type in the JSON string but got `%s`", jsonObj.get("stripePublishableKey").toString()));
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `stripePublishableKey` to be a primitive type in the JSON string but got `%s`", jsonObj.get("stripePublishableKey").toString()));
       }
       if ((jsonObj.get("sshGatewayCommand") != null && !jsonObj.get("sshGatewayCommand").isJsonNull()) && !jsonObj.get("sshGatewayCommand").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `sshGatewayCommand` to be a primitive type in the JSON string but got `%s`", jsonObj.get("sshGatewayCommand").toString()));

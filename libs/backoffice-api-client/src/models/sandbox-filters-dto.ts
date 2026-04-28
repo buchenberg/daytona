@@ -12,152 +12,119 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { RangeDto } from './range-dto'
+import type { RangeDto } from './range-dto';
 
-/**
- *
- * @export
- * @interface SandboxFiltersDto
- */
 export interface SandboxFiltersDto {
-  /**
-   * Filter by specific sandbox IDs
-   * @type {Array<string>}
-   * @memberof SandboxFiltersDto
-   */
-  sandboxIds?: Array<string>
-  /**
-   * Filter by organization ID
-   * @type {string}
-   * @memberof SandboxFiltersDto
-   */
-  organizationId?: string
-  /**
-   * Search by id (partial match)
-   * @type {string}
-   * @memberof SandboxFiltersDto
-   */
-  search?: string
-  /**
-   * Filter by region
-   * @type {string}
-   * @memberof SandboxFiltersDto
-   */
-  region?: string
-  /**
-   * Filter by sandbox states
-   * @type {Array<string>}
-   * @memberof SandboxFiltersDto
-   */
-  state?: Array<SandboxFiltersDtoStateEnum>
-  /**
-   * Exclude specific states
-   * @type {Array<string>}
-   * @memberof SandboxFiltersDto
-   */
-  excludeStates?: Array<SandboxFiltersDtoExcludeStatesEnum>
-  /**
-   * Filter by runner ID
-   * @type {string}
-   * @memberof SandboxFiltersDto
-   */
-  runnerId?: string
-  /**
-   * Filter by public status
-   * @type {boolean}
-   * @memberof SandboxFiltersDto
-   */
-  public?: boolean
-  /**
-   * Only include sandboxes with errors
-   * @type {boolean}
-   * @memberof SandboxFiltersDto
-   */
-  errorOnly?: boolean
-  /**
-   * Filter by has error status
-   * @type {boolean}
-   * @memberof SandboxFiltersDto
-   */
-  hasError?: boolean
-  /**
-   * Filter by CPU range
-   * @type {RangeDto}
-   * @memberof SandboxFiltersDto
-   */
-  cpu?: RangeDto
-  /**
-   * Filter by memory range
-   * @type {RangeDto}
-   * @memberof SandboxFiltersDto
-   */
-  memory?: RangeDto
-  /**
-   * Filter by disk range
-   * @type {RangeDto}
-   * @memberof SandboxFiltersDto
-   */
-  disk?: RangeDto
-  /**
-   * Filter by created after date
-   * @type {Date}
-   * @memberof SandboxFiltersDto
-   */
-  createdAfter?: Date
-  /**
-   * Filter by created before date
-   * @type {Date}
-   * @memberof SandboxFiltersDto
-   */
-  createdBefore?: Date
+    /**
+     * Filter by specific sandbox IDs
+     */
+    'sandboxIds'?: Array<string>;
+    /**
+     * Filter by organization ID
+     */
+    'organizationId'?: string;
+    /**
+     * Search by id (partial match)
+     */
+    'search'?: string;
+    /**
+     * Filter by region
+     */
+    'region'?: string;
+    /**
+     * Filter by sandbox states
+     */
+    'state'?: Array<SandboxFiltersDtoStateEnum>;
+    /**
+     * Exclude specific states
+     */
+    'excludeStates'?: Array<SandboxFiltersDtoExcludeStatesEnum>;
+    /**
+     * Filter by runner ID
+     */
+    'runnerId'?: string;
+    /**
+     * Filter by public status
+     */
+    'public'?: boolean;
+    /**
+     * Only include sandboxes with errors
+     */
+    'errorOnly'?: boolean;
+    /**
+     * Filter by has error status
+     */
+    'hasError'?: boolean;
+    /**
+     * Filter by CPU range
+     */
+    'cpu'?: RangeDto;
+    /**
+     * Filter by memory range
+     */
+    'memory'?: RangeDto;
+    /**
+     * Filter by disk range
+     */
+    'disk'?: RangeDto;
+    /**
+     * Filter by created after date
+     */
+    'createdAfter'?: Date;
+    /**
+     * Filter by created before date
+     */
+    'createdBefore'?: Date;
 }
 
 export const SandboxFiltersDtoStateEnum = {
-  CREATING: 'creating',
-  RESTORING: 'restoring',
-  DESTROYED: 'destroyed',
-  DESTROYING: 'destroying',
-  STARTED: 'started',
-  STOPPED: 'stopped',
-  STARTING: 'starting',
-  STOPPING: 'stopping',
-  ERROR: 'error',
-  BUILD_FAILED: 'build_failed',
-  PENDING_BUILD: 'pending_build',
-  BUILDING_SNAPSHOT: 'building_snapshot',
-  UNKNOWN: 'unknown',
-  PULLING_SNAPSHOT: 'pulling_snapshot',
-  ARCHIVED: 'archived',
-  ARCHIVING: 'archiving',
-  RESIZING: 'resizing',
-  SNAPSHOTTING: 'snapshotting',
-  FORKING: 'forking',
-} as const
+    CREATING: 'creating',
+    RESTORING: 'restoring',
+    DESTROYED: 'destroyed',
+    DESTROYING: 'destroying',
+    STARTED: 'started',
+    STOPPED: 'stopped',
+    STARTING: 'starting',
+    STOPPING: 'stopping',
+    ERROR: 'error',
+    BUILD_FAILED: 'build_failed',
+    PENDING_BUILD: 'pending_build',
+    BUILDING_SNAPSHOT: 'building_snapshot',
+    UNKNOWN: 'unknown',
+    PULLING_SNAPSHOT: 'pulling_snapshot',
+    ARCHIVED: 'archived',
+    ARCHIVING: 'archiving',
+    RESIZING: 'resizing',
+    SNAPSHOTTING: 'snapshotting',
+    FORKING: 'forking',
+} as const;
 
-export type SandboxFiltersDtoStateEnum = (typeof SandboxFiltersDtoStateEnum)[keyof typeof SandboxFiltersDtoStateEnum]
+export type SandboxFiltersDtoStateEnum = typeof SandboxFiltersDtoStateEnum[keyof typeof SandboxFiltersDtoStateEnum];
 export const SandboxFiltersDtoExcludeStatesEnum = {
-  CREATING: 'creating',
-  RESTORING: 'restoring',
-  DESTROYED: 'destroyed',
-  DESTROYING: 'destroying',
-  STARTED: 'started',
-  STOPPED: 'stopped',
-  STARTING: 'starting',
-  STOPPING: 'stopping',
-  ERROR: 'error',
-  BUILD_FAILED: 'build_failed',
-  PENDING_BUILD: 'pending_build',
-  BUILDING_SNAPSHOT: 'building_snapshot',
-  UNKNOWN: 'unknown',
-  PULLING_SNAPSHOT: 'pulling_snapshot',
-  ARCHIVED: 'archived',
-  ARCHIVING: 'archiving',
-  RESIZING: 'resizing',
-  SNAPSHOTTING: 'snapshotting',
-  FORKING: 'forking',
-} as const
+    CREATING: 'creating',
+    RESTORING: 'restoring',
+    DESTROYED: 'destroyed',
+    DESTROYING: 'destroying',
+    STARTED: 'started',
+    STOPPED: 'stopped',
+    STARTING: 'starting',
+    STOPPING: 'stopping',
+    ERROR: 'error',
+    BUILD_FAILED: 'build_failed',
+    PENDING_BUILD: 'pending_build',
+    BUILDING_SNAPSHOT: 'building_snapshot',
+    UNKNOWN: 'unknown',
+    PULLING_SNAPSHOT: 'pulling_snapshot',
+    ARCHIVED: 'archived',
+    ARCHIVING: 'archiving',
+    RESIZING: 'resizing',
+    SNAPSHOTTING: 'snapshotting',
+    FORKING: 'forking',
+} as const;
 
-export type SandboxFiltersDtoExcludeStatesEnum =
-  (typeof SandboxFiltersDtoExcludeStatesEnum)[keyof typeof SandboxFiltersDtoExcludeStatesEnum]
+export type SandboxFiltersDtoExcludeStatesEnum = typeof SandboxFiltersDtoExcludeStatesEnum[keyof typeof SandboxFiltersDtoExcludeStatesEnum];
+
+

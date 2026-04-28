@@ -12,22 +12,16 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface RangeDto
- */
+
+
 export interface RangeDto {
-  /**
-   * Minimum value (inclusive)
-   * @type {number}
-   * @memberof RangeDto
-   */
-  min?: number
-  /**
-   * Maximum value (inclusive)
-   * @type {number}
-   * @memberof RangeDto
-   */
-  max?: number
+    /**
+     * Minimum value (inclusive)
+     */
+    'min'?: number;
+    /**
+     * Maximum value (inclusive)
+     */
+    'max'?: number;
 }
+

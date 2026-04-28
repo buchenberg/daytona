@@ -12,54 +12,40 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface OrganizationUserFiltersDto
- */
+
+
 export interface OrganizationUserFiltersDto {
-  /**
-   * Search by user ID or organization ID (partial match)
-   * @type {string}
-   * @memberof OrganizationUserFiltersDto
-   */
-  search?: string
-  /**
-   * Filter by organization ID
-   * @type {string}
-   * @memberof OrganizationUserFiltersDto
-   */
-  organizationId?: string
-  /**
-   * Filter by user ID
-   * @type {string}
-   * @memberof OrganizationUserFiltersDto
-   */
-  userId?: string
-  /**
-   * Filter by role
-   * @type {Array<string>}
-   * @memberof OrganizationUserFiltersDto
-   */
-  role?: Array<OrganizationUserFiltersDtoRoleEnum>
-  /**
-   * Filter by created after date
-   * @type {Date}
-   * @memberof OrganizationUserFiltersDto
-   */
-  createdAfter?: Date
-  /**
-   * Filter by created before date
-   * @type {Date}
-   * @memberof OrganizationUserFiltersDto
-   */
-  createdBefore?: Date
+    /**
+     * Search by user ID or organization ID (partial match)
+     */
+    'search'?: string;
+    /**
+     * Filter by organization ID
+     */
+    'organizationId'?: string;
+    /**
+     * Filter by user ID
+     */
+    'userId'?: string;
+    /**
+     * Filter by role
+     */
+    'role'?: Array<OrganizationUserFiltersDtoRoleEnum>;
+    /**
+     * Filter by created after date
+     */
+    'createdAfter'?: Date;
+    /**
+     * Filter by created before date
+     */
+    'createdBefore'?: Date;
 }
 
 export const OrganizationUserFiltersDtoRoleEnum = {
-  OWNER: 'owner',
-  MEMBER: 'member',
-} as const
+    OWNER: 'owner',
+    MEMBER: 'member',
+} as const;
 
-export type OrganizationUserFiltersDtoRoleEnum =
-  (typeof OrganizationUserFiltersDtoRoleEnum)[keyof typeof OrganizationUserFiltersDtoRoleEnum]
+export type OrganizationUserFiltersDtoRoleEnum = typeof OrganizationUserFiltersDtoRoleEnum[keyof typeof OrganizationUserFiltersDtoRoleEnum];
+
+

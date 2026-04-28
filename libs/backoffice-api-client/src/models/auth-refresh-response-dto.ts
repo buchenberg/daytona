@@ -12,26 +12,13 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { AuthRefreshDataDto } from './auth-refresh-data-dto'
+import type { AuthRefreshDataDto } from './auth-refresh-data-dto';
 
-/**
- *
- * @export
- * @interface AuthRefreshResponseDto
- */
 export interface AuthRefreshResponseDto {
-  /**
-   *
-   * @type {boolean}
-   * @memberof AuthRefreshResponseDto
-   */
-  success: boolean
-  /**
-   *
-   * @type {AuthRefreshDataDto}
-   * @memberof AuthRefreshResponseDto
-   */
-  data: AuthRefreshDataDto
+    'success': boolean;
+    'data': AuthRefreshDataDto;
 }
+

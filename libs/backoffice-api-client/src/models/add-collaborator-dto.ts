@@ -12,29 +12,24 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface AddCollaboratorDto
- */
+
+
 export interface AddCollaboratorDto {
-  /**
-   * User ID to add as collaborator
-   * @type {string}
-   * @memberof AddCollaboratorDto
-   */
-  userId: string
-  /**
-   * Access mode
-   * @type {string}
-   * @memberof AddCollaboratorDto
-   */
-  mode: AddCollaboratorDtoModeEnum
+    /**
+     * User ID to add as collaborator
+     */
+    'userId': string;
+    /**
+     * Access mode
+     */
+    'mode': AddCollaboratorDtoModeEnum;
 }
 
 export const AddCollaboratorDtoModeEnum = {
-  READ: 'read',
-  WRITE: 'write',
-} as const
+    READ: 'read',
+    WRITE: 'write',
+} as const;
 
-export type AddCollaboratorDtoModeEnum = (typeof AddCollaboratorDtoModeEnum)[keyof typeof AddCollaboratorDtoModeEnum]
+export type AddCollaboratorDtoModeEnum = typeof AddCollaboratorDtoModeEnum[keyof typeof AddCollaboratorDtoModeEnum];
+
+

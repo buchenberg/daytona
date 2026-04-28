@@ -12,22 +12,10 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface RegionQuotaCompositeKey
- */
+
+
 export interface RegionQuotaCompositeKey {
-  /**
-   *
-   * @type {string}
-   * @memberof RegionQuotaCompositeKey
-   */
-  organizationId: string
-  /**
-   *
-   * @type {string}
-   * @memberof RegionQuotaCompositeKey
-   */
-  region: string
+    'organizationId': string;
+    'region': string;
 }
+

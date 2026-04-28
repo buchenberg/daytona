@@ -12,41 +12,30 @@
  * Do not edit the class manually.
  */
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { ExecutedActionsDto } from './executed-actions-dto'
-// May contain unused imports in some cases
-// @ts-ignore
-import type { ManualStepDto } from './manual-step-dto'
 
-/**
- *
- * @export
- * @interface UserDeletionResponseDto
- */
+// May contain unused imports in some cases
+// @ts-ignore
+import type { ExecutedActionsDto } from './executed-actions-dto';
+// May contain unused imports in some cases
+// @ts-ignore
+import type { ManualStepDto } from './manual-step-dto';
+
 export interface UserDeletionResponseDto {
-  /**
-   * Operation success status
-   * @type {boolean}
-   * @memberof UserDeletionResponseDto
-   */
-  success: boolean
-  /**
-   * Actions executed by the service
-   * @type {ExecutedActionsDto}
-   * @memberof UserDeletionResponseDto
-   */
-  executedActions: ExecutedActionsDto
-  /**
-   * Manual steps required in external services
-   * @type {Array<ManualStepDto>}
-   * @memberof UserDeletionResponseDto
-   */
-  manualSteps: Array<ManualStepDto>
-  /**
-   * Warnings or notices
-   * @type {Array<string>}
-   * @memberof UserDeletionResponseDto
-   */
-  warnings: Array<string>
+    /**
+     * Operation success status
+     */
+    'success': boolean;
+    /**
+     * Actions executed by the service
+     */
+    'executedActions': ExecutedActionsDto;
+    /**
+     * Manual steps required in external services
+     */
+    'manualSteps': Array<ManualStepDto>;
+    /**
+     * Warnings or notices
+     */
+    'warnings': Array<string>;
 }
+

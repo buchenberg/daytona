@@ -12,211 +12,83 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface SandboxResponseDto
- */
+
+
 export interface SandboxResponseDto {
-  /**
-   *
-   * @type {string}
-   * @memberof SandboxResponseDto
-   */
-  id: string
-  /**
-   *
-   * @type {string}
-   * @memberof SandboxResponseDto
-   */
-  name: string
-  /**
-   *
-   * @type {string}
-   * @memberof SandboxResponseDto
-   */
-  errorReason?: string
-  /**
-   *
-   * @type {string}
-   * @memberof SandboxResponseDto
-   */
-  organizationId: string
-  /**
-   *
-   * @type {string}
-   * @memberof SandboxResponseDto
-   */
-  region: string
-  /**
-   *
-   * @type {string}
-   * @memberof SandboxResponseDto
-   */
-  state: SandboxResponseDtoStateEnum
-  /**
-   *
-   * @type {string}
-   * @memberof SandboxResponseDto
-   */
-  desiredState: SandboxResponseDtoDesiredStateEnum
-  /**
-   *
-   * @type {string}
-   * @memberof SandboxResponseDto
-   */
-  class: SandboxResponseDtoClassEnum
-  /**
-   *
-   * @type {string}
-   * @memberof SandboxResponseDto
-   */
-  runnerId?: string
-  /**
-   *
-   * @type {object}
-   * @memberof SandboxResponseDto
-   */
-  labels: object
-  /**
-   *
-   * @type {number}
-   * @memberof SandboxResponseDto
-   */
-  cpu: number
-  /**
-   *
-   * @type {number}
-   * @memberof SandboxResponseDto
-   */
-  mem: number
-  /**
-   *
-   * @type {number}
-   * @memberof SandboxResponseDto
-   */
-  disk: number
-  /**
-   *
-   * @type {number}
-   * @memberof SandboxResponseDto
-   */
-  gpu: number
-  /**
-   *
-   * @type {Date}
-   * @memberof SandboxResponseDto
-   */
-  createdAt: Date
-  /**
-   *
-   * @type {boolean}
-   * @memberof SandboxResponseDto
-   */
-  networkBlockAll: boolean
-  /**
-   *
-   * @type {string}
-   * @memberof SandboxResponseDto
-   */
-  networkAllowList?: string
-  /**
-   *
-   * @type {string}
-   * @memberof SandboxResponseDto
-   */
-  backupState: SandboxResponseDtoBackupStateEnum
-  /**
-   *
-   * @type {string}
-   * @memberof SandboxResponseDto
-   */
-  backupErrorReason?: string
-  /**
-   *
-   * @type {number}
-   * @memberof SandboxResponseDto
-   */
-  autoStopInterval: number
-  /**
-   *
-   * @type {number}
-   * @memberof SandboxResponseDto
-   */
-  autoArchiveInterval: number
-  /**
-   *
-   * @type {number}
-   * @memberof SandboxResponseDto
-   */
-  autoDeleteInterval: number
-  /**
-   *
-   * @type {boolean}
-   * @memberof SandboxResponseDto
-   */
-  pending: boolean
-  /**
-   *
-   * @type {boolean}
-   * @memberof SandboxResponseDto
-   */
-  recoverable: boolean
-  /**
-   *
-   * @type {boolean}
-   * @memberof SandboxResponseDto
-   */
-  public: boolean
+    'id': string;
+    'name': string;
+    'errorReason'?: string;
+    'organizationId': string;
+    'region': string;
+    'state': SandboxResponseDtoStateEnum;
+    'desiredState': SandboxResponseDtoDesiredStateEnum;
+    'class': SandboxResponseDtoClassEnum;
+    'runnerId'?: string;
+    'labels': object;
+    'cpu': number;
+    'mem': number;
+    'disk': number;
+    'gpu': number;
+    'createdAt': Date;
+    'networkBlockAll': boolean;
+    'networkAllowList'?: string;
+    'backupState': SandboxResponseDtoBackupStateEnum;
+    'backupErrorReason'?: string;
+    'autoStopInterval': number;
+    'autoArchiveInterval': number;
+    'autoDeleteInterval': number;
+    'pending': boolean;
+    'recoverable': boolean;
+    'public': boolean;
 }
 
 export const SandboxResponseDtoStateEnum = {
-  CREATING: 'creating',
-  RESTORING: 'restoring',
-  DESTROYED: 'destroyed',
-  DESTROYING: 'destroying',
-  STARTED: 'started',
-  STOPPED: 'stopped',
-  STARTING: 'starting',
-  STOPPING: 'stopping',
-  ERROR: 'error',
-  BUILD_FAILED: 'build_failed',
-  PENDING_BUILD: 'pending_build',
-  BUILDING_SNAPSHOT: 'building_snapshot',
-  UNKNOWN: 'unknown',
-  PULLING_SNAPSHOT: 'pulling_snapshot',
-  ARCHIVED: 'archived',
-  ARCHIVING: 'archiving',
-  RESIZING: 'resizing',
-  SNAPSHOTTING: 'snapshotting',
-  FORKING: 'forking',
-} as const
+    CREATING: 'creating',
+    RESTORING: 'restoring',
+    DESTROYED: 'destroyed',
+    DESTROYING: 'destroying',
+    STARTED: 'started',
+    STOPPED: 'stopped',
+    STARTING: 'starting',
+    STOPPING: 'stopping',
+    ERROR: 'error',
+    BUILD_FAILED: 'build_failed',
+    PENDING_BUILD: 'pending_build',
+    BUILDING_SNAPSHOT: 'building_snapshot',
+    UNKNOWN: 'unknown',
+    PULLING_SNAPSHOT: 'pulling_snapshot',
+    ARCHIVED: 'archived',
+    ARCHIVING: 'archiving',
+    RESIZING: 'resizing',
+    SNAPSHOTTING: 'snapshotting',
+    FORKING: 'forking',
+} as const;
 
-export type SandboxResponseDtoStateEnum = (typeof SandboxResponseDtoStateEnum)[keyof typeof SandboxResponseDtoStateEnum]
+export type SandboxResponseDtoStateEnum = typeof SandboxResponseDtoStateEnum[keyof typeof SandboxResponseDtoStateEnum];
 export const SandboxResponseDtoDesiredStateEnum = {
-  DESTROYED: 'destroyed',
-  STARTED: 'started',
-  STOPPED: 'stopped',
-  RESIZED: 'resized',
-  ARCHIVED: 'archived',
-} as const
+    DESTROYED: 'destroyed',
+    STARTED: 'started',
+    STOPPED: 'stopped',
+    RESIZED: 'resized',
+    ARCHIVED: 'archived',
+} as const;
 
-export type SandboxResponseDtoDesiredStateEnum =
-  (typeof SandboxResponseDtoDesiredStateEnum)[keyof typeof SandboxResponseDtoDesiredStateEnum]
+export type SandboxResponseDtoDesiredStateEnum = typeof SandboxResponseDtoDesiredStateEnum[keyof typeof SandboxResponseDtoDesiredStateEnum];
 export const SandboxResponseDtoClassEnum = {
-  SMALL: 'small',
-  MEDIUM: 'medium',
-  LARGE: 'large',
-} as const
+    SMALL: 'small',
+    MEDIUM: 'medium',
+    LARGE: 'large',
+} as const;
 
-export type SandboxResponseDtoClassEnum = (typeof SandboxResponseDtoClassEnum)[keyof typeof SandboxResponseDtoClassEnum]
+export type SandboxResponseDtoClassEnum = typeof SandboxResponseDtoClassEnum[keyof typeof SandboxResponseDtoClassEnum];
 export const SandboxResponseDtoBackupStateEnum = {
-  NONE: 'None',
-  PENDING: 'Pending',
-  IN_PROGRESS: 'InProgress',
-  COMPLETED: 'Completed',
-  ERROR: 'Error',
-} as const
+    NONE: 'None',
+    PENDING: 'Pending',
+    IN_PROGRESS: 'InProgress',
+    COMPLETED: 'Completed',
+    ERROR: 'Error',
+} as const;
 
-export type SandboxResponseDtoBackupStateEnum =
-  (typeof SandboxResponseDtoBackupStateEnum)[keyof typeof SandboxResponseDtoBackupStateEnum]
+export type SandboxResponseDtoBackupStateEnum = typeof SandboxResponseDtoBackupStateEnum[keyof typeof SandboxResponseDtoBackupStateEnum];
+
+

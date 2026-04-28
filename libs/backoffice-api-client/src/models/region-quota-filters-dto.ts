@@ -12,56 +12,39 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { RangeDto } from './range-dto'
+import type { RangeDto } from './range-dto';
 
-/**
- *
- * @export
- * @interface RegionQuotaFiltersDto
- */
 export interface RegionQuotaFiltersDto {
-  /**
-   * Search by organization name or id (partial match)
-   * @type {string}
-   * @memberof RegionQuotaFiltersDto
-   */
-  search?: string
-  /**
-   * Filter by organization ID
-   * @type {string}
-   * @memberof RegionQuotaFiltersDto
-   */
-  organizationId?: string
-  /**
-   * Filter by organization name
-   * @type {string}
-   * @memberof RegionQuotaFiltersDto
-   */
-  organizationName?: string
-  /**
-   * Filter by region ID
-   * @type {string}
-   * @memberof RegionQuotaFiltersDto
-   */
-  regionId?: string
-  /**
-   * Filter by CPU quota range
-   * @type {RangeDto}
-   * @memberof RegionQuotaFiltersDto
-   */
-  cpuQuota?: RangeDto
-  /**
-   * Filter by memory quota range
-   * @type {RangeDto}
-   * @memberof RegionQuotaFiltersDto
-   */
-  memoryQuota?: RangeDto
-  /**
-   * Filter by disk quota range
-   * @type {RangeDto}
-   * @memberof RegionQuotaFiltersDto
-   */
-  diskQuota?: RangeDto
+    /**
+     * Search by organization name or id (partial match)
+     */
+    'search'?: string;
+    /**
+     * Filter by organization ID
+     */
+    'organizationId'?: string;
+    /**
+     * Filter by organization name
+     */
+    'organizationName'?: string;
+    /**
+     * Filter by region ID
+     */
+    'regionId'?: string;
+    /**
+     * Filter by CPU quota range
+     */
+    'cpuQuota'?: RangeDto;
+    /**
+     * Filter by memory quota range
+     */
+    'memoryQuota'?: RangeDto;
+    /**
+     * Filter by disk quota range
+     */
+    'diskQuota'?: RangeDto;
 }
+

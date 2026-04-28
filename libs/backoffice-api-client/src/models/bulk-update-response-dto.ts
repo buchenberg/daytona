@@ -12,44 +12,31 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { BulkUpdateResultDto } from './bulk-update-result-dto'
+import type { BulkUpdateResultDto } from './bulk-update-result-dto';
 
-/**
- *
- * @export
- * @interface BulkUpdateResponseDto
- */
 export interface BulkUpdateResponseDto {
-  /**
-   * Total number of entities processed
-   * @type {number}
-   * @memberof BulkUpdateResponseDto
-   */
-  totalProcessed: number
-  /**
-   * Number of successful updates
-   * @type {number}
-   * @memberof BulkUpdateResponseDto
-   */
-  successCount: number
-  /**
-   * Number of failed updates
-   * @type {number}
-   * @memberof BulkUpdateResponseDto
-   */
-  failureCount: number
-  /**
-   * Individual update results
-   * @type {Array<BulkUpdateResultDto>}
-   * @memberof BulkUpdateResponseDto
-   */
-  results: Array<BulkUpdateResultDto>
-  /**
-   * Warning messages
-   * @type {Array<string>}
-   * @memberof BulkUpdateResponseDto
-   */
-  warnings?: Array<string>
+    /**
+     * Total number of entities processed
+     */
+    'totalProcessed': number;
+    /**
+     * Number of successful updates
+     */
+    'successCount': number;
+    /**
+     * Number of failed updates
+     */
+    'failureCount': number;
+    /**
+     * Individual update results
+     */
+    'results': Array<BulkUpdateResultDto>;
+    /**
+     * Warning messages
+     */
+    'warnings'?: Array<string>;
 }
+

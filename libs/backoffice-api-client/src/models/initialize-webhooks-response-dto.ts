@@ -12,28 +12,20 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface InitializeWebhooksResponseDto
- */
+
+
 export interface InitializeWebhooksResponseDto {
-  /**
-   * Whether the operation was successful
-   * @type {boolean}
-   * @memberof InitializeWebhooksResponseDto
-   */
-  success: boolean
-  /**
-   * Success message
-   * @type {string}
-   * @memberof InitializeWebhooksResponseDto
-   */
-  message?: string
-  /**
-   * Error message if operation failed
-   * @type {string}
-   * @memberof InitializeWebhooksResponseDto
-   */
-  error?: string
+    /**
+     * Whether the operation was successful
+     */
+    'success': boolean;
+    /**
+     * Success message
+     */
+    'message'?: string;
+    /**
+     * Error message if operation failed
+     */
+    'error'?: string;
 }
+

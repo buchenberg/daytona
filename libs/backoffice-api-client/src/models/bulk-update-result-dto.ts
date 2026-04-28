@@ -12,38 +12,27 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { BulkUpdateResultErrorDto } from './bulk-update-result-error-dto'
+import type { BulkUpdateResultErrorDto } from './bulk-update-result-error-dto';
 
-/**
- *
- * @export
- * @interface BulkUpdateResultDto
- */
 export interface BulkUpdateResultDto {
-  /**
-   * Entity ID
-   * @type {string}
-   * @memberof BulkUpdateResultDto
-   */
-  id: string
-  /**
-   * Whether the update was successful
-   * @type {boolean}
-   * @memberof BulkUpdateResultDto
-   */
-  success: boolean
-  /**
-   * Updated entity data
-   * @type {object}
-   * @memberof BulkUpdateResultDto
-   */
-  data?: object
-  /**
-   * Error details if update failed
-   * @type {BulkUpdateResultErrorDto}
-   * @memberof BulkUpdateResultDto
-   */
-  error?: BulkUpdateResultErrorDto
+    /**
+     * Entity ID
+     */
+    'id': string;
+    /**
+     * Whether the update was successful
+     */
+    'success': boolean;
+    /**
+     * Updated entity data
+     */
+    'data'?: object;
+    /**
+     * Error details if update failed
+     */
+    'error'?: BulkUpdateResultErrorDto;
 }
+

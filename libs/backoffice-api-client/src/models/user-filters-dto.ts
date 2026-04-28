@@ -12,52 +12,36 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface UserFiltersDto
- */
+
+
 export interface UserFiltersDto {
-  /**
-   * Search by email or user ID (partial match)
-   * @type {string}
-   * @memberof UserFiltersDto
-   */
-  search?: string
-  /**
-   * Filter by user email (partial match)
-   * @type {string}
-   * @memberof UserFiltersDto
-   */
-  email?: string
-  /**
-   * Filter by user name (partial match)
-   * @type {string}
-   * @memberof UserFiltersDto
-   */
-  name?: string
-  /**
-   * Filter by user ID
-   * @type {string}
-   * @memberof UserFiltersDto
-   */
-  userId?: string
-  /**
-   * Filter by email verified status
-   * @type {boolean}
-   * @memberof UserFiltersDto
-   */
-  emailVerified?: boolean
-  /**
-   * Created after date (ISO 8601)
-   * @type {string}
-   * @memberof UserFiltersDto
-   */
-  createdAfter?: string
-  /**
-   * Created before date (ISO 8601)
-   * @type {string}
-   * @memberof UserFiltersDto
-   */
-  createdBefore?: string
+    /**
+     * Search by email or user ID (partial match)
+     */
+    'search'?: string;
+    /**
+     * Filter by user email (partial match)
+     */
+    'email'?: string;
+    /**
+     * Filter by user name (partial match)
+     */
+    'name'?: string;
+    /**
+     * Filter by user ID
+     */
+    'userId'?: string;
+    /**
+     * Filter by email verified status
+     */
+    'emailVerified'?: boolean;
+    /**
+     * Created after date (ISO 8601)
+     */
+    'createdAfter'?: string;
+    /**
+     * Created before date (ISO 8601)
+     */
+    'createdBefore'?: string;
 }
+

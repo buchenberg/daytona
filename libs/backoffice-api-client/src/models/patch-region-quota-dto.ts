@@ -12,26 +12,19 @@
  * Do not edit the class manually.
  */
 
+
 // May contain unused imports in some cases
 // @ts-ignore
-import type { UpdateRegionQuotaDto } from './update-region-quota-dto'
+import type { UpdateRegionQuotaDto } from './update-region-quota-dto';
 
-/**
- *
- * @export
- * @interface PatchRegionQuotaDto
- */
 export interface PatchRegionQuotaDto {
-  /**
-   * Fields to update
-   * @type {UpdateRegionQuotaDto}
-   * @memberof PatchRegionQuotaDto
-   */
-  updates: UpdateRegionQuotaDto
-  /**
-   * Expected current values for optimistic concurrency control. Update fails with 409 if any field does not match.
-   * @type {UpdateRegionQuotaDto}
-   * @memberof PatchRegionQuotaDto
-   */
-  preconditions?: UpdateRegionQuotaDto
+    /**
+     * Fields to update
+     */
+    'updates': UpdateRegionQuotaDto;
+    /**
+     * Expected current values for optimistic concurrency control. Update fails with 409 if any field does not match.
+     */
+    'preconditions'?: UpdateRegionQuotaDto;
 }
+

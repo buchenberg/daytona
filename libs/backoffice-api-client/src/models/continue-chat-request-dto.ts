@@ -12,16 +12,12 @@
  * Do not edit the class manually.
  */
 
-/**
- *
- * @export
- * @interface ContinueChatRequestDto
- */
+
+
 export interface ContinueChatRequestDto {
-  /**
-   * Conversation ID to continue after max_rounds
-   * @type {string}
-   * @memberof ContinueChatRequestDto
-   */
-  conversationId: string
+    /**
+     * Conversation ID to continue after max_rounds
+     */
+    'conversationId': string;
 }
+
