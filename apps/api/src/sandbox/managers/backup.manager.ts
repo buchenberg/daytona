@@ -25,7 +25,6 @@ import { SandboxBackupCreatedEvent } from '../events/sandbox-backup-created.even
 import { SandboxArchivedEvent } from '../events/sandbox-archived.event'
 import { RunnerAdapterFactory } from '../runner-adapter/runnerAdapter'
 import { TypedConfigService } from '../../config/typed-config.service'
-import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
 
 import { TrackJobExecution } from '../../common/decorators/track-job-execution.decorator'
 import { TrackableJobExecutions } from '../../common/interfaces/trackable-job-executions'
@@ -36,6 +35,7 @@ import { DockerRegistry } from '../../docker-registry/entities/docker-registry.e
 import { SandboxService } from '../services/sandbox.service'
 import { SandboxRepository } from '../repositories/sandbox.repository'
 import { LARGE_SANDBOX_SHARED_REGION } from '../constants/dedicated-regions.constant'
+import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
 
 @Injectable()
 export class BackupManager implements TrackableJobExecutions, OnApplicationShutdown {
@@ -67,6 +67,26 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
     }
   }
 
+  /**
+   * Increments a retry counter in Redis and returns whether the operation should be retried.
+   * @param key - The Redis key for the retry counter
+   * @param maxRetries - Maximum number of retries allowed (default: 3)
+   * @param ttlSeconds - TTL for the retry counter in seconds (default: 300)
+   * @returns true if should retry, false if max retries exceeded
+   */
+  private async shouldRetry(key: string, maxRetries = 3, ttlSeconds = 300): Promise<boolean> {
+    const retryCount = await this.redis.get(key)
+    const currentCount = retryCount ? parseInt(retryCount) : 0
+
+    if (currentCount >= maxRetries) {
+      await this.redis.del(key)
+      return false
+    }
+
+    await this.redis.setex(key, ttlSeconds, String(currentCount + 1))
+    return true
+  }
+
   //  todo: make frequency configurable or more efficient
   @Cron(CronExpression.EVERY_5_MINUTES, { name: 'ad-hoc-backup-check' })
   @TrackJobExecution()
@@ -91,6 +111,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
               runnerId: runner.id,
               organizationId: Not(SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION),
               state: SandboxState.STARTED,
+              desiredState: Not(SandboxDesiredState.DESTROYED),
               backupState: In([BackupState.NONE, BackupState.COMPLETED]),
               lastBackupAt: Or(IsNull(), LessThan(new Date(Date.now() - 1 * 60 * 60 * 1000))),
               autoDeleteInterval: Not(0),
@@ -99,8 +120,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
             order: {
               lastBackupAt: 'ASC',
             },
-            //  todo: increase this number when backup is stable
-            take: 1,
+            take: 25,
           })
 
           await Promise.all(
@@ -135,7 +155,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
     }
   }
 
-  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'check-backup-states' })
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'check-backup-states', waitForCompletion: true })
   @TrackJobExecution()
   @LogExecution('check-backup-states')
   @WithInstrumentation()
@@ -148,6 +168,9 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
     }
 
     try {
+      // PENDING only — IN_PROGRESS is handled by checkBackupStatesInProgress so a slow
+      // in-progress poll can't block fresh PENDING backups. distinctOn(runnerId) caps
+      // each runner to one PENDING sandbox per tick to spread load across the fleet.
       const sandboxes = await this.sandboxRepository
         .createQueryBuilder('sandbox')
         .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
@@ -155,8 +178,9 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
           states: [SandboxState.ARCHIVING, SandboxState.STARTED, SandboxState.STOPPED],
         })
         .andWhere('sandbox.backupState IN (:...backupStates)', {
-          backupStates: [BackupState.PENDING, BackupState.IN_PROGRESS],
+          backupStates: [BackupState.PENDING],
         })
+        .andWhere('sandbox.desiredState != :destroyed', { destroyed: SandboxDesiredState.DESTROYED })
         .andWhere('r.state = :ready', { ready: RunnerState.READY })
         .andWhere('sandbox.region != :largeSharedRegion', { largeSharedRegion: LARGE_SANDBOX_SHARED_REGION })
         // Prioritize manual archival action, then auto-archive poller, then ad-hoc backup poller
@@ -171,15 +195,27 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
           `,
           'state_priority',
         )
+        .addSelect(
+          `
+          CASE sandbox."backupState"
+            WHEN :in_progress THEN 1
+            ELSE 999
+          END
+          `,
+          'backup_state_priority',
+        )
         .setParameters({
+          in_progress: BackupState.IN_PROGRESS,
           archiving: SandboxState.ARCHIVING,
           stopped: SandboxState.STOPPED,
           started: SandboxState.STARTED,
         })
-        .orderBy('state_priority', 'ASC')
+        .distinctOn(['sandbox.runnerId'])
+        .orderBy('sandbox.runnerId', 'ASC')
+        .addOrderBy('backup_state_priority', 'ASC')
+        .addOrderBy('state_priority', 'ASC')
         .addOrderBy('sandbox.lastBackupAt', 'ASC', 'NULLS FIRST') // Process sandboxes with no backups first
-        .addOrderBy('sandbox.createdAt', 'ASC') // For equal lastBackupAt, process older sandboxes first
-        .take(100)
+        .take(250)
         .getMany()
 
       await Promise.allSettled(
@@ -202,6 +238,87 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
                   await this.handlePendingBackup(sandbox)
                   break
                 }
+              }
+            } catch (error) {
+              //  if error, retry 10 times
+              const errorRetryKey = `${lockKey}-error-retry`
+              const errorRetryCount = await this.redis.get(errorRetryKey)
+              if (!errorRetryCount) {
+                await this.redis.setex(errorRetryKey, 300, '1')
+              } else if (parseInt(errorRetryCount) > 10) {
+                this.logger.error(`Error processing backup for sandbox ${sandbox.id}:`, fromAxiosError(error))
+                await this.sandboxService.updateSandboxBackupState(
+                  sandbox.id,
+                  BackupState.ERROR,
+                  undefined,
+                  undefined,
+                  fromAxiosError(error).message,
+                )
+              } else {
+                await this.redis.setex(errorRetryKey, 300, errorRetryCount + 1)
+              }
+            }
+          } catch (error) {
+            this.logger.error(`Error processing backup for sandbox ${s.id}:`, error)
+          } finally {
+            await this.redisLockProvider.unlock(lockKey)
+          }
+        }),
+      )
+    } catch (error) {
+      this.logger.error(`Error processing backups: `, error)
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'check-backup-states-in-progress', waitForCompletion: true })
+  @TrackJobExecution()
+  @WithInstrumentation()
+  @LogExecution('check-backup-states-in-progress')
+  async checkBackupStatesInProgress(): Promise<void> {
+    //  lock the sync to only run one instance at a time
+    const lockKey = 'check-backup-states-in-progress'
+    const hasLock = await this.redisLockProvider.lock(lockKey, 10)
+    if (!hasLock) {
+      return
+    }
+
+    try {
+      // Random ordering avoids head-of-line blocking on a slow runner repeatedly
+      // returning the same in-progress sandboxes.
+      const sandboxes = await this.sandboxRepository
+        .createQueryBuilder('sandbox')
+        .addSelect('RANDOM()', 'rand')
+        .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
+        .where('sandbox.state IN (:...states)', {
+          states: [SandboxState.ARCHIVING, SandboxState.STARTED, SandboxState.STOPPED],
+        })
+        .andWhere('sandbox.backupState IN (:...backupStates)', {
+          backupStates: [BackupState.IN_PROGRESS],
+        })
+        .andWhere('sandbox.desiredState != :destroyed', { destroyed: SandboxDesiredState.DESTROYED })
+        .andWhere('r.state = :ready', { ready: RunnerState.READY })
+        .orderBy('rand')
+        .take(200)
+        .getMany()
+
+      await Promise.allSettled(
+        sandboxes.map(async (s) => {
+          const lockKey = `sandbox-backup-${s.id}`
+          const hasLock = await this.redisLockProvider.lock(lockKey, 60)
+          if (!hasLock) {
+            return
+          }
+
+          try {
+            //  get the latest sandbox state
+            const sandbox = await this.sandboxRepository.findOneByOrFail({
+              id: s.id,
+            })
+
+            try {
+              switch (sandbox.backupState) {
                 case BackupState.IN_PROGRESS: {
                   await this.checkBackupProgress(sandbox)
                   break
@@ -341,11 +458,9 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         .createQueryBuilder('sandbox')
         .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
         .where('sandbox.state IN (:...states)', { states: [SandboxState.ARCHIVING, SandboxState.STOPPED] })
-        // TODO: REMOVE WHEN AD HOC BACKUP IS STABLE
-        .andWhere('sandbox.desiredState = :desiredState', { desiredState: SandboxDesiredState.ARCHIVED })
-        // END REMOVE
         .andWhere('sandbox.backupState = :none', { none: BackupState.NONE })
         .andWhere('sandbox.region != :largeSharedRegion', { largeSharedRegion: LARGE_SANDBOX_SHARED_REGION })
+        .andWhere('sandbox.desiredState != :destroyed', { destroyed: SandboxDesiredState.DESTROYED })
         .andWhere('r.state = :ready', { ready: RunnerState.READY })
         .take(100)
         .getMany()
@@ -453,9 +568,22 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
           break
         }
         // If backup state is none, retry the backup process by setting the backup state to pending
-        // This can happen if the runner is restarted or the operation is cancelled
+        // This can happen if the runner is restarted or the operation is cancelled.
+        // Bound the retries so a runner stuck reporting NONE doesn't loop forever.
         case BackupState.NONE: {
-          await this.sandboxService.updateSandboxBackupState(sandbox.id, BackupState.PENDING)
+          const noneRetryKey = `sandbox-backup-${sandbox.id}-none-retry`
+          if (await this.shouldRetry(noneRetryKey)) {
+            await this.sandboxService.updateSandboxBackupState(sandbox.id, BackupState.PENDING)
+          } else {
+            this.logger.error(`Backup for sandbox ${sandbox.id} failed: runner repeatedly reports no backup state`)
+            await this.sandboxService.updateSandboxBackupState(
+              sandbox.id,
+              BackupState.ERROR,
+              undefined,
+              undefined,
+              'Backup failed: runner repeatedly reports no backup state',
+            )
+          }
           break
         }
         // If still in progress or any other state, do nothing and wait for next sync
