@@ -124,6 +124,8 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     const skip = (await this.redis.get('scale-down-runner-snapshots-skip')) || 0
 
+    const defaultOrganizationQuota = this.configService.getOrThrow('defaultOrganizationQuota')
+
     const snapshots = await this.snapshotRepository
       .createQueryBuilder('snapshot')
       .innerJoin('organization', 'org', 'org.id = snapshot.organizationId')
@@ -131,9 +133,27 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       .select(['snapshot.*', 'rq.total_cpu_quota'])
       .where('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
       .andWhere('org.suspended = false')
+      .andWhere(
+        `
+        NOT (
+          org.id = ANY(:largeSbxSharedOrgs)
+          AND (
+            snapshot.cpu > :defaultMaxCpuPerSandbox OR
+            snapshot.mem > :defaultMaxMemoryPerSandbox OR
+            snapshot.disk > :defaultMaxDiskPerSandbox
+          )
+        )
+      `,
+      )
       .orderBy('snapshot.createdAt', 'ASC')
       .limit(50)
       .offset(Number(skip))
+      .setParameters({
+        largeSbxSharedOrgs: [...LARGE_SANDBOX_ORGS],
+        defaultMaxCpuPerSandbox: defaultOrganizationQuota.maxCpuPerSandbox,
+        defaultMaxMemoryPerSandbox: defaultOrganizationQuota.maxMemoryPerSandbox,
+        defaultMaxDiskPerSandbox: defaultOrganizationQuota.maxDiskPerSandbox,
+      })
       .getRawMany()
 
     if (snapshots.length === 0) {
@@ -146,13 +166,19 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     const results = await Promise.allSettled(
       snapshots.map(async (snapshot) => {
+        const { factor: propagationFactor } = getSnapshotPropagationFactor(
+          snapshot.total_cpu_quota,
+          undefined,
+          snapshot.organizationId,
+        )
+
         const regions = await this.snapshotService.getSnapshotRegions(snapshot.id)
 
         const sharedRegionIds = regions
           .filter((r) => r.organizationId === null && r.regionType === RegionType.SHARED)
           .map((r) => r.id)
 
-        return this.scaleDownSnapshotFromRunners(snapshot, sharedRegionIds)
+        return this.scaleDownSnapshotFromRunners(snapshot, sharedRegionIds, propagationFactor)
       }),
     )
 
@@ -1506,8 +1532,10 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     }
 
     try {
+      // Dedicated regions get a much shorter staleness window so we don't pin disk space
+      // on small fleets when an org stops using a snapshot.
       const stalenessDays = this.configService.getOrThrow('buildInfoSnapshotRunnerStalenessDays')
-      const stalenessInterval = `interval '${stalenessDays} days'`
+      const stalenessInterval = `(CASE WHEN r.region IN (:dedicatedElementor, :dedicatedRL) THEN interval '2 days' ELSE interval '${stalenessDays} days' END)`
 
       const staleEntries = await this.snapshotRunnerRepository
         .createQueryBuilder('sr')
@@ -1518,6 +1546,10 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         .andWhere(`bi.lastUsedAt < now() - ${stalenessInterval}`)
         .andWhere(`sr.updatedAt < now() - ${stalenessInterval}`)
         .andWhere("sr.snapshotRef LIKE 'daytona-%'")
+        .setParameters({
+          dedicatedElementor: ELEMENTOR_DEDICATED_REGION,
+          dedicatedRL: RL_REGION,
+        })
         .limit(500)
         .getMany()
 
