@@ -1770,7 +1770,7 @@ export class SandboxService {
     return updatedSandbox
   }
 
-  async recover(sandboxIdOrName: string, organization: Organization): Promise<Sandbox> {
+  async recover(sandboxIdOrName: string, organization: Organization, skipStart = false): Promise<Sandbox> {
     const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organization.id)
 
     if (sandbox.state !== SandboxState.ERROR) {
@@ -1813,10 +1813,14 @@ export class SandboxService {
       recoverable: false,
     }
 
-    await this.sandboxRepository.updateWhere(sandbox.id, {
+    const updatedSandbox = await this.sandboxRepository.updateWhere(sandbox.id, {
       updateData,
       whereCondition: { state: SandboxState.ERROR },
     })
+
+    if (skipStart) {
+      return updatedSandbox
+    }
 
     // Now that sandbox is in STOPPED state, use the normal start flow
     // This handles quota validation, pending usage, event emission, etc.
