@@ -31,7 +31,7 @@ export const ORGANIZATION_PROPAGATION_OVERRIDES: Record<
   string,
   { threshold: number; percentage: number; minimum: number }[]
 > = {
-  '8c0f7497-8037-4515-89a3-992bb9230cbc': [{ threshold: 0, percentage: 3, minimum: 0 }],
+  '8c0f7497-8037-4515-89a3-992bb9230cbc': [{ threshold: 0, percentage: 2, minimum: 0 }],
 }
 
 /**
