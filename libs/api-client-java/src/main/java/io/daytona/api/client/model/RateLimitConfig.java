@@ -71,6 +71,11 @@ public class RateLimitConfig {
   @javax.annotation.Nullable
   private RateLimitEntry sandboxLifecycle;
 
+  public static final String SERIALIZED_NAME_SANDBOX_LIST = "sandboxList";
+  @SerializedName(SERIALIZED_NAME_SANDBOX_LIST)
+  @javax.annotation.Nullable
+  private RateLimitEntry sandboxList;
+
   public RateLimitConfig() {
   }
 
@@ -149,6 +154,25 @@ public class RateLimitConfig {
     this.sandboxLifecycle = sandboxLifecycle;
   }
 
+
+  public RateLimitConfig sandboxList(@javax.annotation.Nullable RateLimitEntry sandboxList) {
+    this.sandboxList = sandboxList;
+    return this;
+  }
+
+  /**
+   * Sandbox list rate limit
+   * @return sandboxList
+   */
+  @javax.annotation.Nullable
+  public RateLimitEntry getSandboxList() {
+    return sandboxList;
+  }
+
+  public void setSandboxList(@javax.annotation.Nullable RateLimitEntry sandboxList) {
+    this.sandboxList = sandboxList;
+  }
+
   /**
    * A container for additional, undeclared properties.
    * This is a holder for any undeclared properties as specified with
@@ -207,13 +231,14 @@ public class RateLimitConfig {
     return Objects.equals(this.failedAuth, rateLimitConfig.failedAuth) &&
         Objects.equals(this.authenticated, rateLimitConfig.authenticated) &&
         Objects.equals(this.sandboxCreate, rateLimitConfig.sandboxCreate) &&
-        Objects.equals(this.sandboxLifecycle, rateLimitConfig.sandboxLifecycle)&&
+        Objects.equals(this.sandboxLifecycle, rateLimitConfig.sandboxLifecycle) &&
+        Objects.equals(this.sandboxList, rateLimitConfig.sandboxList)&&
         Objects.equals(this.additionalProperties, rateLimitConfig.additionalProperties);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(failedAuth, authenticated, sandboxCreate, sandboxLifecycle, additionalProperties);
+    return Objects.hash(failedAuth, authenticated, sandboxCreate, sandboxLifecycle, sandboxList, additionalProperties);
   }
 
   @Override
@@ -224,6 +249,7 @@ public class RateLimitConfig {
     sb.append("    authenticated: ").append(toIndentedString(authenticated)).append("\n");
     sb.append("    sandboxCreate: ").append(toIndentedString(sandboxCreate)).append("\n");
     sb.append("    sandboxLifecycle: ").append(toIndentedString(sandboxLifecycle)).append("\n");
+    sb.append("    sandboxList: ").append(toIndentedString(sandboxList)).append("\n");
     sb.append("    additionalProperties: ").append(toIndentedString(additionalProperties)).append("\n");
     sb.append("}");
     return sb.toString();
@@ -243,7 +269,7 @@ public class RateLimitConfig {
 
   static {
     // a set of all properties/fields (JSON key names)
-    openapiFields = new HashSet<String>(Arrays.asList("failedAuth", "authenticated", "sandboxCreate", "sandboxLifecycle"));
+    openapiFields = new HashSet<String>(Arrays.asList("failedAuth", "authenticated", "sandboxCreate", "sandboxLifecycle", "sandboxList"));
 
     // a set of required properties/fields (JSON key names)
     openapiRequiredFields = new HashSet<String>(0);
@@ -277,6 +303,10 @@ public class RateLimitConfig {
       // validate the optional field `sandboxLifecycle`
       if (jsonObj.get("sandboxLifecycle") != null && !jsonObj.get("sandboxLifecycle").isJsonNull()) {
         RateLimitEntry.validateJsonElement(jsonObj.get("sandboxLifecycle"));
+      }
+      // validate the optional field `sandboxList`
+      if (jsonObj.get("sandboxList") != null && !jsonObj.get("sandboxList").isJsonNull()) {
+        RateLimitEntry.validateJsonElement(jsonObj.get("sandboxList"));
       }
   }
 

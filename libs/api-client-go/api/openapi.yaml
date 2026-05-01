@@ -9262,6 +9262,10 @@ components:
           allOf:
           - $ref: "#/components/schemas/RateLimitEntry"
           description: Sandbox lifecycle rate limit
+        sandboxList:
+          allOf:
+          - $ref: "#/components/schemas/RateLimitEntry"
+          description: Sandbox list rate limit
       type: object
     DaytonaConfiguration:
       example:

@@ -27,13 +27,17 @@ module DaytonaApiClient
     # Sandbox lifecycle rate limit
     attr_accessor :sandbox_lifecycle
 
+    # Sandbox list rate limit
+    attr_accessor :sandbox_list
+
     # Attribute mapping from ruby-style variable name to JSON key.
     def self.attribute_map
       {
         :'failed_auth' => :'failedAuth',
         :'authenticated' => :'authenticated',
         :'sandbox_create' => :'sandboxCreate',
-        :'sandbox_lifecycle' => :'sandboxLifecycle'
+        :'sandbox_lifecycle' => :'sandboxLifecycle',
+        :'sandbox_list' => :'sandboxList'
       }
     end
 
@@ -53,7 +57,8 @@ module DaytonaApiClient
         :'failed_auth' => :'RateLimitEntry',
         :'authenticated' => :'RateLimitEntry',
         :'sandbox_create' => :'RateLimitEntry',
-        :'sandbox_lifecycle' => :'RateLimitEntry'
+        :'sandbox_lifecycle' => :'RateLimitEntry',
+        :'sandbox_list' => :'RateLimitEntry'
       }
     end
 
@@ -94,6 +99,10 @@ module DaytonaApiClient
       if attributes.key?(:'sandbox_lifecycle')
         self.sandbox_lifecycle = attributes[:'sandbox_lifecycle']
       end
+
+      if attributes.key?(:'sandbox_list')
+        self.sandbox_list = attributes[:'sandbox_list']
+      end
     end
 
     # Show invalid properties with the reasons. Usually used together with valid?
@@ -119,7 +128,8 @@ module DaytonaApiClient
           failed_auth == o.failed_auth &&
           authenticated == o.authenticated &&
           sandbox_create == o.sandbox_create &&
-          sandbox_lifecycle == o.sandbox_lifecycle
+          sandbox_lifecycle == o.sandbox_lifecycle &&
+          sandbox_list == o.sandbox_list
     end
 
     # @see the `==` method
@@ -131,7 +141,7 @@ module DaytonaApiClient
     # Calculates hash code according to all attributes.
     # @return [Integer] Hash code
     def hash
-      [failed_auth, authenticated, sandbox_create, sandbox_lifecycle].hash
+      [failed_auth, authenticated, sandbox_create, sandbox_lifecycle, sandbox_list].hash
     end
 
     # Builds the object from hash

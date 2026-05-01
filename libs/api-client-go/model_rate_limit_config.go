@@ -28,6 +28,8 @@ type RateLimitConfig struct {
 	SandboxCreate *RateLimitEntry `json:"sandboxCreate,omitempty"`
 	// Sandbox lifecycle rate limit
 	SandboxLifecycle *RateLimitEntry `json:"sandboxLifecycle,omitempty"`
+	// Sandbox list rate limit
+	SandboxList *RateLimitEntry `json:"sandboxList,omitempty"`
 	AdditionalProperties map[string]interface{}
 }
 
@@ -178,6 +180,38 @@ func (o *RateLimitConfig) SetSandboxLifecycle(v RateLimitEntry) {
 	o.SandboxLifecycle = &v
 }
 
+// GetSandboxList returns the SandboxList field value if set, zero value otherwise.
+func (o *RateLimitConfig) GetSandboxList() RateLimitEntry {
+	if o == nil || IsNil(o.SandboxList) {
+		var ret RateLimitEntry
+		return ret
+	}
+	return *o.SandboxList
+}
+
+// GetSandboxListOk returns a tuple with the SandboxList field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *RateLimitConfig) GetSandboxListOk() (*RateLimitEntry, bool) {
+	if o == nil || IsNil(o.SandboxList) {
+		return nil, false
+	}
+	return o.SandboxList, true
+}
+
+// HasSandboxList returns a boolean if a field has been set.
+func (o *RateLimitConfig) HasSandboxList() bool {
+	if o != nil && !IsNil(o.SandboxList) {
+		return true
+	}
+
+	return false
+}
+
+// SetSandboxList gets a reference to the given RateLimitEntry and assigns it to the SandboxList field.
+func (o *RateLimitConfig) SetSandboxList(v RateLimitEntry) {
+	o.SandboxList = &v
+}
+
 func (o RateLimitConfig) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -199,6 +233,9 @@ func (o RateLimitConfig) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.SandboxLifecycle) {
 		toSerialize["sandboxLifecycle"] = o.SandboxLifecycle
+	}
+	if !IsNil(o.SandboxList) {
+		toSerialize["sandboxList"] = o.SandboxList
 	}
 
 	for key, value := range o.AdditionalProperties {
@@ -226,6 +263,7 @@ func (o *RateLimitConfig) UnmarshalJSON(data []byte) (err error) {
 		delete(additionalProperties, "authenticated")
 		delete(additionalProperties, "sandboxCreate")
 		delete(additionalProperties, "sandboxLifecycle")
+		delete(additionalProperties, "sandboxList")
 		o.AdditionalProperties = additionalProperties
 	}
 

@@ -175,6 +175,7 @@ export class SandboxController {
   }
 
   @Get('paginated')
+  @ThrottlerScope('sandbox-list')
   @ApiOperation({
     summary: 'List all sandboxes paginated',
     operationId: 'listSandboxesPaginated',

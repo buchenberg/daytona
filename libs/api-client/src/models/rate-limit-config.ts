@@ -34,5 +34,9 @@ export interface RateLimitConfig {
      * Sandbox lifecycle rate limit
      */
     'sandboxLifecycle'?: RateLimitEntry;
+    /**
+     * Sandbox list rate limit
+     */
+    'sandboxList'?: RateLimitEntry;
 }
 

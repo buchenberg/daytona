@@ -152,6 +152,7 @@ import { getAppName } from './common/utils/app-mode'
           { name: 'authenticated', config: rateLimit.authenticated },
           { name: 'sandbox-create', config: rateLimit.sandboxCreate },
           { name: 'sandbox-lifecycle', config: rateLimit.sandboxLifecycle },
+          { name: 'sandbox-list', config: rateLimit.sandboxList },
         ]
           .filter(({ config }) => config.ttl !== undefined && config.limit !== undefined)
           .map(({ name, config }) => ({

@@ -272,6 +272,12 @@ const configuration = {
         ? parseInt(process.env.RATE_LIMIT_SANDBOX_LIFECYCLE_LIMIT, 10)
         : undefined,
     },
+    sandboxList: {
+      ttl: process.env.RATE_LIMIT_SANDBOX_LIST_TTL ? parseInt(process.env.RATE_LIMIT_SANDBOX_LIST_TTL, 10) : undefined,
+      limit: process.env.RATE_LIMIT_SANDBOX_LIST_LIMIT
+        ? parseInt(process.env.RATE_LIMIT_SANDBOX_LIST_LIMIT, 10)
+        : undefined,
+    },
   },
   log: {
     console: {

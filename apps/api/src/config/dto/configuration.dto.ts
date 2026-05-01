@@ -90,6 +90,13 @@ export class RateLimitConfig {
   })
   @IsOptional()
   sandboxLifecycle?: RateLimitEntry
+
+  @ApiPropertyOptional({
+    description: 'Sandbox list rate limit',
+    type: RateLimitEntry,
+  })
+  @IsOptional()
+  sandboxList?: RateLimitEntry
 }
 
 @ApiSchema({ name: 'OidcConfig' })
@@ -313,6 +320,10 @@ export class ConfigurationDto {
       sandboxLifecycle: {
         ttl: configService.get('rateLimit.sandboxLifecycle.ttl'),
         limit: configService.get('rateLimit.sandboxLifecycle.limit'),
+      },
+      sandboxList: {
+        ttl: configService.get('rateLimit.sandboxList.ttl'),
+        limit: configService.get('rateLimit.sandboxList.limit'),
       },
     }
   }

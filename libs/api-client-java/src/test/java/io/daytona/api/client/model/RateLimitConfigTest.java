@@ -70,4 +70,12 @@ public class RateLimitConfigTest {
         // TODO: test sandboxLifecycle
     }
 
+    /**
+     * Test the property 'sandboxList'
+     */
+    @Test
+    public void sandboxListTest() {
+        // TODO: test sandboxList
+    }
+
 }

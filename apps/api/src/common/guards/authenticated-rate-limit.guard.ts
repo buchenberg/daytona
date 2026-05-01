@@ -73,15 +73,15 @@ export class AuthenticatedRateLimitGuard extends ThrottlerGuard {
     }
 
     // Check authenticated throttlers
-    const authenticatedThrottlers = ['authenticated', 'sandbox-create', 'sandbox-lifecycle']
+    const authenticatedThrottlers = ['authenticated', 'sandbox-create', 'sandbox-lifecycle', 'sandbox-list']
     if (authenticatedThrottlers.includes(throttler.name)) {
       if (isAuthenticated) {
         // Only 'authenticated' applies to all routes by default
-        // 'sandbox-create' and 'sandbox-lifecycle' only apply if explicitly configured via @SkipThrottle or @Throttle
+        // 'sandbox-create', 'sandbox-lifecycle', and 'sandbox-list' only apply if explicitly configured via @SkipThrottle or @Throttle
         const isDefaultThrottler = throttler.name === 'authenticated'
 
         if (!isDefaultThrottler) {
-          // Sandbox throttlers (sandbox-create, sandbox-lifecycle) are opt-in only
+          // Sandbox throttlers (sandbox-create, sandbox-lifecycle, sandbox-list) are opt-in only
           // Check if this route declares this throttler scope via @ThrottlerScope() decorator
           const scopes = this.reflector.getAllAndOverride<string[]>(THROTTLER_SCOPE_KEY, [
             context.getHandler(),
