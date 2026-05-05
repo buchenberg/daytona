@@ -158,9 +158,9 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 
 		hostConfig.CapAdd = []string{"ALL"}
 		hostConfig.SecurityOpt = []string{"seccomp=unconfined", "apparmor=unconfined"}
-		hostConfig.Binds = append(hostConfig.Binds, "/opt/kata/bin/kata-init.sh:/opt/kata-init.sh:ro")
-		containerConfig.Entrypoint = []string{"/opt/kata-init.sh"}
-		containerConfig.Cmd = append([]string{common.DAEMON_PATH}, containerConfig.Cmd...)
+		// hostConfig.Binds = append(hostConfig.Binds, "/opt/kata/bin/kata-init.sh:/opt/kata-init.sh:ro")
+		// containerConfig.Entrypoint = []string{"/opt/kata-init.sh"}
+		// containerConfig.Cmd = append([]string{common.DAEMON_PATH}, containerConfig.Cmd...)
 	}
 
 	c, err := d.apiClient.ContainerCreate(ctx, containerConfig, hostConfig, networkingConfig, &v1.Platform{

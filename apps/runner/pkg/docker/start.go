@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/daytonaio/runner/pkg/common"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/strslice"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 func (d *DockerClient) Start(ctx context.Context, containerId string, authToken *string, metadata map[string]string) (*container.InspectResponse, string, error) {
@@ -43,6 +45,15 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, authToken 
 		}
 
 		return c, daemonVersion, nil
+	}
+
+	// If the container is using runc, swap it for a kata-clh container before starting.
+	if c.HostConfig != nil && c.HostConfig.Runtime == "runc" {
+		converted, err := d.convertRuncToKata(ctx, containerId, c)
+		if err != nil {
+			return nil, "", err
+		}
+		c = converted
 	}
 
 	// Re-establish FUSE mounts that may have died since the container was last running.
@@ -100,6 +111,68 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, authToken 
 	}
 
 	return runningContainer, daemonVersion, nil
+}
+
+// convertRuncToKata commits the existing runc container to an image, then
+// recreates it under the same ID with the kata-clh runtime and the kata-specific
+// host config tweaks from create.go. The old runc container is removed and the
+// new container's inspect is returned.
+func (d *DockerClient) convertRuncToKata(ctx context.Context, containerId string, original *container.InspectResponse) (*container.InspectResponse, error) {
+	timestamp := time.Now().Unix()
+	imageName := fmt.Sprintf("daytona-runc-to-kata:%s-%d", containerId, timestamp)
+	oldName := fmt.Sprintf("%s-runc-%d", containerId, timestamp)
+
+	d.logger.InfoContext(ctx, "Converting runc container to kata-clh", "containerId", containerId, "imageName", imageName)
+
+	if err := d.commitContainer(ctx, containerId, imageName); err != nil {
+		return nil, fmt.Errorf("failed to commit runc container: %w", err)
+	}
+
+	if err := d.apiClient.ContainerRename(ctx, containerId, oldName); err != nil {
+		return nil, fmt.Errorf("failed to rename runc container: %w", err)
+	}
+
+	newContainerConfig := *original.Config
+	newContainerConfig.Image = imageName
+
+	newHostConfig := *original.HostConfig
+	newHostConfig.Privileged = false
+	newHostConfig.Runtime = "kata-clh"
+	// Kata VM default size is 1vcpu and 2Gi RAM.
+	// Kata adds container resources on top of its defaults, so subtract them
+	// to get the actual requested size inside the VM.
+	if newHostConfig.CPUQuota >= 100000 {
+		newHostConfig.CPUQuota -= 100000
+	}
+	kataDefaultMemory := common.GBToBytes(1)
+	if newHostConfig.Memory >= kataDefaultMemory {
+		newHostConfig.Memory -= kataDefaultMemory
+		newHostConfig.MemorySwap -= kataDefaultMemory
+	}
+	newHostConfig.CapAdd = []string{"ALL"}
+	newHostConfig.SecurityOpt = []string{"seccomp=unconfined", "apparmor=unconfined"}
+
+	networkingConfig := d.getContainerNetworkingConfig()
+
+	if _, err := d.apiClient.ContainerCreate(ctx, &newContainerConfig, &newHostConfig, networkingConfig, &v1.Platform{
+		Architecture: "amd64",
+		OS:           "linux",
+	}, containerId); err != nil {
+		if rnErr := d.apiClient.ContainerRename(ctx, oldName, containerId); rnErr != nil {
+			d.logger.ErrorContext(ctx, "Failed to roll back rename after kata create failure", "containerId", containerId, "oldName", oldName, "error", rnErr)
+		}
+		return nil, fmt.Errorf("failed to create kata container: %w", err)
+	}
+
+	if err := d.apiClient.ContainerRemove(ctx, oldName, container.RemoveOptions{Force: true}); err != nil {
+		d.logger.WarnContext(ctx, "Failed to remove old runc container after kata recreate", "oldName", oldName, "error", err)
+	}
+
+	newInspect, err := d.ContainerInspect(ctx, containerId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to inspect kata container: %w", err)
+	}
+	return newInspect, nil
 }
 
 func (d *DockerClient) waitForContainerRunning(ctx context.Context, containerId string) (*container.InspectResponse, error) {
