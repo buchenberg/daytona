@@ -142,7 +142,25 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 	}
 
 	if noSysbox {
-		hostConfig.Runtime = ""
+		hostConfig.Privileged = false
+		hostConfig.Runtime = "kata-clh"
+		// Kata VM default size is 1vcpu and 2Gi RAM
+		// Kata adds container resources on top of its defaults, so subtract them
+		// to get the actual requested size inside the VM.
+		if hostConfig.CPUQuota > 100000 {
+			hostConfig.CPUQuota -= 100000 // subtract 1 vCPU (1 * CPUPeriod)
+		}
+		kataDefaultMemory := common.GBToBytes(2)
+		if hostConfig.Memory > kataDefaultMemory {
+			hostConfig.Memory -= kataDefaultMemory
+			hostConfig.MemorySwap -= kataDefaultMemory
+		}
+
+		hostConfig.CapAdd = []string{"ALL"}
+		hostConfig.SecurityOpt = []string{"seccomp=unconfined", "apparmor=unconfined"}
+		hostConfig.Binds = append(hostConfig.Binds, "/opt/kata/bin/kata-init.sh:/opt/kata-init.sh:ro")
+		containerConfig.Entrypoint = []string{"/opt/kata-init.sh"}
+		containerConfig.Cmd = append([]string{common.DAEMON_PATH}, containerConfig.Cmd...)
 	}
 
 	c, err := d.apiClient.ContainerCreate(ctx, containerConfig, hostConfig, networkingConfig, &v1.Platform{
