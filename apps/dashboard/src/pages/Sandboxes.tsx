@@ -9,9 +9,10 @@ import { ForkTreeDialog } from '@/components/ForkTreeDialog'
 import { PageContent, PageFooter, PageHeader, PageLayout, PageTitle } from '@/components/PageLayout'
 import { RecursiveDeleteDialog } from '@/components/RecursiveDeleteDialog'
 import { CreateSandboxSheet } from '@/components/Sandbox/CreateSandboxSheet'
-import SandboxDetailsSheet from '@/components/SandboxDetailsSheet'
+import { tabParser } from '@/components/sandboxes/SearchParams'
 import { CreateSshAccessSheet } from '@/components/sandboxes/CreateSshAccessSheet'
 import { RevokeSshAccessDialog } from '@/components/sandboxes/RevokeSshAccessDialog'
+import SandboxDetailsSheet, { type SandboxDetailsSheetTabValue } from '@/components/sandboxes/SandboxDetailsSheet'
 import { SandboxTable } from '@/components/SandboxTable'
 import {
   AlertDialog,
@@ -45,7 +46,9 @@ import {
   SandboxState,
   SnapshotDto,
 } from '@daytona/api-client'
+import type { Sandbox as CreatedSandbox } from '@daytona/sdk'
 import { PlusIcon } from 'lucide-react'
+import { parseAsString, useQueryState } from 'nuqs'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from 'react-oidc-context'
 import { useNavigate } from 'react-router-dom'
@@ -111,7 +114,11 @@ const Sandboxes: React.FC = () => {
   // Sandbox Details Drawer
 
   const [selectedSandbox, setSelectedSandbox] = useState<Sandbox | null>(null)
+  const [orderedSandboxItems, setOrderedSandboxItems] = useState<Sandbox[] | null>(null)
   const [showSandboxDetails, setShowSandboxDetails] = useState(false)
+  const [sandboxDetailsInitialTab, setSandboxDetailsInitialTab] = useState<SandboxDetailsSheetTabValue>('overview')
+  const [sandboxIdParam, setSandboxIdParam] = useQueryState('sandboxId', parseAsString)
+  const [sandboxTabParam, setSandboxTabParam] = useQueryState('tab', tabParser)
   const [showCreateSshDialog, setShowCreateSshDialog] = useState(false)
   const [showRevokeSshDialog, setShowRevokeSshDialog] = useState(false)
   const [sshSandboxId, setSshSandboxId] = useState<string>('')
@@ -169,6 +176,24 @@ const Sandboxes: React.FC = () => {
   }, [fetchSandboxes, fetchSnapshots])
 
   useEffect(() => {
+    if (!sandboxIdParam) {
+      setShowSandboxDetails(false)
+      return
+    }
+
+    const sandboxFromUrl = sandboxes.find((sandbox) => sandbox.id === sandboxIdParam)
+    if (!sandboxFromUrl) {
+      return
+    }
+
+    setSelectedSandbox(sandboxFromUrl)
+    if (!showSandboxDetails || selectedSandbox?.id !== sandboxFromUrl.id) {
+      setSandboxDetailsInitialTab(sandboxTabParam as SandboxDetailsSheetTabValue)
+    }
+    setShowSandboxDetails(true)
+  }, [sandboxIdParam, sandboxTabParam, sandboxes, selectedSandbox?.id, showSandboxDetails])
+
+  useEffect(() => {
     if (selectedSandbox) {
       const updatedSandbox = sandboxes.find((s) => s.id === selectedSandbox.id)
       if (updatedSandbox && updatedSandbox !== selectedSandbox) {
@@ -181,14 +206,16 @@ const Sandboxes: React.FC = () => {
     if (selectedSandbox && !sandboxes.some((s) => s.id === selectedSandbox.id)) {
       setSelectedSandbox(null)
       setShowSandboxDetails(false)
+      setSandboxIdParam(null)
+      setSandboxTabParam(null)
     }
-  }, [sandboxes, selectedSandbox])
+  }, [sandboxes, selectedSandbox, setSandboxIdParam, setSandboxTabParam])
 
   useEffect(() => {
     const handleSandboxCreatedEvent = (sandbox: Sandbox) => {
-      if (!sandboxes.some((s) => s.id === sandbox.id)) {
-        setSandboxes((prev) => [sandbox, ...prev])
-      }
+      setSandboxes((prev) =>
+        prev.some((existingSandbox) => existingSandbox.id === sandbox.id) ? prev : [sandbox, ...prev],
+      )
     }
 
     const handleSandboxStateUpdatedEvent = (data: {
@@ -353,6 +380,8 @@ const Sandboxes: React.FC = () => {
       if (selectedSandbox?.id === id) {
         setShowSandboxDetails(false)
         setSelectedSandbox(null)
+        setSandboxIdParam(null)
+        setSandboxTabParam(null)
       }
 
       toast.success(`Deleting sandbox with ID:  ${id}`)
@@ -662,18 +691,6 @@ const Sandboxes: React.FC = () => {
     }
   }
 
-  const getWebTerminalUrl = useCallback(
-    async (sandboxId: string): Promise<string | null> => {
-      try {
-        return await getPortPreviewUrl(sandboxId, 22222)
-      } catch (error) {
-        handleApiError(error, 'Failed to construct web terminal URL')
-        return null
-      }
-    },
-    [getPortPreviewUrl],
-  )
-
   const handleScreenRecordings = async (id: string) => {
     // Check if sandbox is started
     const sandbox = sandboxes.find((s) => s.id === id)
@@ -702,6 +719,59 @@ const Sandboxes: React.FC = () => {
   const openRevokeSshDialog = (id: string) => {
     setSshSandboxId(id)
     setShowRevokeSshDialog(true)
+  }
+
+  const sandboxItems = useMemo(() => orderedSandboxItems ?? sandboxes ?? [], [orderedSandboxItems, sandboxes])
+  const selectedSandboxIndex = useMemo(
+    () => sandboxItems.findIndex((sandbox) => sandbox.id === selectedSandbox?.id),
+    [sandboxItems, selectedSandbox?.id],
+  )
+
+  const handleSandboxSheetNavigate = (direction: 'prev' | 'next') => {
+    if (selectedSandboxIndex < 0) {
+      return
+    }
+
+    const nextIndex = direction === 'prev' ? selectedSandboxIndex - 1 : selectedSandboxIndex + 1
+    const nextSandbox = sandboxItems[nextIndex]
+
+    if (nextSandbox) {
+      setSelectedSandbox(nextSandbox)
+      setSandboxIdParam(nextSandbox.id)
+    }
+  }
+
+  const handleSandboxDetailsOpenChange = (isOpen: boolean) => {
+    setShowSandboxDetails(isOpen)
+
+    if (!isOpen) {
+      setSandboxIdParam(null)
+      setSandboxTabParam(null)
+    }
+  }
+
+  const openSandboxDetails = (sandbox: Sandbox, orderedSandboxes: Sandbox[] | null) => {
+    setOrderedSandboxItems(orderedSandboxes)
+    setSelectedSandbox(sandbox)
+    setSandboxDetailsInitialTab('overview')
+    setSandboxIdParam(sandbox.id)
+    setSandboxTabParam('overview')
+    setShowSandboxDetails(true)
+  }
+
+  const handleSandboxRowClick = (sandbox: Sandbox, orderedSandboxes: Sandbox[]) => {
+    openSandboxDetails(sandbox, orderedSandboxes)
+  }
+
+  const handleSandboxCreated = (sandbox: CreatedSandbox) => {
+    const createdSandbox = sandbox as unknown as Sandbox
+
+    setSandboxes((prev) =>
+      prev.some((existingSandbox) => existingSandbox.id === createdSandbox.id)
+        ? prev.map((existingSandbox) => (existingSandbox.id === createdSandbox.id ? createdSandbox : existingSandbox))
+        : [createdSandbox, ...prev],
+    )
+    openSandboxDetails(createdSandbox, null)
   }
 
   const writePermitted = useMemo(
@@ -775,13 +845,16 @@ const Sandboxes: React.FC = () => {
               </Button>
             </>
           )}
-          {canCreateSandbox && <CreateSandboxSheet ref={createSandboxSheetRef} />}
+          {canCreateSandbox && (
+            <CreateSandboxSheet ref={createSandboxSheetRef} onSandboxCreated={handleSandboxCreated} />
+          )}
         </div>
       </PageHeader>
       <PageContent size="full" className="overflow-hidden">
         <SandboxTable
           sandboxIsLoading={loadingSandboxes}
           sandboxStateIsTransitioning={transitioningSandboxes}
+          activeSandboxId={showSandboxDetails ? selectedSandbox?.id : undefined}
           handleStart={handleStart}
           handleStop={handleStop}
           handleDelete={openDeleteDialog}
@@ -791,16 +864,12 @@ const Sandboxes: React.FC = () => {
           handleBulkArchive={handleBulkArchive}
           handleArchive={handleArchive}
           handleVnc={handleVnc}
-          getWebTerminalUrl={getWebTerminalUrl}
           handleCreateSshAccess={openCreateSshDialog}
           handleRevokeSshAccess={openRevokeSshDialog}
           data={sandboxes}
           loading={loadingTable}
           snapshots={snapshots}
-          onRowClick={(sandbox: Sandbox) => {
-            setSelectedSandbox(sandbox)
-            setShowSandboxDetails(true)
-          }}
+          onRowClick={handleSandboxRowClick}
           loadingSnapshots={loadingSnapshots}
           regionsData={regionsData}
           regionsDataIsLoading={regionsDataIsLoading}
@@ -816,6 +885,10 @@ const Sandboxes: React.FC = () => {
           <AlertDialog
             open={showDeleteDialog}
             onOpenChange={(isOpen) => {
+              if (!isOpen && loadingSandboxes[sandboxToDelete]) {
+                return
+              }
+
               setShowDeleteDialog(isOpen)
               if (!isOpen) {
                 setSandboxToDelete(null)
@@ -830,10 +903,13 @@ const Sandboxes: React.FC = () => {
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel disabled={loadingSandboxes[sandboxToDelete]}>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                   variant="destructive"
-                  onClick={() => handleDelete(sandboxToDelete)}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    handleDelete(sandboxToDelete)
+                  }}
                   disabled={loadingSandboxes[sandboxToDelete]}
                 >
                   {loadingSandboxes[sandboxToDelete] ? 'Deleting...' : 'Delete'}
@@ -920,20 +996,27 @@ const Sandboxes: React.FC = () => {
         <SandboxDetailsSheet
           sandbox={selectedSandbox}
           open={showSandboxDetails}
-          onOpenChange={setShowSandboxDetails}
+          onOpenChange={handleSandboxDetailsOpenChange}
           sandboxIsLoading={loadingSandboxes}
           handleStart={handleStart}
           handleStop={handleStop}
           handleDelete={async (id) => {
-            setShowSandboxDetails(false)
             await openDeleteDialog(id)
           }}
           handleArchive={handleArchive}
-          getWebTerminalUrl={getWebTerminalUrl}
           writePermitted={authenticatedUserOrganizationMember?.role === OrganizationUserRoleEnum.OWNER}
           deletePermitted={authenticatedUserOrganizationMember?.role === OrganizationUserRoleEnum.OWNER}
           handleRecover={handleRecover}
           getRegionName={getRegionName}
+          onCreateSshAccess={openCreateSshDialog}
+          onRevokeSshAccess={openRevokeSshDialog}
+          onScreenRecordings={handleScreenRecordings}
+          onNavigate={handleSandboxSheetNavigate}
+          hasPrev={selectedSandboxIndex > 0}
+          hasNext={selectedSandboxIndex >= 0 && selectedSandboxIndex < sandboxItems.length - 1}
+          initialTab={sandboxDetailsInitialTab}
+          activeTab={sandboxTabParam as SandboxDetailsSheetTabValue}
+          onTabChange={setSandboxTabParam}
         />
 
         {forkTreeSandboxId && (

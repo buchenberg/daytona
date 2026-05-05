@@ -48,6 +48,7 @@ export function SandboxTable({
   data,
   sandboxIsLoading,
   sandboxStateIsTransitioning,
+  activeSandboxId,
   loading,
   snapshots,
   loadingSnapshots,
@@ -63,7 +64,6 @@ export function SandboxTable({
   handleBulkArchive,
   handleArchive,
   handleVnc,
-  getWebTerminalUrl,
   handleCreateSshAccess,
   handleRevokeSshAccess,
   handleScreenRecordings,
@@ -89,7 +89,6 @@ export function SandboxTable({
     handleDelete,
     handleArchive,
     handleVnc,
-    getWebTerminalUrl,
     handleCreateSshAccess,
     handleRevokeSshAccess,
     handleScreenRecordings,
@@ -259,14 +258,19 @@ export function SandboxTable({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  data-state={row.getIsSelected() && 'selected'}
+                  data-selected={row.getIsSelected() || row.original.id === activeSandboxId ? true : undefined}
                   className={cn('group/table-row transition-all', {
                     'opacity-80 pointer-events-none':
                       sandboxIsLoading[row.original.id] || row.original.state === SandboxState.DESTROYED,
                     'bg-muted animate-pulse': sandboxStateIsTransitioning[row.original.id],
                     'cursor-pointer': onRowClick,
                   })}
-                  onClick={() => onRowClick?.(row.original)}
+                  onClick={() =>
+                    onRowClick?.(
+                      row.original,
+                      table.getPrePaginationRowModel().rows.map((row) => row.original),
+                    )
+                  }
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell

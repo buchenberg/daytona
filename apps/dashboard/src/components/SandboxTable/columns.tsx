@@ -9,13 +9,13 @@ import { ColumnDef } from '@tanstack/react-table'
 import React from 'react'
 import { CopyButton } from '../CopyButton'
 import { EllipsisWithTooltip } from '../EllipsisWithTooltip'
+import { SandboxLabel } from '../SandboxLabel'
 import { SortOrderIcon } from '../SortIcon'
 import { TimestampTooltip } from '../TimestampTooltip'
+import { SandboxState as SandboxStateComponent } from '../sandboxes/SandboxState'
 import { Badge } from '../ui/badge'
 import { Checkbox } from '../ui/checkbox'
-import { Separator } from '../ui/separator'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
-import { SandboxState as SandboxStateComponent } from './SandboxState'
 import { SandboxTableActions } from './SandboxTableActions'
 import { STATE_PRIORITY_ORDER } from './constants'
 import { ResourceFilterValue } from './filters/ResourceFilter'
@@ -43,13 +43,24 @@ const SortableHeader: React.FC<SortableHeaderProps> = ({ column, label, dataStat
   )
 }
 
+const SandboxStateCell = React.memo(function SandboxStateCell({
+  state,
+  errorReason,
+  recoverable,
+}: Pick<Sandbox, 'state' | 'errorReason' | 'recoverable'>) {
+  return (
+    <div className="w-full truncate">
+      <SandboxStateComponent state={state} errorReason={errorReason} recoverable={recoverable} />
+    </div>
+  )
+})
+
 interface GetColumnsProps {
   handleStart: (id: string) => void
   handleStop: (id: string) => void
   handleDelete: (id: string) => void
   handleArchive: (id: string) => void
   handleVnc: (id: string) => void
-  getWebTerminalUrl: (id: string) => Promise<string | null>
   sandboxIsLoading: Record<string, boolean>
   writePermitted: boolean
   deletePermitted: boolean
@@ -69,7 +80,6 @@ export function getColumns({
   handleDelete,
   handleArchive,
   handleVnc,
-  getWebTerminalUrl,
   sandboxIsLoading,
   writePermitted,
   deletePermitted,
@@ -82,13 +92,6 @@ export function getColumns({
   handleFork,
   handleViewForks,
 }: GetColumnsProps): ColumnDef<Sandbox>[] {
-  const handleOpenWebTerminal = async (sandboxId: string) => {
-    const url = await getWebTerminalUrl(sandboxId)
-    if (url) {
-      window.open(url, '_blank')
-    }
-  }
-
   const columns: ColumnDef<Sandbox>[] = [
     {
       id: 'select',
@@ -179,13 +182,11 @@ export function getColumns({
         return <SortableHeader column={column} label="State" />
       },
       cell: ({ row }) => (
-        <div className="w-full truncate">
-          <SandboxStateComponent
-            state={row.original.state}
-            errorReason={row.original.errorReason}
-            recoverable={row.original.recoverable}
-          />
-        </div>
+        <SandboxStateCell
+          state={row.original.state}
+          errorReason={row.original.errorReason}
+          recoverable={row.original.recoverable}
+        />
       ),
       accessorKey: 'state',
       sortingFn: (rowA, rowB) => {
@@ -292,14 +293,7 @@ export function getColumns({
             <TooltipContent className="max-w-[300px] max-h-[400px] overflow-y-auto scrollbar-sm p-2">
               <div className="flex flex-wrap gap-2">
                 {labelEntries.map(([key, value]) => (
-                  <code
-                    key={key}
-                    className="flex items-center gap-2 bg-muted border border-transparent rounded px-2 text-xs font-mono"
-                  >
-                    <span className="text-muted-foreground">{key}</span>
-                    <Separator orientation="vertical" className="self-stretch -my-px h-[calc(100%+2px)]" />
-                    <span>{value}</span>
-                  </code>
+                  <SandboxLabel key={key} labelKey={key} value={value} />
                 ))}
               </div>
             </TooltipContent>
@@ -354,9 +348,9 @@ export function getColumns({
     },
     {
       id: 'actions',
-      size: 124,
-      minSize: 124,
-      maxSize: 124,
+      size: 88,
+      minSize: 88,
+      maxSize: 88,
       enableHiding: false,
       cell: ({ row }) => (
         <div className="w-full flex justify-end">
@@ -370,7 +364,6 @@ export function getColumns({
             onDelete={handleDelete}
             onArchive={handleArchive}
             onVnc={handleVnc}
-            onOpenWebTerminal={handleOpenWebTerminal}
             onCreateSshAccess={handleCreateSshAccess}
             onRevokeSshAccess={handleRevokeSshAccess}
             onRecover={handleRecover}

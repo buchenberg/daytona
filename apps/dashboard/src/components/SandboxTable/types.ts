@@ -10,6 +10,7 @@ export interface SandboxTableProps {
   data: Sandbox[]
   sandboxIsLoading: Record<string, boolean>
   sandboxStateIsTransitioning: Record<string, boolean>
+  activeSandboxId?: string
   loading: boolean
   snapshots: SnapshotDto[]
   loadingSnapshots: boolean
@@ -25,10 +26,9 @@ export interface SandboxTableProps {
   handleBulkArchive: (ids: string[]) => void
   handleArchive: (id: string) => void
   handleVnc: (id: string) => void
-  getWebTerminalUrl: (id: string) => Promise<string | null>
   handleCreateSshAccess: (id: string) => void
   handleRevokeSshAccess: (id: string) => void
-  onRowClick?: (sandbox: Sandbox) => void
+  onRowClick?: (sandbox: Sandbox, orderedSandboxes: Sandbox[]) => void
   handleRecover: (id: string) => void
   handleScreenRecordings: (id: string) => void
   handleCreateSnapshot: (id: string) => void
@@ -47,7 +47,6 @@ export interface SandboxTableActionsProps {
   onDelete: (id: string) => void
   onArchive: (id: string) => void
   onVnc: (id: string) => void
-  onOpenWebTerminal: (id: string) => void
   onCreateSshAccess: (id: string) => void
   onRevokeSshAccess: (id: string) => void
   onFork?: () => void
