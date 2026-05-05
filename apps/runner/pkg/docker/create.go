@@ -147,11 +147,11 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		// Kata VM default size is 1vcpu and 2Gi RAM
 		// Kata adds container resources on top of its defaults, so subtract them
 		// to get the actual requested size inside the VM.
-		if hostConfig.CPUQuota > 100000 {
+		if hostConfig.CPUQuota >= 100000 {
 			hostConfig.CPUQuota -= 100000 // subtract 1 vCPU (1 * CPUPeriod)
 		}
-		kataDefaultMemory := common.GBToBytes(2)
-		if hostConfig.Memory > kataDefaultMemory {
+		kataDefaultMemory := common.GBToBytes(1)
+		if hostConfig.Memory >= kataDefaultMemory {
 			hostConfig.Memory -= kataDefaultMemory
 			hostConfig.MemorySwap -= kataDefaultMemory
 		}

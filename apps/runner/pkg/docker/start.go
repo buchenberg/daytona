@@ -72,7 +72,7 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, authToken 
 		return nil, "", errors.New("sandbox IP not found? Is the sandbox started?")
 	}
 
-	if !slices.Equal(c.Config.Entrypoint, strslice.StrSlice{common.DAEMON_PATH}) {
+	if c.HostConfig.Runtime != "kata-clh" && !slices.Equal(c.Config.Entrypoint, strslice.StrSlice{common.DAEMON_PATH}) {
 		processesCtx := context.Background()
 		go func() {
 			if err := d.startDaytonaDaemon(processesCtx, containerId, c.Config.WorkingDir); err != nil {
