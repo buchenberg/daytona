@@ -81,6 +81,7 @@ import {
   PER_SANDBOX_LIMIT_MESSAGE,
 } from '../../common/constants/error-messages'
 import { RedisLockProvider } from '../common/redis-lock.provider'
+import { getStateChangeLockKey } from '../utils/lock-key.util'
 import { customAlphabet as customNanoid, nanoid, urlAlphabet } from 'nanoid'
 import { WithInstrumentation } from '../../common/decorators/otel.decorator'
 import { validateMountPaths, validateSubpaths } from '../utils/volume-mount-path-validation.util'
@@ -1771,60 +1772,122 @@ export class SandboxService {
   }
 
   async recover(sandboxIdOrName: string, organization: Organization, skipStart = false): Promise<Sandbox> {
+    let pendingCpuIncrement: number | undefined
+    let pendingMemoryIncrement: number | undefined
+    let pendingDiskIncrement: number | undefined
+
     const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organization.id)
 
-    if (sandbox.state !== SandboxState.ERROR) {
-      throw new BadRequestError('Sandbox must be in error state to recover')
+    const region = await this.regionService.findOne(sandbox.region)
+    if (!region) {
+      throw new NotFoundException(`Region with ID ${sandbox.region} not found`)
     }
 
-    if (sandbox.pending) {
+    // Serialize against concurrent recover calls and the draining-runner manager (which takes
+    // the same lock). The pending flag can't be used here: enforceInvariants forces pending=false
+    // when state=ERROR (sandbox.entity.ts:390-395), so updateWhere claims don't stick.
+    const lockKey = getStateChangeLockKey(sandbox.id)
+    if (!(await this.redisLockProvider.lock(lockKey, 60))) {
       throw new StateChangeInProgressError()
     }
 
-    // Validate runner exists
-    if (!sandbox.runnerId) {
-      throw new NotFoundException(`Sandbox with ID ${sandbox.id} does not have a runner`)
-    }
-    const runner = await this.runnerService.findOneOrFail(sandbox.runnerId)
-
-    if (runner.apiVersion === '2') {
-      // TODO: we need "recovering" state that can be set after calling recover
-      // Once in recovering, we abort further processing and let the manager/job handler take care of it
-      // (Also, since desiredState would be STARTED, we need to check the quota)
-      throw new ForbiddenException('Recovering sandboxes with runner API version 2 is not supported')
-    }
-
-    const runnerAdapter = await this.runnerAdapterFactory.create(runner)
-
     try {
-      await runnerAdapter.recoverSandbox(sandbox)
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('storage cannot be further expanded')) {
-        const errorMsg = `Sandbox storage cannot be further expanded. Maximum expansion of ${(sandbox.disk * 0.1).toFixed(2)}GB (10% of original ${sandbox.disk.toFixed(2)}GB) has been reached. Please contact support for further assistance.`
-        throw new ForbiddenException(errorMsg)
+      if (sandbox.state !== SandboxState.ERROR) {
+        throw new BadRequestError('Sandbox must be in error state to recover')
       }
+
+      if (!sandbox.runnerId) {
+        throw new NotFoundException(`Sandbox with ID ${sandbox.id} does not have a runner`)
+      }
+      const runner = await this.runnerService.findOneOrFail(sandbox.runnerId)
+      const willStartOnV2 = runner.apiVersion === '2' && !skipStart
+
+      // The chained start on v2 is queued by the job-completion handler via SandboxStartedEvent
+      // and bypasses SandboxService.start(); replicate the suspended-org check here.
+      if (willStartOnV2) {
+        this.organizationService.assertOrganizationIsNotSuspended(organization)
+      }
+
+      // ERROR → STOPPED activates disk usage; v2 + !skipStart additionally activates cpu/mem
+      // because there is no trailing start() call to validate them.
+      const { pendingCpuIncremented, pendingMemoryIncremented, pendingDiskIncremented } =
+        await this.validateOrganizationQuotas(
+          organization,
+          region,
+          willStartOnV2 ? sandbox.cpu : 0,
+          willStartOnV2 ? sandbox.mem : 0,
+          sandbox.disk,
+          isEphemeral(sandbox),
+          sandbox.id,
+        )
+      if (pendingCpuIncremented) {
+        pendingCpuIncrement = sandbox.cpu
+      }
+      if (pendingMemoryIncremented) {
+        pendingMemoryIncrement = sandbox.mem
+      }
+      if (pendingDiskIncremented) {
+        pendingDiskIncrement = sandbox.disk
+      }
+
+      // Normalize desiredState upfront so the job handler can detect mid-job intent changes
+      // (e.g. /destroy). For v2 + !skipStart, also refresh authToken since we're bypassing start().
+      if (runner.apiVersion === '2') {
+        await this.sandboxRepository.updateWhere(sandbox.id, {
+          updateData: {
+            desiredState: skipStart ? SandboxDesiredState.STOPPED : SandboxDesiredState.STARTED,
+            ...(willStartOnV2 && { authToken: nanoid(32).toLocaleLowerCase() }),
+          },
+          whereCondition: { state: SandboxState.ERROR },
+        })
+      }
+
+      const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+
+      try {
+        await runnerAdapter.recoverSandbox(sandbox, skipStart)
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('storage cannot be further expanded')) {
+          throw new ForbiddenException(
+            `Sandbox storage cannot be further expanded. Maximum expansion of ${(sandbox.disk * 0.1).toFixed(2)}GB (10% of original ${sandbox.disk.toFixed(2)}GB) has been reached. Please contact support for further assistance.`,
+          )
+        }
+        throw error
+      }
+
+      // v2: job-completion handler writes the terminal state and chains START_SANDBOX if needed.
+      if (runner.apiVersion === '2') {
+        return sandbox
+      }
+
+      const updatedSandbox = await this.sandboxRepository.updateWhere(sandbox.id, {
+        updateData: {
+          state: SandboxState.STOPPED,
+          desiredState: SandboxDesiredState.STOPPED,
+          errorReason: null,
+          recoverable: false,
+        },
+        whereCondition: { state: SandboxState.ERROR },
+      })
+
+      if (skipStart) {
+        return updatedSandbox
+      }
+
+      // start() validates cpu/mem with self-excluded so disk doesn't double-count.
+      return await this.start(sandbox.id, organization)
+    } catch (error) {
+      await this.rollbackPendingUsage(
+        organization.id,
+        sandbox.region,
+        pendingCpuIncrement,
+        pendingMemoryIncrement,
+        pendingDiskIncrement,
+      )
       throw error
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
     }
-
-    const updateData: Partial<Sandbox> = {
-      state: SandboxState.STOPPED,
-      desiredState: SandboxDesiredState.STOPPED,
-      errorReason: null,
-      recoverable: false,
-    }
-
-    const updatedSandbox = await this.sandboxRepository.updateWhere(sandbox.id, {
-      updateData,
-      whereCondition: { state: SandboxState.ERROR },
-    })
-
-    if (skipStart) {
-      return updatedSandbox
-    }
-
-    // Now that sandbox is in STOPPED state, use the normal start flow
-    // This handles quota validation, pending usage, event emission, etc.
-    return await this.start(sandbox.id, organization)
   }
 
   async resize(sandboxIdOrName: string, resizeDto: ResizeSandboxDto, organization: Organization): Promise<Sandbox> {
