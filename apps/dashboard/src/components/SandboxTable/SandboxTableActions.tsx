@@ -97,11 +97,7 @@ export function SandboxTableActions({
         })
       }
 
-      if (
-        linuxVmEnabled &&
-        isExperimentalRegion &&
-        (sandbox.state === SandboxState.STARTED || sandbox.state === SandboxState.STOPPED)
-      ) {
+      if (linuxVmEnabled && (sandbox.state === SandboxState.STARTED || sandbox.state === SandboxState.STOPPED)) {
         items.push({
           key: 'create-snapshot',
           label: 'Create Snapshot',
@@ -109,12 +105,14 @@ export function SandboxTableActions({
           disabled: isLoading,
         })
 
-        items.push({
-          key: 'fork',
-          label: 'Fork',
-          onClick: () => onFork?.(),
-          disabled: isLoading,
-        })
+        if (isExperimentalRegion) {
+          items.push({
+            key: 'fork',
+            label: 'Fork',
+            onClick: () => onFork?.(),
+            disabled: isLoading,
+          })
+        }
       }
 
       if (linuxVmEnabled && isExperimentalRegion) {
