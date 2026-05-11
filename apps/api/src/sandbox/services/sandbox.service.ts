@@ -463,6 +463,11 @@ export class SandboxService {
       let disk = snapshot.disk
       let gpu = snapshot.gpu
 
+      // GPU sandboxes are always ephemeral - delete on first stop.
+      if (gpu > 0 && !isEphemeral(createSandboxDto)) {
+        throw new BadRequestError('GPU sandboxes must be ephemeral - set autoDeleteInterval to 0')
+      }
+
       // Remove the deprecated behavior in a future release
       if (useSandboxResourceParams_deprecated) {
         if (createSandboxDto.cpu) {
@@ -494,7 +499,16 @@ export class SandboxService {
         pendingDiskIncrement = disk
       }
 
-      if (!createSandboxDto.volumes || createSandboxDto.volumes.length === 0) {
+      // GPU sandboxes are always ephemeral: they get exclusive ownership of a
+      // runner for their lifetime and are auto-deleted on first stop. Skip the
+      // warm-pool path entirely so we always provision a fresh container on a
+      // currently-unoccupied GPU runner.
+      if (gpu > 0) {
+        const volumeIdOrNames = (createSandboxDto.volumes ?? []).map((v) => v.volumeId)
+        if (volumeIdOrNames.length > 0) {
+          await this.volumeService.validateVolumes(organization.id, volumeIdOrNames)
+        }
+      } else if (!createSandboxDto.volumes || createSandboxDto.volumes.length === 0) {
         const skipWarmPool = false
         // const skipWarmPool = (await this.redis.exists(`warm-pool:skip:${snapshot.id}`)) === 1
 
@@ -526,6 +540,7 @@ export class SandboxService {
         regions: [resolveEffectiveRegion(organization.id, region.id, this.configService, { cpu, memory: mem, disk })],
         sandboxClass,
         snapshotRef: snapshot.ref,
+        gpu: gpu > 0 ? gpu : undefined,
       })
 
       const sandbox = new Sandbox(region.id, createSandboxDto.name)
