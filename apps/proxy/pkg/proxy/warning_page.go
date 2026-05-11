@@ -410,6 +410,10 @@ func (p *Proxy) sandboxIsExempt(ctx *gin.Context, sandboxId string, port float32
 		return true, nil
 	}
 
+	if regionId == "experimental" {
+		return true, nil
+	}
+
 	if p.config.PreviewWarningCPUQuotaThreshold > 0 {
 		if CPUQuota == 0 {
 			// Fetch from cache first
