@@ -65,6 +65,7 @@ import {
   resolveEffectiveRegion,
   BUILD_INFO_BLOCKED_ORGS,
   LARGE_SANDBOX_SHARED_REGION,
+  GPU_REGION,
 } from '../constants/dedicated-regions.constant'
 import { PaginatedList } from '../../common/interfaces/paginated-list.interface'
 import {
@@ -684,6 +685,16 @@ export class SandboxService {
     let pendingDiskIncrement: number | undefined
 
     const region = await this.getValidatedOrDefaultRegion(organization, createSandboxDto.target)
+
+    if (createSandboxDto.gpu) {
+      if (region.id !== GPU_REGION) {
+        throw new BadRequestError(`GPUs not available in this region`)
+      }
+
+      if (createSandboxDto.gpu > 1) {
+        throw new BadRequestError(`Only one GPU per sandbox is allowed`)
+      }
+    }
 
     try {
       const sandboxClass = this.getValidatedOrDefaultClass(createSandboxDto.class)

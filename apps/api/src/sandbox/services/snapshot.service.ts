@@ -60,6 +60,7 @@ import {
   persistSnapshotFromSandbox,
   PersistSnapshotFromSandboxParams,
 } from '../utils/persist-snapshot-from-sandbox.util'
+import { GPU_REGION } from '../constants/dedicated-regions.constant'
 
 const IMAGE_NAME_REGEX = /^[a-zA-Z0-9_.\-:]+(\/[a-zA-Z0-9_.\-:]+)*(@sha256:[a-f0-9]{64})?$/
 
@@ -158,6 +159,16 @@ export class SnapshotService {
       throw new BadRequestException('Must specify an image name')
     }
 
+    if (createSnapshotDto.gpu) {
+      if (region.id !== GPU_REGION) {
+        throw new BadRequestException(`GPUs not available in this region`)
+      }
+
+      if (createSnapshotDto.gpu > 1) {
+        throw new BadRequestException(`Only one GPU per sandbox is allowed`)
+      }
+    }
+
     try {
       const entrypoint = createSnapshotDto.entrypoint
       const ref: string | undefined = undefined
@@ -234,6 +245,16 @@ export class SnapshotService {
 
     let pendingSnapshotCountIncrement: number | undefined
     let entrypoint: string[] | undefined = undefined
+
+    if (createSnapshotDto.gpu) {
+      if (region.id !== GPU_REGION) {
+        throw new BadRequestException(`GPUs not available in this region`)
+      }
+
+      if (createSnapshotDto.gpu > 1) {
+        throw new BadRequestException(`Only one GPU per sandbox is allowed`)
+      }
+    }
 
     try {
       const nameValidationError = this.validateSnapshotName(createSnapshotDto.name)

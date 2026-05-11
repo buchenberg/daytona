@@ -1,6 +1,8 @@
 import { TypedConfigService } from '../../config/typed-config.service'
 import { areResourcesLargerThanDefault, Resources } from '../utils/resources'
 
+export const GPU_REGION = 'gpu-experimental'
+
 /*
  * Dedicated regions for runner assignment
  */
