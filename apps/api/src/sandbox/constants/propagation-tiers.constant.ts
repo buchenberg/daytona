@@ -19,11 +19,11 @@ export const REGION_PROPAGATION_TIERS: Record<string, { threshold: number; perce
     { threshold: 0, percentage: 8, minimum: 0 },
   ],
   default: [
-    { threshold: 5000, percentage: 60, minimum: 0 },
-    { threshold: 1000, percentage: 30, minimum: 0 },
-    { threshold: 250, percentage: 12, minimum: 10 },
-    { threshold: 100, percentage: 7, minimum: 5 },
-    { threshold: 0, percentage: 5, minimum: 3 },
+    { threshold: 5000, percentage: 40, minimum: 0 },
+    { threshold: 1000, percentage: 20, minimum: 0 },
+    { threshold: 250, percentage: 8, minimum: 10 },
+    { threshold: 100, percentage: 5, minimum: 5 },
+    { threshold: 0, percentage: 3, minimum: 3 },
   ],
 }
 
@@ -33,6 +33,15 @@ export const ORGANIZATION_PROPAGATION_OVERRIDES: Record<
 > = {
   '8c0f7497-8037-4515-89a3-992bb9230cbc': [{ threshold: 0, percentage: 2, minimum: 0 }],
 }
+
+export const FROM_SANDBOX_PROPAGATION_OVERRIDES: Record<
+  string,
+  { threshold: number; percentage: number; minimum: number }[]
+> = {
+  '55717397-f840-4f5b-a829-77fd6f7cb2fc': [{ threshold: 0, percentage: 20, minimum: 3 }],
+}
+
+const FROM_SANDBOX_DEFAULT_TIERS = [{ threshold: 0, percentage: 3, minimum: 3 }]
 
 /**
  * Get the propagation parameters for a snapshot based on the CPU quota that the organization has in the snapshot region.
@@ -44,11 +53,22 @@ export const ORGANIZATION_PROPAGATION_OVERRIDES: Record<
  */
 export function getSnapshotPropagationFactor(
   cpuQuota: number,
+  snapshot: {
+    organizationId?: string
+    imageName?: string
+    buildInfo?: unknown
+    buildInfoSnapshotRef?: string | null
+  },
   regionId?: string,
-  organizationId?: string,
 ): { factor: number; minimum: number } {
-  const orgTiers = organizationId && ORGANIZATION_PROPAGATION_OVERRIDES[organizationId]
-  const tiers = orgTiers ?? (regionId && REGION_PROPAGATION_TIERS[regionId]) ?? REGION_PROPAGATION_TIERS['default']
+  const fromSandbox = !snapshot.imageName && !snapshot.buildInfo && !snapshot.buildInfoSnapshotRef
+  const orgTiers = snapshot.organizationId
+    ? (fromSandbox ? FROM_SANDBOX_PROPAGATION_OVERRIDES : ORGANIZATION_PROPAGATION_OVERRIDES)[snapshot.organizationId]
+    : undefined
+  const defaultTiers = fromSandbox
+    ? FROM_SANDBOX_DEFAULT_TIERS
+    : ((regionId && REGION_PROPAGATION_TIERS[regionId]) ?? REGION_PROPAGATION_TIERS['default'])
+  const tiers = orgTiers ?? defaultTiers
   const tier = tiers.find((t) => cpuQuota >= t.threshold)
 
   if (!tier) {

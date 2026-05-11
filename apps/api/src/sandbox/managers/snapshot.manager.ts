@@ -168,11 +168,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     const results = await Promise.allSettled(
       snapshots.map(async (snapshot) => {
-        const { factor: propagationFactor } = getSnapshotPropagationFactor(
-          snapshot.total_cpu_quota,
-          undefined,
-          snapshot.organizationId,
-        )
+        const { factor: propagationFactor } = getSnapshotPropagationFactor(snapshot.total_cpu_quota, snapshot)
 
         const regions = await this.snapshotService.getSnapshotRegions(snapshot.id)
 
@@ -187,6 +183,67 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     results.forEach((result) => {
       if (result.status === 'rejected') {
         this.logger.error(`Error scaling down snapshot from runners: ${fromAxiosError(result.reason)}`)
+      }
+    })
+
+    await this.redisLockProvider.unlock(lockKey)
+  }
+
+  // @Cron(CronExpression.EVERY_MINUTE, { name: 'scale-down-runner-snapshots-rl', waitForCompletion: true })
+  @TrackJobExecution()
+  @LogExecution('scale-down-runner-snapshots-rl')
+  @WithInstrumentation()
+  async scaleDownRunnerSnapshotsRL() {
+    const lockKey = 'scale-down-runner-snapshots-rl-lock'
+    const lockTtl = 3 * 60 // seconds (3 min)
+    if (!(await this.redisLockProvider.lock(lockKey, lockTtl))) {
+      return
+    }
+
+    const skip = (await this.redis.get('scale-down-runner-snapshots-rl-skip')) || 0
+
+    const snapshots = await this.snapshotRepository
+      .createQueryBuilder('snapshot')
+      .innerJoin('organization', 'org', 'org.id = snapshot.organizationId')
+      .innerJoin('region_quota', 'rq', 'rq."organizationId" = org.id AND rq."regionId" = org."defaultRegionId"')
+      .innerJoin('snapshot_region', 'sr', 'sr."snapshotId" = snapshot.id AND sr."regionId" = :rlRegion', {
+        rlRegion: RL_REGION,
+      })
+      .select(['snapshot.*', 'rq.total_cpu_quota'])
+      .where('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
+      .andWhere('org.suspended = false')
+      .andWhere('snapshot."createdAt" BETWEEN :rlScaleDownStart AND :rlScaleDownEnd', {
+        rlScaleDownStart: '2026-04-24',
+        rlScaleDownEnd: '2026-04-28',
+      })
+      .orderBy('snapshot.createdAt', 'ASC')
+      .limit(50)
+      .offset(Number(skip))
+      .getRawMany()
+
+    if (snapshots.length === 0) {
+      await this.redisLockProvider.unlock(lockKey)
+      await this.redis.set('scale-down-runner-snapshots-rl-skip', 0)
+      return
+    }
+
+    await this.redis.set('scale-down-runner-snapshots-rl-skip', Number(skip) + snapshots.length)
+
+    const results = await Promise.allSettled(
+      snapshots.map(async (snapshot) => {
+        const { factor: propagationFactor } = getSnapshotPropagationFactor(
+          snapshot.total_cpu_quota,
+          snapshot,
+          RL_REGION,
+        )
+
+        return this.scaleDownSnapshotFromRunners(snapshot, [RL_REGION], propagationFactor)
+      }),
+    )
+
+    results.forEach((result) => {
+      if (result.status === 'rejected') {
+        this.logger.error(`Error scaling down RL snapshot from runners: ${fromAxiosError(result.reason)}`)
       }
     })
 
@@ -215,6 +272,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       .select(['snapshot.*', 'rq.total_cpu_quota'])
       .where('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
       .andWhere('org.suspended = false')
+      .andWhere("org.id != '8c0f7497-8037-4515-89a3-992bb9230cbc'")
       .andWhere(
         `
         NOT (
@@ -250,15 +308,14 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       snapshots.map(async (snapshot) => {
         const { factor: propagationFactor, minimum: minimumRunners } = getSnapshotPropagationFactor(
           snapshot.total_cpu_quota,
-          undefined,
-          snapshot.organizationId,
+          snapshot,
         )
 
         const regions = await this.snapshotService.getSnapshotRegions(snapshot.id)
 
-        const sharedRegionIds = regions.filter((r) => r.organizationId === null).map((r) => r.id)
+        const sharedRegionIds = regions.filter((r) => r.organizationId === null && r.id !== RL_REGION).map((r) => r.id)
         const organizationRegionIds = regions
-          .filter((r) => r.organizationId === snapshot.organizationId)
+          .filter((r) => r.organizationId === snapshot.organizationId && r.id !== RL_REGION)
           .map((r) => r.id)
 
         return this.propagateSnapshotToRunners(
@@ -267,6 +324,78 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
           organizationRegionIds,
           propagationFactor,
           minimumRunners,
+        )
+      }),
+    )
+
+    // Log all promise errors
+    results.forEach((result) => {
+      if (result.status === 'rejected') {
+        this.logger.error(`Error propagating snapshot to runners: ${fromAxiosError(result.reason)}`)
+      }
+    })
+
+    await this.redisLockProvider.unlock(lockKey)
+  }
+
+  @Cron(CronExpression.EVERY_5_SECONDS, { name: 'sync-runner-snapshots-rl', waitForCompletion: true })
+  @TrackJobExecution()
+  @LogExecution('sync-runner-snapshots-rl')
+  @WithInstrumentation()
+  async syncRunnerSnapshotsRL() {
+    const lockKey = 'sync-runner-snapshots-rl-lock'
+    const lockTtl = 10 * 60 // seconds (10 min)
+    if (!(await this.redisLockProvider.lock(lockKey, lockTtl))) {
+      return
+    }
+
+    const skip = (await this.redis.get('sync-runner-snapshots-rl-skip')) || 0
+
+    const snapshots = await this.snapshotRepository
+      .createQueryBuilder('snapshot')
+      .innerJoin('organization', 'org', 'org.id = snapshot.organizationId')
+      .innerJoin('region_quota', 'rq', 'rq."organizationId" = org.id AND rq."regionId" = org."defaultRegionId"')
+      .innerJoin('snapshot_region', 'sr', 'sr."snapshotId" = snapshot.id AND sr."regionId" = :rlRegion', {
+        rlRegion: RL_REGION,
+      })
+      .select(['snapshot.*', 'rq.total_cpu_quota'])
+      .where('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
+      .andWhere('org.suspended = false')
+      .orderBy('snapshot.createdAt', 'ASC')
+      .limit(250)
+      .offset(Number(skip))
+      .getRawMany()
+
+    if (snapshots.length === 0) {
+      await this.redisLockProvider.unlock(lockKey)
+      await this.redis.set('sync-runner-snapshots-rl-skip', 0)
+      return
+    }
+
+    await this.redis.set('sync-runner-snapshots-rl-skip', Number(skip) + snapshots.length)
+
+    const results = await Promise.allSettled(
+      snapshots.map(async (snapshot) => {
+        const { factor: propagationFactor, minimum: minimumRunners } = getSnapshotPropagationFactor(
+          snapshot.total_cpu_quota,
+          snapshot,
+          RL_REGION,
+        )
+
+        const regions = await this.snapshotService.getSnapshotRegions(snapshot.id)
+
+        const sharedRegionIds = regions.filter((r) => r.organizationId === null && r.id === RL_REGION).map((r) => r.id)
+        const organizationRegionIds = regions
+          .filter((r) => r.organizationId === snapshot.organizationId && r.id === RL_REGION)
+          .map((r) => r.id)
+
+        return this.propagateSnapshotToRunners(
+          snapshot,
+          sharedRegionIds,
+          organizationRegionIds,
+          propagationFactor,
+          minimumRunners,
+          10,
         )
       }),
     )
@@ -387,16 +516,12 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     await this.redisLockProvider.unlock(lockKey)
   }
 
-  @Cron(CronExpression.EVERY_5_SECONDS, { name: 'sync-runner-snapshot-states', waitForCompletion: true })
+  @Cron(CronExpression.EVERY_5_SECONDS, { name: 'sync-pulling-runner-snapshot-states', waitForCompletion: true })
   @TrackJobExecution()
-  @LogExecution('sync-runner-snapshot-states')
+  @LogExecution('sync-pulling-runner-snapshot-states')
   @WithInstrumentation()
-  async syncRunnerSnapshotStates() {
-    //  this approach is not ideal, as if the number of runners is large, this will take a long time
-    //  also, if some snapshots stuck in a "pulling" state, they will infest the queue
-    //  todo: find a better approach
-
-    const lockKey = 'sync-runner-snapshot-states-lock'
+  async syncPullingRunnerSnapshotStates() {
+    const lockKey = 'sync-pulling-runner-snapshot-states-lock'
     if (!(await this.redisLockProvider.lock(lockKey, 30))) {
       return
     }
@@ -404,7 +529,49 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     const runnerSnapshots = await this.snapshotRunnerRepository
       .createQueryBuilder('snapshotRunner')
       .where({
-        state: In([SnapshotRunnerState.PULLING_SNAPSHOT, SnapshotRunnerState.BUILDING_SNAPSHOT]),
+        state: SnapshotRunnerState.PULLING_SNAPSHOT,
+      })
+      .orderBy('RANDOM()')
+      .take(100)
+      .getMany()
+
+    await Promise.allSettled(
+      runnerSnapshots.map((snapshotRunner) => {
+        return this.syncRunnerSnapshotState(snapshotRunner).catch((err) => {
+          if (err.code !== 'ECONNRESET') {
+            if (err instanceof RunnerNotReadyError) {
+              this.logger.debug(
+                `Runner ${snapshotRunner.runnerId} is not ready while trying to sync snapshot runner ${snapshotRunner.id}: ${err}`,
+              )
+              return
+            }
+            this.logger.error(`Error syncing runner snapshot state ${snapshotRunner.id}: ${fromAxiosError(err)}`)
+            this.snapshotRunnerRepository.update(snapshotRunner.id, {
+              state: SnapshotRunnerState.ERROR,
+              errorReason: fromAxiosError(err).message,
+            })
+          }
+        })
+      }),
+    )
+
+    await this.redisLockProvider.unlock(lockKey)
+  }
+
+  @Cron(CronExpression.EVERY_5_SECONDS, { name: 'sync-building-runner-snapshot-states', waitForCompletion: true })
+  @TrackJobExecution()
+  @LogExecution('sync-building-runner-snapshot-states')
+  @WithInstrumentation()
+  async syncBuildingRunnerSnapshotStates() {
+    const lockKey = 'sync-building-runner-snapshot-states-lock'
+    if (!(await this.redisLockProvider.lock(lockKey, 30))) {
+      return
+    }
+
+    const runnerSnapshots = await this.snapshotRunnerRepository
+      .createQueryBuilder('snapshotRunner')
+      .where({
+        state: SnapshotRunnerState.BUILDING_SNAPSHOT,
       })
       .orderBy('RANDOM()')
       .take(100)
@@ -519,6 +686,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     organizationRegionIds: string[],
     propagationFactor: number,
     minimumRunners = 0,
+    excludeTopDiskUsagePercent = 5,
   ) {
     //  todo: remove try catch block and implement error handling
     try {
@@ -531,6 +699,19 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
           gpu: snapshot.gpu > 0 ? MoreThanOrEqual(snapshot.gpu) : Or(IsNull(), Equal(0)),
         },
       })
+
+      // Identify the top N% of runners by disk usage so we don't push NEW snapshot copies onto runners that are nearly full.
+      // Existing snapshot_runner entries on these runners still count toward the propagation goal — we just don't add more.
+      const ineligibleRunnerIds = new Set<string>()
+      if (excludeTopDiskUsagePercent > 0 && runners.length > 0) {
+        const sortedByDiskUsageDesc = [...runners].sort(
+          (a, b) => b.currentDiskUsagePercentage - a.currentDiskUsagePercentage,
+        )
+        const excludeCount = Math.floor((sortedByDiskUsageDesc.length * excludeTopDiskUsagePercent) / 100)
+        for (let i = 0; i < excludeCount; i++) {
+          ineligibleRunnerIds.add(sortedByDiskUsageDesc[i].id)
+        }
+      }
 
       const sharedRunners = runners.filter((runner) => sharedRegionIds.includes(runner.region))
       const sharedRunnerIds = sharedRunners.map((runner) => runner.id)
@@ -565,12 +746,13 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         organizationSnapshotRunners.map((snapshotRunner) => snapshotRunner.runnerId),
       )
 
-      //  get all runners where the snapshot is not propagated to
+      //  get all runners where the snapshot is not propagated to and that are eligible to receive new copies
       const unallocatedSharedRunners = sharedRunners.filter(
-        (runner) => !sharedSnapshotRunnersDistinctRunnersIds.has(runner.id),
+        (runner) => !sharedSnapshotRunnersDistinctRunnersIds.has(runner.id) && !ineligibleRunnerIds.has(runner.id),
       )
       const unallocatedOrganizationRunners = organizationRunners.filter(
-        (runner) => !organizationSnapshotRunnersDistinctRunnersIds.has(runner.id),
+        (runner) =>
+          !organizationSnapshotRunnersDistinctRunnersIds.has(runner.id) && !ineligibleRunnerIds.has(runner.id),
       )
 
       const runnersToPropagateTo: Runner[] = []
@@ -1258,8 +1440,8 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     const cpuQuota = regionQuota?.totalCpuQuota ?? 0
     const { factor: propagationFactor, minimum: minimumRunners } = getSnapshotPropagationFactor(
       cpuQuota,
+      snapshot,
       RL_REGION,
-      snapshot.organizationId,
     )
 
     const runners = await this.runnerRepository.find({
