@@ -145,7 +145,7 @@ jobs:
       - name: Set up kubeconfig
         run: |
           mkdir -p "$HOME/.kube"
-          echo "${{ secrets.STAGE_KUBECONFIG }}" > "$HOME/.kube/config"
+          echo "${{ secrets.STAGE_PREVIEW_KUBECONFIG }}" > "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
 
       - name: Tear down existing release (from_scratch)
