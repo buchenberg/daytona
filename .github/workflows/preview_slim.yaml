@@ -161,6 +161,9 @@ jobs:
           BRANCH_SLUG: ${{ needs.build.outputs.branch_slug }}
           VERSION_SLUG: ${{ needs.build.outputs.version_slug }}
         run: |
+          # The chart's postgresql + redis deps live in the Bitnami repo;
+          # register it so `helm dependency build` can resolve them.
+          helm repo add bitnami https://charts.bitnami.com/bitnami
           helm dependency build ./charts/daytona-preview
           helm upgrade --install "$BRANCH_SLUG" ./charts/daytona-preview \
             --namespace preview \
