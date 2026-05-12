@@ -26,15 +26,11 @@ env:
 
 jobs:
   build:
-    name: Build ${{ matrix.project }}
+    name: Build api/proxy/runner
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        project: [api, proxy, runner]
     outputs:
       branch_slug: ${{ steps.slug.outputs.branch_slug }}
       version_slug: ${{ steps.slug.outputs.version_slug }}
@@ -56,6 +52,11 @@ jobs:
           install-swag: 'false'
           run-poetry-install: 'false'
           run-go-work-sync: 'false'
+
+      - name: Generate go.work.sum
+        run: |
+          GONOSUMDB=github.com/daytonaio/daytona go work sync
+          touch go.work.sum
 
       - name: Compute branch and version slugs
         id: slug
@@ -90,15 +91,21 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
-      - name: Build and push ${{ matrix.project }} docker image
+      - name: Build and push docker images
         env:
           VERSION: v0.0.0-${{ steps.slug.outputs.version_slug }}
           ARCH: -amd64
-        run: yarn nx docker ${{ matrix.project }} --configuration production --output-style stream
+        # Single nx invocation so the project graph + build cache are shared
+        # across api/proxy/runner (they all depend on common Go/TS sources).
+        run: yarn nx run-many --target=docker --projects=api,proxy,runner --configuration=production --parallel=3 --output-style=stream
 
-      - name: Print preview image
+      - name: Print preview images
+        env:
+          VERSION_SLUG: ${{ steps.slug.outputs.version_slug }}
         run: |
-          echo "${{ matrix.project }} image: ghcr.io/daytonaio/daytona-${{ matrix.project }}:v0.0.0-${{ steps.slug.outputs.version_slug }}-amd64"
+          for p in api proxy runner; do
+            echo "$p image: ghcr.io/daytonaio/daytona-${p}:v0.0.0-${VERSION_SLUG}-amd64"
+          done
 
       - name: Cleanup credentials
         if: always()
