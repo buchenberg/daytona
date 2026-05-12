@@ -57,6 +57,7 @@ import { Job } from './entities/job.entity'
 import { SandboxLookupCacheInvalidationService } from './services/sandbox-lookup-cache-invalidation.service'
 import { ProxyAuthContextGuard } from './guards/proxy-auth-context.guard'
 import { SshGatewayAuthContextGuard } from './guards/ssh-gateway-auth-context.guard'
+import { RunnerCleanupToolAuthContextGuard } from './guards/runner-cleanup-tool-auth-context.guard'
 import { EventEmitter2 } from '@nestjs/event-emitter'
 import { SandboxLastActivity } from './entities/sandbox-last-activity.entity'
 import { SandboxActivityService } from './services/sandbox-activity.service'
@@ -120,6 +121,7 @@ import { SandboxActivityService } from './services/sandbox-activity.service'
     SandboxActivityService,
     ProxyAuthContextGuard,
     SshGatewayAuthContextGuard,
+    RunnerCleanupToolAuthContextGuard,
     {
       provide: SandboxRepository,
       inject: [DataSource, EventEmitter2, SandboxLookupCacheInvalidationService],

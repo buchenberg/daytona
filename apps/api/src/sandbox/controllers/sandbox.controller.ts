@@ -75,6 +75,7 @@ import { RESTRICTED_REGIONS } from '../constants/dedicated-regions.constant'
 import { CreateSandboxSnapshotDto } from '../dto/create-sandbox-snapshot.dto'
 import { ForkSandboxDto } from '../dto/fork-sandbox.dto'
 import { ProxyAuthContextGuard } from '../guards/proxy-auth-context.guard'
+import { RunnerCleanupToolAuthContextGuard } from '../guards/runner-cleanup-tool-auth-context.guard'
 import { OrGuard } from '../../auth/or.guard'
 import { AuthenticatedRateLimitGuard } from '../../common/guards/authenticated-rate-limit.guard'
 import { SkipThrottle } from '@nestjs/throttler'
@@ -399,7 +400,12 @@ export class SandboxController {
     type: SandboxDto,
   })
   @UseGuards(
-    OrGuard([OrganizationAuthContextGuard, ProxyAuthContextGuard, SshGatewayAuthContextGuard]),
+    OrGuard([
+      OrganizationAuthContextGuard,
+      ProxyAuthContextGuard,
+      SshGatewayAuthContextGuard,
+      RunnerCleanupToolAuthContextGuard,
+    ]),
     SandboxAccessGuard,
   )
   async getSandbox(
