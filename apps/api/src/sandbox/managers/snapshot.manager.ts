@@ -1420,9 +1420,14 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
           regionIdsForInitialRunner = regions.map((region) => region.id)
         }
 
+        const availabilityThreshold =
+          this.configService.getOrThrow('runnerScore.thresholds.availability') +
+          this.configService.getOrThrow('runnerScore.thresholds.initialRunnerScoreAddon')
+
         initialRunner = await this.runnerService.getRandomAvailableRunner({
           regions: regionIdsForInitialRunner,
           excludedRunnerIds: excludedRunnerIds,
+          availabilityScoreThreshold: availabilityThreshold,
         })
         // =================
         this.logger.warn('runnerId', initialRunner?.id)
