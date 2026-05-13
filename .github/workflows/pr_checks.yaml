@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - prod
+      - develop
 
 permissions:
   contents: read
