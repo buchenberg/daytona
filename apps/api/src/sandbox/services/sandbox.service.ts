@@ -2701,6 +2701,23 @@ export class SandboxService {
     return updatedSandbox
   }
 
+  async setSandboxErrorState(sandboxId: string, errorReason: string, recoverable = false): Promise<Sandbox> {
+    const sandbox = await this.findOne(sandboxId)
+
+    if (sandbox.state === SandboxState.DESTROYED) {
+      throw new BadRequestError('Sandbox is destroyed')
+    }
+
+    const updateData: Partial<Sandbox> = {
+      state: SandboxState.ERROR,
+      pending: false,
+      recoverable,
+      errorReason,
+    }
+
+    return this.sandboxRepository.update(sandbox.id, { updateData, entity: sandbox })
+  }
+
   // used by internal services to update the state of a sandbox to resolve domain and runner state mismatch
   // notably, when a sandbox instance stops or errors on the runner, the domain state needs to be updated to reflect the actual state
   async updateState(

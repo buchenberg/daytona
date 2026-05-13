@@ -187,6 +187,14 @@ describe('[AUTH] SandboxController', () => {
     expectArrayMatch(getResourceAccessGuards(SandboxController, methodName), [SandboxAccessGuard])
   })
 
+  it('setSandboxErrorState', () => {
+    const methodName = trackMethod('setSandboxErrorState')
+    expect(isPublicEndpoint(SandboxController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(SandboxController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(SandboxController, methodName), [RunnerCleanupToolAuthContextGuard])
+    expectArrayMatch(getResourceAccessGuards(SandboxController, methodName), [SandboxAccessGuard])
+  })
+
   it('createBackup', () => {
     const methodName = trackMethod('createBackup')
     expect(isPublicEndpoint(SandboxController, methodName)).toBe(false)

@@ -15,6 +15,7 @@ import {
   UseGuards,
   HttpCode,
   Put,
+  Patch,
   NotFoundException,
   Res,
   Request,
@@ -33,10 +34,12 @@ import {
   ApiTags,
   ApiHeader,
   ApiBearerAuth,
+  ApiExcludeEndpoint,
 } from '@nestjs/swagger'
 import { SandboxDto, SandboxLabelsDto } from '../dto/sandbox.dto'
 import { ResizeSandboxDto } from '../dto/resize-sandbox.dto'
 import { UpdateSandboxStateDto } from '../dto/update-sandbox-state.dto'
+import { SetSandboxErrorStateDto } from '../dto/set-sandbox-error-state.dto'
 import { PaginatedSandboxesDto } from '../dto/paginated-sandboxes.dto'
 import { RunnerService } from '../services/runner.service'
 import { RunnerAuthContextGuard } from '../guards/runner-auth-context.guard'
@@ -705,6 +708,31 @@ export class SandboxController {
       updateStateDto.recoverable,
       updateStateDto.errorReason,
     )
+  }
+
+  @Patch(':sandboxId/error')
+  @HttpCode(200)
+  @ApiExcludeEndpoint(true)
+  @AuthStrategy(AuthStrategyType.API_KEY)
+  @UseGuards(RunnerCleanupToolAuthContextGuard, SandboxAccessGuard)
+  @Audit({
+    action: AuditAction.UPDATE,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxId,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      body: (req: TypedRequest<SetSandboxErrorStateDto>) => ({
+        errorReason: req.body?.errorReason,
+        recoverable: req.body?.recoverable,
+      }),
+    },
+  })
+  async setSandboxErrorState(
+    @Param('sandboxId') sandboxId: string,
+    @Body() dto: SetSandboxErrorStateDto,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.setSandboxErrorState(sandboxId, dto.errorReason, dto.recoverable ?? false)
+    return this.sandboxService.toSandboxDto(sandbox)
   }
 
   @Post(':sandboxIdOrName/backup')
