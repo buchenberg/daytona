@@ -23,6 +23,7 @@ import { AuditService } from '../services/audit.service'
 import { BaseAuthContext, isBaseAuthContext } from '../../common/interfaces/base-auth-context.interface'
 import { isUserAuthContext } from '../../common/interfaces/user-auth-context.interface'
 import { isOrganizationAuthContext } from '../../common/interfaces/organization-auth-context.interface'
+import { isRunnerCleanupToolAuthContext } from '../../common/interfaces/runner-cleanup-tool-auth-context.interface'
 import { getAuthContext } from '../../common/utils/get-auth-context'
 import { CustomHeaders } from '../../common/constants/header.constants'
 import { TypedConfigService } from '../../config/typed-config.service'
@@ -78,7 +79,11 @@ export class AuditInterceptor implements NestInterceptor {
     observer: Subscriber<any>,
   ): Promise<void> {
     try {
-      const actorId = isUserAuthContext(authContext) ? authContext.userId : authContext.role
+      const actorId = isUserAuthContext(authContext)
+        ? authContext.userId
+        : isRunnerCleanupToolAuthContext(authContext)
+          ? 'system'
+          : authContext.role
       const actorEmail = isUserAuthContext(authContext) ? authContext.email : undefined
       const actorApiKeyPrefix = isUserAuthContext(authContext) ? authContext.apiKey?.keyPrefix : undefined
       const actorApiKeySuffix = isUserAuthContext(authContext) ? authContext.apiKey?.keySuffix : undefined
