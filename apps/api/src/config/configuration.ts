@@ -85,6 +85,9 @@ const configuration = {
     password: process.env.INTERNAL_REGISTRY_PASSWORD,
     projectId: process.env.INTERNAL_REGISTRY_PROJECT_ID,
   },
+  ecr: {
+    brokerRoleArn: process.env.ECR_BROKER_ROLE_ARN,
+  },
   s3: {
     endpoint: process.env.S3_ENDPOINT,
     stsEndpoint: process.env.S3_STS_ENDPOINT,

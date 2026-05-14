@@ -18,6 +18,17 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  REGISTRY_PROVIDER_LABELS,
+  REGISTRY_PROVIDER_SPECS,
+  REGISTRY_PROVIDER_TAB_CONTENT,
+  REGISTRY_PROVIDER_VALUES,
+  type ProviderFieldSpec,
+  type ProviderFormSpec,
+  type RegistryProvider,
+} from '@/constants/RegistryProviders'
 import { useCreateRegistryMutation } from '@/hooks/mutations/useCreateRegistryMutation'
 import { useUpdateRegistryMutation } from '@/hooks/mutations/useUpdateRegistryMutation'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
@@ -44,7 +55,26 @@ const editFormSchema = baseFormSchema.extend({
   password: z.string(),
 })
 
+// ECR resolves credentials server-side via STS:AssumeRole, so the form
+// doesn't collect a password. URL is required (no docker.io fallback).
+const ecrCreateFormSchema = baseFormSchema.extend({
+  url: z.string().trim().min(1, 'Registry URL is required'),
+  username: z.string().trim().min(1, 'Role ARN is required'),
+  password: z.string(),
+})
+
+// Google Artifact Registry: URL is region-specific, must be provided.
+const gcpCreateFormSchema = baseFormSchema.extend({
+  url: z.string().trim().min(1, 'Registry URL is required'),
+  password: z.string().trim().min(1, 'Service Account JSON Key is required'),
+})
+
 type FormValues = z.infer<typeof createFormSchema>
+
+const CREATE_SCHEMAS: Partial<Record<RegistryProvider, typeof createFormSchema>> = {
+  ecr: ecrCreateFormSchema as typeof createFormSchema,
+  gcp: gcpCreateFormSchema as typeof createFormSchema,
+}
 
 const defaultValues: FormValues = {
   name: '',
@@ -53,6 +83,19 @@ const defaultValues: FormValues = {
   password: '',
   project: '',
 }
+
+const createDefaultsFor = (spec: ProviderFormSpec): FormValues => ({
+  ...defaultValues,
+  url: spec.url.defaultValue ?? '',
+  username: spec.username.defaultValue ?? '',
+  password: spec.password.defaultValue ?? '',
+  project: spec.project.defaultValue ?? '',
+})
+
+// Hidden fields skip user input and submit their spec defaultValue
+// (e.g. docker.io, _json_key, ghcr.io). Visible fields use the typed value.
+const resolveField = (spec: ProviderFieldSpec, raw: string): string =>
+  spec.hidden ? (spec.defaultValue ?? '') : raw.trim()
 
 type UpsertRegistrySheetMode = 'create' | 'edit'
 
@@ -79,10 +122,15 @@ export const UpsertRegistrySheet = ({
 }: UpsertRegistrySheetProps) => {
   const [internalOpen, setInternalOpen] = useState(false)
   const [passwordVisible, setPasswordVisible] = useState(false)
+  const [provider, setProvider] = useState<RegistryProvider>('generic')
 
   const isEditMode = mode === 'edit'
   const isControlled = open !== undefined
   const isOpen = open ?? internalOpen
+
+  // Edit mode keeps today's static labels & validation by always reading the
+  // generic spec. Create mode reads the active provider's spec.
+  const activeSpec = isEditMode ? REGISTRY_PROVIDER_SPECS.generic : REGISTRY_PROVIDER_SPECS[provider]
 
   const { selectedOrganization } = useSelectedOrganization()
   const { reset: resetCreateRegistryMutation, ...createRegistryMutation } = useCreateRegistryMutation()
@@ -105,7 +153,7 @@ export const UpsertRegistrySheet = ({
 
   const getDefaultValues = useCallback((): FormValues => {
     if (!isEditMode || !registry) {
-      return defaultValues
+      return createDefaultsFor(REGISTRY_PROVIDER_SPECS.generic)
     }
 
     return {
@@ -120,7 +168,7 @@ export const UpsertRegistrySheet = ({
   const form = useForm({
     defaultValues: getDefaultValues(),
     validators: {
-      onSubmit: isEditMode ? editFormSchema : createFormSchema,
+      onSubmit: isEditMode ? editFormSchema : (CREATE_SCHEMAS[provider] ?? createFormSchema),
     },
     onSubmitInvalid: () => {
       const formEl = formRef.current
@@ -137,6 +185,19 @@ export const UpsertRegistrySheet = ({
         return
       }
 
+      // docker.io fallback applies only to Generic / Edit (today's behavior);
+      // other providers require URL via Zod validation above.
+      const resolvedUrl = resolveField(activeSpec.url, value.url)
+      const url = !resolvedUrl && (isEditMode || provider === 'generic') ? 'docker.io' : resolvedUrl
+
+      const payload = {
+        name: value.name.trim(),
+        url,
+        username: resolveField(activeSpec.username, value.username),
+        password: resolveField(activeSpec.password, value.password),
+        project: resolveField(activeSpec.project, value.project),
+      }
+
       try {
         if (isEditMode) {
           if (!registry) {
@@ -146,25 +207,13 @@ export const UpsertRegistrySheet = ({
 
           await updateRegistryMutation.mutateAsync({
             registryId: registry.id,
-            registry: {
-              name: value.name.trim(),
-              url: value.url.trim() || 'docker.io',
-              username: value.username.trim(),
-              password: value.password.trim(),
-              project: value.project.trim(),
-            },
+            registry: payload,
             organizationId: selectedOrganization.id,
           })
           toast.success('Registry edited successfully')
         } else {
           await createRegistryMutation.mutateAsync({
-            registry: {
-              name: value.name.trim(),
-              url: value.url.trim() || 'docker.io',
-              username: value.username.trim(),
-              password: value.password.trim(),
-              project: value.project.trim(),
-            },
+            registry: payload,
             organizationId: selectedOrganization.id,
           })
           toast.success('Registry created successfully')
@@ -180,6 +229,7 @@ export const UpsertRegistrySheet = ({
   const { reset: resetForm } = form
 
   const resetState = useCallback(() => {
+    setProvider('generic')
     resetForm(getDefaultValues())
     setPasswordVisible(false)
     resetCreateRegistryMutation()
@@ -191,6 +241,18 @@ export const UpsertRegistrySheet = ({
       resetState()
     }
   }, [isOpen, resetState])
+
+  // Tab switch wipes per-tab fields so prior provider values can't leak into
+  // the next provider's submission. Name is preserved as a quality-of-life win.
+  const handleProviderChange = useCallback(
+    (next: RegistryProvider) => {
+      setProvider(next)
+      const currentName = form.getFieldValue('name')
+      form.reset({ ...createDefaultsFor(REGISTRY_PROVIDER_SPECS[next]), name: currentName })
+      setPasswordVisible(false)
+    },
+    [form],
+  )
 
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
@@ -229,6 +291,23 @@ export const UpsertRegistrySheet = ({
               form.handleSubmit()
             }}
           >
+            {!isEditMode && (
+              <Tabs value={provider} onValueChange={(v) => handleProviderChange(v as RegistryProvider)}>
+                <TabsList className="bg-muted w-full [&>*]:flex-1">
+                  {REGISTRY_PROVIDER_VALUES.map((p) => (
+                    <TabsTrigger
+                      key={p}
+                      value={p}
+                      title={REGISTRY_PROVIDER_LABELS[p]}
+                      aria-label={REGISTRY_PROVIDER_LABELS[p]}
+                    >
+                      {REGISTRY_PROVIDER_TAB_CONTENT[p]}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            )}
+
             <form.Field name="name">
               {(field) => {
                 const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
@@ -252,109 +331,134 @@ export const UpsertRegistrySheet = ({
               }}
             </form.Field>
 
-            <form.Field name="url">
-              {(field) => {
-                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor={field.name}>Registry URL</FieldLabel>
-                    <Input
-                      aria-invalid={isInvalid}
-                      id={field.name}
-                      name={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder="https://registry.example.com"
-                    />
-                    <FieldDescription>Defaults to docker.io when left blank.</FieldDescription>
-                    {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
-                      <FieldError errors={field.state.meta.errors} />
-                    )}
-                  </Field>
-                )
-              }}
-            </form.Field>
-
-            <form.Field name="username">
-              {(field) => {
-                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor={field.name}>Username</FieldLabel>
-                    <Input
-                      aria-invalid={isInvalid}
-                      id={field.name}
-                      name={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                    />
-                    {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
-                      <FieldError errors={field.state.meta.errors} />
-                    )}
-                  </Field>
-                )
-              }}
-            </form.Field>
-
-            <form.Field name="password">
-              {(field) => {
-                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor={field.name}>Password</FieldLabel>
-                    <InputGroup className="pr-1 flex-1">
-                      <InputGroupInput
+            {!activeSpec.url.hidden && (
+              <form.Field name="url">
+                {(field) => {
+                  const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                  return (
+                    <Field data-invalid={isInvalid}>
+                      <FieldLabel htmlFor={field.name}>{activeSpec.url.label}</FieldLabel>
+                      <Input
                         aria-invalid={isInvalid}
                         id={field.name}
                         name={field.name}
-                        type={passwordVisible ? 'text' : 'password'}
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChange={(e) => field.handleChange(e.target.value)}
+                        placeholder={activeSpec.url.placeholder}
                       />
-                      <InputGroupButton
-                        variant="ghost"
-                        size="icon-xs"
-                        onClick={() => setPasswordVisible((visible) => !visible)}
-                        aria-label={passwordVisible ? 'Hide password' : 'Show password'}
-                      >
-                        {passwordVisible ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
-                      </InputGroupButton>
-                    </InputGroup>
-                    {isEditMode && <FieldDescription>Leave empty to keep the current password.</FieldDescription>}
-                    {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
-                      <FieldError errors={field.state.meta.errors} />
-                    )}
-                  </Field>
-                )
-              }}
-            </form.Field>
+                      {activeSpec.url.helper && <FieldDescription>{activeSpec.url.helper}</FieldDescription>}
+                      {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                        <FieldError errors={field.state.meta.errors} />
+                      )}
+                    </Field>
+                  )
+                }}
+              </form.Field>
+            )}
 
-            <form.Field name="project">
-              {(field) => {
-                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor={field.name}>Project</FieldLabel>
-                    <Input
-                      aria-invalid={isInvalid}
-                      id={field.name}
-                      name={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder="my-project"
-                    />
-                    <FieldDescription>Leave empty for private Docker Hub entries.</FieldDescription>
-                    {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
-                      <FieldError errors={field.state.meta.errors} />
-                    )}
-                  </Field>
-                )
-              }}
-            </form.Field>
+            {!activeSpec.username.hidden && (
+              <form.Field name="username">
+                {(field) => {
+                  const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                  return (
+                    <Field data-invalid={isInvalid}>
+                      <FieldLabel htmlFor={field.name}>{activeSpec.username.label}</FieldLabel>
+                      <Input
+                        aria-invalid={isInvalid}
+                        id={field.name}
+                        name={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        placeholder={activeSpec.username.placeholder}
+                      />
+                      {activeSpec.username.helper && <FieldDescription>{activeSpec.username.helper}</FieldDescription>}
+                      {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                        <FieldError errors={field.state.meta.errors} />
+                      )}
+                    </Field>
+                  )
+                }}
+              </form.Field>
+            )}
+
+            {!activeSpec.password.hidden && (
+              <form.Field name="password">
+                {(field) => {
+                  const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                  return (
+                    <Field data-invalid={isInvalid}>
+                      <FieldLabel htmlFor={field.name}>{activeSpec.password.label}</FieldLabel>
+                      {activeSpec.password.multiline ? (
+                        <Textarea
+                          aria-invalid={isInvalid}
+                          id={field.name}
+                          name={field.name}
+                          rows={8}
+                          className="font-mono text-xs"
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          placeholder={activeSpec.password.placeholder}
+                        />
+                      ) : (
+                        <InputGroup className="pr-1 flex-1">
+                          <InputGroupInput
+                            aria-invalid={isInvalid}
+                            id={field.name}
+                            name={field.name}
+                            type={passwordVisible ? 'text' : 'password'}
+                            value={field.state.value}
+                            onBlur={field.handleBlur}
+                            onChange={(e) => field.handleChange(e.target.value)}
+                          />
+                          <InputGroupButton
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => setPasswordVisible((visible) => !visible)}
+                            aria-label={passwordVisible ? 'Hide password' : 'Show password'}
+                          >
+                            {passwordVisible ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                          </InputGroupButton>
+                        </InputGroup>
+                      )}
+                      {isEditMode && <FieldDescription>Leave empty to keep the current password.</FieldDescription>}
+                      {activeSpec.password.helper && <FieldDescription>{activeSpec.password.helper}</FieldDescription>}
+                      {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                        <FieldError errors={field.state.meta.errors} />
+                      )}
+                    </Field>
+                  )
+                }}
+              </form.Field>
+            )}
+
+            {!activeSpec.project.hidden && (
+              <form.Field name="project">
+                {(field) => {
+                  const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid
+                  return (
+                    <Field data-invalid={isInvalid}>
+                      <FieldLabel htmlFor={field.name}>{activeSpec.project.label}</FieldLabel>
+                      <Input
+                        aria-invalid={isInvalid}
+                        id={field.name}
+                        name={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        placeholder={activeSpec.project.placeholder}
+                      />
+                      {activeSpec.project.helper && <FieldDescription>{activeSpec.project.helper}</FieldDescription>}
+                      {field.state.meta.errors.length > 0 && field.state.meta.isTouched && (
+                        <FieldError errors={field.state.meta.errors} />
+                      )}
+                    </Field>
+                  )
+                }}
+              </form.Field>
+            )}
           </form>
         </ScrollArea>
 

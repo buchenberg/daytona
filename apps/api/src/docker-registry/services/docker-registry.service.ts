@@ -27,10 +27,15 @@ import {
   RegionSnapshotManagerCredsRegeneratedEvent,
   RegionSnapshotManagerUpdatedEvent,
 } from '../../region/events/region-snapshot-manager-creds.event'
+import { EcrCredentialsService } from './ecr-credentials.service'
 
 const AXIOS_TIMEOUT_MS = 3000
 const DOCKER_HUB_REGISTRY = 'registry-1.docker.io'
 const DOCKER_HUB_URL = 'docker.io'
+
+function isIamRoleArn(value: string): boolean {
+  return /^arn:aws:iam::\d+:role\/.+$/.test(value)
+}
 
 /**
  * Normalizes Docker Hub URLs to 'docker.io' for storage.
@@ -64,7 +69,26 @@ export class DockerRegistryService {
     @Inject(DOCKER_REGISTRY_PROVIDER)
     private readonly dockerRegistryProvider: IDockerRegistryProvider,
     private readonly regionService: RegionService,
+    private readonly ecrCredentials: EcrCredentialsService,
   ) {}
+
+  // used only for ECR, swap the stored role ARN for a fresh AWS:<token> pair (Redis-cached)
+  private async resolveCredentials(registry: DockerRegistry): Promise<DockerRegistry> {
+    // not ECR, or pre-org row (internal/transient) — nothing to resolve
+    if (!this.ecrCredentials.isEcrUrl(registry.url) || !registry.organizationId) {
+      return registry
+    }
+    // empty username or legacy basic-auth (e.g. "AWS" + pre-baked token) — pass through
+    if (!isIamRoleArn(registry.username)) {
+      return registry
+    }
+    const { username, password } = await this.ecrCredentials.resolveEcrCredentials(
+      registry.url,
+      registry.username,
+      registry.organizationId,
+    )
+    return { ...registry, username, password }
+  }
 
   async create(
     createDto: CreateDockerRegistryInternalDto,
@@ -385,7 +409,8 @@ export class DockerRegistryService {
       (a, b) => (priority[a.registryType] ?? 1) - (priority[b.registryType] ?? 1),
     )
 
-    return this.findRegistryByUrlMatch(sortedRegistries, imageName)
+    const matched = this.findRegistryByUrlMatch(sortedRegistries, imageName)
+    return matched ? this.resolveCredentials(matched) : null
   }
 
   /**
@@ -822,7 +847,8 @@ export class DockerRegistryService {
     // If so, include all user's registries (we can't reliably match specific registries)
     if (checkDockerfileHasRegistryPrefix(dockerfileContent)) {
       const userRegistries = await this.findAll(organizationId, RegistryType.ORGANIZATION)
-      sourceRegistries.push(...userRegistries)
+      const resolved = await Promise.all(userRegistries.map((r) => this.resolveCredentials(r)))
+      sourceRegistries.push(...resolved)
     }
 
     // Add default Docker Hub registry only if user doesn't have their own Docker Hub credentials
