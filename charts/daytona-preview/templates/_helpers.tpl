@@ -33,6 +33,18 @@ Chart label value.
 {{- end }}
 
 {{/*
+Pod annotations exposing the original branch name and source repo. Label
+values can't contain '/', so we use annotations. branch-name always renders
+(falling back to branchSlug), repo only when set.
+*/}}
+{{- define "preview.previewMetaAnnotations" -}}
+daytona.io/branch-name: {{ default .Values.branchSlug .Values.branchName | quote }}
+{{- if .Values.repo }}
+daytona.io/repo: {{ .Values.repo | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
 Common labels applied to every resource.
 */}}
 {{- define "preview.labels" -}}

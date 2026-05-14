@@ -1,3 +1,8 @@
+# Optional — surfaced as pod annotations so the preview-environments
+# dashboard can resolve the GitHub PR for slugified branch names.
+branchName: ""
+repo: ""    # e.g. daytonaio/daytona or daytonaio/daytona-ai
+
 replicaCount: 1
 
 image:

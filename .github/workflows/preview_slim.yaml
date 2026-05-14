@@ -160,6 +160,8 @@ jobs:
         env:
           BRANCH_SLUG: ${{ needs.build.outputs.branch_slug }}
           VERSION_SLUG: ${{ needs.build.outputs.version_slug }}
+          BRANCH_NAME: ${{ inputs.branch }}
+          REPO: ${{ inputs.use_oss && 'daytonaio/daytona' || 'daytonaio/daytona-ai' }}
         run: |
           # The chart's postgresql + redis deps live in the Bitnami repo;
           # register it so `helm dependency build` can resolve them.
@@ -168,6 +170,8 @@ jobs:
           helm upgrade --install "$BRANCH_SLUG" ./charts/daytona-preview \
             --namespace preview \
             --set branchSlug="$BRANCH_SLUG" \
+            --set branchName="$BRANCH_NAME" \
+            --set repo="$REPO" \
             --set image.tag="v0.0.0-${VERSION_SLUG}-amd64" \
             --set services.api.ingress.tlsSecretName=api-p-stage-tls \
             --set services.proxy.ingress.tlsSecretName=proxy-p-stage-tls \

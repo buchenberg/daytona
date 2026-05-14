@@ -11,6 +11,15 @@
 branchSlug: ''
 
 # ---------------------------------------------------------------------------
+# Optional — original (unslugified) branch name and source repo.
+# Surfaced as pod annotations so the preview-environments dashboard can resolve
+# the GitHub PR for slugified branch names. Label values can't contain '/', so
+# we use annotations instead.
+# ---------------------------------------------------------------------------
+branchName: ''
+repo: '' # e.g. daytonaio/daytona or daytonaio/daytona-ai
+
+# ---------------------------------------------------------------------------
 # Domain configuration
 # Each preview gets:
 #   API:   {branchSlug}.{apiDomain}        (e.g. feat-x.api.p.stage.daytona.work)
