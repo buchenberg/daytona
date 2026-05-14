@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/daytonaio/daemon/pkg/toolbox/computeruse"
+	"github.com/godbus/dbus/v5"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -39,6 +40,18 @@ type ComputerUse struct {
 	processes map[string]*Process
 	mu        sync.RWMutex
 	configDir string
+
+	// AT-SPI accessibility bus connection. Lazily established on first call to
+	// connectA11y(); protected by atspiMu. Implementation lives in accessibility.go.
+	atspiMu   sync.Mutex
+	atspiConn *dbus.Conn
+
+	a11yHealth func() bool
+	waitDBus   func(string, time.Duration) error
+
+	a11yStatusMu        sync.Mutex
+	a11yStatusRunning   bool
+	a11yStatusCheckedAt time.Time
 }
 
 var _ computeruse.IComputerUse = &ComputerUse{}
@@ -91,6 +104,7 @@ func (c *ComputerUse) Start() (*computeruse.Empty, error) {
 
 	// Start all processes in order of priority
 	c.startAllProcesses()
+	c.invalidateA11yStatus()
 
 	// Check process status after starting
 	status, err := c.GetProcessStatus()
@@ -98,7 +112,9 @@ func (c *ComputerUse) Start() (*computeruse.Empty, error) {
 		return nil, fmt.Errorf("failed to get process status after start: %v", err)
 	}
 
-	// Check if all required processes are running
+	// Check if all required processes are running. atspi is deliberately
+	// excluded — a11y failures surface as 503 A11Y_UNAVAILABLE on the /a11y
+	// endpoints, and should not block the rest of computer-use from starting.
 	required := []string{"xvfb", "xfce4", "x11vnc", "novnc"}
 	var failed []string
 	for _, name := range required {
@@ -181,6 +197,52 @@ func (c *ComputerUse) initializeProcesses(homeDir string) {
 		ErrFile: filepath.Join(c.configDir, "xfce4.err"),
 	}
 
+	// Process 2.5: at-spi-bus-launcher (AT-SPI daemon for the accessibility API)
+	// Launches the org.a11y.Bus service so GTK/Qt/Electron apps can publish
+	// their widget trees. It uses the session D-Bus created during Initialize.
+	// Path lives in /usr/libexec on Debian/Ubuntu; some distros ship it under
+	// /usr/lib/at-spi2-core/; as a last resort fall back to $PATH so images
+	// that put the binary somewhere unusual still work. If we can't find the
+	// binary anywhere, we skip registering atspi entirely — the a11y endpoints
+	// will return 503 cleanly instead of thrashing on a nonexistent command.
+	atspiCommand := ""
+	if _, err := os.Stat("/usr/libexec/at-spi-bus-launcher"); err == nil {
+		atspiCommand = "/usr/libexec/at-spi-bus-launcher"
+	} else if _, err := os.Stat("/usr/lib/at-spi2-core/at-spi-bus-launcher"); err == nil {
+		atspiCommand = "/usr/lib/at-spi2-core/at-spi-bus-launcher"
+	} else if p, err := exec.LookPath("at-spi-bus-launcher"); err == nil {
+		atspiCommand = p
+	}
+	if atspiCommand == "" {
+		log.Warnf("at-spi-bus-launcher not found in any known location; accessibility API will return 503 until the binary is installed")
+	} else if dbusAddress == "" {
+		log.Warnf("DBUS_SESSION_BUS_ADDRESS is empty; accessibility API will return 503 until session D-Bus is available")
+	} else {
+		waitDBus := waitForSessionBus
+		if c.waitDBus != nil {
+			waitDBus = c.waitDBus
+		}
+		if err := waitDBus(dbusAddress, 5*time.Second); err != nil {
+			log.Warnf("session D-Bus check failed for at-spi-bus-launcher; launching anyway so the a11y bus can start if D-Bus becomes usable: %v", err)
+		}
+		c.processes["atspi"] = &Process{
+			Name:        "atspi",
+			Command:     atspiCommand,
+			Args:        []string{"--launch-immediately"},
+			User:        user,
+			Priority:    250,
+			AutoRestart: false,
+			Env: map[string]string{
+				"DISPLAY":                  display,
+				"HOME":                     homeDir,
+				"USER":                     user,
+				"DBUS_SESSION_BUS_ADDRESS": dbusAddress,
+			},
+			LogFile: filepath.Join(c.configDir, "atspi.log"),
+			ErrFile: filepath.Join(c.configDir, "atspi.err"),
+		}
+	}
+
 	// Process 3: x11vnc (VNC Server)
 	c.processes["x11vnc"] = &Process{
 		Name:        "x11vnc",
@@ -195,8 +257,6 @@ func (c *ComputerUse) initializeProcesses(homeDir string) {
 		LogFile: filepath.Join(c.configDir, "x11vnc.log"),
 		ErrFile: filepath.Join(c.configDir, "x11vnc.err"),
 	}
-
-	// Process 4: novnc (Web-based VNC client)
 	// Determine the best available NoVNC command with fallback options
 	var novncCommand string
 	var novncArgs []string
@@ -230,6 +290,28 @@ func (c *ComputerUse) initializeProcesses(homeDir string) {
 		},
 		LogFile: filepath.Join(c.configDir, "novnc.log"),
 		ErrFile: filepath.Join(c.configDir, "novnc.err"),
+	}
+}
+
+func waitForSessionBus(address string, timeout time.Duration) error {
+	if address == "" {
+		return fmt.Errorf("DBUS_SESSION_BUS_ADDRESS is empty")
+	}
+
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for {
+		conn, err := dbus.Connect(address)
+		if err == nil {
+			_ = conn.Close()
+			return nil
+		}
+		lastErr = err
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("session D-Bus did not become ready: %w", lastErr)
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -363,6 +445,16 @@ func (c *ComputerUse) Stop() (*computeruse.Empty, error) {
 		c.stopProcess(process)
 	}
 
+	// Release the cached AT-SPI bus connection so a later Start() dials a
+	// fresh one — the bus address can change across launcher restarts.
+	c.atspiMu.Lock()
+	if c.atspiConn != nil {
+		_ = c.atspiConn.Close()
+		c.atspiConn = nil
+	}
+	c.atspiMu.Unlock()
+	c.setA11yStatus(false)
+
 	return new(computeruse.Empty), nil
 }
 
@@ -394,40 +486,56 @@ func (c *ComputerUse) stopProcess(process *Process) {
 
 func (c *ComputerUse) GetProcessStatus() (map[string]computeruse.ProcessStatus, error) {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	status := make(map[string]computeruse.ProcessStatus)
+	processes := make(map[string]*Process, len(c.processes))
 	for name, process := range c.processes {
-		process.mu.Lock()
-		processStatus := computeruse.ProcessStatus{
-			Running:     false,
-			Priority:    process.Priority,
-			AutoRestart: process.AutoRestart,
-		}
+		processes[name] = process
+	}
+	c.mu.RUnlock()
 
-		if process.cmd != nil && process.cmd.Process != nil {
-			// Check if the process is still alive
-			if err := process.cmd.Process.Signal(syscall.Signal(0)); err == nil {
-				processStatus.Running = true
-				processStatus.Pid = &process.cmd.Process.Pid
-			}
+	status := make(map[string]computeruse.ProcessStatus, len(processes))
+	for name, process := range processes {
+		processStatus := getProcessStatus(process)
+		if name == "atspi" {
+			processStatus.Running = c.cachedA11yAvailable()
+			processStatus.Pid = nil
 		}
-
-		process.mu.Unlock()
 		status[name] = processStatus
 	}
 
 	return status, nil
 }
 
+func getProcessStatus(process *Process) computeruse.ProcessStatus {
+	process.mu.Lock()
+	defer process.mu.Unlock()
+
+	status := computeruse.ProcessStatus{
+		Running:     false,
+		Priority:    process.Priority,
+		AutoRestart: process.AutoRestart,
+	}
+
+	if process.cmd != nil && process.cmd.Process != nil {
+		if err := process.cmd.Process.Signal(syscall.Signal(0)); err == nil {
+			pid := process.cmd.Process.Pid
+			status.Running = true
+			status.Pid = &pid
+		}
+	}
+
+	return status
+}
+
 // IsProcessRunning checks if a specific process is running
 func (c *ComputerUse) IsProcessRunning(req *computeruse.ProcessRequest) (bool, error) {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
-
 	process, exists := c.processes[req.ProcessName]
+	c.mu.RUnlock()
 	if !exists {
 		return false, fmt.Errorf("process %s not found", req.ProcessName)
+	}
+	if req.ProcessName == "atspi" {
+		return c.cachedA11yAvailable(), nil
 	}
 
 	process.mu.Lock()
