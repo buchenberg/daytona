@@ -186,6 +186,8 @@ definitions:
           type: string
         type: object
       errorReason:
+        description: At least one of ErrorReason or BackupErrorReason must yield a
+          recovery type; both are optional.
         type: string
       fromVolumeId:
         type: string
@@ -215,7 +217,6 @@ definitions:
           $ref: '#/definitions/dto.VolumeDTO'
         type: array
     required:
-      - errorReason
       - osUser
       - userId
     type: object
@@ -303,6 +304,8 @@ definitions:
         $ref: '#/definitions/enums.BackupState'
       daemonVersion:
         type: string
+      recoverable:
+        type: boolean
       state:
         $ref: '#/definitions/enums.SandboxState'
     type: object

@@ -68,6 +68,10 @@ export class SandboxArchiveAction extends SandboxAction {
             lockCode,
             undefined,
             'Failed to archive sandbox after 3 retries',
+            undefined,
+            undefined,
+            // Preserve recoverable; updateSandboxState would otherwise clear it once an errorReason is set.
+            sandbox.recoverable,
           )
         }
         await this.redis.del(archiveErrorRetryKey)
@@ -97,7 +101,16 @@ export class SandboxArchiveAction extends SandboxAction {
           this.logger.warn(`Transitioning sandbox ${sandbox.id} from ERROR to ARCHIVED state (runner draining)`)
         }
 
-        await this.updateSandboxState(sandbox, SandboxState.ARCHIVED, lockCode, null)
+        await this.updateSandboxState(
+          sandbox,
+          SandboxState.ARCHIVED,
+          lockCode,
+          null,
+          undefined,
+          undefined,
+          undefined,
+          false,
+        )
         return DONT_SYNC_AGAIN
       }
 
@@ -119,7 +132,17 @@ export class SandboxArchiveAction extends SandboxAction {
           this.logger.warn(`Transitioning sandbox ${sandbox.id} from ERROR to ARCHIVED state (runner draining)`)
         }
 
-        await this.updateSandboxState(sandbox, SandboxState.ARCHIVED, lockCode, null)
+        // Archive succeeded — clear any recoverable flag carried over from a prior backup failure.
+        await this.updateSandboxState(
+          sandbox,
+          SandboxState.ARCHIVED,
+          lockCode,
+          null,
+          undefined,
+          undefined,
+          undefined,
+          false,
+        )
         return DONT_SYNC_AGAIN
       }
 

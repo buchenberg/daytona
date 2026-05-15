@@ -1626,7 +1626,7 @@
     },
     "RecoverSandboxDTO": {
       "type": "object",
-      "required": ["errorReason", "osUser", "userId"],
+      "required": ["osUser", "userId"],
       "properties": {
         "backupErrorReason": {
           "type": "string"
@@ -1642,6 +1642,7 @@
           }
         },
         "errorReason": {
+          "description": "At least one of ErrorReason or BackupErrorReason must yield a recovery type; both are optional.",
           "type": "string"
         },
         "fromVolumeId": {
@@ -1805,6 +1806,9 @@
         },
         "daemonVersion": {
           "type": "string"
+        },
+        "recoverable": {
+          "type": "boolean"
         },
         "state": {
           "$ref": "#/definitions/enums.SandboxState"

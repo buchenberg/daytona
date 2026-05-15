@@ -24,7 +24,10 @@ export interface RecoverSandboxDTO {
     'backupErrorReason'?: string;
     'cpuQuota'?: number;
     'env'?: { [key: string]: string; };
-    'errorReason': string;
+    /**
+     * At least one of ErrorReason or BackupErrorReason must yield a recovery type; both are optional.
+     */
+    'errorReason'?: string;
     'fromVolumeId'?: string;
     'gpuQuota'?: number;
     'memoryQuota'?: number;

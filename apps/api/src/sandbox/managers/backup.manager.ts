@@ -13,10 +13,12 @@ import { RunnerState } from '../enums/runner-state.enum'
 import { BadRequestError } from '../../exceptions/bad-request.exception'
 import { DockerRegistryService } from '../../docker-registry/services/docker-registry.service'
 import { BackupState } from '../enums/backup-state.enum'
+import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
 import { InjectRedis } from '@nestjs-modules/ioredis'
 import { Redis } from 'ioredis'
 import { SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION } from '../constants/sandbox.constants'
 import { fromAxiosError } from '../../common/utils/from-axios-error'
+import { sanitizeSandboxError } from '../utils/sanitize-error.util'
 import { RedisLockProvider } from '../common/redis-lock.provider'
 import { OnEvent } from '@nestjs/event-emitter'
 import { SandboxEvents } from '../constants/sandbox-events.constants'
@@ -35,7 +37,6 @@ import { DockerRegistry } from '../../docker-registry/entities/docker-registry.e
 import { SandboxService } from '../services/sandbox.service'
 import { SandboxRepository } from '../repositories/sandbox.repository'
 import { LARGE_SANDBOX_SHARED_REGION } from '../constants/dedicated-regions.constant'
-import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
 
 @Injectable()
 export class BackupManager implements TrackableJobExecutions, OnApplicationShutdown {
@@ -74,6 +75,35 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
    * @param ttlSeconds - TTL for the retry counter in seconds (default: 300)
    * @returns true if should retry, false if max retries exceeded
    */
+  private async runnerIsDraining(sandbox: Sandbox): Promise<boolean> {
+    if (!sandbox.runnerId) return false
+    try {
+      const runner = await this.runnerService.findOne(sandbox.runnerId)
+      return runner?.draining === true
+    } catch {
+      return false
+    }
+  }
+
+  /** Route recoverable backup failures on draining runners into state=ERROR so /recover and
+   *  drain auto-recover (both gate on state=ERROR + recoverable=true) catch them. */
+  private async markErroredIfDraining(
+    sandbox: Sandbox,
+    errorReason: string | null,
+    recoverable: boolean,
+    isOnDrainingRunner: boolean,
+  ): Promise<void> {
+    if (!isOnDrainingRunner || !recoverable || sandbox.state === SandboxState.ERROR) return
+    // Mirror errorReason to backupErrorReason so the runner's DeduceRecoveryType matches either.
+    await this.sandboxRepository.updateWhere(sandbox.id, {
+      updateData: {
+        state: SandboxState.ERROR,
+        errorReason,
+      },
+      whereCondition: { state: sandbox.state },
+    })
+  }
+
   private async shouldRetry(key: string, maxRetries = 3, ttlSeconds = 300): Promise<boolean> {
     const retryCount = await this.redis.get(key)
     const currentCount = retryCount ? parseInt(retryCount) : 0
@@ -247,13 +277,18 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
                 await this.redis.setex(errorRetryKey, 300, '1')
               } else if (parseInt(errorRetryCount) > 10) {
                 this.logger.error(`Error processing backup for sandbox ${sandbox.id}:`, fromAxiosError(error))
+                const { recoverable, errorReason } = sanitizeSandboxError(error)
+                const isArchiveFlow = sandbox.desiredState === SandboxDesiredState.ARCHIVED
+                const isOnDrainingRunner = await this.runnerIsDraining(sandbox)
                 await this.sandboxService.updateSandboxBackupState(
                   sandbox.id,
                   BackupState.ERROR,
                   undefined,
                   undefined,
-                  fromAxiosError(error).message,
+                  errorReason,
+                  recoverable && (isArchiveFlow || isOnDrainingRunner),
                 )
+                await this.markErroredIfDraining(sandbox, errorReason, recoverable, isOnDrainingRunner)
               } else {
                 await this.redis.setex(errorRetryKey, 300, errorRetryCount + 1)
               }
@@ -332,13 +367,18 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
                 await this.redis.setex(errorRetryKey, 300, '1')
               } else if (parseInt(errorRetryCount) > 10) {
                 this.logger.error(`Error processing backup for sandbox ${sandbox.id}:`, fromAxiosError(error))
+                const { recoverable, errorReason } = sanitizeSandboxError(error)
+                const isArchiveFlow = sandbox.desiredState === SandboxDesiredState.ARCHIVED
+                const isOnDrainingRunner = await this.runnerIsDraining(sandbox)
                 await this.sandboxService.updateSandboxBackupState(
                   sandbox.id,
                   BackupState.ERROR,
                   undefined,
                   undefined,
-                  fromAxiosError(error).message,
+                  errorReason,
+                  recoverable && (isArchiveFlow || isOnDrainingRunner),
                 )
+                await this.markErroredIfDraining(sandbox, errorReason, recoverable, isOnDrainingRunner)
               } else {
                 await this.redis.setex(errorRetryKey, 300, errorRetryCount + 1)
               }
@@ -417,13 +457,18 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
                   `Error processing backup for errored sandbox ${sandbox.id} on draining runner:`,
                   fromAxiosError(error),
                 )
+                const { recoverable, errorReason } = sanitizeSandboxError(error)
+                const isArchiveFlow = sandbox.desiredState === SandboxDesiredState.ARCHIVED
+                const isOnDrainingRunner = await this.runnerIsDraining(sandbox)
                 await this.sandboxService.updateSandboxBackupState(
                   sandbox.id,
                   BackupState.ERROR,
                   undefined,
                   undefined,
-                  fromAxiosError(error).message,
+                  errorReason,
+                  recoverable && (isArchiveFlow || isOnDrainingRunner),
                 )
+                await this.markErroredIfDraining(sandbox, errorReason, recoverable, isOnDrainingRunner)
               } else {
                 await this.redis.setex(errorRetryKey, 300, errorRetryCount + 1)
               }
@@ -558,12 +603,23 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
             )
             break
           }
+          // Surface recoverable=true for archive flows or any backup error on a draining runner.
+          const isArchiveFlow = sandbox.desiredState === SandboxDesiredState.ARCHIVED
+          const isOnDrainingRunner = runner.draining === true
+          const recoverable = sandboxInfo.recoverable ?? false
           await this.sandboxService.updateSandboxBackupState(
             sandbox.id,
             BackupState.ERROR,
             undefined,
             undefined,
             sandboxInfo.backupErrorReason,
+            recoverable && (isArchiveFlow || isOnDrainingRunner),
+          )
+          await this.markErroredIfDraining(
+            sandbox,
+            sandboxInfo.backupErrorReason ?? null,
+            recoverable,
+            isOnDrainingRunner,
           )
           break
         }
@@ -589,13 +645,18 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         // If still in progress or any other state, do nothing and wait for next sync
       }
     } catch (error) {
+      const { recoverable, errorReason } = sanitizeSandboxError(error)
+      const isArchiveFlow = sandbox.desiredState === SandboxDesiredState.ARCHIVED
+      const isOnDrainingRunner = await this.runnerIsDraining(sandbox)
       await this.sandboxService.updateSandboxBackupState(
         sandbox.id,
         BackupState.ERROR,
         undefined,
         undefined,
-        fromAxiosError(error).message,
+        errorReason,
+        recoverable && (isArchiveFlow || isOnDrainingRunner),
       )
+      await this.markErroredIfDraining(sandbox, errorReason, recoverable, isOnDrainingRunner)
       throw error
     }
   }
@@ -652,13 +713,18 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         await this.sandboxService.updateSandboxBackupState(sandbox.id, BackupState.IN_PROGRESS)
         return
       }
+      const { recoverable, errorReason } = sanitizeSandboxError(error)
+      const isArchiveFlow = sandbox.desiredState === SandboxDesiredState.ARCHIVED
+      const isOnDrainingRunner = await this.runnerIsDraining(sandbox)
       await this.sandboxService.updateSandboxBackupState(
         sandbox.id,
         BackupState.ERROR,
         undefined,
         undefined,
-        fromAxiosError(error).message,
+        errorReason,
+        recoverable && (isArchiveFlow || isOnDrainingRunner),
       )
+      await this.markErroredIfDraining(sandbox, errorReason, recoverable, isOnDrainingRunner)
       throw error
     } finally {
       await this.redisLockProvider.unlock(lockKey)

@@ -450,7 +450,9 @@ func Info(ctx *gin.Context) {
 		BackupState:    info.BackupState,
 		BackupSnapshot: info.BackupSnapshot,
 		BackupError:    info.BackupErrorReason,
-		DaemonVersion:  daemonVersion,
+		// Reports only whether the error class is recoverable; the API decides whether to surface it.
+		Recoverable:   info.BackupErrorReason != nil && common.IsRecoverable(*info.BackupErrorReason),
+		DaemonVersion: daemonVersion,
 	})
 }
 
@@ -459,6 +461,7 @@ type SandboxInfoResponse struct {
 	BackupState    enums.BackupState  `json:"backupState"`
 	BackupSnapshot string             `json:"backupSnapshot,omitempty"`
 	BackupError    *string            `json:"backupError,omitempty"`
+	Recoverable    bool               `json:"recoverable"`
 	DaemonVersion  *string            `json:"daemonVersion,omitempty"`
 } //	@name	SandboxInfoResponse
 

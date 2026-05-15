@@ -25,6 +25,7 @@ export interface SandboxInfoResponse {
     'backupSnapshot'?: string;
     'backupState'?: EnumsBackupState;
     'daemonVersion'?: string;
+    'recoverable'?: boolean;
     'state'?: EnumsSandboxState;
 }
 

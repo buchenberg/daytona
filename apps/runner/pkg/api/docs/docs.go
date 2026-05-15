@@ -1746,7 +1746,6 @@ const docTemplate = `{
         "RecoverSandboxDTO": {
             "type": "object",
             "required": [
-                "errorReason",
                 "osUser",
                 "userId"
             ],
@@ -1765,6 +1764,7 @@ const docTemplate = `{
                     }
                 },
                 "errorReason": {
+                    "description": "At least one of ErrorReason or BackupErrorReason must yield a recovery type; both are optional.",
                     "type": "string"
                 },
                 "fromVolumeId": {
@@ -1933,6 +1933,9 @@ const docTemplate = `{
                 },
                 "daemonVersion": {
                     "type": "string"
+                },
+                "recoverable": {
+                    "type": "boolean"
                 },
                 "state": {
                     "$ref": "#/definitions/enums.SandboxState"

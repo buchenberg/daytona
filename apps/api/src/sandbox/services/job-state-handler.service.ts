@@ -30,6 +30,7 @@ import { getStateChangeLockKey } from '../utils/lock-key.util'
 import { SandboxEvents } from '../constants/sandbox-events.constants'
 import { SandboxStartedEvent } from '../events/sandbox-started.event'
 import { persistSnapshotFromSandbox } from '../utils/persist-snapshot-from-sandbox.util'
+import { Runner } from '../entities/runner.entity'
 
 /**
  * Service for handling entity state updates based on job completion (v2 runners only).
@@ -49,7 +50,22 @@ export class JobStateHandlerService {
     private readonly runnerRepository: Repository<Runner>,
     private readonly redisLockProvider: RedisLockProvider,
     private readonly eventEmitter: EventEmitter2,
+    @InjectRepository(Runner)
+    private readonly runnerRepository: Repository<Runner>,
   ) {}
+
+  private async runnerIsDraining(sandbox: Sandbox): Promise<boolean> {
+    if (!sandbox.runnerId) return false
+    try {
+      const runner = await this.runnerRepository.findOne({
+        where: { id: sandbox.runnerId },
+        select: ['draining'],
+      })
+      return runner?.draining === true
+    } catch {
+      return false
+    }
+  }
 
   /**
    * Handle job completion and update entity state accordingly.
@@ -487,10 +503,26 @@ export class JobStateHandlerService {
         Object.assign(updateData, Sandbox.getBackupStateUpdate(sandbox, BackupState.COMPLETED))
       } else if (job.status === JobStatus.FAILED) {
         this.logger.error(`CREATE_BACKUP job ${job.id} failed for sandbox ${sandboxId}: ${job.errorMessage}`)
+        const { recoverable, errorReason } = sanitizeSandboxError(job.errorMessage)
+        // Surface recoverable=true for archive flows or any backup error on a draining runner.
+        const isArchiveFlow = sandbox.desiredState === SandboxDesiredState.ARCHIVED
+        const isOnDrainingRunner = await this.runnerIsDraining(sandbox)
         Object.assign(
           updateData,
-          Sandbox.getBackupStateUpdate(sandbox, BackupState.ERROR, undefined, undefined, job.errorMessage),
+          Sandbox.getBackupStateUpdate(
+            sandbox,
+            BackupState.ERROR,
+            undefined,
+            undefined,
+            errorReason,
+            recoverable && (isArchiveFlow || isOnDrainingRunner),
+          ),
         )
+        // Route into ERROR so /recover and drain auto-recover (gated on state=ERROR + recoverable) handle it.
+        if (isOnDrainingRunner && recoverable && sandbox.state !== SandboxState.ERROR) {
+          updateData.state = SandboxState.ERROR
+          updateData.errorReason = errorReason
+        }
       }
 
       await this.sandboxRepository.update(sandboxId, { updateData, entity: sandbox })
