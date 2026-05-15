@@ -26,7 +26,7 @@ service:
 
 ingress:
   enabled: true
-  className: nginx
+  className: nginx-internal
   host: ""
   annotations: {}
   tls:
