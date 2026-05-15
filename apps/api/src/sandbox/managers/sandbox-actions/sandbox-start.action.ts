@@ -186,7 +186,9 @@ export class SandboxStartAction extends SandboxAction {
 
     const declarativeBuildScoreThreshold = this.configService.get('runnerScore.thresholds.declarativeBuild')
 
-    const buildInfoOverloadedRunnerIds = isBuild ? await this.getBuildInfoOverloadedRunnerIds(snapshotRef) : []
+    const buildInfoOverloadedRunnerIds = isBuild
+      ? await this.getBuildInfoOverloadedRunnerIds(snapshotRef, sandbox.cpu)
+      : []
 
     // Try to assign an available runner with the snapshot already available
     try {
@@ -299,12 +301,12 @@ export class SandboxStartAction extends SandboxAction {
     return SYNC_AGAIN
   }
 
-  private async getBuildInfoOverloadedRunnerIds(snapshotRef: string): Promise<string[]> {
-    const maxSandboxesPerRunner = this.configService.getOrThrow('buildInfo.maxSandboxesPerRunner')
-    if (!(maxSandboxesPerRunner > 0) || !snapshotRef) {
+  private async getBuildInfoOverloadedRunnerIds(snapshotRef: string, requestedCpu: number): Promise<string[]> {
+    const maxCpuPerRunner = this.configService.getOrThrow('buildInfo.maxCpuPerRunner')
+    if (!(maxCpuPerRunner > 0) || !snapshotRef) {
       return []
     }
-    return this.runnerService.getRunnersWithMaxBuildInfoSnapshotRefSandboxes(snapshotRef, maxSandboxesPerRunner)
+    return this.runnerService.getRunnersWithMaxBuildInfoSnapshotRefCpu(snapshotRef, maxCpuPerRunner, requestedCpu)
   }
 
   async pullSnapshotToRunner(snapshot: Snapshot, runner: Runner) {
