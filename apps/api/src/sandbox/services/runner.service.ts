@@ -101,6 +101,7 @@ export class RunnerService {
           apiUrl: createRunnerDto.apiUrl,
           proxyUrl: createRunnerDto.proxyUrl,
           appVersion: createRunnerDto.appVersion,
+          tags: createRunnerDto.tags,
         })
         break
       case '2':
@@ -110,6 +111,7 @@ export class RunnerService {
           apiVersion: createRunnerDto.apiVersion,
           apiKey: apiKey,
           appVersion: createRunnerDto.appVersion,
+          tags: createRunnerDto.tags,
         })
         break
       default:

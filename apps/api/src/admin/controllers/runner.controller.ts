@@ -69,6 +69,7 @@ export class AdminRunnerController {
         name: req.body?.name,
         apiKey: MASKED_AUDIT_VALUE,
         apiVersion: req.body?.apiVersion,
+        tags: req.body?.tags,
       }),
     },
   })
@@ -90,6 +91,7 @@ export class AdminRunnerController {
       cpu: createRunnerDto.cpu,
       memoryGiB: createRunnerDto.memoryGiB,
       diskGiB: createRunnerDto.diskGiB,
+      tags: createRunnerDto.tags,
     })
 
     return CreateRunnerResponseDto.fromRunner(runner, apiKey)
