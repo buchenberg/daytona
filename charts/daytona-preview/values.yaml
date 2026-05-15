@@ -138,6 +138,7 @@ services:
       DB_QUERY_TIMEOUT_MS: '0'
       # SSH Gateway
       SSH_GATEWAY_API_KEY: 'preview_ssh_gateway_api_key'
+      OPENFEATURE_FORCE_ENABLED_FLAGS: 'organization_infrastructure,sandbox_resize,sandbox_linux_vm'
     extraEnv: []
     resources:
       limits:
