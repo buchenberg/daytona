@@ -33,7 +33,7 @@ ingress:
     enabled: true
     secretName: docs-stage-tls
   basicAuth:
-    enabled: true
+    enabled: false
     secretName: docs-preview-basic-auth
     realm: "Docs Preview"
 
