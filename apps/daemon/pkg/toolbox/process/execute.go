@@ -6,6 +6,7 @@ package process
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os/exec"
@@ -37,12 +38,12 @@ func ExecuteCommand(logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var request ExecuteRequest
 		if err := c.ShouldBindJSON(&request); err != nil {
-			c.AbortWithError(http.StatusBadRequest, errors.New("command is required"))
+			c.Error(common_errors.NewBadRequestError(fmt.Errorf("invalid request body: %w", err)))
 			return
 		}
 
 		if strings.TrimSpace(request.Command) == "" {
-			c.AbortWithError(http.StatusBadRequest, errors.New("empty command"))
+			c.Error(common_errors.NewBadRequestError(errors.New("command cannot be empty or whitespace-only")))
 			return
 		}
 
