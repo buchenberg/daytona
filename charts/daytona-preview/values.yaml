@@ -57,7 +57,7 @@ services:
       annotations: {}
     ingress:
       enabled: true
-      className: 'nginx'
+      className: 'nginx-internal'
       annotations:
         # Long-lived websocket connections (socket.io) — bump nginx timeouts
         # past the default 60s so the API's ws stream isn't dropped.
@@ -167,7 +167,7 @@ services:
       annotations: {}
     ingress:
       enabled: true
-      className: 'nginx'
+      className: 'nginx-internal'
       annotations: {}
       tls: true
       # Per-preview cert for *.{slug}.proxy.p.stage.daytona.work
