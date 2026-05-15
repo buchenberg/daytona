@@ -9,9 +9,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"syscall"
 
 	"github.com/creack/pty"
+	"github.com/daytonaio/daemon/pkg/childreap"
 	"github.com/daytonaio/daemon/pkg/common"
+	"github.com/shirou/gopsutil/v4/process"
 )
 
 // Info returns the current session information
@@ -76,35 +79,29 @@ func (s *PTYSession) start() error {
 	// 2) clients -> PTY writer
 	go s.inputWriteLoop()
 
-	// Reap the process; mark inactive on exit and send exit event
+	// Reap the process; mark inactive on exit and send exit event.
+	// Uses Reap (not Wait) because pty.StartWithSize wires std{in,out,err}
+	// to *os.File slaves — no Go-level I/O goroutines to drain.
 	go func() {
-		err := s.cmd.Wait()
-		var exitCode int
+		exitCode, err := childreap.Reap(s.cmd)
 		var exitReason string
 
-		if err != nil {
-			if exitError, ok := err.(*exec.ExitError); ok {
-				exitCode = exitError.ExitCode()
-				// Analyze the exit code to provide meaningful context
-				if exitCode == 137 {
-					exitReason = " (SIGKILL)"
-				} else if exitCode == 130 {
-					exitReason = " (SIGINT - Ctrl+C)"
-				} else if exitCode == 143 {
-					exitReason = " (SIGTERM)"
-				} else if exitCode > 128 {
-					sigNum := exitCode - 128
-					exitReason = fmt.Sprintf(" (signal %d)", sigNum)
-				} else {
-					exitReason = " (non-zero exit)"
-				}
-			} else {
-				exitCode = 1
-				exitReason = " (process error)"
-			}
-		} else {
-			exitCode = 0
+		switch {
+		case err != nil:
+			exitCode = 1
+			exitReason = " (process error)"
+		case exitCode == 0:
 			exitReason = " (clean exit)"
+		case exitCode == 137:
+			exitReason = " (SIGKILL)"
+		case exitCode == 130:
+			exitReason = " (SIGINT - Ctrl+C)"
+		case exitCode == 143:
+			exitReason = " (SIGTERM)"
+		case exitCode > 128:
+			exitReason = fmt.Sprintf(" (signal %d)", exitCode-128)
+		default:
+			exitReason = " (non-zero exit)"
 		}
 
 		s.mu.Lock()
@@ -135,6 +132,25 @@ func (s *PTYSession) kill() {
 	}
 
 	sessionID := s.info.ID
+	var pid int
+	if s.cmd != nil && s.cmd.Process != nil {
+		pid = s.cmd.Process.Pid
+	}
+
+	// SIGKILL descendants BEFORE we cancel the ctx or close the PTY
+	// master. Both of those have side effects that quickly kill the
+	// shell — ctx cancel triggers an async SIGKILL via exec.CommandContext's
+	// watchdog, and closing ptmx makes the shell's tty disappear — and
+	// once the shell exits, the kernel reparents its children to PID 1.
+	// At that point gopsutil.Children(shell_pid) returns nothing (the
+	// children's PPID is no longer shell_pid), so descendants like a
+	// `sleep & disown` that escaped job-control pgid would slip through
+	// and survive teardown. Walking while the shell is still alive
+	// guarantees we see and kill them.
+	if pid > 0 {
+		killProcessTree(pid)
+	}
+
 	if s.cancel != nil {
 		s.cancel()
 	}
@@ -153,6 +169,28 @@ func (s *PTYSession) kill() {
 
 	// Remove session from manager - manually killed
 	ptyManager.Delete(sessionID)
+}
+
+// killProcessTree sends SIGKILL to every descendant of pid, depth-first so
+// leaves die before their parents and don't get a chance to be reparented to
+// PID 1 mid-teardown.
+func killProcessTree(pid int) {
+	parent, err := process.NewProcess(int32(pid))
+	if err != nil {
+		return
+	}
+	descendants, err := parent.Children()
+	if err != nil {
+		return
+	}
+	for _, child := range descendants {
+		killProcessTree(int(child.Pid))
+	}
+	for _, child := range descendants {
+		if p, err := os.FindProcess(int(child.Pid)); err == nil {
+			_ = p.Signal(syscall.SIGKILL)
+		}
+	}
 }
 
 // ptyReadLoop reads from PTY and broadcasts to all clients

@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/daytonaio/daemon/pkg/childreap"
 	"github.com/daytonaio/daemon/pkg/common"
 	"github.com/daytonaio/daemon/pkg/ssh/config"
 	"github.com/gliderlabs/ssh"
@@ -216,11 +217,19 @@ func (s *Server) handleNonPty(session ssh.Session) {
 			}
 		}
 	}()
-	err = cmd.Wait()
+	exitCode, waitErr := childreap.Wait(cmd)
 
-	if err != nil {
-		s.logger.Info("Command exited", "command", session.RawCommand(), "error", err)
-		session.Exit(127)
+	if waitErr != nil || exitCode != 0 {
+		s.logger.Info("Command exited", "command", session.RawCommand(), "exitCode", exitCode, "error", waitErr)
+		// childreap.Wait can return -1 (signal-terminated or unrecoverable
+		// status). The SSH protocol carries exit status as uint32, so a
+		// negative value gets serialized as 4294967295 — confusing to
+		// clients. Normalize any negative to a generic non-zero exit.
+		exitStatus := exitCode
+		if exitStatus < 0 {
+			exitStatus = 1
+		}
+		session.Exit(exitStatus)
 		return
 	}
 

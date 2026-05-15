@@ -11,6 +11,7 @@ import (
 	"time"
 
 	common_errors "github.com/daytonaio/common-go/pkg/errors"
+	"github.com/daytonaio/daemon/pkg/childreap"
 	"github.com/shirou/gopsutil/v4/process"
 )
 
@@ -47,25 +48,42 @@ func (s *SessionService) terminateSession(ctx context.Context, session *session)
 
 	pid := session.cmd.Process.Pid
 
+	// Signal the whole process group (negative pid). Falls back to the tree
+	// walker for any descendants that escaped the group via setpgid/setsid.
+	_ = syscall.Kill(-pid, syscall.SIGTERM)
 	_ = s.signalProcessTree(pid, syscall.SIGTERM)
-
-	err := session.cmd.Process.Signal(syscall.SIGTERM)
-	if err != nil {
-		// If SIGTERM fails, try SIGKILL immediately
-		s.logger.WarnContext(ctx, "SIGTERM failed for session, trying SIGKILL", "sessionId", session.id, "error", err)
-		_ = s.signalProcessTree(pid, syscall.SIGKILL)
-		return session.cmd.Process.Kill()
-	}
 
 	// Wait for graceful termination
 	if s.waitForTermination(ctx, pid, s.terminationGracePeriod, s.terminationCheckInterval) {
 		s.logger.DebugContext(ctx, "Session terminated gracefully", "sessionId", session.id)
+		s.reapSession(session)
 		return nil
 	}
 
-	s.logger.DebugContext(ctx, "Session timeout, sending SIGKILL to process tree", "sessionId", session.id)
+	s.logger.DebugContext(ctx, "Session timeout, sending SIGKILL to process group", "sessionId", session.id)
+	_ = syscall.Kill(-pid, syscall.SIGKILL)
 	_ = s.signalProcessTree(pid, syscall.SIGKILL)
-	return session.cmd.Process.Kill()
+	err := session.cmd.Process.Kill()
+	s.reapSession(session)
+	return err
+}
+
+// reapSession runs cmd.Wait in the background to release parent-side
+// pipe descriptors and update cmd.ProcessState. Zombie collection itself
+// is handled by the PID-1 reaper installed in pkg/childreap, so we
+// don't need to block the Delete request path on this call — detaching
+// it keeps the DELETE response fast (HTTP clients with ~10s timeouts
+// can't afford 5s+ tails in the cleanup path).
+//
+// Uses Reap (not Wait) because there are no Stdout/Stderr buffers to
+// drain — session.cmd's std{in,out,err} are *os.File pipes (or unset).
+func (s *SessionService) reapSession(session *session) {
+	if session.cmd == nil {
+		return
+	}
+	go func() {
+		_, _ = childreap.Reap(session.cmd)
+	}()
 }
 
 func (s *SessionService) signalProcessTree(pid int, sig syscall.Signal) error {
