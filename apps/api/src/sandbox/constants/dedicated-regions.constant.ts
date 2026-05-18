@@ -8,6 +8,7 @@ export const GPU_REGION = 'gpu-experimental'
  */
 const WRITER_DEDICATED_US = 'writer-dedicated-us'
 const WRITER_DEDICATED_EU = 'writer-dedicated-eu'
+const META_DEDICATED_REGION = 'meta-dedicated'
 export const LARGE_SANDBOX_SHARED_REGION = 'large-sandbox-shared'
 export const ELEMENTOR_DEDICATED_REGION = 'elementor-dedicated'
 export const RL_REGION = 'RL'
@@ -32,6 +33,7 @@ export const hasFallbackRegion = (region: string): boolean => {
   switch (region) {
     case WRITER_DEDICATED_US:
     case WRITER_DEDICATED_EU:
+    case META_DEDICATED_REGION:
       return true
     default:
       return false
@@ -47,6 +49,8 @@ export function getFallbackRegion(region: string): string | null {
       return 'us'
     case WRITER_DEDICATED_EU:
       return 'eu'
+    case META_DEDICATED_REGION:
+      return 'us'
     default:
       return null
   }
@@ -87,6 +91,8 @@ export const WRITER_ORGS = [
   '13dd8c35-0468-444a-a248-398e0d2d02d2',
 ]
 
+const META_ORGS = new Set(['fd4f4489-5a9b-4d7b-b62e-dbd26113115c'])
+
 /*
  * Add here organization IDs that are blocked from creating sandboxes from build info
  */
@@ -123,6 +129,7 @@ const DAYTONA_MEMBERS_ORGS = [
 export const DEDICATED_REGIONS_PER_ORGANIZATION: Record<string, string[]> = (() => {
   const orgRegionMappings = [
     { orgs: WRITER_ORGS, regions: [WRITER_DEDICATED_US, WRITER_DEDICATED_EU] },
+    { orgs: META_ORGS, regions: [META_DEDICATED_REGION] },
     { orgs: LARGE_SANDBOX_ORGS, regions: [LARGE_SANDBOX_SHARED_REGION] },
     { orgs: LG_ORGS, regions: [ELEMENTOR_DEDICATED_REGION] },
     { orgs: ['9f4f4bb5-a521-47a2-9263-462dc409db1d'], regions: [WRITER_DEDICATED_US] },
@@ -164,6 +171,10 @@ export function resolveEffectiveRegion(
     } else if (baseRegionId === 'eu') {
       return WRITER_DEDICATED_EU
     }
+  }
+
+  if (META_ORGS.has(organizationId) && baseRegionId === 'us') {
+    return META_DEDICATED_REGION
   }
 
   if (LG_ORGS.has(organizationId)) {
