@@ -118,12 +118,22 @@ import { getAppName } from './common/utils/app-mode'
         cacheControl: false,
       },
     }),
-    ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'dashboard'),
-      exclude: ['/api/{*path}'],
-      renderPath: '/',
-      serveStaticOptions: {
-        cacheControl: false,
+    ServeStaticModule.forRootAsync({
+      inject: [TypedConfigService],
+      useFactory: (configService: TypedConfigService) => {
+        if (configService.get('dontServeDashboard')) {
+          return []
+        }
+        return [
+          {
+            rootPath: join(__dirname, '..', 'dashboard'),
+            exclude: ['/api/{*path}'],
+            renderPath: '/',
+            serveStaticOptions: {
+              cacheControl: false,
+            },
+          },
+        ]
       },
     }),
     RedisModule.forRootAsync({
