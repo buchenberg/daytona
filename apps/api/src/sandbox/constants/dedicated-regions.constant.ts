@@ -8,7 +8,7 @@ export const GPU_REGION = 'gpu-experimental'
  */
 const WRITER_DEDICATED_US = 'writer-dedicated-us'
 const WRITER_DEDICATED_EU = 'writer-dedicated-eu'
-const META_DEDICATED_REGION = 'meta-dedicated'
+export const META_DEDICATED_REGION = 'meta-dedicated'
 export const LARGE_SANDBOX_SHARED_REGION = 'large-sandbox-shared'
 export const ELEMENTOR_DEDICATED_REGION = 'elementor-dedicated'
 export const RL_REGION = 'RL'
