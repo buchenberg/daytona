@@ -23,6 +23,11 @@ jobs:
   build:
     name: Build dashboard
     runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      deployment_slug: ${{ steps.slug.outputs.deployment_slug }}
     steps:
       - name: Checkout target repo
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -55,16 +60,74 @@ jobs:
           short_sha=$(git rev-parse --short HEAD)
           echo "deployment_slug=${branch_slug}-${short_sha}" >> "$GITHUB_OUTPUT"
 
-      - name: Build dashboard
-        run: echo VITE_API_URL=https://app.daytona.io/api > apps/dashboard/.env && yarn nx build dashboard --configuration production --skip-nx-cache
+      - name: Rewrite docker image refs in nx.json for OSS
+        if: ${{ inputs.use_oss }}
+        run: |
+          sed -i 's|daytonaio/daytona-|ghcr.io/daytonaio/daytona-|g' nx.json
 
-      - name: Upload to S3
+      - name: Log in to the Container registry
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@722e97d12b1d06a961800dd6c05d79d951ad3c80 # v1.8.0
+
+      - name: Build and push dashboard docker image
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.PREVIEW_S3_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.PREVIEW_S3_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-east-1
-        run: aws s3 sync dist/apps/dashboard "s3://prod-daytona-preview/${{ steps.slug.outputs.deployment_slug }}/" --delete
+          VERSION: v0.0.0-${{ steps.slug.outputs.deployment_slug }}
+          ARCH: -amd64
+        run: yarn nx docker dashboard --configuration production --output-style stream
+
+      - name: Print preview image
+        run: |
+          echo "Dashboard image: ghcr.io/daytonaio/daytona-dashboard:v0.0.0-${{ steps.slug.outputs.deployment_slug }}-amd64"
+
+      - name: Cleanup credentials
+        if: always()
+        run: |
+          docker logout docker.io 2>/dev/null || true
+          docker logout ghcr.io 2>/dev/null || true
+
+  deploy:
+    name: Deploy to stage
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Helm
+        uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
+
+      - name: Set up kubeconfig
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.STAGE_PREVIEW_KUBECONFIG }}" > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Deploy with Helm
+        env:
+          BRANCH_NAME: ${{ inputs.branch }}
+          REPO: ${{ inputs.use_oss && 'daytonaio/daytona' || 'daytonaio/daytona-ai' }}
+        run: |
+          helm upgrade --install dashboard-preview-${{ needs.build.outputs.deployment_slug }} ./charts/dashboard-preview \
+            --namespace dashboard-preview \
+            --set image.tag="v0.0.0-${{ needs.build.outputs.deployment_slug }}-amd64" \
+            --set ingress.host="${{ needs.build.outputs.deployment_slug }}.p.daytona.work" \
+            --set branchName="$BRANCH_NAME" \
+            --set repo="$REPO" \
+            --wait \
+            --timeout 5m
+
+      - name: Clean up old releases
+        run: |
+          helm list --namespace dashboard-preview --filter '^dashboard-preview-' --date --reverse -q | tail -n +11 | xargs -r -I {} helm uninstall {} --namespace dashboard-preview
 
       - name: Print preview URL
         run: |
-          echo "Preview URL: https://${{ steps.slug.outputs.deployment_slug }}.p.daytona.work"
+          echo "Preview URL: https://${{ needs.build.outputs.deployment_slug }}.p.daytona.work"
