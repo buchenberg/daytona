@@ -1,0 +1,85 @@
+name: Trivy image scan
+
+on:
+  schedule:
+    # Mondays 06:30 UTC -- 30m after CodeQL so they don't compete for runners
+    - cron: '30 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag to scan for app images (sandbox always scans :latest / :latest-slim)'
+        default: 'latest'
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' }}
+
+jobs:
+  scan:
+    name: Scan (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - daytona-api
+          - daytona-proxy
+          - daytona-runner
+          - daytona-snapshot-manager
+          - daytona-ssh-gateway
+          - daytona-otel-collector
+          - daytona-docs
+          - daytona-backoffice-api
+          - sandbox
+          - sandbox-slim
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Resolve image reference
+        id: ref
+        env:
+          MATRIX_IMAGE: ${{ matrix.image }}
+          INPUT_TAG: ${{ inputs.tag || 'latest' }}
+        run: |
+          set -euo pipefail
+          case "$MATRIX_IMAGE" in
+            sandbox-slim) image="daytonaio/sandbox:latest-slim" ;;
+            sandbox)      image="daytonaio/sandbox:latest" ;;
+            *)            image="daytonaio/${MATRIX_IMAGE}:${INPUT_TAG}" ;;
+          esac
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
+      - name: Run Trivy
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: ${{ steps.ref.outputs.image }}
+          format: sarif
+          output: trivy-${{ matrix.image }}.sarif
+          severity: CRITICAL,HIGH
+          limit-severities-for-sarif: true
+          ignore-unfixed: true
+          exit-code: '0'
+        env:
+          TRIVY_DISABLE_VEX_NOTICE: 'true'
+
+      - name: Upload SARIF to Code Scanning
+        uses: github/codeql-action/upload-sarif@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v4.35.5
+        with:
+          sarif_file: trivy-${{ matrix.image }}.sarif
+          category: trivy-${{ matrix.image }}
