@@ -1,0 +1,121 @@
+name: CodeQL
+
+on:
+  pull_request:
+    branches:
+      - prod
+  push:
+    branches:
+      - prod
+  schedule:
+    # Mondays 06:00 UTC -- 02:00 ET Monday, catches newly-released CodeQL queries
+    - cron: '0 6 * * 1'
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write  # upload CodeQL SARIF to the code-scanning API
+      actions: read  # codeql-action/init introspects the triggering workflow run
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: go
+            build-mode: manual
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+          - language: ruby
+            build-mode: none
+          - language: java-kotlin
+            build-mode: none
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        if: matrix.language == 'go'
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.work
+          cache: false
+
+      - name: Install Go CGO deps for libs/computer-use
+        if: matrix.language == 'go'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc libx11-dev libxtst-dev
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v4.35.5
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-extended
+          config: |
+            paths-ignore:
+              - libs/api-client/**
+              - libs/api-client-go/**
+              - libs/api-client-java/**
+              - libs/api-client-python/**
+              - libs/api-client-python-async/**
+              - libs/api-client-ruby/**
+              - libs/runner-api-client/**
+              - libs/toolbox-api-client/**
+              - libs/toolbox-api-client-go/**
+              - libs/toolbox-api-client-java/**
+              - libs/toolbox-api-client-python/**
+              - libs/toolbox-api-client-python-async/**
+              - libs/toolbox-api-client-ruby/**
+              - libs/runner-proto/gen/**
+              - apps/runner/pkg/api/docs/**
+              - apps/daemon/pkg/toolbox/docs/**
+              - apps/api/src/generate-openapi.ts
+              - apps/api/src/sandbox/constants/dedicated-regions.constant.ts
+              - apps/api/src/sandbox/constants/kepler.constant.ts
+              - apps/api/src/sandbox/utils/resources.ts
+              - apps/dashboard/public/mockServiceWorker.js
+              - apps/dashboard/src/vendor/**
+              - apps/docs/**
+              - guides/**
+              - examples/**
+              - hack/**
+              - charts/**
+              - assets/**
+              - images/**
+              - functions/auth0/dist/**
+              - '**/node_modules/**'
+              - '**/.openapi-generator/**'
+
+      - name: Manual Go build (selected modules only)
+        if: matrix.language == 'go'
+        # build-mode: manual means CodeQL only sees what this step successfully extracts.
+        # Failures must NOT be swallowed -- a green scan with missing modules is worse than no scan.
+        run: |
+          set -euo pipefail
+          MODULES=$(go work edit -json | jq -r '.Use[].DiskPath' | grep -Ev '^(libs/api-client-go|libs/toolbox-api-client-go|libs/runner-api-client)$')
+          for m in $MODULES; do
+            echo "::group::go build ./... in $m"
+            (cd "$m" && go build ./...)
+            echo "::endgroup::"
+          done
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v4.35.5
+        with:
+          category: '/language:${{ matrix.language }}'
