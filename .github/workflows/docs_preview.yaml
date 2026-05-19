@@ -27,6 +27,7 @@ jobs:
       contents: read
       packages: write
     outputs:
+      branch_slug: ${{ steps.slug.outputs.branch_slug }}
       deployment_slug: ${{ steps.slug.outputs.deployment_slug }}
     steps:
       - name: Checkout target repo
@@ -47,17 +48,22 @@ jobs:
           run-poetry-install: 'false'
           run-go-work-sync: 'false'
 
-      - name: Compute deployment slug
+      - name: Compute branch and deployment slugs
         id: slug
         env:
           BRANCH: ${{ inputs.branch }}
         run: |
+          # branch_slug — stable across redeploys of the same branch.
+          # Used as the helm release name + ingress hostname prefix.
           branch_slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-+//; s/-+$//' | cut -c1-20 | sed -E 's/-+$//')
           if [ -z "$branch_slug" ]; then
             echo "Branch name '$BRANCH' produced an empty slug" >&2
             exit 1
           fi
+          # deployment_slug — bumps every commit. Used as the image tag so
+          # pods roll on each redeploy.
           short_sha=$(git rev-parse --short HEAD)
+          echo "branch_slug=${branch_slug}" >> "$GITHUB_OUTPUT"
           echo "deployment_slug=${branch_slug}-${short_sha}" >> "$GITHUB_OUTPUT"
 
       - name: Rewrite docker image refs in nx.json for OSS
@@ -83,7 +89,7 @@ jobs:
           PUBLIC_ALGOLIA_CLI_INDEX_NAME: cli
           PUBLIC_ALGOLIA_SDK_INDEX_NAME: sdk
           PUBLIC_ALGOLIA_API_INDEX_NAME: api
-          PUBLIC_WEB_URL: https://${{ steps.slug.outputs.deployment_slug }}.docs.stage.daytona.work
+          PUBLIC_WEB_URL: https://${{ steps.slug.outputs.branch_slug }}.docs.stage.daytona.work
           PUBLIC_ALGOLIA_APP_ID: YDP75YK0IL
           PUBLIC_ALGOLIA_API_KEY: cc397b32946b98577d305737dc98befa
         run: yarn nx docker docs --configuration production --output-style stream
@@ -124,7 +130,7 @@ jobs:
         run: |
           helm upgrade --install docs-preview-${{ needs.build.outputs.branch_slug }} ./charts/docs-preview \
             --namespace gha-docs \
-            --set image.tag="v0.0.0-${{ needs.build.outputs.branch_slug }}-amd64" \
+            --set image.tag="v0.0.0-${{ needs.build.outputs.deployment_slug }}-amd64" \
             --set ingress.host="${{ needs.build.outputs.branch_slug }}.docs.stage.daytona.work" \
             --set branchName="$BRANCH_NAME" \
             --set repo="$REPO" \
