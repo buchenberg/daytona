@@ -122,10 +122,10 @@ jobs:
           BRANCH_NAME: ${{ inputs.branch }}
           REPO: ${{ inputs.use_oss && 'daytonaio/daytona' || 'daytonaio/daytona-ai' }}
         run: |
-          helm upgrade --install docs-preview-${{ needs.build.outputs.deployment_slug }} ./charts/docs-preview \
+          helm upgrade --install docs-preview-${{ needs.build.outputs.branch_slug }} ./charts/docs-preview \
             --namespace gha-docs \
-            --set image.tag="v0.0.0-${{ needs.build.outputs.deployment_slug }}-amd64" \
-            --set ingress.host="${{ needs.build.outputs.deployment_slug }}.docs.stage.daytona.work" \
+            --set image.tag="v0.0.0-${{ needs.build.outputs.branch_slug }}-amd64" \
+            --set ingress.host="${{ needs.build.outputs.branch_slug }}.docs.stage.daytona.work" \
             --set branchName="$BRANCH_NAME" \
             --set repo="$REPO" \
             --wait \
@@ -137,4 +137,4 @@ jobs:
 
       - name: Print preview URL
         run: |
-          echo "Preview URL: https://${{ needs.build.outputs.deployment_slug }}.docs.stage.daytona.work"
+          echo "Preview URL: https://${{ needs.build.outputs.branch_slug }}.docs.stage.daytona.work"

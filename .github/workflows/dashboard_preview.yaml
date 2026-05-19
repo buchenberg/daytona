@@ -115,10 +115,10 @@ jobs:
           BRANCH_NAME: ${{ inputs.branch }}
           REPO: ${{ inputs.use_oss && 'daytonaio/daytona' || 'daytonaio/daytona-ai' }}
         run: |
-          helm upgrade --install dashboard-preview-${{ needs.build.outputs.deployment_slug }} ./charts/dashboard-preview \
+          helm upgrade --install dashboard-preview-${{ needs.build.outputs.branch_slug }} ./charts/dashboard-preview \
             --namespace dashboard-preview \
-            --set image.tag="v0.0.0-${{ needs.build.outputs.deployment_slug }}-amd64" \
-            --set ingress.host="${{ needs.build.outputs.deployment_slug }}.p.daytona.work" \
+            --set image.tag="v0.0.0-${{ needs.build.outputs.branch_slug }}-amd64" \
+            --set ingress.host="${{ needs.build.outputs.branch_slug }}.p.daytona.work" \
             --set branchName="$BRANCH_NAME" \
             --set repo="$REPO" \
             --wait \
@@ -130,4 +130,4 @@ jobs:
 
       - name: Print preview URL
         run: |
-          echo "Preview URL: https://${{ needs.build.outputs.deployment_slug }}.p.daytona.work"
+          echo "Preview URL: https://${{ needs.build.outputs.branch_slug }}.p.daytona.work"
