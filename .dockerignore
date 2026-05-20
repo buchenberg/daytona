@@ -28,4 +28,5 @@ libs
 !libs/sdk-go
 !libs/backoffice-api-client
 !libs/runner-proto
+!libs/billing-api-client
 Dockerfile
