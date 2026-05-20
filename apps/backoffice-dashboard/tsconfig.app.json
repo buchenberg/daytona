@@ -2,6 +2,8 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "../../dist/out-tsc",
+    "module": "ES2022",
+    "resolveJsonModule": true,
     "types": ["node", "vite/client"],
     "baseUrl": ".",
     "paths": {
@@ -10,6 +12,7 @@
       "@api/*": ["../api/src/*"],
       "@backoffice-api/permissions": ["../backoffice-api/src/common/permissions/index.ts"],
       "@daytonaio/backoffice-api-client": ["../../libs/backoffice-api-client/src/index.ts"],
+      "@daytona/*": ["../../libs/*"],
       "@dashboard/ui/*": ["../dashboard/src/components/ui/*"],
       "@dashboard/lib/*": ["../dashboard/src/lib/*"],
       "@dashboard/hooks/*": ["../dashboard/src/hooks/*"],
@@ -24,7 +27,8 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.js",
-    "src/**/*.jsx"
+    "src/**/*.jsx",
+    "../dashboard/src/types/window.d.ts"
   ],
   "exclude": ["src/**/*.spec.ts", "src/**/*.test.ts", "src/**/*.spec.tsx", "src/**/*.test.tsx"]
 }
