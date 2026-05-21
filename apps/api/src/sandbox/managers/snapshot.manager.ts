@@ -851,6 +851,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
                     regions: [sandbox.region],
                     sandboxClass: sandbox.class,
                     excludedRunnerIds: [runner.id],
+                    gpu: sandbox.gpu,
                   })
 
                   // Check if snapshot runner entry already exists
@@ -1434,6 +1435,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
           regions: regionIdsForInitialRunner,
           excludedRunnerIds: excludedRunnerIds,
           availabilityScoreThreshold: availabilityThreshold,
+          gpu: snapshot.gpu,
         })
         // =================
         this.logger.warn('runnerId', initialRunner?.id)

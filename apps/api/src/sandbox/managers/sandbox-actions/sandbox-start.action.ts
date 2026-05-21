@@ -196,6 +196,7 @@ export class SandboxStartAction extends SandboxAction {
         regions: [effectiveRegion],
         sandboxClass: sandbox.class,
         snapshotRef: snapshotRef,
+        gpu: sandbox.gpu,
         ...(buildInfoOverloadedRunnerIds.length > 0 && { excludedRunnerIds: buildInfoOverloadedRunnerIds }),
         ...(isBuild &&
           declarativeBuildScoreThreshold !== undefined && {
@@ -261,6 +262,7 @@ export class SandboxStartAction extends SandboxAction {
       runner = await this.runnerService.getRandomAvailableRunner({
         regions: [effectiveRegion],
         sandboxClass: sandbox.class,
+        gpu: sandbox.gpu,
         excludedRunnerIds: excludedRunnerIds,
         ...(isBuild &&
           declarativeBuildScoreThreshold !== undefined && {
@@ -496,6 +498,7 @@ export class SandboxStartAction extends SandboxAction {
               }),
             ],
             sandboxClass: sandbox.class,
+            gpu: sandbox.gpu,
           })
           const lessUsedRunners = availableRunners.filter((runner) => runner.id !== originalRunnerId)
 
@@ -781,6 +784,7 @@ export class SandboxStartAction extends SandboxAction {
           sandboxClass: sandbox.class,
           snapshotRef,
           excludedRunnerIds,
+          gpu: sandbox.gpu,
         })
       : []
     if (runnersWithBaseSnapshot.length > 0) {
@@ -790,6 +794,7 @@ export class SandboxStartAction extends SandboxAction {
       availableRunners = await this.runnerService.findAvailableRunners({
         regions: [effectiveRegion],
         excludedRunnerIds,
+        gpu: sandbox.gpu,
       })
     }
 
