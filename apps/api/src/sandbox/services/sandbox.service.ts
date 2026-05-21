@@ -741,9 +741,9 @@ export class SandboxService {
     const region = await this.getValidatedOrDefaultRegion(organization, createSandboxDto.target)
 
     if (createSandboxDto.gpu) {
-      if (region.id !== GPU_REGION) {
-        throw new BadRequestError(`GPUs not available in this region`)
-      }
+      // if (region.id !== GPU_REGION) {
+      //   throw new BadRequestError(`GPUs not available in this region`)
+      // }
 
       if (createSandboxDto.gpu > 1) {
         throw new BadRequestError(`Only one GPU per sandbox is allowed`)
