@@ -337,7 +337,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
         return Promise.allSettled(
           regions.map(async (region) => {
-            const runners = await this.runnerService.findAvailableRunners({ regions: [region] })
+            const runners = await this.runnerService.findAvailableRunners({ regions: [region], gpu: snapshot.gpu })
             if (!runners.length) {
               return
             }

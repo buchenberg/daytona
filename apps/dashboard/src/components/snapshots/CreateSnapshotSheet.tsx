@@ -51,7 +51,6 @@ const formSchema = z.object({
   disk: z.number().min(1).optional(),
   gpu: z.boolean().optional(),
   regionId: z.string().optional(),
-  gpu: z.boolean().optional(),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -65,7 +64,6 @@ const defaultValues: FormValues = {
   disk: undefined,
   gpu: false,
   regionId: undefined,
-  gpu: false,
 }
 
 export const CreateSnapshotSheet = ({
@@ -131,7 +129,6 @@ export const CreateSnapshotSheet = ({
             disk: value.disk,
             gpu: value.gpu ? 1 : undefined,
             regionId: value.regionId,
-            gpu: value.gpu ? 1 : undefined,
           },
           organizationId: selectedOrganization.id,
         })
@@ -252,28 +249,6 @@ export const CreateSnapshotSheet = ({
                 </Field>
               )}
             </form.Field>
-
-            <form.Subscribe selector={(state) => state.values.regionId}>
-              {(regionId) =>
-                regionId === 'gpu-experimental' ? (
-                  <form.Field name="gpu">
-                    {(field) => (
-                      <Field>
-                        <div className="flex items-center justify-between gap-4">
-                          <FieldLabel htmlFor={field.name}>GPU</FieldLabel>
-                          <Switch
-                            id={field.name}
-                            checked={field.state.value ?? false}
-                            onCheckedChange={field.handleChange}
-                          />
-                        </div>
-                        <FieldDescription>Attach a GPU to sandboxes created from this snapshot.</FieldDescription>
-                      </Field>
-                    )}
-                  </form.Field>
-                ) : null
-              }
-            </form.Subscribe>
 
             <div className="flex flex-col gap-2">
               <Label className="text-sm font-medium">Resources</Label>

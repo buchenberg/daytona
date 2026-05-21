@@ -233,6 +233,7 @@ export class SandboxService {
         pendingCpuIncremented: false,
         pendingMemoryIncremented: false,
         pendingDiskIncremented: false,
+        pendingGpuIncremented: false,
       }
     }
 
