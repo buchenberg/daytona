@@ -47,9 +47,9 @@ export class SandboxOpenSearchSearchAdapter implements SandboxSearchAdapter, OnM
 
   async onModuleInit(): Promise<void> {
     this.jsonbFields = this.resolveJsonbFields()
-    await this.putIngestPipeline()
-    await this.putIndexTemplate()
-    await this.applyPipelineToExistingIndex()
+    // await this.putIngestPipeline()
+    // await this.putIndexTemplate()
+    // await this.applyPipelineToExistingIndex()
     this.logger.log('OpenSearch sandbox search adapter initialized')
   }
 
