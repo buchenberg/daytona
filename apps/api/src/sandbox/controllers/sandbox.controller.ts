@@ -40,7 +40,7 @@ import { SandboxDto, SandboxLabelsDto } from '../dto/sandbox.dto'
 import { ResizeSandboxDto } from '../dto/resize-sandbox.dto'
 import { UpdateSandboxStateDto } from '../dto/update-sandbox-state.dto'
 import { SetSandboxErrorStateDto } from '../dto/set-sandbox-error-state.dto'
-import { PaginatedSandboxesDto } from '../dto/paginated-sandboxes.dto'
+import { PaginatedSandboxesDtoDeprecated } from '../dto/paginated-sandboxes.deprecated.dto'
 import { RunnerService } from '../services/runner.service'
 import { RunnerAuthContextGuard } from '../guards/runner-auth-context.guard'
 import { RunnerAuthContext } from '../../common/interfaces/runner-auth-context.interface'
@@ -72,9 +72,9 @@ import { AuditAction } from '../../audit/enums/audit-action.enum'
 import { AuditTarget } from '../../audit/enums/audit-target.enum'
 import { UpdateSandboxNetworkSettingsDto } from '../dto/update-sandbox-network-settings.dto'
 import { SshAccessDto, SshAccessValidationDto } from '../dto/ssh-access.dto'
-import { ListSandboxesQueryDto } from '../dto/list-sandboxes-query.dto'
 import { KEPLER_DEDICATED_LARGE, KEPLER_DEDICATED_REGULAR, KEPLER_ORG_ID } from '../constants/kepler.constant'
 import { RESTRICTED_REGIONS } from '../constants/dedicated-regions.constant'
+import { ListSandboxesQueryDtoDeprecated } from '../dto/list-sandboxes-query.deprecated.dto'
 import { CreateSandboxSnapshotDto } from '../dto/create-sandbox-snapshot.dto'
 import { ForkSandboxDto } from '../dto/fork-sandbox.dto'
 import { ProxyAuthContextGuard } from '../guards/proxy-auth-context.guard'
@@ -96,6 +96,8 @@ import { AuthStrategyType } from '../../auth/enums/auth-strategy-type.enum'
 import { OrganizationService } from '../../organization/services/organization.service'
 import { OrganizationDto } from '../../organization/dto/organization.dto'
 import { RegionQuotaDto } from '../../organization/dto/region-quota.dto'
+import { ListSandboxesQueryDto } from '../dto/list-sandboxes-query.dto'
+import { ListSandboxesResponseDto } from '../dto/list-sandboxes-response.dto'
 
 @Controller('sandbox')
 @ApiTags('sandbox')
@@ -133,66 +135,39 @@ export class SandboxController {
 
   @Get()
   @ApiOperation({
-    summary: 'List all sandboxes',
+    summary: 'List sandboxes',
+    description: 'Advanced filtering and ordering. Eventually consistent.',
     operationId: 'listSandboxes',
-  })
-  @ApiQuery({
-    name: 'verbose',
-    required: false,
-    type: Boolean,
-    description: 'Include verbose output',
-  })
-  @ApiQuery({
-    name: 'labels',
-    type: String,
-    required: false,
-    example: '{"label1": "value1", "label2": "value2"}',
-    description: 'JSON encoded labels to filter by',
-  })
-  @ApiQuery({
-    name: 'includeErroredDeleted',
-    required: false,
-    type: Boolean,
-    description: 'Include errored and deleted sandboxes',
   })
   @ApiResponse({
     status: 200,
-    description: 'List of all sandboxes',
-    type: [SandboxDto],
+    type: ListSandboxesResponseDto,
   })
   @UseGuards(OrganizationAuthContextGuard)
   async listSandboxes(
     @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
-    @Query('verbose') verbose?: boolean,
-    @Query('labels') labelsQuery?: string,
-    @Query('includeErroredDeleted') includeErroredDeleted?: boolean,
-  ): Promise<SandboxDto[]> {
-    const labels = labelsQuery ? JSON.parse(labelsQuery) : undefined
-    const sandboxes = await this.sandboxService.findAllDeprecated(
-      authContext.organizationId,
-      labels,
-      includeErroredDeleted,
-    )
-
-    return this.sandboxService.toSandboxDtos(sandboxes)
+    @Query() query: ListSandboxesQueryDto,
+  ): Promise<ListSandboxesResponseDto> {
+    return this.sandboxService.search(authContext.organizationId, query)
   }
 
   @Get('paginated')
   @ThrottlerScope('sandbox-list')
   @ApiOperation({
-    summary: 'List all sandboxes paginated',
-    operationId: 'listSandboxesPaginated',
+    summary: '[DEPRECATED] List all sandboxes paginated',
+    operationId: 'listSandboxesPaginated_deprecated',
+    deprecated: true,
   })
   @ApiResponse({
     status: 200,
     description: 'Paginated list of all sandboxes',
-    type: PaginatedSandboxesDto,
+    type: PaginatedSandboxesDtoDeprecated,
   })
   @UseGuards(OrganizationAuthContextGuard)
   async listSandboxesPaginated(
     @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
-    @Query() queryParams: ListSandboxesQueryDto,
-  ): Promise<PaginatedSandboxesDto> {
+    @Query() queryParams: ListSandboxesQueryDtoDeprecated,
+  ): Promise<PaginatedSandboxesDtoDeprecated> {
     const {
       page,
       limit,
@@ -215,7 +190,7 @@ export class SandboxController {
       order: sortDirection,
     } = queryParams
 
-    const result = await this.sandboxService.findAll(
+    const result = await this.sandboxService.findAllPaginatedDeprecated(
       authContext.organizationId,
       page,
       limit,

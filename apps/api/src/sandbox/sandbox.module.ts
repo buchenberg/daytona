@@ -37,7 +37,6 @@ import { BuildInfo } from './entities/build-info.entity'
 import { BackupManager } from './managers/backup.manager'
 import { VolumeSubscriber } from './subscribers/volume.subscriber'
 import { RunnerSubscriber } from './subscribers/runner.subscriber'
-import { WorkspaceController } from './controllers/workspace.deprecated.controller'
 import { RunnerAdapterFactory } from './runner-adapter/runnerAdapter'
 import { SandboxStartAction } from './managers/sandbox-actions/sandbox-start.action'
 import { SandboxStopAction } from './managers/sandbox-actions/sandbox-stop.action'
@@ -61,6 +60,9 @@ import { RunnerCleanupToolAuthContextGuard } from './guards/runner-cleanup-tool-
 import { EventEmitter2 } from '@nestjs/event-emitter'
 import { SandboxLastActivity } from './entities/sandbox-last-activity.entity'
 import { SandboxActivityService } from './services/sandbox-activity.service'
+import { OpensearchModule } from 'nestjs-opensearch'
+import { TypedConfigService } from '../config/typed-config.service'
+import { SandboxSearchAdapterProvider } from './providers/sandbox-search.provider'
 
 @Module({
   imports: [
@@ -84,13 +86,18 @@ import { SandboxActivityService } from './services/sandbox-activity.service'
       SandboxLastActivity,
       SandboxFork,
     ]),
+    OpensearchModule.forRootAsync({
+      inject: [TypedConfigService],
+      useFactory: (configService: TypedConfigService) => {
+        return configService.getOpenSearchConfig()
+      },
+    }),
   ],
   controllers: [
     SandboxController,
     RunnerController,
     ToolboxController,
     SnapshotController,
-    WorkspaceController,
     PreviewController,
     VolumeController,
     JobController,
@@ -122,6 +129,7 @@ import { SandboxActivityService } from './services/sandbox-activity.service'
     ProxyAuthContextGuard,
     SshGatewayAuthContextGuard,
     RunnerCleanupToolAuthContextGuard,
+    SandboxSearchAdapterProvider,
     {
       provide: SandboxRepository,
       inject: [DataSource, EventEmitter2, SandboxLookupCacheInvalidationService],
