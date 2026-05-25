@@ -5,18 +5,23 @@
 
 import { PageLayout, PageHeader, PageTitle, PageContent } from '@dashboard/components/PageLayout'
 import { useState, useEffect } from 'react'
+import { Button } from '@dashboard/ui/button'
+import { Plus } from 'lucide-react'
 import { TableView } from '../features/region-quotas/TableView'
 import { useRegionQuotas } from '../features/region-quotas/useRegionQuotas'
 import { BulkActionToolbar } from '../components/BulkActionToolbar'
 import { FilterPanel } from '../features/region-quotas/FilterPanel'
 import { EditRegionQuotaModal } from '../features/region-quotas/EditRegionQuotaModal'
+import { CreateRegionQuotaModal } from '../features/region-quotas/CreateRegionQuotaModal'
 import { BulkEditRegionQuotaModal as BulkEditModal } from '../features/region-quotas/BulkEditRegionQuotaModal'
 import { useHasPermission } from '../providers/ApiProvider'
 import { RegionQuotaFiltersDto, RegionQuota } from '../types'
 
 export const RegionQuotasPage = () => {
   const canBulkWrite = useHasPermission('regionQuotas', 'write-bulk')
+  const canWrite = useHasPermission('regionQuotas', 'write')
   const [filterOpen, setFilterOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
   const [filters, setFilters] = useState<RegionQuotaFiltersDto>({})
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
@@ -97,6 +102,12 @@ export const RegionQuotasPage = () => {
     <PageLayout>
       <PageHeader>
         <PageTitle>Region Quotas</PageTitle>
+        {canWrite && (
+          <Button onClick={() => setCreateOpen(true)} className="ml-auto">
+            <Plus className="mr-2 h-4 w-4" />
+            New Region Quota
+          </Button>
+        )}
       </PageHeader>
       <PageContent size="full">
         {canBulkWrite && selectedRowKeys.length > 0 && (
@@ -154,6 +165,14 @@ export const RegionQuotasPage = () => {
           open={bulkEditOpen}
           onClose={() => setBulkEditOpen(false)}
           onSuccess={handleBulkEditSuccess}
+        />
+
+        <CreateRegionQuotaModal
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onSuccess={() => {
+            refetch()
+          }}
         />
       </PageContent>
     </PageLayout>

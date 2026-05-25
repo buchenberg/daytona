@@ -5,24 +5,24 @@
 
 import { useEffect, useState, FormEvent } from 'react'
 import { toast } from 'sonner'
-import { handleUpdateError, showApiWarnings } from '../../lib/api'
+import { handleUpdateError } from '../../lib/api'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@dashboard/ui/dialog'
 import { Button } from '@dashboard/ui/button'
 import { Input } from '@dashboard/ui/input'
 import { Label } from '@dashboard/ui/label'
 import { Separator } from '@dashboard/ui/separator'
-import { RegionQuota, UpdateRegionQuotaDto, PatchRegionQuotaDto } from '../../types'
 import BackofficeApiClient from '../../api/BackofficeApiClient'
+import type { CreateRegionQuotaDto } from '@daytonaio/backoffice-api-client'
 
-interface EditRegionQuotaModalProps {
-  regionQuota: RegionQuota | null
+interface CreateRegionQuotaModalProps {
   open: boolean
   onClose: () => void
   onSuccess: () => void
 }
 
-// Form keeps strings so empty input maps cleanly to "unset / inherit org default" (= null on the wire).
 type FormState = {
+  organizationId: string
+  regionId: string
   totalCpuQuota: string
   totalMemoryQuota: string
   totalDiskQuota: string
@@ -32,104 +32,71 @@ type FormState = {
   maxDiskPerNonEphemeralSandbox: string
 }
 
-const toFormString = (v: number | null | undefined): string => (v == null ? '' : String(v))
+const initialState: FormState = {
+  organizationId: '',
+  regionId: '',
+  totalCpuQuota: '',
+  totalMemoryQuota: '',
+  totalDiskQuota: '',
+  maxCpuPerSandbox: '',
+  maxMemoryPerSandbox: '',
+  maxDiskPerSandbox: '',
+  maxDiskPerNonEphemeralSandbox: '',
+}
 
-const numberOrUndefined = (v: string): number | undefined => (v === '' ? undefined : Number(v))
+const numberOrUndefined = (v: string): number | undefined => {
+  if (v === '') return undefined
+  const n = Number(v)
+  return Number.isFinite(n) ? n : undefined
+}
 
-// For nullable per-sandbox caps: empty string = explicit null (clear override).
-const numberOrNull = (v: string): number | null => (v === '' ? null : Number(v))
-
-export const EditRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: EditRegionQuotaModalProps) => {
+export const CreateRegionQuotaModal = ({ open, onClose, onSuccess }: CreateRegionQuotaModalProps) => {
   const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState<FormState>({
-    totalCpuQuota: '',
-    totalMemoryQuota: '',
-    totalDiskQuota: '',
-    maxCpuPerSandbox: '',
-    maxMemoryPerSandbox: '',
-    maxDiskPerSandbox: '',
-    maxDiskPerNonEphemeralSandbox: '',
-  })
+  const [formData, setFormData] = useState<FormState>(initialState)
 
   useEffect(() => {
-    if (regionQuota && open) {
-      setFormData({
-        totalCpuQuota: String(regionQuota.totalCpuQuota ?? 0),
-        totalMemoryQuota: String(regionQuota.totalMemoryQuota ?? 0),
-        totalDiskQuota: String(regionQuota.totalDiskQuota ?? 0),
-        maxCpuPerSandbox: toFormString(regionQuota.maxCpuPerSandbox),
-        maxMemoryPerSandbox: toFormString(regionQuota.maxMemoryPerSandbox),
-        maxDiskPerSandbox: toFormString(regionQuota.maxDiskPerSandbox),
-        maxDiskPerNonEphemeralSandbox: toFormString(regionQuota.maxDiskPerNonEphemeralSandbox),
-      })
+    if (!open) {
+      setFormData(initialState)
     }
-  }, [regionQuota, open])
+  }, [open])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!regionQuota) return
+
+    if (!formData.organizationId.trim() || !formData.regionId.trim()) {
+      toast.error('Organization ID and Region ID are required')
+      return
+    }
+
+    const totalCpu = numberOrUndefined(formData.totalCpuQuota)
+    const totalMem = numberOrUndefined(formData.totalMemoryQuota)
+    const totalDisk = numberOrUndefined(formData.totalDiskQuota)
+
+    if (totalCpu === undefined || totalMem === undefined || totalDisk === undefined) {
+      toast.error('Total CPU, Memory, and Disk quotas are required')
+      return
+    }
+
+    const dto: CreateRegionQuotaDto = {
+      organizationId: formData.organizationId.trim(),
+      regionId: formData.regionId.trim(),
+      totalCpuQuota: totalCpu,
+      totalMemoryQuota: totalMem,
+      totalDiskQuota: totalDisk,
+      maxCpuPerSandbox: numberOrUndefined(formData.maxCpuPerSandbox) ?? null,
+      maxMemoryPerSandbox: numberOrUndefined(formData.maxMemoryPerSandbox) ?? null,
+      maxDiskPerSandbox: numberOrUndefined(formData.maxDiskPerSandbox) ?? null,
+      maxDiskPerNonEphemeralSandbox: numberOrUndefined(formData.maxDiskPerNonEphemeralSandbox) ?? null,
+    }
 
     try {
       setLoading(true)
-
-      const updates: UpdateRegionQuotaDto = {}
-      const preconditions: UpdateRegionQuotaDto = {}
-
-      // Total quotas (always present, never null)
-      const newTotalCpu = numberOrUndefined(formData.totalCpuQuota)
-      if (newTotalCpu !== undefined && newTotalCpu !== regionQuota.totalCpuQuota) {
-        updates.totalCpuQuota = newTotalCpu
-        preconditions.totalCpuQuota = regionQuota.totalCpuQuota
-      }
-      const newTotalMem = numberOrUndefined(formData.totalMemoryQuota)
-      if (newTotalMem !== undefined && newTotalMem !== regionQuota.totalMemoryQuota) {
-        updates.totalMemoryQuota = newTotalMem
-        preconditions.totalMemoryQuota = regionQuota.totalMemoryQuota
-      }
-      const newTotalDisk = numberOrUndefined(formData.totalDiskQuota)
-      if (newTotalDisk !== undefined && newTotalDisk !== regionQuota.totalDiskQuota) {
-        updates.totalDiskQuota = newTotalDisk
-        preconditions.totalDiskQuota = regionQuota.totalDiskQuota
-      }
-
-      // Per-sandbox caps (nullable; empty input clears override)
-      const perSandboxFields = [
-        'maxCpuPerSandbox',
-        'maxMemoryPerSandbox',
-        'maxDiskPerSandbox',
-        'maxDiskPerNonEphemeralSandbox',
-      ] as const
-
-      for (const field of perSandboxFields) {
-        const newValue = numberOrNull(formData[field])
-        const oldValue = regionQuota[field] ?? null
-        if (newValue !== oldValue) {
-          updates[field] = newValue
-        }
-      }
-
-      if (Object.keys(updates).length === 0) {
-        toast.info('No changes to save')
-        return
-      }
-
-      const patchDto: PatchRegionQuotaDto = { updates }
-      if (Object.keys(preconditions).length > 0) {
-        patchDto.preconditions = preconditions
-      }
-
-      const response = await BackofficeApiClient.updateRegionQuota(
-        regionQuota.organizationId,
-        regionQuota.regionId,
-        patchDto,
-      )
-
-      toast.success('Region quota updated successfully')
+      await BackofficeApiClient.createRegionQuota(dto)
+      toast.success('Region quota created')
       onSuccess()
       onClose()
-      showApiWarnings(response)
     } catch (error) {
-      handleUpdateError(error, 'Failed to update region quota')
+      handleUpdateError(error, 'Failed to create region quota')
     } finally {
       setLoading(false)
     }
@@ -139,15 +106,39 @@ export const EditRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>Edit Region Quota</DialogTitle>
-          <DialogDescription>
-            Organization: {regionQuota?.organizationName || regionQuota?.organizationId}
-            <br />
-            Region: {regionQuota?.regionId}
-          </DialogDescription>
+          <DialogTitle>Create Region Quota</DialogTitle>
+          <DialogDescription>Allocate per-region quotas for an organization.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold">Target</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="organizationId">Organization ID</Label>
+                <Input
+                  id="organizationId"
+                  placeholder="UUID"
+                  value={formData.organizationId}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, organizationId: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="regionId">Region ID</Label>
+                <Input
+                  id="regionId"
+                  placeholder="e.g. us, eu"
+                  value={formData.regionId}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, regionId: e.target.value }))}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
           <div className="space-y-4">
             <h3 className="text-sm font-semibold">Region Totals</h3>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -190,7 +181,7 @@ export const EditRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
           <Separator />
 
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold">Per-Sandbox Caps in this Region</h3>
+            <h3 className="text-sm font-semibold">Per-Sandbox Caps (optional)</h3>
             <p className="text-xs text-muted-foreground">
               Leave empty to inherit the organization default. <code>0</code> on “non-ephemeral disk” disables
               non-ephemeral sandboxes in this region.
@@ -248,7 +239,7 @@ export const EditRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Save Changes'}
+              {loading ? 'Creating...' : 'Create'}
             </Button>
           </DialogFooter>
         </form>

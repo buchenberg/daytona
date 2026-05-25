@@ -53,6 +53,7 @@ export const EditStep = ({ initialRunners, onNext, onBack, onCancel }: EditStepP
         memoryGiB: lastRunner?.memoryGiB || 768,
         diskGiB: lastRunner?.diskGiB || 7065,
         class: lastRunner?.class || 'small',
+        apiVersion: lastRunner?.apiVersion || '0',
       },
     ])
   }
@@ -97,6 +98,7 @@ export const EditStep = ({ initialRunners, onNext, onBack, onCancel }: EditStepP
                 <TableHead className="w-[100px]">Memory (GB)</TableHead>
                 <TableHead className="w-[100px]">Disk (GB)</TableHead>
                 <TableHead className="w-[100px]">Class</TableHead>
+                <TableHead className="w-[110px]">API Version</TableHead>
                 <TableHead className="w-[60px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -135,27 +137,30 @@ export const EditStep = ({ initialRunners, onNext, onBack, onCancel }: EditStepP
                       <Input
                         type="number"
                         value={runner.cpu}
-                        onChange={(e) => handleFieldChange(index, 'cpu', parseInt(e.target.value, 10) || 0)}
+                        onChange={(e) => handleFieldChange(index, 'cpu', parseFloat(e.target.value) || 0)}
                         className={`h-8 text-xs ${hasError ? 'border-destructive' : ''}`}
-                        min="1"
+                        min="0"
+                        step="any"
                       />
                     </TableCell>
                     <TableCell>
                       <Input
                         type="number"
                         value={runner.memoryGiB}
-                        onChange={(e) => handleFieldChange(index, 'memoryGiB', parseInt(e.target.value, 10) || 0)}
+                        onChange={(e) => handleFieldChange(index, 'memoryGiB', parseFloat(e.target.value) || 0)}
                         className={`h-8 text-xs ${hasError ? 'border-destructive' : ''}`}
-                        min="1"
+                        min="0"
+                        step="any"
                       />
                     </TableCell>
                     <TableCell>
                       <Input
                         type="number"
                         value={runner.diskGiB}
-                        onChange={(e) => handleFieldChange(index, 'diskGiB', parseInt(e.target.value, 10) || 0)}
+                        onChange={(e) => handleFieldChange(index, 'diskGiB', parseFloat(e.target.value) || 0)}
                         className={`h-8 text-xs ${hasError ? 'border-destructive' : ''}`}
-                        min="1"
+                        min="0"
+                        step="any"
                       />
                     </TableCell>
                     <TableCell>
@@ -167,6 +172,20 @@ export const EditStep = ({ initialRunners, onNext, onBack, onCancel }: EditStepP
                           <SelectItem value="small">Small</SelectItem>
                           <SelectItem value="medium">Medium</SelectItem>
                           <SelectItem value="large">Large</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={runner.apiVersion}
+                        onValueChange={(value) => handleFieldChange(index, 'apiVersion', value)}
+                      >
+                        <SelectTrigger className={`h-8 text-xs ${hasError ? 'border-destructive' : ''}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">v0 (URL)</SelectItem>
+                          <SelectItem value="2">v2 (tunnel)</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>

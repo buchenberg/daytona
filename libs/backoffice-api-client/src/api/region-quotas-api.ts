@@ -26,6 +26,8 @@ import type { BulkUpdateRegionQuotaDto } from '../models';
 // @ts-ignore
 import type { BulkUpdateResponseDto } from '../models';
 // @ts-ignore
+import type { CreateRegionQuotaDto } from '../models';
+// @ts-ignore
 import type { PatchRegionQuotaDto } from '../models';
 // @ts-ignore
 import type { RegionQuotaSearchResponseDto } from '../models';
@@ -69,6 +71,44 @@ export const RegionQuotasApiAxiosParamCreator = function (configuration?: Config
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = serializeDataIfNeeded(bulkUpdateRegionQuotaDto, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Create a region quota
+         * @param {CreateRegionQuotaDto} createRegionQuotaDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        regionQuotasControllerCreate: async (createRegionQuotaDto: CreateRegionQuotaDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'createRegionQuotaDto' is not null or undefined
+            assertParamExists('regionQuotasControllerCreate', 'createRegionQuotaDto', createRegionQuotaDto)
+            const localVarPath = `/region-quotas`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(createRegionQuotaDto, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -184,6 +224,19 @@ export const RegionQuotasApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
+         * @summary Create a region quota
+         * @param {CreateRegionQuotaDto} createRegionQuotaDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async regionQuotasControllerCreate(createRegionQuotaDto: CreateRegionQuotaDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.regionQuotasControllerCreate(createRegionQuotaDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.regionQuotasControllerCreate']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
          * @summary Update a region quota
          * @param {string} organizationId Organization ID
          * @param {string} region Region ID
@@ -231,6 +284,16 @@ export const RegionQuotasApiFactory = function (configuration?: Configuration, b
         },
         /**
          * 
+         * @summary Create a region quota
+         * @param {CreateRegionQuotaDto} createRegionQuotaDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        regionQuotasControllerCreate(createRegionQuotaDto: CreateRegionQuotaDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.regionQuotasControllerCreate(createRegionQuotaDto, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @summary Update a region quota
          * @param {string} organizationId Organization ID
          * @param {string} region Region ID
@@ -267,6 +330,17 @@ export class RegionQuotasApi extends BaseAPI {
      */
     public regionQuotasBulkControllerBulkUpdate(bulkUpdateRegionQuotaDto: BulkUpdateRegionQuotaDto, options?: RawAxiosRequestConfig) {
         return RegionQuotasApiFp(this.configuration).regionQuotasBulkControllerBulkUpdate(bulkUpdateRegionQuotaDto, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Create a region quota
+     * @param {CreateRegionQuotaDto} createRegionQuotaDto 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public regionQuotasControllerCreate(createRegionQuotaDto: CreateRegionQuotaDto, options?: RawAxiosRequestConfig) {
+        return RegionQuotasApiFp(this.configuration).regionQuotasControllerCreate(createRegionQuotaDto, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

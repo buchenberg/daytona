@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Controller, Param, Body, Patch, UseGuards, Req } from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiResponse, ApiSecurity, ApiParam } from '@nestjs/swagger'
+import { Controller, Param, Body, Patch, Post, UseGuards, Req } from '@nestjs/common'
+import { ApiTags, ApiOperation, ApiResponse, ApiSecurity, ApiParam, ApiBody } from '@nestjs/swagger'
 import { FlexibleAuthGuard, AuthenticatedRequest } from '../../common/guards/flexible-auth.guard'
 import { PermissionsGuard } from '../../common/guards/permissions.guard'
 import { RequirePermission } from '../../common/decorators/require-permission.decorator'
 import { RegionQuotasService } from '../services'
-import { PatchRegionQuotaDto } from '../dto'
+import { PatchRegionQuotaDto, CreateRegionQuotaDto } from '../dto'
 import { Audit } from '../../audit/decorators/audit.decorator'
 import { AuditAction } from '../../audit/enums/audit-action.enum'
 import { AuditTarget } from '../../audit/enums/audit-target.enum'
@@ -20,6 +20,23 @@ import { AuditTarget } from '../../audit/enums/audit-target.enum'
 @Controller('region-quotas')
 export class RegionQuotasController {
   constructor(private readonly regionQuotasService: RegionQuotasService) {}
+
+  @Post()
+  @RequirePermission(['regionQuotas', 'write'])
+  @ApiOperation({ summary: 'Create a region quota' })
+  @ApiBody({ type: CreateRegionQuotaDto })
+  @ApiResponse({ status: 201, description: 'Region quota created' })
+  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
+  @ApiResponse({ status: 404, description: 'Organization or region not found' })
+  @ApiResponse({ status: 409, description: 'Region quota already exists for organization/region pair' })
+  @Audit({
+    action: AuditAction.CREATE,
+    targetType: AuditTarget.REGION_QUOTA,
+    targetIdFromRequest: (req) => `${req.body.organizationId}/${req.body.regionId}`,
+  })
+  async create(@Body() dto: CreateRegionQuotaDto) {
+    return this.regionQuotasService.create(dto)
+  }
 
   @Patch(':organizationId/:region')
   @RequirePermission(['regionQuotas', 'write'])

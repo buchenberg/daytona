@@ -155,6 +155,16 @@ export const FilterPanel = ({ open, onClose, filters, onApply, onReset }: Filter
           />
         </div>
 
+        <div className="space-y-2">
+          <Label htmlFor="snapshot">Snapshot</Label>
+          <Input
+            id="snapshot"
+            placeholder="Filter by snapshot name"
+            value={localFilters.snapshot || ''}
+            onChange={(e) => setLocalFilters((prev) => ({ ...prev, snapshot: e.target.value || undefined }))}
+          />
+        </div>
+
         <div className="flex items-center space-x-2">
           <Checkbox
             id="public"

@@ -25,6 +25,7 @@ export const useSandboxes = ({ filters, page, pageSize, sortField, sortOrder }: 
       const response = await BackofficeApiClient.searchSandboxes({
         filters: apiFilters,
         pagination: { page, pageSize },
+        sort: { field: sortField, order: sortOrder },
       })
 
       if (!response.success || !response.data) {

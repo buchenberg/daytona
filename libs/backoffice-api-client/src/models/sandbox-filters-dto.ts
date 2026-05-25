@@ -35,6 +35,10 @@ export interface SandboxFiltersDto {
      */
     'region'?: string;
     /**
+     * Filter by snapshot name (exact match)
+     */
+    'snapshot'?: string;
+    /**
      * Filter by sandbox states
      */
     'state'?: Array<SandboxFiltersDtoStateEnum>;

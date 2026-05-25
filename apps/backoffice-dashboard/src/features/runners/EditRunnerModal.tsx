@@ -122,13 +122,14 @@ export const EditRunnerModal = ({ runner, open, onClose, onSuccess }: EditRunner
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="cpu">CPU</Label>
               <Input
                 id="cpu"
                 type="number"
                 min={0}
+                step="any"
                 value={formData.cpu}
                 onChange={(e) => setFormData({ ...formData, cpu: Number(e.target.value) })}
               />
@@ -139,6 +140,7 @@ export const EditRunnerModal = ({ runner, open, onClose, onSuccess }: EditRunner
                 id="memoryGiB"
                 type="number"
                 min={0}
+                step="any"
                 value={formData.memoryGiB}
                 onChange={(e) => setFormData({ ...formData, memoryGiB: Number(e.target.value) })}
               />
@@ -149,6 +151,7 @@ export const EditRunnerModal = ({ runner, open, onClose, onSuccess }: EditRunner
                 id="diskGiB"
                 type="number"
                 min={0}
+                step="any"
                 value={formData.diskGiB}
                 onChange={(e) => setFormData({ ...formData, diskGiB: Number(e.target.value) })}
               />

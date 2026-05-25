@@ -3,12 +3,15 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Injectable } from '@nestjs/common'
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { RegionQuota } from '@api/organization/entities/region-quota.entity'
+import { Organization } from '@api/organization/entities/organization.entity'
+import { Region } from '@api/region/entities/region.entity'
 import { UpdateRegionQuotaDto } from '../dto/update-region-quota.dto'
 import { PatchRegionQuotaDto } from '../dto/patch-region-quota.dto'
+import { CreateRegionQuotaDto } from '../dto/create-region-quota.dto'
 import { updateWithPreconditions } from '../../common/preconditions.util'
 
 @Injectable()
@@ -16,7 +19,79 @@ export class RegionQuotasService {
   constructor(
     @InjectRepository(RegionQuota)
     private readonly regionQuotaRepository: Repository<RegionQuota>,
+    @InjectRepository(Organization)
+    private readonly organizationRepository: Repository<Organization>,
+    @InjectRepository(Region)
+    private readonly regionRepository: Repository<Region>,
   ) {}
+
+  /**
+   * Create a new region quota for an organization/region pair.
+   */
+  async create(dto: CreateRegionQuotaDto): Promise<RegionQuota> {
+    const organization = await this.organizationRepository.findOne({ where: { id: dto.organizationId } })
+    if (!organization) {
+      throw new NotFoundException(`Organization ${dto.organizationId} not found`)
+    }
+
+    const region = await this.regionRepository.findOne({ where: { id: dto.regionId } })
+    if (!region) {
+      throw new NotFoundException(`Region ${dto.regionId} not found`)
+    }
+
+    const existing = await this.regionQuotaRepository.findOne({
+      where: { organizationId: dto.organizationId, regionId: dto.regionId },
+    })
+    if (existing) {
+      throw new ConflictException(
+        `Region quota already exists for organization ${dto.organizationId} and region ${dto.regionId}`,
+      )
+    }
+
+    const perSandboxFieldsExceedTotals: string[] = []
+    if (dto.maxCpuPerSandbox != null && dto.maxCpuPerSandbox > dto.totalCpuQuota) {
+      perSandboxFieldsExceedTotals.push(
+        `maxCpuPerSandbox (${dto.maxCpuPerSandbox}) cannot exceed totalCpuQuota (${dto.totalCpuQuota})`,
+      )
+    }
+    if (dto.maxMemoryPerSandbox != null && dto.maxMemoryPerSandbox > dto.totalMemoryQuota) {
+      perSandboxFieldsExceedTotals.push(
+        `maxMemoryPerSandbox (${dto.maxMemoryPerSandbox}) cannot exceed totalMemoryQuota (${dto.totalMemoryQuota})`,
+      )
+    }
+    if (dto.maxDiskPerSandbox != null && dto.maxDiskPerSandbox > dto.totalDiskQuota) {
+      perSandboxFieldsExceedTotals.push(
+        `maxDiskPerSandbox (${dto.maxDiskPerSandbox}) cannot exceed totalDiskQuota (${dto.totalDiskQuota})`,
+      )
+    }
+    if (perSandboxFieldsExceedTotals.length) {
+      throw new BadRequestException({ message: perSandboxFieldsExceedTotals })
+    }
+
+    const regionQuota = new RegionQuota(
+      dto.organizationId,
+      dto.regionId,
+      dto.totalCpuQuota,
+      dto.totalMemoryQuota,
+      dto.totalDiskQuota,
+      dto.maxCpuPerSandbox ?? null,
+      dto.maxMemoryPerSandbox ?? null,
+      dto.maxDiskPerSandbox ?? null,
+      dto.maxDiskPerNonEphemeralSandbox ?? null,
+    )
+
+    try {
+      return await this.regionQuotaRepository.save(regionQuota)
+    } catch (error) {
+      // PostgreSQL unique violation — primary key conflict between the pre-check and the save.
+      if ((error as { code?: string }).code === '23505') {
+        throw new ConflictException(
+          `Region quota already exists for organization ${dto.organizationId} and region ${dto.regionId}`,
+        )
+      }
+      throw error
+    }
+  }
 
   /**
    * Update a single region quota

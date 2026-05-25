@@ -87,7 +87,11 @@ export const TableView = ({
       render: (snapshot) => (
         <div className="flex flex-col">
           <span className="font-medium">{snapshot.name}</span>
-          {snapshot.errorReason && <span className="text-xs text-destructive">{snapshot.errorReason}</span>}
+          {snapshot.errorReason && (
+            <span className="text-xs text-destructive">
+              <TruncatedText text={snapshot.errorReason} maxLength={40} />
+            </span>
+          )}
         </div>
       ),
     },

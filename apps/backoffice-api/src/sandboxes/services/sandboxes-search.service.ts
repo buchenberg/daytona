@@ -109,6 +109,10 @@ export class SandboxesSearchService {
       queryBuilder.andWhere('sandbox.region = :region', { region: filters.region })
     }
 
+    if (filters.snapshot) {
+      queryBuilder.andWhere('sandbox.snapshot = :snapshot', { snapshot: filters.snapshot })
+    }
+
     if (filters.state && filters.state.length > 0) {
       queryBuilder.andWhere('sandbox.state IN (:...states)', { states: filters.state })
     }

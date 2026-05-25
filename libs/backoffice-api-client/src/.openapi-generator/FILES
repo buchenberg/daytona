@@ -45,6 +45,7 @@ models/bulk-update-sandbox-dto.ts
 models/bulk-update-snapshot-dto.ts
 models/chat-request-dto.ts
 models/continue-chat-request-dto.ts
+models/create-region-quota-dto.ts
 models/create-runner-dto.ts
 models/executed-actions-dto.ts
 models/index.ts

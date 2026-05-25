@@ -20,6 +20,7 @@ export interface SandboxResponseDto {
     'errorReason'?: string;
     'organizationId': string;
     'region': string;
+    'snapshot'?: string;
     'state': SandboxResponseDtoStateEnum;
     'desiredState': SandboxResponseDtoDesiredStateEnum;
     'class': SandboxResponseDtoClassEnum;

@@ -59,6 +59,10 @@ export interface CreateRunnerDto {
      * Is runner unschedulable
      */
     'unschedulable'?: boolean;
+    /**
+     * Runner API version. \"0\" uses domain-derived API/proxy URLs, \"2\" is reverse-tunneled.
+     */
+    'apiVersion'?: CreateRunnerDtoApiVersionEnum;
 }
 
 export const CreateRunnerDtoClassEnum = {
@@ -77,5 +81,11 @@ export const CreateRunnerDtoStateEnum = {
 } as const;
 
 export type CreateRunnerDtoStateEnum = typeof CreateRunnerDtoStateEnum[keyof typeof CreateRunnerDtoStateEnum];
+export const CreateRunnerDtoApiVersionEnum = {
+    _0: '0',
+    _2: '2',
+} as const;
+
+export type CreateRunnerDtoApiVersionEnum = typeof CreateRunnerDtoApiVersionEnum[keyof typeof CreateRunnerDtoApiVersionEnum];
 
 

@@ -4,7 +4,7 @@
  */
 
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { IsString, IsNumber, IsEnum, IsBoolean, IsOptional, Min, MaxLength } from 'class-validator'
+import { IsString, IsNumber, IsEnum, IsBoolean, IsIn, IsOptional, Min, MaxLength } from 'class-validator'
 import { SandboxClass } from '@api/sandbox/enums/sandbox-class.enum'
 import { RunnerState } from '@api/sandbox/enums/runner-state.enum'
 
@@ -60,4 +60,13 @@ export class CreateRunnerDto {
   @IsBoolean()
   @IsOptional()
   unschedulable?: boolean
+
+  @ApiPropertyOptional({
+    description: 'Runner API version. "0" uses domain-derived API/proxy URLs, "2" is reverse-tunneled.',
+    enum: ['0', '2'],
+    default: '0',
+  })
+  @IsIn(['0', '2'])
+  @IsOptional()
+  apiVersion?: '0' | '2'
 }

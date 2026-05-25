@@ -85,6 +85,11 @@ export class RunnersBulkInsertService {
           }
         }
 
+        const apiVersion = runnerData.apiVersion ?? '0'
+        // v0 derives API/proxy URLs from the domain; v2 is reverse-tunneled (no URL).
+        const apiUrl = apiVersion === '0' ? this.generateApiUrl(runnerData.domain) : null
+        const proxyUrl = apiVersion === '0' ? this.generateProxyUrl(runnerData.domain) : null
+
         if (dryRun) {
           // Validation only - don't actually insert
           results.push({
@@ -92,12 +97,13 @@ export class RunnersBulkInsertService {
             success: true,
             data: {
               ...runnerData,
-              apiUrl: this.generateApiUrl(runnerData.domain),
-              proxyUrl: this.generateProxyUrl(runnerData.domain),
+              apiUrl,
+              proxyUrl,
               gpu: runnerData.gpu ?? 0,
               gpuType: runnerData.gpuType ?? '',
               state: runnerData.state ?? RunnerState.INITIALIZING,
               unschedulable: runnerData.unschedulable ?? false,
+              apiVersion,
             },
           })
           successCount++
@@ -107,8 +113,8 @@ export class RunnersBulkInsertService {
             name: runnerData.domain,
             domain: runnerData.domain,
             apiKey: runnerData.apiKey,
-            apiUrl: this.generateApiUrl(runnerData.domain),
-            proxyUrl: this.generateProxyUrl(runnerData.domain),
+            apiUrl,
+            proxyUrl,
             region: runnerData.region,
             cpu: runnerData.cpu,
             memoryGiB: runnerData.memoryGiB,
@@ -118,7 +124,7 @@ export class RunnersBulkInsertService {
             gpuType: runnerData.gpuType ?? '',
             state: runnerData.state ?? RunnerState.INITIALIZING,
             unschedulable: runnerData.unschedulable ?? false,
-            apiVersion: '0',
+            apiVersion,
             currentCpuUsagePercentage: 0,
             currentMemoryUsagePercentage: 0,
             currentDiskUsagePercentage: 0,

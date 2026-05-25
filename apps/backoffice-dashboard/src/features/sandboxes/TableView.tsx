@@ -147,6 +147,19 @@ export const TableView = ({
       render: (sandbox) => <span className="text-sm">{sandbox.region}</span>,
     },
     {
+      key: 'snapshot',
+      title: 'Snapshot',
+      width: '180px',
+      render: (sandbox) =>
+        sandbox.snapshot ? (
+          <span className="text-xs font-mono">
+            <TruncatedText text={sandbox.snapshot} maxLength={28} />
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">-</span>
+        ),
+    },
+    {
       key: 'state',
       title: 'State',
       width: '120px',

@@ -16,7 +16,7 @@ import {
 } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity, ApiParam } from '@nestjs/swagger'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { DataSource, Repository } from 'typeorm'
 import { ConfigService } from '@nestjs/config'
 import { FlexibleAuthGuard, AuthenticatedRequest } from '../../common/guards/flexible-auth.guard'
 import { PermissionsGuard } from '../../common/guards/permissions.guard'
@@ -24,7 +24,9 @@ import { RequirePermission } from '../../common/decorators/require-permission.de
 import { SnapshotsService } from '../services'
 import { PatchSnapshotDto, AddToWarmPoolDto, AddToWarmPoolResponseDto } from '../dto'
 import { Snapshot } from '@api/sandbox/entities/snapshot.entity'
+import { SnapshotRegion } from '@api/sandbox/entities/snapshot-region.entity'
 import { WarmPool } from '@api/sandbox/entities/warm-pool.entity'
+import { Region } from '@api/region/entities/region.entity'
 import { SandboxClass } from '@api/sandbox/enums/sandbox-class.enum'
 import { Audit } from '../../audit/decorators/audit.decorator'
 import { AuditAction } from '../../audit/enums/audit-action.enum'
@@ -39,8 +41,9 @@ export class SnapshotsController {
     private readonly snapshotsService: SnapshotsService,
     @InjectRepository(Snapshot)
     private readonly snapshotRepository: Repository<Snapshot>,
-    @InjectRepository(WarmPool)
-    private readonly warmPoolRepository: Repository<WarmPool>,
+    @InjectRepository(Region)
+    private readonly regionRepository: Repository<Region>,
+    private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
   ) {}
 
@@ -93,34 +96,43 @@ export class SnapshotsController {
       throw new BadRequestException('Admin organization ID not configured')
     }
 
-    // Step 1: Create WarmPool entry
-    const warmPool = this.warmPoolRepository.create({
-      pool: dto.pool,
-      snapshot: snapshot.name,
-      target: dto.target,
-      cpu: snapshot.cpu,
-      mem: snapshot.mem,
-      disk: snapshot.disk,
-      gpu: snapshot.gpu,
-      gpuType: snapshot.buildInfo?.snapshotRef || '',
-      class: SandboxClass.SMALL,
-      osUser: 'daytona',
-      errorReason: null,
-      env: {},
+    const targetRegion = await this.regionRepository.findOne({ where: { id: dto.target } })
+    if (!targetRegion) {
+      throw new NotFoundException(`Region ${dto.target} not found`)
+    }
+
+    // All three writes run in a single transaction so a failure on any step rolls back the rest
+    // and we never leave an orphaned warm pool / copied snapshot behind.
+    const { savedWarmPool, savedSnapshot } = await this.dataSource.transaction(async (manager) => {
+      const warmPool = manager.create(WarmPool, {
+        pool: dto.pool,
+        snapshot: snapshot.name,
+        target: dto.target,
+        cpu: snapshot.cpu,
+        mem: snapshot.mem,
+        disk: snapshot.disk,
+        gpu: snapshot.gpu,
+        gpuType: snapshot.buildInfo?.snapshotRef || '',
+        class: SandboxClass.SMALL,
+        osUser: 'daytona',
+        errorReason: null,
+        env: {},
+      })
+      const savedWarmPool = await manager.save(warmPool)
+
+      const copiedSnapshot = manager.create(Snapshot, {
+        ...snapshot,
+        id: undefined,
+        organizationId: adminOrgId,
+        general: true,
+        hideFromUsers: true,
+      })
+      const savedSnapshot = await manager.save(copiedSnapshot)
+
+      await manager.save(SnapshotRegion, { snapshotId: savedSnapshot.id, regionId: dto.target })
+
+      return { savedWarmPool, savedSnapshot }
     })
-
-    const savedWarmPool = await this.warmPoolRepository.save(warmPool)
-
-    // Step 2: Copy snapshot to admin org (general + hidden)
-    const copiedSnapshot = this.snapshotRepository.create({
-      ...snapshot,
-      id: undefined,
-      organizationId: adminOrgId,
-      general: true,
-      hideFromUsers: true,
-    })
-
-    const savedSnapshot = await this.snapshotRepository.save(copiedSnapshot)
 
     return {
       success: true,

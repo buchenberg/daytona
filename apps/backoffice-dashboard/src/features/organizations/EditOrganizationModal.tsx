@@ -263,7 +263,7 @@ export const EditOrganizationModal = ({ organization, open, onClose, onSuccess }
           {/* Per-Sandbox Limits */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold">Per-Sandbox Limits</h3>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="maxCpuPerSandbox">Max CPU</Label>
                 <Input
@@ -303,7 +303,7 @@ export const EditOrganizationModal = ({ organization, open, onClose, onSuccess }
           {/* Storage Limits */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold">Storage Limits</h3>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="maxSnapshotSize">Max Snapshot (GB)</Label>
                 <Input

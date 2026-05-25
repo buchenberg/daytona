@@ -24,6 +24,7 @@ export * from './bulk-update-sandbox-dto';
 export * from './bulk-update-snapshot-dto';
 export * from './chat-request-dto';
 export * from './continue-chat-request-dto';
+export * from './create-region-quota-dto';
 export * from './create-runner-dto';
 export * from './executed-actions-dto';
 export * from './initialize-webhooks-response-dto';

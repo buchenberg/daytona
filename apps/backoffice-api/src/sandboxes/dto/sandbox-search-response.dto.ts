@@ -13,6 +13,7 @@ export class SandboxResponseDto implements Partial<Sandbox> {
   @Expose() @ApiPropertyOptional() errorReason?: string
   @Expose() @ApiProperty() organizationId: string
   @Expose() @ApiProperty() region: string
+  @Expose() @ApiPropertyOptional() snapshot?: string
   @Expose() @ApiProperty({ enum: SandboxState }) state: SandboxState
   @Expose() @ApiProperty({ enum: SandboxDesiredState }) desiredState: SandboxDesiredState
   @Expose() @ApiProperty({ enum: SandboxClass }) class: SandboxClass

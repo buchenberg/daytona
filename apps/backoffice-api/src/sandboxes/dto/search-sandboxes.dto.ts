@@ -31,6 +31,11 @@ export class SandboxFiltersDto {
   @IsString()
   region?: string
 
+  @ApiPropertyOptional({ description: 'Filter by snapshot name (exact match)' })
+  @IsOptional()
+  @IsString()
+  snapshot?: string
+
   @ApiPropertyOptional({ description: 'Filter by sandbox states', enum: SandboxState, isArray: true })
   @IsOptional()
   @IsEnum(SandboxState, { each: true })

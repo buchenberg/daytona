@@ -11,6 +11,8 @@ export interface ParsedSpecs {
   class: 'small' | 'medium' | 'large'
 }
 
+export type RunnerApiVersion = '0' | '2'
+
 export interface ParsedRunner {
   domain: string
   apiKey: string
@@ -19,6 +21,7 @@ export interface ParsedRunner {
   memoryGiB: number
   diskGiB: number
   class: 'small' | 'medium' | 'large'
+  apiVersion: RunnerApiVersion
 }
 
 export interface ParseResult {
@@ -114,6 +117,7 @@ export function parseRunnerData(runnersText: string, specs: ParsedSpecs): ParseR
             memoryGiB: specs.memoryGiB,
             diskGiB: specs.diskGiB,
             class: specs.class,
+            apiVersion: '0',
           })
 
           // Reset for next runner
@@ -180,6 +184,10 @@ export function validateRunner(runner: ParsedRunner): string[] {
 
   if (!['small', 'medium', 'large'].includes(runner.class)) {
     errors.push('Class must be small, medium, or large')
+  }
+
+  if (!['0', '2'].includes(runner.apiVersion)) {
+    errors.push('API version must be 0 or 2')
   }
 
   return errors

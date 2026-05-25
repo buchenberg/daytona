@@ -45,6 +45,7 @@ import type {
   PatchOrganizationDto,
   PatchOrganizationUserDto,
   PatchRegionQuotaDto,
+  CreateRegionQuotaDto,
 } from '@daytonaio/backoffice-api-client'
 import type {
   BulkUpdateSandboxDto,
@@ -177,6 +178,11 @@ export class BackofficeApiClient {
 
   async updateRegionQuota(organizationId: string, regionId: string, data: PatchRegionQuotaDto): Promise<unknown> {
     const response = await this.regionQuotasApi.regionQuotasControllerUpdate(organizationId, regionId, data)
+    return response.data
+  }
+
+  async createRegionQuota(data: CreateRegionQuotaDto): Promise<unknown> {
+    const response = await this.regionQuotasApi.regionQuotasControllerCreate(data)
     return response.data
   }
 

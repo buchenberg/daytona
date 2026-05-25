@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { useState, FormEvent } from 'react'
+import { useState, useEffect, FormEvent } from 'react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@dashboard/ui/dialog'
 import { Button } from '@dashboard/ui/button'
@@ -122,6 +122,12 @@ export const BulkEditRegionQuotaModal = ({ regionQuotas, open, onClose, onSucces
   }
 
   const handleReset = () => setFormData(initialState)
+
+  useEffect(() => {
+    if (!open) {
+      handleReset()
+    }
+  }, [open])
 
   const renderNullable = (
     label: string,
