@@ -248,9 +248,9 @@ export class SnapshotService {
     let entrypoint: string[] | undefined = undefined
 
     if (createSnapshotDto.gpu) {
-      if (region.id !== GPU_REGION) {
-        throw new BadRequestException(`GPUs not available in this region`)
-      }
+      // if (region.id !== GPU_REGION) {
+      //   throw new BadRequestException(`GPUs not available in this region`)
+      // }
 
       if (createSnapshotDto.gpu > 1) {
         throw new BadRequestException(`Only one GPU per sandbox is allowed`)
