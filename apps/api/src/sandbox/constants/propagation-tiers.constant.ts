@@ -58,9 +58,14 @@ export function getSnapshotPropagationFactor(
     imageName?: string
     buildInfo?: unknown
     buildInfoSnapshotRef?: string | null
+    gpu?: number
   },
   regionId?: string,
 ): { factor: number; minimum: number } {
+  if (snapshot.gpu && snapshot.gpu > 0) {
+    return { factor: 1, minimum: 0 }
+  }
+
   const fromSandbox = !snapshot.imageName && !snapshot.buildInfo && !snapshot.buildInfoSnapshotRef
   const orgTiers = snapshot.organizationId
     ? (fromSandbox ? FROM_SANDBOX_PROPAGATION_OVERRIDES : ORGANIZATION_PROPAGATION_OVERRIDES)[snapshot.organizationId]
