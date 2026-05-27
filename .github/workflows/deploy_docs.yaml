@@ -8,7 +8,9 @@ on:
         required: true
         type: string
 
-permissions: {}
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   deploy:
@@ -16,8 +18,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       AWS_REGION: us-east-2
-      AWS_ACCESS_KEY_ID: ${{ secrets.DOCS_DEPLOY_AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.DOCS_DEPLOY_AWS_SECRET_ACCESS_KEY }}
       DOCS_IMAGE: daytonaio/daytona-docs:${{ inputs.version }}
     steps:
       - name: Validate version format
@@ -28,6 +28,12 @@ jobs:
             echo "::error::Invalid version format: $VERSION (expected vX.Y.Z or vX.Y.Z-suffix)"
             exit 1
           fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@acca2b1b2070338fb9fd1ca27ecee81d687e58e5 # v6.1.2
+        with:
+          role-to-assume: arn:aws:iam::442042187939:role/production/production-gha-daytona-ai
+          aws-region: us-east-2
 
       - name: Update ECS task definition and service
         run: |
