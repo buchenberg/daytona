@@ -24,6 +24,7 @@ jobs:
     permissions:
       contents: read
       security-events: write
+      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -45,11 +46,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Log in to Docker Hub
+      - name: Log in to GHCR
+        if: matrix.image == 'daytona-backoffice-api'
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Resolve image reference
         id: ref
@@ -59,9 +62,10 @@ jobs:
         run: |
           set -euo pipefail
           case "$MATRIX_IMAGE" in
-            sandbox-slim) image="daytonaio/sandbox:latest-slim" ;;
-            sandbox)      image="daytonaio/sandbox:latest" ;;
-            *)            image="daytonaio/${MATRIX_IMAGE}:${INPUT_TAG}" ;;
+            sandbox-slim)            image="daytonaio/sandbox:latest-slim" ;;
+            sandbox)                 image="daytonaio/sandbox:latest" ;;
+            daytona-backoffice-api)  image="ghcr.io/daytonaio/${MATRIX_IMAGE}:${INPUT_TAG}" ;;
+            *)                       image="daytonaio/${MATRIX_IMAGE}:${INPUT_TAG}" ;;
           esac
           echo "image=$image" >> "$GITHUB_OUTPUT"
 
