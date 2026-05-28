@@ -102,13 +102,15 @@ jobs:
               - '**/node_modules/**'
               - '**/.openapi-generator/**'
 
-      - name: Manual Go build (selected modules only)
+      - name: Manual Go build (all go.work modules)
         if: matrix.language == 'go'
         # build-mode: manual means CodeQL only sees what this step successfully extracts.
         # Failures must NOT be swallowed -- a green scan with missing modules is worse than no scan.
+        # Build every go.work module so the Go extractor processes all .go files on disk;
+        # paths-ignore filters findings from generated client modules out of final alerts.
         run: |
           set -euo pipefail
-          MODULES=$(go work edit -json | jq -r '.Use[].DiskPath' | grep -Ev '^(libs/api-client-go|libs/toolbox-api-client-go|libs/runner-api-client)$')
+          MODULES=$(go work edit -json | jq -r '.Use[].DiskPath')
           for m in $MODULES; do
             echo "::group::go build ./... in $m"
             (cd "$m" && go build ./...)
