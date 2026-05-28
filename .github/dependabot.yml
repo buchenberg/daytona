@@ -7,6 +7,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # daytona-ai: dep updates handled in daytonaio/daytona; keep file in sync, silence PRs
+    open-pull-requests-limit: 0
     groups:
       github-actions:
         patterns:
@@ -19,6 +21,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # daytona-ai: dep updates handled in daytonaio/daytona; keep file in sync, silence PRs
+    open-pull-requests-limit: 0
     groups:
       github-actions:
         patterns:
@@ -40,6 +44,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # daytona-ai: dep updates handled in daytonaio/daytona; keep file in sync, silence PRs
+    open-pull-requests-limit: 0
     groups:
       docker-base-images:
         patterns:
