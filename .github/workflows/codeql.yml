@@ -117,13 +117,14 @@ jobs:
         # `go build ./...` does not compile `_test.go` files, leaving them as
         # "files found but not processed" by the extractor. `go test -run=^$ ./...`
         # compiles tests without running any (regex matches no tests), so the
-        # extractor processes every .go file.
+        # extractor processes every .go file. `-tags=e2e` covers apps/daytona-e2e,
+        # whose files all carry `//go:build e2e`.
         run: |
           set -euo pipefail
           MODULES=$(go work edit -json | jq -r '.Use[].DiskPath')
           for m in $MODULES; do
             echo "::group::go build + test compile in $m"
-            (cd "$m" && go build ./... && go test -run=^$ ./...)
+            (cd "$m" && go build -tags=e2e ./... && go test -tags=e2e -run=^$ ./...)
             echo "::endgroup::"
           done
 
