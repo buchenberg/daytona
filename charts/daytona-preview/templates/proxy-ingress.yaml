@@ -45,6 +45,6 @@ spec:
     - hosts:
         - {{ $proxyHost | quote }}
         - {{ $wildcardHost | quote }}
-      secretName: {{ .Values.services.proxy.ingress.tlsSecretName | default (printf "%s.%s-tls" .Values.branchSlug .Values.proxyDomain) }}
+      secretName: {{ include "preview.proxyTlsSecretName" . }}
   {{- end }}
 {{- end }}

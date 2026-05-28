@@ -1,0 +1,21 @@
+{{- if .Values.services.proxy.certificate.enabled -}}
+{{- $fullName := include "preview.fullname" . -}}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $fullName }}-proxy-cert
+  namespace: {{ include "preview.namespace" . }}
+  labels:
+    {{- include "preview.labels" . | nindent 4 }}
+    app.kubernetes.io/component: proxy
+spec:
+  secretName: {{ include "preview.proxyTlsSecretName" . }}
+  privateKey:
+    rotationPolicy: Always
+  dnsNames:
+    - {{ include "preview.proxyWildcardHost" . | quote }}
+    - {{ include "preview.proxyHost" . | quote }}
+  issuerRef:
+    name: {{ .Values.services.proxy.certificate.issuerRef.name }}
+    kind: {{ .Values.services.proxy.certificate.issuerRef.kind | default "ClusterIssuer" }}
+{{- end }}

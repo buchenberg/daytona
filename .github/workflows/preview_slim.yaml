@@ -174,7 +174,6 @@ jobs:
             --set repo="$REPO" \
             --set image.tag="v0.0.0-${VERSION_SLUG}-amd64" \
             --set services.api.ingress.tlsSecretName=api-p-stage-tls \
-            --set services.proxy.ingress.tlsSecretName=proxy-p-stage-tls \
             --set services.proxy.oidcClientSecret.secretName=stage-preview-job \
             --wait \
             --timeout 10m

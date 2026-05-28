@@ -117,6 +117,15 @@ Proxy wildcard hostname (for sandbox subdomains).
 {{- end }}
 
 {{/*
+Proxy TLS secret name — used by both the Certificate and Ingress resources.
+When tlsSecretName is explicitly set it wins; otherwise we derive a name from
+the release so it stays unique per preview.
+*/}}
+{{- define "preview.proxyTlsSecretName" -}}
+{{- .Values.services.proxy.ingress.tlsSecretName | default (printf "%s-proxy-tls" (include "preview.fullname" .)) -}}
+{{- end }}
+
+{{/*
 Service account name for a given service component.
 Usage: {{ include "preview.serviceAccountName" (dict "ctx" . "component" "api") }}
 */}}
