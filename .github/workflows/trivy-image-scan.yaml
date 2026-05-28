@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Image tag to scan for app images (sandbox always scans :latest / :latest-slim)'
+        description: 'Image tag to scan'
         default: 'latest'
 
 permissions: {}
@@ -38,8 +38,6 @@ jobs:
           - daytona-otel-collector
           - daytona-docs
           - daytona-backoffice-api
-          - sandbox
-          - sandbox-slim
 
     steps:
       - name: Checkout
@@ -63,8 +61,6 @@ jobs:
         run: |
           set -euo pipefail
           case "$MATRIX_IMAGE" in
-            sandbox-slim)            image="daytonaio/sandbox:latest-slim" ;;
-            sandbox)                 image="daytonaio/sandbox:latest" ;;
             daytona-backoffice-api)  image="ghcr.io/daytonaio/${MATRIX_IMAGE}:${INPUT_TAG}" ;;
             *)                       image="daytonaio/${MATRIX_IMAGE}:${INPUT_TAG}" ;;
           esac
