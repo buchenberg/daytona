@@ -61,6 +61,14 @@ jobs:
         if: matrix.language == 'go'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc libx11-dev libxtst-dev
 
+      - name: Remove out-of-scope Go files before extraction
+        if: matrix.language == 'go'
+        # examples/go/* are independent Go modules outside go.work; libs/runner-proto/gen
+        # holds generated protobuf. Both are paths-ignored at result level, but the Go
+        # extractor walks the filesystem before honoring paths-ignore and emits the
+        # "Go files were found but not processed" diagnostic.
+        run: rm -rf examples/go libs/runner-proto/gen
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v4.35.5
         with:
