@@ -18,7 +18,7 @@ env:
 
 jobs:
   publish:
-    if: github.repository == 'daytonaio/daytona'
+    if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
     runs-on: [self-hosted, Linux, X64, github-actions-runner-amd64]
     permissions:
       contents: write

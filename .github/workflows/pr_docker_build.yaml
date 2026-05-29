@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   docker-build:
-    if: github.repository == 'daytonaio/daytona'
+    if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
     name: Docker build
     runs-on: ubuntu-latest
     timeout-minutes: 40

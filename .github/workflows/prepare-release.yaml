@@ -15,7 +15,7 @@ env:
 
 jobs:
   prepare:
-    if: github.repository == 'daytonaio/daytona'
+    if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
     runs-on: ubuntu-latest
     permissions:
       contents: write
