@@ -384,6 +384,8 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
           const startScoreThreshold = this.configService.get('runnerScore.thresholds.start') || 0
           const targetRunner = await this.runnerService.getRandomAvailableRunner({
             snapshotRef: sandbox.backupSnapshot,
+            sandboxClass: sandbox.sandboxClass,
+            regions: [sandbox.region],
             excludedRunnerIds: [runner.id],
             availabilityScoreThreshold: startScoreThreshold,
             gpu: sandbox.gpu,
@@ -646,6 +648,7 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
           const result = await this.organizationUsageService.incrementPendingSandboxUsage(
             sandbox.organizationId,
             sandbox.region,
+            sandbox.sandboxClass,
             0,
             0,
             sandbox.disk,
@@ -691,10 +694,10 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
               .decrementPendingSandboxUsage(
                 sandbox.organizationId,
                 sandbox.region,
+                sandbox.sandboxClass,
                 undefined,
                 undefined,
                 sandbox.disk,
-                undefined,
               )
               .catch(() => undefined)
           }

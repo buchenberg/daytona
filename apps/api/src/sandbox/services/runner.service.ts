@@ -112,6 +112,7 @@ export class RunnerService {
           proxyUrl: createRunnerDto.proxyUrl,
           appVersion: createRunnerDto.appVersion,
           tags: createRunnerDto.tags,
+          sandboxClass: createRunnerDto.sandboxClass,
         })
         break
       case '2':
@@ -122,6 +123,7 @@ export class RunnerService {
           apiKey: apiKey,
           appVersion: createRunnerDto.appVersion,
           tags: createRunnerDto.tags,
+          sandboxClass: createRunnerDto.sandboxClass,
         })
         break
       default:
@@ -345,7 +347,7 @@ export class RunnerService {
     }
 
     if (params.sandboxClass !== undefined) {
-      runnerFilter.class = params.sandboxClass
+      runnerFilter.sandboxClass = params.sandboxClass
     }
 
     const runners = await this.runnerRepository.find({
@@ -791,6 +793,34 @@ export class RunnerService {
     return availableRunners[randomIntFromInterval(0, availableRunners.length - 1)]
   }
 
+  /**
+   * Asserts that the given runner can host a new sandbox with the requested resources and sandboxClass.
+   * Combines the schedulability checks applied by findAvailableRunners (state/flags/availabilityScore)
+   * with an explicit resource-fit check against the runner's currently reported allocations.
+   *
+   * Used when a specific runner is required (e.g. linking a new sandbox to an existing sandbox on a runner).
+   *
+   * @throws {BadRequestError} If any precondition is not met.
+   */
+  assertRunnerCanHost(runner: Runner): void {
+    if (runner.state !== RunnerState.READY) {
+      throw new BadRequestError(`Runner ${runner.id} is not READY (current: ${runner.state})`)
+    }
+    if (runner.unschedulable) {
+      throw new BadRequestError(`Runner ${runner.id} is unschedulable`)
+    }
+    if (runner.draining) {
+      throw new BadRequestError(`Runner ${runner.id} is draining`)
+    }
+
+    const minScore = this.configService.getOrThrow('runnerScore.thresholds.availability')
+    if (runner.availabilityScore < minScore) {
+      throw new BadRequestError(
+        `Runner ${runner.id} does not meet availability score threshold (${runner.availabilityScore} < ${minScore})`,
+      )
+    }
+  }
+
   async getSnapshotRunner(runnerId: string, snapshotRef: string): Promise<SnapshotRunner> {
     return this.snapshotRunnerRepository.findOne({
       where: {
@@ -1169,8 +1199,8 @@ export class RunnerService {
 }
 
 export class GetRunnerParams {
-  regions?: string[]
-  sandboxClass?: SandboxClass
+  regions: string[]
+  sandboxClass: SandboxClass
   snapshotRef?: string
   excludedRunnerIds?: string[]
   availabilityScoreThreshold?: number

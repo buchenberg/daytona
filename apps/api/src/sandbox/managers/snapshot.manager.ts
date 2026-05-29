@@ -60,6 +60,8 @@ import { SnapshotActivatedEvent } from '../events/snapshot-activated.event'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { getSnapshotPropagationFactor } from '../constants/propagation-tiers.constant'
 import { RegionType } from '../../region/enums/region-type.enum'
+import { SandboxClass } from '../enums/sandbox-class.enum'
+import { getRunnerSandboxClass } from '../utils/sandbox-class.util'
 
 /** Fisher-Yates shuffle — uniform random permutation in O(n). */
 function shuffleArray<T>(array: T[]): T[] {
@@ -131,8 +133,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     const snapshots = await this.snapshotRepository
       .createQueryBuilder('snapshot')
       .innerJoin('organization', 'org', 'org.id = snapshot.organizationId')
-      .innerJoin('region_quota', 'rq', 'rq."organizationId" = org.id AND rq."regionId" = org."defaultRegionId"')
-      .select(['snapshot.*', 'rq.total_cpu_quota'])
+      .select(['snapshot.*'])
       .where('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
       .andWhere('org.suspended = false')
       .andWhere(
@@ -470,7 +471,11 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
         return Promise.allSettled(
           regions.map(async (region) => {
-            const runners = await this.runnerService.findAvailableRunners({ regions: [region], gpu: snapshot.gpu })
+            const runners = await this.runnerService.findAvailableRunners({
+              regions: [region],
+              gpu: snapshot.gpu,
+              sandboxClass: getRunnerSandboxClass(snapshot.sandboxClass),
+            })
             if (!runners.length) {
               return
             }
@@ -700,6 +705,8 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
           unschedulable: Not(true),
           region: In([...sharedRegionIds, ...organizationRegionIds]),
           gpu: snapshot.gpu > 0 ? MoreThanOrEqual(snapshot.gpu) : Or(IsNull(), Equal(0)),
+          // Temporary: Android snapshots can go to container runners
+          sandboxClass: getRunnerSandboxClass(snapshot.sandboxClass),
         },
       })
 
@@ -1037,7 +1044,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
                   // Get an available runner in the same region with the same class
                   const targetRunner = await this.runnerService.getRandomAvailableRunner({
                     regions: [sandbox.region],
-                    sandboxClass: sandbox.class,
+                    sandboxClass: sandbox.sandboxClass,
                     excludedRunnerIds: [runner.id],
                     gpu: sandbox.gpu,
                   })
@@ -1440,7 +1447,11 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
    * If the snapshot is not propagated to enough RL runners, it will eventually be marked as ACTIVE with partial propagation by the caller.
    */
   private async waitForRLRegionPropagation(snapshot: Snapshot): Promise<void> {
-    const regionQuota = await this.organizationService.getRegionQuota(snapshot.organizationId, RL_REGION)
+    const regionQuota = await this.organizationService.getRegionQuota(
+      snapshot.organizationId,
+      RL_REGION,
+      snapshot.sandboxClass,
+    )
     const cpuQuota = regionQuota?.totalCpuQuota ?? 0
     const { factor: propagationFactor, minimum: minimumRunners } = getSnapshotPropagationFactor(
       cpuQuota,
@@ -1621,6 +1632,8 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
         initialRunner = await this.runnerService.getRandomAvailableRunner({
           regions: regionIdsForInitialRunner,
+          // Temporary: Android snapshots can go to container runners
+          sandboxClass: getRunnerSandboxClass(snapshot.sandboxClass),
           excludedRunnerIds: excludedRunnerIds,
           availabilityScoreThreshold: availabilityThreshold,
           gpu: snapshot.gpu,

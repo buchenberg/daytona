@@ -1673,6 +1673,16 @@ paths:
             type: string
           type: array
         style: form
+      - description: List of sandbox classes to filter by
+        explode: true
+        in: query
+        name: sandboxClasses
+        required: false
+        schema:
+          items:
+            $ref: "#/components/schemas/SandboxClass"
+          type: array
+        style: form
       - description: Minimum CPU
         explode: true
         in: query
@@ -8333,6 +8343,168 @@ paths:
       summary: Get all audit logs
       tags:
       - admin
+  /admin/organizations/{organizationId}/quota/{regionId}:
+    patch:
+      operationId: adminUpdateOrganizationRegionQuota
+      parameters:
+      - description: Organization ID
+        explode: false
+        in: path
+        name: organizationId
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Region ID
+        explode: false
+        in: path
+        name: regionId
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOrganizationRegionQuota"
+        required: true
+      responses:
+        "204":
+          description: Region quota updated successfully
+      security:
+      - bearer: []
+      - oauth2:
+        - openid
+        - profile
+        - email
+      summary: Update organization region quota
+      tags:
+      - admin
+    post:
+      operationId: adminCreateOrganizationRegionQuota
+      parameters:
+      - description: Organization ID
+        explode: false
+        in: path
+        name: organizationId
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: ID of the region the new quota applies to
+        explode: false
+        in: path
+        name: regionId
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrganizationRegionQuota"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegionQuota"
+          description: Region quota created successfully
+      security:
+      - bearer: []
+      - oauth2:
+        - openid
+        - profile
+        - email
+      summary: Create organization region quota
+      tags:
+      - admin
+  /admin/organizations/{organizationId}/quota/{regionId}/{sandboxClass}:
+    delete:
+      operationId: adminDeleteOrganizationRegionQuota
+      parameters:
+      - description: Organization ID
+        explode: false
+        in: path
+        name: organizationId
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Region ID
+        explode: false
+        in: path
+        name: regionId
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Sandbox class
+        explode: false
+        in: path
+        name: sandboxClass
+        required: true
+        schema:
+          $ref: "#/components/schemas/SandboxClass"
+        style: simple
+      responses:
+        "204":
+          description: Region quota deleted successfully
+      security:
+      - bearer: []
+      - oauth2:
+        - openid
+        - profile
+        - email
+      summary: Delete organization region quota
+      tags:
+      - admin
+    get:
+      operationId: adminGetOrganizationRegionQuota
+      parameters:
+      - description: Organization ID
+        explode: false
+        in: path
+        name: organizationId
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Region ID
+        explode: false
+        in: path
+        name: regionId
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Sandbox class
+        explode: false
+        in: path
+        name: sandboxClass
+        required: true
+        schema:
+          $ref: "#/components/schemas/SandboxClass"
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegionQuota"
+          description: Region quota
+      security:
+      - bearer: []
+      - oauth2:
+        - openid
+        - profile
+        - email
+      summary: Get organization region quota
+      tags:
+      - admin
   /webhooks/organizations/{organizationId}/app-portal-access:
     post:
       operationId: WebhookController_getAppPortalAccess
@@ -9602,6 +9774,12 @@ components:
       required:
       - defaultRegionId
       type: object
+    SandboxClass:
+      enum:
+      - linux-vm
+      - container
+      - android
+      type: string
     RegionUsageOverview:
       example:
         totalCpuQuota: 0.8008281904610115
@@ -9619,10 +9797,14 @@ components:
         maxMemoryPerSandbox: 2.027123023002322
         totalMemoryQuota: 1.4658129805029452
         totalDiskQuota: 5.637376656633329
+        sandboxClass: ""
         maxMemoryPerGpuSandbox: 1.0246457001441578
       properties:
         regionId:
           type: string
+        sandboxClass:
+          allOf:
+          - $ref: "#/components/schemas/SandboxClass"
         totalCpuQuota:
           type: number
         currentCpuUsage:
@@ -9673,6 +9855,7 @@ components:
       - maxMemoryPerGpuSandbox
       - maxMemoryPerSandbox
       - regionId
+      - sandboxClass
       - totalCpuQuota
       - totalDiskQuota
       - totalGpuQuota
@@ -9700,6 +9883,7 @@ components:
           maxMemoryPerSandbox: 2.027123023002322
           totalMemoryQuota: 1.4658129805029452
           totalDiskQuota: 5.637376656633329
+          sandboxClass: ""
           maxMemoryPerGpuSandbox: 1.0246457001441578
         - totalCpuQuota: 0.8008281904610115
           currentGpuUsage: 9.301444243932576
@@ -9716,6 +9900,7 @@ components:
           maxMemoryPerSandbox: 2.027123023002322
           totalMemoryQuota: 1.4658129805029452
           totalDiskQuota: 5.637376656633329
+          sandboxClass: ""
           maxMemoryPerGpuSandbox: 1.0246457001441578
       properties:
         regionUsage:
@@ -9819,9 +10004,13 @@ components:
         totalGpuQuota: 5.962133916683182
         totalMemoryQuota: 6.027456183070403
         totalDiskQuota: 1.4658129805029452
+        sandboxClass: ""
         maxCpuPerGpuSandbox: 3.616076749251911
         maxMemoryPerGpuSandbox: 2.027123023002322
       properties:
+        sandboxClass:
+          allOf:
+          - $ref: "#/components/schemas/SandboxClass"
         totalCpuQuota:
           nullable: true
           type: number
@@ -10454,7 +10643,7 @@ components:
         runnerId: runner123
         id: sandbox123
         state: creating
-        sandboxClass: small
+        sandboxClass: linux-vm
         updatedAt: 2024-10-01T12:00:00Z
         desiredState: destroyed
         recoverable: true
@@ -10495,10 +10684,10 @@ components:
           deprecated: true
           description: The class of the sandbox
           enum:
-          - small
-          - medium
-          - large
-          example: small
+          - linux-vm
+          - container
+          - android
+          example: linux-vm
           type: string
         state:
           allOf:
@@ -10626,7 +10815,7 @@ components:
           runnerId: runner123
           id: sandbox123
           state: creating
-          sandboxClass: small
+          sandboxClass: linux-vm
           updatedAt: 2024-10-01T12:00:00Z
           desiredState: destroyed
           recoverable: true
@@ -10654,7 +10843,7 @@ components:
           runnerId: runner123
           id: sandbox123
           state: creating
-          sandboxClass: small
+          sandboxClass: linux-vm
           updatedAt: 2024-10-01T12:00:00Z
           desiredState: destroyed
           recoverable: true
@@ -10747,6 +10936,7 @@ components:
     Sandbox:
       example:
         memory: 4
+        linkedSandboxId: sandbox123
         buildInfo: ""
         toolboxProxyUrl: https://proxy.app.daytona.io/toolbox
         lastActivityAt: 2024-10-01T12:00:00Z
@@ -10760,8 +10950,8 @@ components:
         runnerId: runner123
         id: sandbox123
         state: creating
-        class: small
         updatedAt: 2024-10-01T12:00:00Z
+        sandboxClass: linux-vm
         desiredState: destroyed
         networkAllowList: "192.168.1.0/16,10.0.0.0/24"
         volumes:
@@ -10921,14 +11111,13 @@ components:
           description: The last activity timestamp of the sandbox
           example: 2024-10-01T12:00:00Z
           type: string
-        class:
-          deprecated: true
+        sandboxClass:
           description: The class of the sandbox
           enum:
-          - small
-          - medium
-          - large
-          example: small
+          - linux-vm
+          - container
+          - android
+          example: linux-vm
           type: string
         daemonVersion:
           description: The version of the daemon running in the sandbox
@@ -10937,6 +11126,11 @@ components:
         runnerId:
           description: The runner ID of the sandbox
           example: runner123
+          type: string
+        linkedSandboxId:
+          description: "ID of the sandbox this sandbox is linked to. When set, the\
+            \ sandbox is co-located on the same runner as the linked sandbox."
+          example: sandbox123
           type: string
         toolboxProxyUrl:
           description: The toolbox proxy URL for the sandbox
@@ -10965,6 +11159,7 @@ components:
         page: 6.027456183070403
         items:
         - memory: 4
+          linkedSandboxId: sandbox123
           buildInfo: ""
           toolboxProxyUrl: https://proxy.app.daytona.io/toolbox
           lastActivityAt: 2024-10-01T12:00:00Z
@@ -10978,8 +11173,8 @@ components:
           runnerId: runner123
           id: sandbox123
           state: creating
-          class: small
           updatedAt: 2024-10-01T12:00:00Z
+          sandboxClass: linux-vm
           desiredState: destroyed
           networkAllowList: "192.168.1.0/16,10.0.0.0/24"
           volumes:
@@ -11006,6 +11201,7 @@ components:
           autoArchiveInterval: 10080
           snapshot: daytonaio/sandbox:latest
         - memory: 4
+          linkedSandboxId: sandbox123
           buildInfo: ""
           toolboxProxyUrl: https://proxy.app.daytona.io/toolbox
           lastActivityAt: 2024-10-01T12:00:00Z
@@ -11019,8 +11215,8 @@ components:
           runnerId: runner123
           id: sandbox123
           state: creating
-          class: small
           updatedAt: 2024-10-01T12:00:00Z
+          sandboxClass: linux-vm
           desiredState: destroyed
           networkAllowList: "192.168.1.0/16,10.0.0.0/24"
           volumes:
@@ -11109,9 +11305,9 @@ components:
         disk: 3
         autoDeleteInterval: 30
         public: false
+        linkedSandbox: sandbox123
         name: MySandbox
         user: daytona
-        class: small
         autoArchiveInterval: 10080
         snapshot: ubuntu-4vcpu-8ram-100gb
       properties:
@@ -11154,14 +11350,6 @@ components:
           description: Comma-separated list of allowed CIDR network addresses for
             the sandbox
           example: "192.168.1.0/16,10.0.0.0/24"
-          type: string
-        class:
-          description: The sandbox class type
-          enum:
-          - small
-          - medium
-          - large
-          example: small
           type: string
         target:
           description: The target (region) where the sandbox will be created
@@ -11206,6 +11394,14 @@ components:
           allOf:
           - $ref: "#/components/schemas/CreateBuildInfo"
           description: Build information for the sandbox
+        linkedSandbox:
+          description: ID or name of an existing sandbox to link the new sandbox to.
+            The new sandbox will be scheduled on the same runner as the linked sandbox
+            so a local network can be established between them. Linked sandboxes must
+            be ephemeral (autoDeleteInterval=0) and cannot themselves be linked to
+            another sandbox.
+          example: sandbox123
+          type: string
       type: object
     ResizeSandbox:
       example:
@@ -11477,12 +11673,16 @@ components:
         maxMemoryPerSandbox: 2.3021358869347655
         totalMemoryQuota: 6.027456183070403
         totalDiskQuota: 1.4658129805029452
+        sandboxClass: ""
         maxMemoryPerGpuSandbox: 2.027123023002322
       properties:
         organizationId:
           type: string
         regionId:
           type: string
+        sandboxClass:
+          allOf:
+          - $ref: "#/components/schemas/SandboxClass"
         totalCpuQuota:
           type: number
         totalMemoryQuota:
@@ -11522,6 +11722,7 @@ components:
       - maxMemoryPerSandbox
       - organizationId
       - regionId
+      - sandboxClass
       - totalCpuQuota
       - totalDiskQuota
       - totalGpuQuota
@@ -11568,13 +11769,6 @@ components:
       - apiKey
       - id
       type: object
-    SandboxClass:
-      description: The class of the runner
-      enum:
-      - small
-      - medium
-      - large
-      type: string
     RunnerState:
       description: The state of the runner
       enum:
@@ -11607,10 +11801,10 @@ components:
         id: runner123
         state: initializing
         unschedulable: false
-        class: small
         currentAllocatedDiskGiB: 50000
         currentAllocatedMemoryGiB: 8000
         gpuType: gpuType
+        sandboxClass: linux-vm
         currentAllocatedCpu: 4000
         updatedAt: 2023-10-01T12:00:00Z
         proxyUrl: https://proxy.runner1.example.com
@@ -11663,11 +11857,11 @@ components:
         gpuType:
           description: The type of GPU
           type: string
-        class:
+        sandboxClass:
           allOf:
           - $ref: "#/components/schemas/SandboxClass"
-          description: The class of the runner
-          example: small
+          description: The sandbox class supported by this runner
+          example: linux-vm
         currentCpuUsagePercentage:
           description: Current CPU usage percentage
           example: 45.6
@@ -11773,7 +11967,6 @@ components:
       required:
       - apiKey
       - apiVersion
-      - class
       - cpu
       - createdAt
       - disk
@@ -11825,10 +12018,10 @@ components:
         id: runner123
         state: initializing
         unschedulable: false
-        class: small
         currentAllocatedDiskGiB: 50000
         currentAllocatedMemoryGiB: 8000
         gpuType: gpuType
+        sandboxClass: linux-vm
         currentAllocatedCpu: 4000
         updatedAt: 2023-10-01T12:00:00Z
         proxyUrl: https://proxy.runner1.example.com
@@ -11881,11 +12074,11 @@ components:
         gpuType:
           description: The type of GPU
           type: string
-        class:
+        sandboxClass:
           allOf:
           - $ref: "#/components/schemas/SandboxClass"
-          description: The class of the runner
-          example: small
+          description: The sandbox class supported by this runner
+          example: linux-vm
         currentCpuUsagePercentage:
           description: Current CPU usage percentage
           example: 45.6
@@ -11981,7 +12174,6 @@ components:
           type: string
       required:
       - apiVersion
-      - class
       - cpu
       - createdAt
       - disk
@@ -13578,6 +13770,7 @@ components:
         name: ubuntu-4vcpu-8ram-100gb
         cpu: 1
         gpu: 0
+        sandboxClass: linux-vm
       properties:
         name:
           description: The name of the snapshot
@@ -13617,6 +13810,12 @@ components:
           description: ID of the region where the snapshot will be available. Defaults
             to organization default region if not specified.
           type: string
+        sandboxClass:
+          allOf:
+          - $ref: "#/components/schemas/SandboxClass"
+          description: Target sandbox class. Determines which runners can host sandboxes
+            created from this snapshot.
+          example: linux-vm
       required:
       - name
       type: object
@@ -13657,6 +13856,7 @@ components:
         state: ""
         initialRunnerId: runner123
         updatedAt: 2000-01-23T04:56:07.000+00:00
+        sandboxClass: linux-vm
       properties:
         id:
           type: string
@@ -13717,6 +13917,14 @@ components:
           description: The snapshot reference
           example: daytonaio/sandbox:latest
           type: string
+        sandboxClass:
+          description: The sandbox class of the snapshot
+          enum:
+          - linux-vm
+          - container
+          - android
+          example: linux-vm
+          type: string
       required:
       - cpu
       - createdAt
@@ -13763,6 +13971,7 @@ components:
           state: ""
           initialRunnerId: runner123
           updatedAt: 2000-01-23T04:56:07.000+00:00
+          sandboxClass: linux-vm
         - imageName: imageName
           buildInfo: ""
           cpu: 6.027456183070403
@@ -13787,6 +13996,7 @@ components:
           state: ""
           initialRunnerId: runner123
           updatedAt: 2000-01-23T04:56:07.000+00:00
+          sandboxClass: linux-vm
       properties:
         items:
           items:
@@ -14539,6 +14749,60 @@ components:
       - page
       - total
       - totalPages
+      type: object
+    CreateOrganizationRegionQuota:
+      example:
+        totalCpuQuota: 0.8008281904610115
+        maxCpuPerSandbox: 5.637376656633329
+        maxDiskPerSandbox: 7.061401241503109
+        maxDiskPerNonEphemeralSandbox: 9.301444243932576
+        maxDiskPerGpuSandbox: 4.145608029883936
+        maxMemoryPerSandbox: 2.3021358869347655
+        totalGpuQuota: 5.962133916683182
+        totalMemoryQuota: 6.027456183070403
+        totalDiskQuota: 1.4658129805029452
+        sandboxClass: ""
+        maxCpuPerGpuSandbox: 3.616076749251911
+        maxMemoryPerGpuSandbox: 2.027123023002322
+      properties:
+        sandboxClass:
+          allOf:
+          - $ref: "#/components/schemas/SandboxClass"
+        totalCpuQuota:
+          type: number
+        totalMemoryQuota:
+          type: number
+        totalDiskQuota:
+          type: number
+        totalGpuQuota:
+          type: number
+        maxCpuPerSandbox:
+          nullable: true
+          type: number
+        maxMemoryPerSandbox:
+          nullable: true
+          type: number
+        maxDiskPerSandbox:
+          nullable: true
+          type: number
+        maxDiskPerNonEphemeralSandbox:
+          nullable: true
+          type: number
+        maxCpuPerGpuSandbox:
+          nullable: true
+          type: number
+        maxMemoryPerGpuSandbox:
+          nullable: true
+          type: number
+        maxDiskPerGpuSandbox:
+          nullable: true
+          type: number
+      required:
+      - sandboxClass
+      - totalCpuQuota
+      - totalDiskQuota
+      - totalGpuQuota
+      - totalMemoryQuota
       type: object
     WebhookAppPortalAccess:
       example:

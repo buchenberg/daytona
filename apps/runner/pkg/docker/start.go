@@ -39,6 +39,13 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, authToken 
 			return nil, "", errors.New("sandbox IP not found? Is the sandbox started?")
 		}
 
+		if isAndroidDeviceContainer(c) {
+			if err := d.waitForAdbRunning(ctx, containerIP); err != nil {
+				return nil, "", err
+			}
+			return c, "", nil
+		}
+
 		daemonVersion, err := d.waitForDaemonRunning(ctx, containerIP, authToken)
 		if err != nil {
 			return nil, "", err
@@ -81,6 +88,25 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, authToken 
 	containerIP := GetContainerIpAddress(ctx, runningContainer)
 	if containerIP == "" {
 		return nil, "", errors.New("sandbox IP not found? Is the sandbox started?")
+	}
+
+	// Android-device sandboxes do not run the daytona daemon. Readiness is signaled by
+	// the ADB port accepting TCP connections inside the container.
+	if isAndroidDeviceContainer(runningContainer) {
+		if err := d.waitForAdbRunning(ctx, containerIP); err != nil {
+			return nil, "", err
+		}
+
+		if metadata["limitNetworkEgress"] == "true" {
+			go func() {
+				containerShortId := c.ID[:12]
+				if err := d.netRulesManager.SetNetworkLimiter(containerShortId, containerIP); err != nil {
+					d.logger.ErrorContext(ctx, "Failed to set network limiter", "error", err)
+				}
+			}()
+		}
+
+		return runningContainer, "", nil
 	}
 
 	if c.HostConfig.Runtime != "kata-clh" && !slices.Equal(c.Config.Entrypoint, strslice.StrSlice{common.DAEMON_PATH}) {
@@ -152,7 +178,8 @@ func (d *DockerClient) convertRuncToKata(ctx context.Context, containerId string
 	newHostConfig.CapAdd = []string{"ALL"}
 	newHostConfig.SecurityOpt = []string{"seccomp=unconfined", "apparmor=unconfined"}
 
-	networkingConfig := d.getContainerNetworkingConfig()
+	// No need for a full CreateSandboxDTO here since it's used only for android sandboxes which won't convert to kata either way
+	networkingConfig := d.getContainerNetworkingConfig(dto.CreateSandboxDTO{Id: containerId})
 
 	if _, err := d.apiClient.ContainerCreate(ctx, &newContainerConfig, &newHostConfig, networkingConfig, &v1.Platform{
 		Architecture: "amd64",
