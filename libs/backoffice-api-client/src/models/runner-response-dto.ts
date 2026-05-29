@@ -44,9 +44,9 @@ export const RunnerResponseDtoStateEnum = {
 
 export type RunnerResponseDtoStateEnum = typeof RunnerResponseDtoStateEnum[keyof typeof RunnerResponseDtoStateEnum];
 export const RunnerResponseDtoClassEnum = {
-    SMALL: 'small',
-    MEDIUM: 'medium',
-    LARGE: 'large',
+    LINUX_VM: 'linux-vm',
+    CONTAINER: 'container',
+    ANDROID: 'android',
 } as const;
 
 export type RunnerResponseDtoClassEnum = typeof RunnerResponseDtoClassEnum[keyof typeof RunnerResponseDtoClassEnum];

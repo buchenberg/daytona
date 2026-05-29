@@ -76,9 +76,9 @@ export const SandboxResponseDtoDesiredStateEnum = {
 
 export type SandboxResponseDtoDesiredStateEnum = typeof SandboxResponseDtoDesiredStateEnum[keyof typeof SandboxResponseDtoDesiredStateEnum];
 export const SandboxResponseDtoClassEnum = {
-    SMALL: 'small',
-    MEDIUM: 'medium',
-    LARGE: 'large',
+    LINUX_VM: 'linux-vm',
+    CONTAINER: 'container',
+    ANDROID: 'android',
 } as const;
 
 export type SandboxResponseDtoClassEnum = typeof SandboxResponseDtoClassEnum[keyof typeof SandboxResponseDtoClassEnum];

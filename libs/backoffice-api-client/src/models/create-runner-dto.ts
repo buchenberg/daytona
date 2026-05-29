@@ -42,7 +42,7 @@ export interface CreateRunnerDto {
     /**
      * Sandbox class
      */
-    'class': CreateRunnerDtoClassEnum;
+    'sandboxClass': CreateRunnerDtoSandboxClassEnum;
     /**
      * GPU count
      */
@@ -65,13 +65,13 @@ export interface CreateRunnerDto {
     'apiVersion'?: CreateRunnerDtoApiVersionEnum;
 }
 
-export const CreateRunnerDtoClassEnum = {
-    SMALL: 'small',
-    MEDIUM: 'medium',
-    LARGE: 'large',
+export const CreateRunnerDtoSandboxClassEnum = {
+    LINUX_VM: 'linux-vm',
+    CONTAINER: 'container',
+    ANDROID: 'android',
 } as const;
 
-export type CreateRunnerDtoClassEnum = typeof CreateRunnerDtoClassEnum[keyof typeof CreateRunnerDtoClassEnum];
+export type CreateRunnerDtoSandboxClassEnum = typeof CreateRunnerDtoSandboxClassEnum[keyof typeof CreateRunnerDtoSandboxClassEnum];
 export const CreateRunnerDtoStateEnum = {
     INITIALIZING: 'initializing',
     READY: 'ready',

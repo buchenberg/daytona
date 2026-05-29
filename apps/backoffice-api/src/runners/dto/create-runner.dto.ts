@@ -37,9 +37,9 @@ export class CreateRunnerDto {
   @Min(1)
   diskGiB: number
 
-  @ApiProperty({ description: 'Sandbox class', enum: SandboxClass, example: SandboxClass.SMALL })
+  @ApiProperty({ description: 'Sandbox class', enum: SandboxClass, example: SandboxClass.CONTAINER })
   @IsEnum(SandboxClass)
-  class: SandboxClass
+  sandboxClass: SandboxClass
 
   @ApiPropertyOptional({ description: 'GPU count', example: 0 })
   @IsNumber()

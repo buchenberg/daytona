@@ -74,9 +74,9 @@ export const RunnerFiltersDtoStateEnum = {
 
 export type RunnerFiltersDtoStateEnum = typeof RunnerFiltersDtoStateEnum[keyof typeof RunnerFiltersDtoStateEnum];
 export const RunnerFiltersDtoClassEnum = {
-    SMALL: 'small',
-    MEDIUM: 'medium',
-    LARGE: 'large',
+    LINUX_VM: 'linux-vm',
+    CONTAINER: 'container',
+    ANDROID: 'android',
 } as const;
 
 export type RunnerFiltersDtoClassEnum = typeof RunnerFiltersDtoClassEnum[keyof typeof RunnerFiltersDtoClassEnum];

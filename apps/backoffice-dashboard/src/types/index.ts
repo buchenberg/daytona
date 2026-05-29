@@ -101,7 +101,6 @@ export {
   UpdateSandboxDtoDesiredStateEnum as SandboxDesiredState,
   UpdateSandboxDtoBackupStateEnum as BackupState,
   CreateRunnerDtoStateEnum as RunnerState,
-  CreateRunnerDtoClassEnum as SandboxClass,
   SnapshotResponseDtoStateEnum as SnapshotState,
   UpdateOrganizationUserDtoRoleEnum as OrganizationMemberRole,
 } from '@daytonaio/backoffice-api-client'

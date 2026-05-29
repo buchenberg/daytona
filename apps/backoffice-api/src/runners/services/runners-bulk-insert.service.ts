@@ -119,7 +119,7 @@ export class RunnersBulkInsertService {
             cpu: runnerData.cpu,
             memoryGiB: runnerData.memoryGiB,
             diskGiB: runnerData.diskGiB,
-            class: runnerData.class,
+            sandboxClass: runnerData.sandboxClass,
             gpu: runnerData.gpu ?? 0,
             gpuType: runnerData.gpuType ?? '',
             state: runnerData.state ?? RunnerState.INITIALIZING,

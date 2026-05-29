@@ -113,7 +113,7 @@ export class SnapshotsController {
         disk: snapshot.disk,
         gpu: snapshot.gpu,
         gpuType: snapshot.buildInfo?.snapshotRef || '',
-        class: SandboxClass.SMALL,
+        sandboxClass: SandboxClass.CONTAINER,
         osUser: 'daytona',
         errorReason: null,
         env: {},

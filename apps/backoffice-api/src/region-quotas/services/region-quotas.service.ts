@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { RegionQuota } from '@api/organization/entities/region-quota.entity'
 import { Organization } from '@api/organization/entities/organization.entity'
+import { SandboxClass } from '@api/sandbox/enums/sandbox-class.enum'
 import { Region } from '@api/region/entities/region.entity'
 import { UpdateRegionQuotaDto } from '../dto/update-region-quota.dto'
 import { PatchRegionQuotaDto } from '../dto/patch-region-quota.dto'
@@ -68,17 +69,18 @@ export class RegionQuotasService {
       throw new BadRequestException({ message: perSandboxFieldsExceedTotals })
     }
 
-    const regionQuota = new RegionQuota(
-      dto.organizationId,
-      dto.regionId,
-      dto.totalCpuQuota,
-      dto.totalMemoryQuota,
-      dto.totalDiskQuota,
-      dto.maxCpuPerSandbox ?? null,
-      dto.maxMemoryPerSandbox ?? null,
-      dto.maxDiskPerSandbox ?? null,
-      dto.maxDiskPerNonEphemeralSandbox ?? null,
-    )
+    const regionQuota = new RegionQuota({
+      organizationId: dto.organizationId,
+      regionId: dto.regionId,
+      sandboxClass: SandboxClass.CONTAINER,
+      totalCpuQuota: dto.totalCpuQuota,
+      totalMemoryQuota: dto.totalMemoryQuota,
+      totalDiskQuota: dto.totalDiskQuota,
+      maxCpuPerSandbox: dto.maxCpuPerSandbox ?? null,
+      maxMemoryPerSandbox: dto.maxMemoryPerSandbox ?? null,
+      maxDiskPerSandbox: dto.maxDiskPerSandbox ?? null,
+      maxDiskPerNonEphemeralSandbox: dto.maxDiskPerNonEphemeralSandbox ?? null,
+    })
 
     try {
       return await this.regionQuotaRepository.save(regionQuota)
