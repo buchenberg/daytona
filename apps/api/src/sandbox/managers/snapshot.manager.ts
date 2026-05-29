@@ -168,7 +168,10 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     const results = await Promise.allSettled(
       snapshots.map(async (snapshot) => {
-        const { factor: propagationFactor } = getSnapshotPropagationFactor(snapshot.total_cpu_quota, snapshot)
+        const { factor: propagationFactor, minimum: minimumRunners } = getSnapshotPropagationFactor(
+          snapshot.total_cpu_quota,
+          snapshot,
+        )
 
         const regions = await this.snapshotService.getSnapshotRegions(snapshot.id)
 
@@ -176,7 +179,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
           .filter((r) => r.organizationId === null && r.regionType === RegionType.SHARED)
           .map((r) => r.id)
 
-        return this.scaleDownSnapshotFromRunners(snapshot, sharedRegionIds, propagationFactor)
+        return this.scaleDownSnapshotFromRunners(snapshot, sharedRegionIds, propagationFactor, minimumRunners)
       }),
     )
 
@@ -231,13 +234,13 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     const results = await Promise.allSettled(
       snapshots.map(async (snapshot) => {
-        const { factor: propagationFactor } = getSnapshotPropagationFactor(
+        const { factor: propagationFactor, minimum: minimumRunners } = getSnapshotPropagationFactor(
           snapshot.total_cpu_quota,
           snapshot,
           RL_REGION,
         )
 
-        return this.scaleDownSnapshotFromRunners(snapshot, [RL_REGION], propagationFactor)
+        return this.scaleDownSnapshotFromRunners(snapshot, [RL_REGION], propagationFactor, minimumRunners)
       }),
     )
 
@@ -825,6 +828,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     snapshot: Snapshot,
     sharedRegionIds: string[],
     propagationFactor: number = BASE_PROPAGATION_FACTOR,
+    minimumRunners = 0,
   ): Promise<number> {
     try {
       if (sharedRegionIds.length === 0) {
@@ -857,8 +861,8 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         },
       })
 
-      // Calculate the maximum allowed number of snapshot runners (same formula as propagation)
-      const maxSharedSnapshotRunners = Math.ceil(propagationFactor * sharedRunners.length)
+      // Must match propagateSnapshotToRunners: respect both the factor and the minimum floor
+      const maxSharedSnapshotRunners = Math.max(minimumRunners, Math.ceil(propagationFactor * sharedRunners.length))
 
       // Only scale down if the propagated amount exceeds the limit by more than 15%
       const scaleDownThreshold = Math.ceil(maxSharedSnapshotRunners * 1.15)
