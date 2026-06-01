@@ -7,7 +7,7 @@ import { Injectable, Logger, NotFoundException, OnApplicationShutdown } from '@n
 import { InjectRepository } from '@nestjs/typeorm'
 import { Cron, CronExpression } from '@nestjs/schedule'
 import { SnapshotRepository } from '../repositories/snapshot.repository'
-import { Equal, In, IsNull, LessThan, MoreThanOrEqual, Not, Or, Repository } from 'typeorm'
+import { Equal, FindOptionsWhere, In, IsNull, LessThan, MoreThanOrEqual, Not, Or, Repository } from 'typeorm'
 import { DockerRegistryService } from '../../docker-registry/services/docker-registry.service'
 import { Snapshot } from '../entities/snapshot.entity'
 import { SnapshotState } from '../enums/snapshot-state.enum'
@@ -133,7 +133,8 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     const snapshots = await this.snapshotRepository
       .createQueryBuilder('snapshot')
       .innerJoin('organization', 'org', 'org.id = snapshot.organizationId')
-      .select(['snapshot.*'])
+      .innerJoin('region_quota', 'rq', 'rq."organizationId" = org.id AND rq."regionId" = org."defaultRegionId"')
+      .select(['snapshot.*', 'rq.total_cpu_quota'])
       .where('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
       .andWhere('org.suspended = false')
       .andWhere(
@@ -688,6 +689,39 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     }
   }
 
+  /**
+   * Build the WHERE clause that selects the runners eligible to hold a given snapshot.
+   *
+   * This is shared by propagateSnapshotToRunners and scaleDownSnapshotFromRunners so both operate on the
+   * exact same eligible-runner set. The eligible-runner count is the denominator of the propagation target
+   * (`ceil(factor * eligibleRunners)`); if the two paths used different filters they would compute different
+   * targets and fight each other (propagation re-pulling what scale-down removes, and vice versa).
+   */
+  private eligibleRunnerWhere(snapshot: Snapshot, regionIds: string[]): FindOptionsWhere<Runner> {
+    return {
+      state: RunnerState.READY,
+      unschedulable: Not(true),
+      region: In(regionIds),
+      gpu: snapshot.gpu > 0 ? MoreThanOrEqual(snapshot.gpu) : Or(IsNull(), Equal(0)),
+      // Temporary: Android snapshots can go to container runners
+      sandboxClass: getRunnerSandboxClass(snapshot.sandboxClass),
+    }
+  }
+
+  /**
+   * The number of shared runners a snapshot should be propagated to.
+   *
+   * Shared by propagateSnapshotToRunners (as the propagation goal) and scaleDownSnapshotFromRunners (as the
+   * ceiling above which copies are removed) so the two are always computed identically from the same inputs.
+   */
+  private getTargetSharedRunnerCount(
+    eligibleSharedRunnerCount: number,
+    propagationFactor: number,
+    minimumRunners: number,
+  ): number {
+    return Math.max(minimumRunners, Math.ceil(propagationFactor * eligibleSharedRunnerCount))
+  }
+
   async propagateSnapshotToRunners(
     snapshot: Snapshot,
     sharedRegionIds: string[],
@@ -700,14 +734,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     try {
       //  get all runners in the regions to propagate to
       const runners = await this.runnerRepository.find({
-        where: {
-          state: RunnerState.READY,
-          unschedulable: Not(true),
-          region: In([...sharedRegionIds, ...organizationRegionIds]),
-          gpu: snapshot.gpu > 0 ? MoreThanOrEqual(snapshot.gpu) : Or(IsNull(), Equal(0)),
-          // Temporary: Android snapshots can go to container runners
-          sandboxClass: getRunnerSandboxClass(snapshot.sandboxClass),
-        },
+        where: this.eligibleRunnerWhere(snapshot, [...sharedRegionIds, ...organizationRegionIds]),
       })
 
       // Identify the top N% of runners by disk usage so we don't push NEW snapshot copies onto runners that are nearly full.
@@ -771,7 +798,11 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       runnersToPropagateTo.push(...unallocatedOrganizationRunners)
 
       // respect the propagation limit for shared runners, enforcing a minimum
-      const targetSharedRunnerCount = Math.max(minimumRunners, Math.ceil(propagationFactor * sharedRunners.length))
+      const targetSharedRunnerCount = this.getTargetSharedRunnerCount(
+        sharedRunners.length,
+        propagationFactor,
+        minimumRunners,
+      )
       const sharedRunnersPropagateLimit = Math.max(
         0,
         targetSharedRunnerCount - sharedSnapshotRunnersDistinctRunnersIds.size,
@@ -842,13 +873,11 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         return 0
       }
 
-      // Get all shared runners in the regions
+      // Use the same eligible-runner set as propagation so the scale-down ceiling is computed over the exact
+      // same denominator. If these diverge, scale-down can target fewer copies than propagation maintains,
+      // causing a remove -> re-propagate flapping loop.
       const sharedRunners = await this.runnerRepository.find({
-        where: {
-          state: RunnerState.READY,
-          unschedulable: Not(true),
-          region: In(sharedRegionIds),
-        },
+        where: this.eligibleRunnerWhere(snapshot, sharedRegionIds),
       })
 
       const sharedRunnerIds = sharedRunners.map((runner) => runner.id)
@@ -869,7 +898,11 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       })
 
       // Must match propagateSnapshotToRunners: respect both the factor and the minimum floor
-      const maxSharedSnapshotRunners = Math.max(minimumRunners, Math.ceil(propagationFactor * sharedRunners.length))
+      const maxSharedSnapshotRunners = this.getTargetSharedRunnerCount(
+        sharedRunners.length,
+        propagationFactor,
+        minimumRunners,
+      )
 
       // Only scale down if the propagated amount exceeds the limit by more than 15%
       const scaleDownThreshold = Math.ceil(maxSharedSnapshotRunners * 1.15)
