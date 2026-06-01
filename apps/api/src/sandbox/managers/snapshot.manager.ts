@@ -149,7 +149,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       `,
       )
       .orderBy('snapshot.createdAt', 'ASC')
-      .limit(50)
+      .limit(100)
       .offset(Number(skip))
       .setParameters({
         largeSbxSharedOrgs: [...LARGE_SANDBOX_ORGS],
@@ -617,7 +617,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
   @WithInstrumentation()
   async syncRemovingRunnerSnapshotStates() {
     const lockKey = 'sync-removing-runner-snapshot-states-lock'
-    if (!(await this.redisLockProvider.lock(lockKey, 120))) {
+    if (!(await this.redisLockProvider.lock(lockKey, 60))) {
       return
     }
 
@@ -1749,7 +1749,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       // Dedicated regions get a much shorter staleness window so we don't pin disk space
       // on small fleets when an org stops using a snapshot.
       const stalenessDays = this.configService.getOrThrow('buildInfoSnapshotRunnerStalenessDays')
-      const stalenessInterval = `(CASE WHEN r.region IN (:dedicatedMeta, :dedicatedDeeptune) THEN interval '12 hours' WHEN r.region IN (:dedicatedElementor, :dedicatedRL) THEN interval '2 days' ELSE interval '${stalenessDays} days' END)`
+      const stalenessInterval = `(CASE WHEN r.region IN (:dedicatedMeta, :dedicatedDeeptune) THEN interval '3 hours' WHEN r.region IN (:dedicatedElementor, :dedicatedRL) THEN interval '10 hours' ELSE interval '${stalenessDays} days' END)`
 
       const staleEntries = await this.snapshotRunnerRepository
         .createQueryBuilder('sr')
