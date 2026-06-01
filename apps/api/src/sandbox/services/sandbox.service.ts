@@ -2040,6 +2040,13 @@ export class SandboxService {
 
     const updateData = Sandbox.getSoftDeleteUpdate(sandbox)
 
+    // When destroying a sandbox stuck in ERROR because the runner had no free GPU,
+    // detach it from its current runner so it can be reassigned on a future placement.
+    if (sandbox.state === SandboxState.ERROR && sandbox.errorReason?.includes('no free GPU on runner')) {
+      updateData.prevRunnerId = sandbox.runnerId
+      updateData.runnerId = null
+    }
+
     const updatedSandbox = await this.sandboxRepository.updateWhere(sandbox.id, {
       updateData,
       whereCondition: { pending: sandbox.pending, state: sandbox.state },
