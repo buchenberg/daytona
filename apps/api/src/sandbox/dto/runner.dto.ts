@@ -223,6 +223,14 @@ export class RunnerDto {
   @IsOptional()
   appVersion?: string
 
+  @ApiPropertyOptional({
+    description: 'Deprecated runner class property',
+    example: 'small',
+    deprecated: true,
+  })
+  @IsOptional()
+  class?: string
+
   static fromRunner(runner: Runner): RunnerDto {
     return {
       id: runner.id,
@@ -256,6 +264,7 @@ export class RunnerDto {
       version: runner.apiVersion,
       apiVersion: runner.apiVersion,
       appVersion: runner.appVersion,
+      class: 'small',
     }
   }
 }
