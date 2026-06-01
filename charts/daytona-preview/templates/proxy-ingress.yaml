@@ -11,10 +11,13 @@ metadata:
   labels:
     {{- include "preview.labels" . | nindent 4 }}
     app.kubernetes.io/component: proxy
-  {{- with .Values.services.proxy.ingress.annotations }}
   annotations:
+    {{- if .Values.services.proxy.ingress.clusterIssuer }}
+    cert-manager.io/cluster-issuer: {{ .Values.services.proxy.ingress.clusterIssuer | quote }}
+    {{- end }}
+    {{- with .Values.services.proxy.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 spec:
   {{- if .Values.services.proxy.ingress.className }}
   ingressClassName: {{ .Values.services.proxy.ingress.className }}

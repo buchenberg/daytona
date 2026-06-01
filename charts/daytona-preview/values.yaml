@@ -171,16 +171,8 @@ services:
       className: 'nginx-internal'
       annotations: {}
       tls: true
-      # Per-preview cert for *.{slug}.proxy.p.stage.daytona.work
-      # Leave empty to auto-derive from release name ({fullname}-proxy-tls)
       tlsSecretName: ''
-    # cert-manager Certificate for the per-preview proxy wildcard.
-    # Creates *.{branchSlug}.proxy.p.stage.daytona.work
-    certificate:
-      enabled: true
-      issuerRef:
-        name: 'letsencrypt-prod'
-        kind: 'ClusterIssuer'
+      clusterIssuer: 'letsencrypt-prod'
     env:
       PROXY_PORT: '4000'
       PROXY_API_KEY: 'preview_proxy_api_key'
