@@ -168,12 +168,21 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     await this.redis.set('scale-down-runner-snapshots-skip', Number(skip) + snapshots.length)
 
+    // snapshot_runner rows are keyed by (runnerId, snapshotRef), so every snapshot that resolves to the same
+    // ref (e.g. the same image used by multiple orgs, or under multiple names) shares one pool of copies.
+    // Propagation naturally tops the pool up to the highest-demand org's target, but scale-down runs per
+    // snapshot row — so a low-quota org would otherwise trim copies that a high-quota org keeps refilling,
+    // causing the ref to flap. Compute the scale-down ceiling per ref as the MAX demand across all active
+    // snapshots that share it.
+    const refDemandMap = await this.getRefPropagationDemand(
+      snapshots.map((snapshot) => snapshot.ref).filter((ref): ref is string => !!ref),
+    )
+
     const results = await Promise.allSettled(
       snapshots.map(async (snapshot) => {
-        const { factor: propagationFactor, minimum: minimumRunners } = getSnapshotPropagationFactor(
-          snapshot.total_cpu_quota,
-          snapshot,
-        )
+        const { factor: propagationFactor, minimum: minimumRunners } =
+          (snapshot.ref && refDemandMap.get(snapshot.ref)) ||
+          getSnapshotPropagationFactor(snapshot.total_cpu_quota, snapshot)
 
         const regions = await this.snapshotService.getSnapshotRegions(snapshot.id)
 
@@ -709,6 +718,48 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
   }
 
   /**
+   * For each of the given snapshot refs, compute the maximum propagation demand (factor and minimum) across
+   * all ACTIVE snapshots that resolve to that ref.
+   *
+   * Because snapshot_runner copies are shared per ref, the scale-down ceiling for a ref must reflect the
+   * highest-demand snapshot sharing it; otherwise a lower-demand snapshot's scale-down would remove copies a
+   * higher-demand snapshot's propagation keeps recreating. Using the max is intentionally conservative (it may
+   * retain slightly more than any single org strictly needs) which is the safe direction — it prevents flapping.
+   */
+  private async getRefPropagationDemand(refs: string[]): Promise<Map<string, { factor: number; minimum: number }>> {
+    const demandMap = new Map<string, { factor: number; minimum: number }>()
+
+    const distinctRefs = [...new Set(refs)]
+    if (distinctRefs.length === 0) {
+      return demandMap
+    }
+
+    // Mirror the quota join used by propagation/scale-down so the factor is computed from the org's real quota.
+    const sharingSnapshots = await this.snapshotRepository
+      .createQueryBuilder('snapshot')
+      .innerJoin('organization', 'org', 'org.id = snapshot.organizationId')
+      .innerJoin('region_quota', 'rq', 'rq."organizationId" = org.id AND rq."regionId" = org."defaultRegionId"')
+      .select(['snapshot.*', 'rq.total_cpu_quota'])
+      .where('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
+      .andWhere('org.suspended = false')
+      .andWhere('snapshot.ref IN (:...refs)', { refs: distinctRefs })
+      .getRawMany()
+
+    for (const sharing of sharingSnapshots) {
+      const { factor, minimum } = getSnapshotPropagationFactor(sharing.total_cpu_quota, sharing)
+      const current = demandMap.get(sharing.ref)
+      if (current) {
+        current.factor = Math.max(current.factor, factor)
+        current.minimum = Math.max(current.minimum, minimum)
+      } else {
+        demandMap.set(sharing.ref, { factor, minimum })
+      }
+    }
+
+    return demandMap
+  }
+
+  /**
    * The number of shared runners a snapshot should be propagated to.
    *
    * Shared by propagateSnapshotToRunners (as the propagation goal) and scaleDownSnapshotFromRunners (as the
@@ -830,7 +881,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
             throw new Error(`No internal registry found for snapshot ${snapshot.ref} in region ${runner.region}`)
           }
 
-          const snapshotRunner = await this.runnerService.getSnapshotRunner(runner.id, snapshot.ref)
+          let snapshotRunner = await this.runnerService.getSnapshotRunner(runner.id, snapshot.ref)
 
           try {
             if (!snapshotRunner) {
@@ -845,9 +896,15 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
             }
           } catch (err) {
             this.logger.error(`Error propagating snapshot to runner ${runner.id}: ${fromAxiosError(err)}`)
-            snapshotRunner.state = SnapshotRunnerState.ERROR
-            snapshotRunner.errorReason = err.message
-            await this.snapshotRunnerRepository.update(snapshotRunner.id, snapshotRunner)
+            // The entry may have just been created above (snapshotRunner was null), so re-fetch it to update.
+            if (!snapshotRunner) {
+              snapshotRunner = await this.runnerService.getSnapshotRunner(runner.id, snapshot.ref)
+            }
+            if (snapshotRunner) {
+              snapshotRunner.state = SnapshotRunnerState.ERROR
+              snapshotRunner.errorReason = err.message
+              await this.snapshotRunnerRepository.update(snapshotRunner.id, snapshotRunner)
+            }
           }
         }),
       )
