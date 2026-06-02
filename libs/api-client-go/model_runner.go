@@ -86,6 +86,9 @@ type Runner struct {
 	// The app version of the runner
 	// Deprecated
 	AppVersion *string `json:"appVersion,omitempty"`
+	// Deprecated runner class property
+	// Deprecated
+	Class *string `json:"class,omitempty"`
 	AdditionalProperties map[string]interface{}
 }
 
@@ -1011,6 +1014,41 @@ func (o *Runner) SetAppVersion(v string) {
 	o.AppVersion = &v
 }
 
+// GetClass returns the Class field value if set, zero value otherwise.
+// Deprecated
+func (o *Runner) GetClass() string {
+	if o == nil || IsNil(o.Class) {
+		var ret string
+		return ret
+	}
+	return *o.Class
+}
+
+// GetClassOk returns a tuple with the Class field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+// Deprecated
+func (o *Runner) GetClassOk() (*string, bool) {
+	if o == nil || IsNil(o.Class) {
+		return nil, false
+	}
+	return o.Class, true
+}
+
+// HasClass returns a boolean if a field has been set.
+func (o *Runner) HasClass() bool {
+	if o != nil && !IsNil(o.Class) {
+		return true
+	}
+
+	return false
+}
+
+// SetClass gets a reference to the given string and assigns it to the Class field.
+// Deprecated
+func (o *Runner) SetClass(v string) {
+	o.Class = &v
+}
+
 func (o Runner) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -1085,6 +1123,9 @@ func (o Runner) ToMap() (map[string]interface{}, error) {
 	toSerialize["runnerClass"] = o.RunnerClass
 	if !IsNil(o.AppVersion) {
 		toSerialize["appVersion"] = o.AppVersion
+	}
+	if !IsNil(o.Class) {
+		toSerialize["class"] = o.Class
 	}
 
 	for key, value := range o.AdditionalProperties {
@@ -1173,6 +1214,7 @@ func (o *Runner) UnmarshalJSON(data []byte) (err error) {
 		delete(additionalProperties, "apiVersion")
 		delete(additionalProperties, "runnerClass")
 		delete(additionalProperties, "appVersion")
+		delete(additionalProperties, "class")
 		o.AdditionalProperties = additionalProperties
 	}
 

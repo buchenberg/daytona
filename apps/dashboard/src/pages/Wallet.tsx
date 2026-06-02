@@ -256,6 +256,14 @@ const Wallet = () => {
   const topUpEnabled =
     wallet?.creditCardConnected && !topUpWalletMutation.isPending && (selectedPreset || oneTimeTopUpAmount)
 
+  // First card add on a personal org grants free credits, so it must go through
+  // the Radar setup-checkout flow. While that's pending, every portal-based
+  // card-add path is hidden so the abuse check can't be bypassed. Non-personal
+  // orgs get no free credits and use the portal normally.
+  const restrictToSetupCheckout = Boolean(
+    selectedOrganization?.personal && !wallet?.creditCardConnected && !wallet?.creditCardConnectedCreditsGranted,
+  )
+
   return (
     <PageLayout>
       <PageHeader />
@@ -439,8 +447,11 @@ const Wallet = () => {
 
             {isBillingV2 && selectedOrganization && (
               <>
-                <BillingInfoCard organizationId={selectedOrganization.id} />
-                <PaymentMethodsCard organizationId={selectedOrganization.id} />
+                {!restrictToSetupCheckout && <BillingInfoCard organizationId={selectedOrganization.id} />}
+                <PaymentMethodsCard
+                  organizationId={selectedOrganization.id}
+                  creditCardConnectedCreditsGranted={!restrictToSetupCheckout}
+                />
               </>
             )}
 

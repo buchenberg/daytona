@@ -65,10 +65,11 @@ class RunnerFull(BaseModel):
     api_version: StrictStr = Field(description="The api version of the runner", serialization_alias="apiVersion")
     runner_class: RunnerClass = Field(description="The class of the runner", serialization_alias="runnerClass")
     app_version: Optional[StrictStr] = Field(default=None, description="The app version of the runner", serialization_alias="appVersion")
+    var_class: Optional[StrictStr] = Field(default=None, description="Deprecated runner class property", serialization_alias="class")
     api_key: StrictStr = Field(description="The API key for the runner", serialization_alias="apiKey")
     region_type: Optional[RegionType] = Field(default=None, description="The region type of the runner", serialization_alias="regionType")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["id", "domain", "apiUrl", "proxyUrl", "cpu", "memory", "disk", "gpu", "gpuType", "sandboxClass", "currentCpuUsagePercentage", "currentMemoryUsagePercentage", "currentDiskUsagePercentage", "currentAllocatedCpu", "currentAllocatedMemoryGiB", "currentAllocatedDiskGiB", "currentSnapshotCount", "currentStartedSandboxes", "availabilityScore", "region", "name", "state", "lastChecked", "unschedulable", "tags", "createdAt", "updatedAt", "version", "apiVersion", "runnerClass", "appVersion", "apiKey", "regionType"]
+    __properties: ClassVar[List[str]] = ["id", "domain", "apiUrl", "proxyUrl", "cpu", "memory", "disk", "gpu", "gpuType", "sandboxClass", "currentCpuUsagePercentage", "currentMemoryUsagePercentage", "currentDiskUsagePercentage", "currentAllocatedCpu", "currentAllocatedMemoryGiB", "currentAllocatedDiskGiB", "currentSnapshotCount", "currentStartedSandboxes", "availabilityScore", "region", "name", "state", "lastChecked", "unschedulable", "tags", "createdAt", "updatedAt", "version", "apiVersion", "runnerClass", "appVersion", "class", "apiKey", "regionType"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -158,6 +159,7 @@ class RunnerFull(BaseModel):
             "api_version": obj.get("apiVersion"),
             "runner_class": obj.get("runnerClass"),
             "app_version": obj.get("appVersion"),
+            "var_class": obj.get("class"),
             "api_key": obj.get("apiKey"),
             "region_type": obj.get("regionType")
         })

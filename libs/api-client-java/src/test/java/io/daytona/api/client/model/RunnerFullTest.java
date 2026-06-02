@@ -293,6 +293,14 @@ public class RunnerFullTest {
     }
 
     /**
+     * Test the property 'propertyClass'
+     */
+    @Test
+    public void propertyClassTest() {
+        // TODO: test propertyClass
+    }
+
+    /**
      * Test the property 'apiKey'
      */
     @Test

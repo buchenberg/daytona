@@ -291,4 +291,12 @@ public class RunnerTest {
         // TODO: test appVersion
     }
 
+    /**
+     * Test the property 'propertyClass'
+     */
+    @Test
+    public void propertyClassTest() {
+        // TODO: test propertyClass
+    }
+
 }

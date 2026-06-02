@@ -20,6 +20,7 @@ import {
   PaymentMethod,
   PaymentUrl,
   PortalUrlApi,
+  SetupCheckoutUrlApi,
   Tier,
   TierApi,
   UsageApi,
@@ -41,6 +42,7 @@ export class BillingApiClient {
   private invoicesApi: InvoicesApi
   private organizationApi: OrganizationApi
   private checkoutUrlApi: CheckoutUrlApi
+  private setupCheckoutUrlApi: SetupCheckoutUrlApi
   private portalUrlApi: PortalUrlApi
   private billingInfoApi: BillingInfoApi
 
@@ -51,6 +53,7 @@ export class BillingApiClient {
     this.invoicesApi = new InvoicesApi(configuration, undefined, axiosInstance)
     this.organizationApi = new OrganizationApi(configuration, undefined, axiosInstance)
     this.checkoutUrlApi = new CheckoutUrlApi(configuration, undefined, axiosInstance)
+    this.setupCheckoutUrlApi = new SetupCheckoutUrlApi(configuration, undefined, axiosInstance)
     this.portalUrlApi = new PortalUrlApi(configuration, undefined, axiosInstance)
     this.billingInfoApi = new BillingInfoApi(configuration, undefined, axiosInstance)
   }
@@ -232,6 +235,11 @@ export class BillingApiClient {
 
   public async verifyInternetAccess(organizationId: string, radarSessionToken: string): Promise<void> {
     await this.organizationApi.verifyInternetAccess(organizationId, { radarSessionToken })
+  }
+
+  public async getOrganizationSetupCheckoutUrl(organizationId: string): Promise<string> {
+    const response = await this.setupCheckoutUrlApi.getV2SetupCheckoutURL(organizationId)
+    return response.data
   }
 
   public async listCharges(

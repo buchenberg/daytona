@@ -151,6 +151,11 @@ export interface Runner {
      * @deprecated
      */
     'appVersion'?: string;
+    /**
+     * Deprecated runner class property
+     * @deprecated
+     */
+    'class'?: string;
 }
 
 

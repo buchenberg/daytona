@@ -11802,6 +11802,7 @@ components:
         state: initializing
         unschedulable: false
         currentAllocatedDiskGiB: 50000
+        class: small
         currentAllocatedMemoryGiB: 8000
         gpuType: gpuType
         sandboxClass: linux-vm
@@ -11954,6 +11955,11 @@ components:
           deprecated: true
           description: The app version of the runner
           example: v0.0.0-dev
+          type: string
+        class:
+          deprecated: true
+          description: Deprecated runner class property
+          example: small
           type: string
         apiKey:
           description: The API key for the runner
@@ -12019,6 +12025,7 @@ components:
         state: initializing
         unschedulable: false
         currentAllocatedDiskGiB: 50000
+        class: small
         currentAllocatedMemoryGiB: 8000
         gpuType: gpuType
         sandboxClass: linux-vm
@@ -12171,6 +12178,11 @@ components:
           deprecated: true
           description: The app version of the runner
           example: v0.0.0-dev
+          type: string
+        class:
+          deprecated: true
+          description: Deprecated runner class property
+          example: small
           type: string
       required:
       - apiVersion

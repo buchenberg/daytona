@@ -23,7 +23,6 @@ import { useOwnerWalletQuery } from '@/hooks/queries/billingQueries'
 import { useConfig } from '@/hooks/useConfig'
 import { useDocsSearchCommands } from '@/hooks/useDocsSearchCommands'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
-import { useInternetAccessBanner } from '@/hooks/useInternetAccessBanner'
 import { useSuspensionBanner } from '@/hooks/useSuspensionBanner'
 import { cn } from '@/lib/utils'
 import { BookOpen, BookSearchIcon, SlackIcon, SunMoon } from 'lucide-react'
@@ -82,7 +81,6 @@ const Dashboard: React.FC = () => {
   useDocsSearchCommands()
 
   useSuspensionBanner(selectedOrganization)
-  useInternetAccessBanner(selectedOrganization)
 
   useEffect(() => {
     if (

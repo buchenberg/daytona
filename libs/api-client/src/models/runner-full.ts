@@ -155,6 +155,11 @@ export interface RunnerFull {
      */
     'appVersion'?: string;
     /**
+     * Deprecated runner class property
+     * @deprecated
+     */
+    'class'?: string;
+    /**
      * The API key for the runner
      */
     'apiKey': string;

@@ -108,6 +108,9 @@ module DaytonaApiClient
     # The app version of the runner
     attr_accessor :app_version
 
+    # Deprecated runner class property
+    attr_accessor :_class
+
     class EnumAttributeValidator
       attr_reader :datatype
       attr_reader :allowable_values
@@ -163,7 +166,8 @@ module DaytonaApiClient
         :'version' => :'version',
         :'api_version' => :'apiVersion',
         :'runner_class' => :'runnerClass',
-        :'app_version' => :'appVersion'
+        :'app_version' => :'appVersion',
+        :'_class' => :'class'
       }
     end
 
@@ -210,7 +214,8 @@ module DaytonaApiClient
         :'version' => :'String',
         :'api_version' => :'String',
         :'runner_class' => :'RunnerClass',
-        :'app_version' => :'String'
+        :'app_version' => :'String',
+        :'_class' => :'String'
       }
     end
 
@@ -388,6 +393,10 @@ module DaytonaApiClient
 
       if attributes.key?(:'app_version')
         self.app_version = attributes[:'app_version']
+      end
+
+      if attributes.key?(:'_class')
+        self._class = attributes[:'_class']
       end
     end
 
@@ -651,7 +660,8 @@ module DaytonaApiClient
           version == o.version &&
           api_version == o.api_version &&
           runner_class == o.runner_class &&
-          app_version == o.app_version
+          app_version == o.app_version &&
+          _class == o._class
     end
 
     # @see the `==` method
@@ -663,7 +673,7 @@ module DaytonaApiClient
     # Calculates hash code according to all attributes.
     # @return [Integer] Hash code
     def hash
-      [id, domain, api_url, proxy_url, cpu, memory, disk, gpu, gpu_type, sandbox_class, current_cpu_usage_percentage, current_memory_usage_percentage, current_disk_usage_percentage, current_allocated_cpu, current_allocated_memory_gi_b, current_allocated_disk_gi_b, current_snapshot_count, current_started_sandboxes, availability_score, region, name, state, last_checked, unschedulable, tags, created_at, updated_at, version, api_version, runner_class, app_version].hash
+      [id, domain, api_url, proxy_url, cpu, memory, disk, gpu, gpu_type, sandbox_class, current_cpu_usage_percentage, current_memory_usage_percentage, current_disk_usage_percentage, current_allocated_cpu, current_allocated_memory_gi_b, current_allocated_disk_gi_b, current_snapshot_count, current_started_sandboxes, availability_score, region, name, state, last_checked, unschedulable, tags, created_at, updated_at, version, api_version, runner_class, app_version, _class].hash
     end
 
     # Builds the object from hash

@@ -64,8 +64,9 @@ class Runner(BaseModel):
     api_version: StrictStr = Field(description="The api version of the runner", serialization_alias="apiVersion")
     runner_class: RunnerClass = Field(description="The class of the runner", serialization_alias="runnerClass")
     app_version: Optional[StrictStr] = Field(default=None, description="The app version of the runner", serialization_alias="appVersion")
+    var_class: Optional[StrictStr] = Field(default=None, description="Deprecated runner class property", serialization_alias="class")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["id", "domain", "apiUrl", "proxyUrl", "cpu", "memory", "disk", "gpu", "gpuType", "sandboxClass", "currentCpuUsagePercentage", "currentMemoryUsagePercentage", "currentDiskUsagePercentage", "currentAllocatedCpu", "currentAllocatedMemoryGiB", "currentAllocatedDiskGiB", "currentSnapshotCount", "currentStartedSandboxes", "availabilityScore", "region", "name", "state", "lastChecked", "unschedulable", "tags", "createdAt", "updatedAt", "version", "apiVersion", "runnerClass", "appVersion"]
+    __properties: ClassVar[List[str]] = ["id", "domain", "apiUrl", "proxyUrl", "cpu", "memory", "disk", "gpu", "gpuType", "sandboxClass", "currentCpuUsagePercentage", "currentMemoryUsagePercentage", "currentDiskUsagePercentage", "currentAllocatedCpu", "currentAllocatedMemoryGiB", "currentAllocatedDiskGiB", "currentSnapshotCount", "currentStartedSandboxes", "availabilityScore", "region", "name", "state", "lastChecked", "unschedulable", "tags", "createdAt", "updatedAt", "version", "apiVersion", "runnerClass", "appVersion", "class"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -154,7 +155,8 @@ class Runner(BaseModel):
             "version": obj.get("version"),
             "api_version": obj.get("apiVersion"),
             "runner_class": obj.get("runnerClass"),
-            "app_version": obj.get("appVersion")
+            "app_version": obj.get("appVersion"),
+            "var_class": obj.get("class")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

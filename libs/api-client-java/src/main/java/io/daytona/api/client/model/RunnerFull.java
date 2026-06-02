@@ -215,6 +215,12 @@ public class RunnerFull {
   @javax.annotation.Nullable
   private String appVersion;
 
+  public static final String SERIALIZED_NAME_PROPERTY_CLASS = "class";
+  @Deprecated
+  @SerializedName(SERIALIZED_NAME_PROPERTY_CLASS)
+  @javax.annotation.Nullable
+  private String propertyClass;
+
   public static final String SERIALIZED_NAME_API_KEY = "apiKey";
   @SerializedName(SERIALIZED_NAME_API_KEY)
   @javax.annotation.Nonnull
@@ -837,6 +843,29 @@ public class RunnerFull {
   }
 
 
+  @Deprecated
+  public RunnerFull propertyClass(@javax.annotation.Nullable String propertyClass) {
+    this.propertyClass = propertyClass;
+    return this;
+  }
+
+  /**
+   * Deprecated runner class property
+   * @return propertyClass
+   * @deprecated
+   */
+  @Deprecated
+  @javax.annotation.Nullable
+  public String getPropertyClass() {
+    return propertyClass;
+  }
+
+  @Deprecated
+  public void setPropertyClass(@javax.annotation.Nullable String propertyClass) {
+    this.propertyClass = propertyClass;
+  }
+
+
   public RunnerFull apiKey(@javax.annotation.Nonnull String apiKey) {
     this.apiKey = apiKey;
     return this;
@@ -960,6 +989,7 @@ public class RunnerFull {
         Objects.equals(this.apiVersion, runnerFull.apiVersion) &&
         Objects.equals(this.runnerClass, runnerFull.runnerClass) &&
         Objects.equals(this.appVersion, runnerFull.appVersion) &&
+        Objects.equals(this.propertyClass, runnerFull.propertyClass) &&
         Objects.equals(this.apiKey, runnerFull.apiKey) &&
         Objects.equals(this.regionType, runnerFull.regionType)&&
         Objects.equals(this.additionalProperties, runnerFull.additionalProperties);
@@ -967,7 +997,7 @@ public class RunnerFull {
 
   @Override
   public int hashCode() {
-    return Objects.hash(id, domain, apiUrl, proxyUrl, cpu, memory, disk, gpu, gpuType, sandboxClass, currentCpuUsagePercentage, currentMemoryUsagePercentage, currentDiskUsagePercentage, currentAllocatedCpu, currentAllocatedMemoryGiB, currentAllocatedDiskGiB, currentSnapshotCount, currentStartedSandboxes, availabilityScore, region, name, state, lastChecked, unschedulable, tags, createdAt, updatedAt, version, apiVersion, runnerClass, appVersion, apiKey, regionType, additionalProperties);
+    return Objects.hash(id, domain, apiUrl, proxyUrl, cpu, memory, disk, gpu, gpuType, sandboxClass, currentCpuUsagePercentage, currentMemoryUsagePercentage, currentDiskUsagePercentage, currentAllocatedCpu, currentAllocatedMemoryGiB, currentAllocatedDiskGiB, currentSnapshotCount, currentStartedSandboxes, availabilityScore, region, name, state, lastChecked, unschedulable, tags, createdAt, updatedAt, version, apiVersion, runnerClass, appVersion, propertyClass, apiKey, regionType, additionalProperties);
   }
 
   @Override
@@ -1005,6 +1035,7 @@ public class RunnerFull {
     sb.append("    apiVersion: ").append(toIndentedString(apiVersion)).append("\n");
     sb.append("    runnerClass: ").append(toIndentedString(runnerClass)).append("\n");
     sb.append("    appVersion: ").append(toIndentedString(appVersion)).append("\n");
+    sb.append("    propertyClass: ").append(toIndentedString(propertyClass)).append("\n");
     sb.append("    apiKey: ").append(toIndentedString(apiKey)).append("\n");
     sb.append("    regionType: ").append(toIndentedString(regionType)).append("\n");
     sb.append("    additionalProperties: ").append(toIndentedString(additionalProperties)).append("\n");
@@ -1026,7 +1057,7 @@ public class RunnerFull {
 
   static {
     // a set of all properties/fields (JSON key names)
-    openapiFields = new HashSet<String>(Arrays.asList("id", "domain", "apiUrl", "proxyUrl", "cpu", "memory", "disk", "gpu", "gpuType", "sandboxClass", "currentCpuUsagePercentage", "currentMemoryUsagePercentage", "currentDiskUsagePercentage", "currentAllocatedCpu", "currentAllocatedMemoryGiB", "currentAllocatedDiskGiB", "currentSnapshotCount", "currentStartedSandboxes", "availabilityScore", "region", "name", "state", "lastChecked", "unschedulable", "tags", "createdAt", "updatedAt", "version", "apiVersion", "runnerClass", "appVersion", "apiKey", "regionType"));
+    openapiFields = new HashSet<String>(Arrays.asList("id", "domain", "apiUrl", "proxyUrl", "cpu", "memory", "disk", "gpu", "gpuType", "sandboxClass", "currentCpuUsagePercentage", "currentMemoryUsagePercentage", "currentDiskUsagePercentage", "currentAllocatedCpu", "currentAllocatedMemoryGiB", "currentAllocatedDiskGiB", "currentSnapshotCount", "currentStartedSandboxes", "availabilityScore", "region", "name", "state", "lastChecked", "unschedulable", "tags", "createdAt", "updatedAt", "version", "apiVersion", "runnerClass", "appVersion", "class", "apiKey", "regionType"));
 
     // a set of required properties/fields (JSON key names)
     openapiRequiredFields = new HashSet<String>(Arrays.asList("id", "cpu", "memory", "disk", "region", "name", "state", "unschedulable", "tags", "createdAt", "updatedAt", "version", "apiVersion", "runnerClass", "apiKey"));
@@ -1104,6 +1135,9 @@ public class RunnerFull {
       RunnerClass.validateJsonElement(jsonObj.get("runnerClass"));
       if ((jsonObj.get("appVersion") != null && !jsonObj.get("appVersion").isJsonNull()) && !jsonObj.get("appVersion").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `appVersion` to be a primitive type in the JSON string but got `%s`", jsonObj.get("appVersion").toString()));
+      }
+      if ((jsonObj.get("class") != null && !jsonObj.get("class").isJsonNull()) && !jsonObj.get("class").isJsonPrimitive()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `class` to be a primitive type in the JSON string but got `%s`", jsonObj.get("class").toString()));
       }
       if (!jsonObj.get("apiKey").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `apiKey` to be a primitive type in the JSON string but got `%s`", jsonObj.get("apiKey").toString()));

@@ -86,6 +86,9 @@ type RunnerFull struct {
 	// The app version of the runner
 	// Deprecated
 	AppVersion *string `json:"appVersion,omitempty"`
+	// Deprecated runner class property
+	// Deprecated
+	Class *string `json:"class,omitempty"`
 	// The API key for the runner
 	ApiKey string `json:"apiKey"`
 	// The region type of the runner
@@ -1016,6 +1019,41 @@ func (o *RunnerFull) SetAppVersion(v string) {
 	o.AppVersion = &v
 }
 
+// GetClass returns the Class field value if set, zero value otherwise.
+// Deprecated
+func (o *RunnerFull) GetClass() string {
+	if o == nil || IsNil(o.Class) {
+		var ret string
+		return ret
+	}
+	return *o.Class
+}
+
+// GetClassOk returns a tuple with the Class field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+// Deprecated
+func (o *RunnerFull) GetClassOk() (*string, bool) {
+	if o == nil || IsNil(o.Class) {
+		return nil, false
+	}
+	return o.Class, true
+}
+
+// HasClass returns a boolean if a field has been set.
+func (o *RunnerFull) HasClass() bool {
+	if o != nil && !IsNil(o.Class) {
+		return true
+	}
+
+	return false
+}
+
+// SetClass gets a reference to the given string and assigns it to the Class field.
+// Deprecated
+func (o *RunnerFull) SetClass(v string) {
+	o.Class = &v
+}
+
 // GetApiKey returns the ApiKey field value
 func (o *RunnerFull) GetApiKey() string {
 	if o == nil {
@@ -1147,6 +1185,9 @@ func (o RunnerFull) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.AppVersion) {
 		toSerialize["appVersion"] = o.AppVersion
 	}
+	if !IsNil(o.Class) {
+		toSerialize["class"] = o.Class
+	}
 	toSerialize["apiKey"] = o.ApiKey
 	if !IsNil(o.RegionType) {
 		toSerialize["regionType"] = o.RegionType
@@ -1239,6 +1280,7 @@ func (o *RunnerFull) UnmarshalJSON(data []byte) (err error) {
 		delete(additionalProperties, "apiVersion")
 		delete(additionalProperties, "runnerClass")
 		delete(additionalProperties, "appVersion")
+		delete(additionalProperties, "class")
 		delete(additionalProperties, "apiKey")
 		delete(additionalProperties, "regionType")
 		o.AdditionalProperties = additionalProperties

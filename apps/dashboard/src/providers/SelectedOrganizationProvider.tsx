@@ -9,12 +9,16 @@ import {
   getOrganizationMembersQueryOptions,
   useOrganizationMembersSuspenseQuery,
 } from '@/hooks/queries/useOrganizationMembersQuery'
+import { useOrganizationTierQuery } from '@/hooks/queries/useOrganizationTierQuery'
+import { queryKeys } from '@/hooks/queries/queryKeys'
 import { useApi } from '@/hooks/useApi'
+import { useConfig } from '@/hooks/useConfig'
 import { useOrganizations } from '@/hooks/useOrganizations'
+import { useStripe } from '@/hooks/useStripe'
 import { Organization, OrganizationRolePermissionsEnum, OrganizationUserRoleEnum } from '@daytona/api-client'
 import { useQueryClient } from '@tanstack/react-query'
 import { usePostHog } from 'posthog-js/react'
-import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from 'react-oidc-context'
 import { toast } from 'sonner'
 
@@ -24,9 +28,12 @@ type Props = {
 
 export function SelectedOrganizationProvider(props: Props) {
   const { user } = useAuth()
-  const { organizationsApi } = useApi()
+  const { organizationsApi, billingApi } = useApi()
   const queryClient = useQueryClient()
   const posthog = usePostHog()
+  const config = useConfig()
+  // Held in a ref so the evaluation effect doesn't re-run on useStripe() identity changes.
+  const createRadarSessionRef = useRef(useStripe().createRadarSession)
 
   const { organizations } = useOrganizations()
 
@@ -69,6 +76,28 @@ export function SelectedOrganizationProvider(props: Props) {
 
     posthog.group('organization', selectedOrganizationId)
   }, [posthog, selectedOrganizationId])
+
+  // Run the Stripe Radar evaluation once per org, gated on the server-backed
+  // radarEvaluatedAt so it never re-fires after the score is stored.
+  const { data: organizationTier } = useOrganizationTierQuery({
+    organizationId: selectedOrganizationId ?? '',
+    enabled: Boolean(selectedOrganizationId && config.billingApiUrl && config.stripePublishableKey),
+  })
+
+  useEffect(() => {
+    if (!selectedOrganizationId || !config.stripePublishableKey) return
+    if (!organizationTier || organizationTier.radarEvaluatedAt) return
+    const evaluate = async () => {
+      try {
+        const token = await createRadarSessionRef.current()
+        await billingApi.verifyInternetAccess(selectedOrganizationId, token)
+        await queryClient.invalidateQueries({ queryKey: queryKeys.organization.tier(selectedOrganizationId) })
+      } catch {
+        // Best-effort; failures never surface to the user.
+      }
+    }
+    void evaluate()
+  }, [billingApi, config.stripePublishableKey, organizationTier, queryClient, selectedOrganizationId])
 
   const { data: organizationMembers } = useOrganizationMembersSuspenseQuery(selectedOrganizationId)
 

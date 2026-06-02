@@ -7,6 +7,5 @@ export enum FeatureFlags {
   ORGANIZATION_INFRASTRUCTURE = 'organization_infrastructure',
   ORGANIZATION_EXPERIMENTS = 'organization_experiments',
   SANDBOX_LINUX_VM = 'sandbox_linux_vm',
-  STRIPE_ABUSE_VERIFICATION = 'stripe_abuse_verification',
   BILLING_PROVIDER_V2 = 'billing_provider_v2',
 }
