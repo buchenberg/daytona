@@ -112,14 +112,14 @@ jobs:
           VERSION: v0.0.0-${{ steps.slug.outputs.version_slug }}
           ARCH: -amd64
         # Single nx invocation so the project graph + build cache are shared
-        # across api/proxy/runner (they all depend on common Go/TS sources).
-        run: yarn nx run-many --target=docker --projects=api,proxy,runner --configuration=production --parallel=3 --output-style=stream
+        # across api/proxy/runner/ssh-gateway (they all depend on common Go/TS sources).
+        run: yarn nx run-many --target=docker --projects=api,proxy,runner,ssh-gateway --configuration=production --parallel=4 --output-style=stream
 
       - name: Print preview images
         env:
           VERSION_SLUG: ${{ steps.slug.outputs.version_slug }}
         run: |
-          for p in api proxy runner; do
+          for p in api proxy runner ssh-gateway; do
             echo "$p image: ghcr.io/daytonaio/daytona-${p}:v0.0.0-${VERSION_SLUG}-amd64"
           done
 
@@ -197,3 +197,6 @@ jobs:
         run: |
           echo "API:   https://${BRANCH_SLUG}.api.p.stage.daytona.work"
           echo "Proxy: https://${BRANCH_SLUG}.proxy.p.stage.daytona.work"
+          # SSH gateway is exposed on the tailnet (Tailscale LoadBalancer) — resolve its
+          # MagicDNS name from the service once the operator has provisioned it:
+          echo "SSH:   ssh <ssh-token>@${BRANCH_SLUG}-ssh-gateway -p 2222   (Tailscale MagicDNS; see 'kubectl get svc ${BRANCH_SLUG}-ssh-gateway -n preview')"

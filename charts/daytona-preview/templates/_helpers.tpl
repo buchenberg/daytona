@@ -117,6 +117,17 @@ Proxy wildcard hostname (for sandbox subdomains).
 {{- end }}
 
 {{/*
+SSH gateway public host (Tailscale MagicDNS name). Clients reach the gateway at
+this host over the tailnet. Defaults to "{branchSlug}-ssh-gateway"; the same value
+is pinned as the tailscale.com/hostname annotation on the Service. Override via
+services.sshGateway.publicHost with a full tailnet FQDN if short MagicDNS names
+don't resolve in your environment.
+*/}}
+{{- define "preview.sshGatewayHost" -}}
+{{- .Values.services.sshGateway.publicHost | default (printf "%s-ssh-gateway" .Values.branchSlug) -}}
+{{- end }}
+
+{{/*
 Proxy TLS secret name — used by both the Certificate and Ingress resources.
 When tlsSecretName is explicitly set it wins; otherwise we derive a name from
 the release so it stays unique per preview.
@@ -132,7 +143,7 @@ Usage: {{ include "preview.serviceAccountName" (dict "ctx" . "component" "api") 
 {{- define "preview.serviceAccountName" -}}
 {{- $svc := index .ctx.Values.services .component -}}
 {{- if $svc.serviceAccount.create -}}
-  {{- default (printf "%s-%s" (include "preview.fullname" .ctx) .component) $svc.serviceAccount.name -}}
+  {{- default (printf "%s-%s" (include "preview.fullname" .ctx) (kebabcase .component)) $svc.serviceAccount.name -}}
 {{- else -}}
   {{- default "default" $svc.serviceAccount.name -}}
 {{- end -}}
@@ -375,6 +386,10 @@ Full API env block — used by api-deployment and all migration jobs.
 # ---- SSH Gateway ----------------------------------------------------------
 - name: SSH_GATEWAY_API_KEY
   value: {{ .Values.services.api.env.SSH_GATEWAY_API_KEY | default "preview_ssh_gateway_api_key" | quote }}
+# Public host[:port] the API returns to clients in the `ssh` command. Falls back to
+# the gateway's tailnet MagicDNS host when the sandbox's region has no sshGatewayUrl.
+- name: SSH_GATEWAY_URL
+  value: {{ .Values.services.api.env.SSH_GATEWAY_URL | default (printf "%s:%v" (include "preview.sshGatewayHost" .) (.Values.services.sshGateway.service.port | default 2222)) | quote }}
 {{- if .Values.services.api.extraEnv }}
 {{ toYaml .Values.services.api.extraEnv }}
 {{- end }}

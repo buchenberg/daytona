@@ -3,6 +3,7 @@ Daytona Preview — {{ .Values.branchSlug }}
 
 API:   https://{{ include "preview.apiHost" . }}
 Proxy: https://{{ include "preview.proxyHost" . }}
+SSH:   {{ .Release.Name }}-ssh-gateway:{{ .Values.services.sshGateway.service.port }} (Tailscale MagicDNS — `kubectl get svc {{ .Release.Name }}-ssh-gateway -n {{ .Release.Namespace }}`)
 
 Helm hooks executed:
   post-install : migration:run:init → migration:run:pre-deploy

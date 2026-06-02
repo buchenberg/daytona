@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ include "preview.namespace" . }}
+  name: {{ include "preview.fullname" . }}-ssh-gateway
+  labels:
+    {{- include "preview.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ssh-gateway
+  {{- with .Values.services.sshGateway.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.services.sshGateway.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "preview.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ssh-gateway
+  template:
+    metadata:
+      annotations:
+        {{- include "preview.previewMetaAnnotations" . | nindent 8 }}
+        {{- with .Values.services.sshGateway.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "preview.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: ssh-gateway
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "preview.serviceAccountName" (dict "ctx" . "component" "sshGateway") }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: ssh-gateway
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "preview.image" (dict "repo" .Values.services.sshGateway.image.repository "svcTag" .Values.services.sshGateway.image.tag "Values" .Values) | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: ssh
+              containerPort: {{ .Values.services.sshGateway.env.SSH_GATEWAY_PORT | default 2222 }}
+              protocol: TCP
+          env:
+            - name: SSH_GATEWAY_PORT
+              value: {{ .Values.services.sshGateway.env.SSH_GATEWAY_PORT | default "2222" | quote }}
+            # API endpoint used to validate SSH tokens and look up the owning runner.
+            - name: API_URL
+              value: {{ printf "http://%s-api:%s/api" (include "preview.fullname" .) (.Values.services.api.env.PORT | default "3000") | quote }}
+            # Must match services.api.env.SSH_GATEWAY_API_KEY.
+            - name: API_KEY
+              value: {{ .Values.services.sshGateway.env.API_KEY | default .Values.services.api.env.SSH_GATEWAY_API_KEY | default "preview_ssh_gateway_api_key" | quote }}
+            - name: SSH_PRIVATE_KEY
+              value: {{ .Values.services.sshGateway.env.SSH_PRIVATE_KEY | default "" | quote }}
+            - name: SSH_HOST_KEY
+              value: {{ .Values.services.sshGateway.env.SSH_HOST_KEY | default "" | quote }}
+            {{- if .Values.services.sshGateway.extraEnv }}
+            {{- toYaml .Values.services.sshGateway.extraEnv | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.services.sshGateway.resources | nindent 12 }}
+      {{- with .Values.services.sshGateway.nodeSelector | default .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.sshGateway.affinity | default .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.services.sshGateway.tolerations | default .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

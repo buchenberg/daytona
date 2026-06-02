@@ -17,6 +17,10 @@ spec:
       targetPort: http
       protocol: TCP
       name: http
+    - port: {{ .Values.services.runner.service.sshGatewayPort | default 2220 }}
+      targetPort: ssh-gateway
+      protocol: TCP
+      name: ssh-gateway
   selector:
     {{- include "preview.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: runner

@@ -55,6 +55,9 @@ spec:
             - name: http
               containerPort: {{ .Values.services.runner.env.API_PORT | default 3003 }}
               protocol: TCP
+            - name: ssh-gateway
+              containerPort: {{ .Values.services.runner.env.SSH_GATEWAY_PORT | default 2220 }}
+              protocol: TCP
           env:
             - name: API_PORT
               value: {{ .Values.services.runner.env.API_PORT | default "3003" | quote }}
@@ -72,6 +75,12 @@ spec:
               value: {{ .Values.services.runner.env.API_TOKEN | default "preview_runner_token" | quote }}
             - name: RESOURCE_LIMITS_DISABLED
               value: {{ .Values.services.runner.env.RESOURCE_LIMITS_DISABLED | default "true" | quote }}
+            - name: SSH_GATEWAY_ENABLE
+              value: {{ .Values.services.runner.env.SSH_GATEWAY_ENABLE | default "false" | quote }}
+            - name: SSH_GATEWAY_PORT
+              value: {{ .Values.services.runner.env.SSH_GATEWAY_PORT | default "2220" | quote }}
+            - name: SSH_PUBLIC_KEY
+              value: {{ .Values.services.runner.env.SSH_PUBLIC_KEY | default "" | quote }}
             {{- if .Values.services.runner.extraEnv }}
             {{- toYaml .Values.services.runner.extraEnv | nindent 12 }}
             {{- end }}
