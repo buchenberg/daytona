@@ -9779,6 +9779,7 @@ components:
       - linux-vm
       - container
       - android
+      - windows
       type: string
     RegionUsageOverview:
       example:
@@ -10687,6 +10688,7 @@ components:
           - linux-vm
           - container
           - android
+          - windows
           example: linux-vm
           type: string
         state:
@@ -11117,6 +11119,7 @@ components:
           - linux-vm
           - container
           - android
+          - windows
           example: linux-vm
           type: string
         daemonVersion:
@@ -13935,6 +13938,7 @@ components:
           - linux-vm
           - container
           - android
+          - windows
           example: linux-vm
           type: string
       required:
