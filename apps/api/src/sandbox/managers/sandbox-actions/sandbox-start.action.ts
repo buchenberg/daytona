@@ -198,6 +198,7 @@ export class SandboxStartAction extends SandboxAction {
         sandboxClass: sandbox.sandboxClass,
         snapshotRef: snapshotRef,
         gpu: sandbox.gpu,
+        gpuType: sandbox.gpuType ?? null,
         ...(buildInfoOverloadedRunnerIds.length > 0 && { excludedRunnerIds: buildInfoOverloadedRunnerIds }),
         ...(isBuild &&
           declarativeBuildScoreThreshold !== undefined && {
@@ -230,6 +231,9 @@ export class SandboxStartAction extends SandboxAction {
       // can return GPU/non-GPU mismatched runners via stale snapshot_runner rows.
       if (sandbox.gpu > 0) {
         if (runner.gpu === null || runner.gpu < sandbox.gpu) {
+          continue
+        }
+        if (sandbox.gpuType && runner.gpuType !== sandbox.gpuType) {
           continue
         }
       } else if (runner.gpu !== null && runner.gpu > 0) {
@@ -278,6 +282,7 @@ export class SandboxStartAction extends SandboxAction {
         regions: [effectiveRegion],
         sandboxClass: sandbox.sandboxClass,
         gpu: sandbox.gpu,
+        gpuType: sandbox.gpuType ?? null,
         excludedRunnerIds: excludedRunnerIds,
         ...(isBuild &&
           declarativeBuildScoreThreshold !== undefined && {
@@ -522,6 +527,7 @@ export class SandboxStartAction extends SandboxAction {
             ],
             sandboxClass: sandbox.sandboxClass,
             gpu: sandbox.gpu,
+            gpuType: sandbox.gpuType ?? null,
           })
           const lessUsedRunners = availableRunners.filter((runner) => runner.id !== originalRunnerId)
 
@@ -808,6 +814,7 @@ export class SandboxStartAction extends SandboxAction {
           snapshotRef,
           excludedRunnerIds,
           gpu: sandbox.gpu,
+          gpuType: sandbox.gpuType ?? null,
         })
       : []
     if (runnersWithBaseSnapshot.length > 0) {
@@ -819,6 +826,7 @@ export class SandboxStartAction extends SandboxAction {
         sandboxClass: sandbox.sandboxClass,
         excludedRunnerIds,
         gpu: sandbox.gpu,
+        gpuType: sandbox.gpuType ?? null,
       })
     }
 

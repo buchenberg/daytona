@@ -9850,10 +9850,21 @@ components:
       - CONTAINER
       - ANDROID
       - WINDOWS
+    GpuType:
+      enum:
+      - H100
+      - RTX-PRO-6000
+      type: string
+      x-enum-varnames:
+      - H100
+      - RTX_PRO_6000
     RegionUsageOverview:
       example:
         totalCpuQuota: 0.8008281904610115
         currentGpuUsage: 9.301444243932576
+        allowedGpuTypes:
+        - H100
+        - H100
         maxDiskPerGpuSandbox: 1.4894159098541704
         totalGpuQuota: 7.061401241503109
         maxCpuPerGpuSandbox: 1.2315135367772556
@@ -9891,6 +9902,10 @@ components:
           type: number
         currentGpuUsage:
           type: number
+        allowedGpuTypes:
+          items:
+            $ref: "#/components/schemas/GpuType"
+          type: array
         maxCpuPerSandbox:
           nullable: true
           type: number
@@ -9940,6 +9955,9 @@ components:
         regionUsage:
         - totalCpuQuota: 0.8008281904610115
           currentGpuUsage: 9.301444243932576
+          allowedGpuTypes:
+          - H100
+          - H100
           maxDiskPerGpuSandbox: 1.4894159098541704
           totalGpuQuota: 7.061401241503109
           maxCpuPerGpuSandbox: 1.2315135367772556
@@ -9957,6 +9975,9 @@ components:
           maxMemoryPerGpuSandbox: 1.0246457001441578
         - totalCpuQuota: 0.8008281904610115
           currentGpuUsage: 9.301444243932576
+          allowedGpuTypes:
+          - H100
+          - H100
           maxDiskPerGpuSandbox: 1.4894159098541704
           totalGpuQuota: 7.061401241503109
           maxCpuPerGpuSandbox: 1.2315135367772556
@@ -10066,16 +10087,19 @@ components:
     UpdateOrganizationRegionQuota:
       example:
         totalCpuQuota: 0.8008281904610115
+        allowedGpuTypes:
+        - H100
+        - H100
+        maxDiskPerGpuSandbox: 4.145608029883936
+        totalGpuQuota: 5.962133916683182
+        maxCpuPerGpuSandbox: 3.616076749251911
         maxCpuPerSandbox: 5.637376656633329
         maxDiskPerSandbox: 7.061401241503109
         maxDiskPerNonEphemeralSandbox: 9.301444243932576
-        maxDiskPerGpuSandbox: 4.145608029883936
         maxMemoryPerSandbox: 2.3021358869347655
-        totalGpuQuota: 5.962133916683182
         totalMemoryQuota: 6.027456183070403
         totalDiskQuota: 1.4658129805029452
         sandboxClass: ""
-        maxCpuPerGpuSandbox: 3.616076749251911
         maxMemoryPerGpuSandbox: 2.027123023002322
       properties:
         sandboxClass:
@@ -10093,6 +10117,11 @@ components:
         totalGpuQuota:
           nullable: true
           type: number
+        allowedGpuTypes:
+          items:
+            $ref: "#/components/schemas/GpuType"
+          nullable: true
+          type: array
         maxCpuPerSandbox:
           nullable: true
           type: number
@@ -10746,6 +10775,7 @@ components:
         id: sandbox123
         state: creating
         sandboxClass: linux-vm
+        gpuType: H100
         updatedAt: 2024-10-01T12:00:00Z
         desiredState: destroyed
         recoverable: true
@@ -10835,6 +10865,11 @@ components:
           description: The GPU quota for the sandbox
           example: 0
           type: number
+        gpuType:
+          allOf:
+          - $ref: "#/components/schemas/GpuType"
+          description: The GPU type assigned to the sandbox
+          example: H100
         memory:
           description: The memory quota for the sandbox
           example: 4
@@ -10924,6 +10959,7 @@ components:
           id: sandbox123
           state: creating
           sandboxClass: linux-vm
+          gpuType: H100
           updatedAt: 2024-10-01T12:00:00Z
           desiredState: destroyed
           recoverable: true
@@ -10952,6 +10988,7 @@ components:
           id: sandbox123
           state: creating
           sandboxClass: linux-vm
+          gpuType: H100
           updatedAt: 2024-10-01T12:00:00Z
           desiredState: destroyed
           recoverable: true
@@ -11058,6 +11095,7 @@ components:
         runnerId: runner123
         id: sandbox123
         state: creating
+        gpuType: H100
         updatedAt: 2024-10-01T12:00:00Z
         sandboxClass: linux-vm
         desiredState: destroyed
@@ -11145,6 +11183,11 @@ components:
           description: The GPU quota for the sandbox
           example: 0
           type: number
+        gpuType:
+          allOf:
+          - $ref: "#/components/schemas/GpuType"
+          description: The GPU type assigned to the sandbox
+          example: H100
         memory:
           description: The memory quota for the sandbox
           example: 4
@@ -11287,6 +11330,7 @@ components:
           runnerId: runner123
           id: sandbox123
           state: creating
+          gpuType: H100
           updatedAt: 2024-10-01T12:00:00Z
           sandboxClass: linux-vm
           desiredState: destroyed
@@ -11329,6 +11373,7 @@ components:
           runnerId: runner123
           id: sandbox123
           state: creating
+          gpuType: H100
           updatedAt: 2024-10-01T12:00:00Z
           sandboxClass: linux-vm
           desiredState: destroyed
@@ -11424,6 +11469,8 @@ components:
         user: daytona
         autoArchiveInterval: 10080
         snapshot: ubuntu-4vcpu-8ram-100gb
+        gpuType:
+        - H100
       properties:
         name:
           description: "The name of the sandbox. If not provided, the sandbox ID will\
@@ -11477,6 +11524,15 @@ components:
           description: GPU units allocated to the sandbox
           example: 1
           type: integer
+        gpuType:
+          description: Preferred GPU type for the sandbox. Accepts a single value
+            or an ordered preference list — the scheduler tries each in order and
+            pins the sandbox to the first that has capacity.
+          example:
+          - H100
+          items:
+            $ref: "#/components/schemas/GpuType"
+          type: array
         memory:
           description: Memory allocated to the sandbox in GB
           example: 1
@@ -11776,6 +11832,9 @@ components:
     RegionQuota:
       example:
         totalCpuQuota: 0.8008281904610115
+        allowedGpuTypes:
+        - H100
+        - H100
         maxDiskPerGpuSandbox: 4.145608029883936
         totalGpuQuota: 5.962133916683182
         maxCpuPerGpuSandbox: 3.616076749251911
@@ -11805,6 +11864,10 @@ components:
           type: number
         totalGpuQuota:
           type: number
+        allowedGpuTypes:
+          items:
+            $ref: "#/components/schemas/GpuType"
+          type: array
         maxCpuPerSandbox:
           nullable: true
           type: number
@@ -13896,6 +13959,8 @@ components:
         name: ubuntu-4vcpu-8ram-100gb
         cpu: 1
         gpu: 0
+        gpuType:
+        - H100
         sandboxClass: linux-vm
       properties:
         name:
@@ -13920,6 +13985,13 @@ components:
           description: GPU units allocated to the resulting sandbox
           example: 0
           type: integer
+        gpuType:
+          description: Preferred GPU type for the resulting sandbox.
+          example:
+          - H100
+          items:
+            $ref: "#/components/schemas/GpuType"
+          type: array
         memory:
           description: Memory allocated to the resulting sandbox in GB
           example: 1
@@ -13981,6 +14053,7 @@ components:
         id: id
         state: ""
         initialRunnerId: runner123
+        gpuType: H100
         updatedAt: 2000-01-23T04:56:07.000+00:00
         sandboxClass: linux-vm
       properties:
@@ -14009,6 +14082,11 @@ components:
           type: number
         gpu:
           type: number
+        gpuType:
+          allOf:
+          - $ref: "#/components/schemas/GpuType"
+          description: The GPU type assigned to the snapshot
+          example: H100
         mem:
           type: number
         disk:
@@ -14102,6 +14180,7 @@ components:
           id: id
           state: ""
           initialRunnerId: runner123
+          gpuType: H100
           updatedAt: 2000-01-23T04:56:07.000+00:00
           sandboxClass: linux-vm
         - imageName: imageName
@@ -14127,6 +14206,7 @@ components:
           id: id
           state: ""
           initialRunnerId: runner123
+          gpuType: H100
           updatedAt: 2000-01-23T04:56:07.000+00:00
           sandboxClass: linux-vm
       properties:
@@ -14893,16 +14973,19 @@ components:
     CreateOrganizationRegionQuota:
       example:
         totalCpuQuota: 0.8008281904610115
+        allowedGpuTypes:
+        - H100
+        - H100
+        maxDiskPerGpuSandbox: 4.145608029883936
+        totalGpuQuota: 5.962133916683182
+        maxCpuPerGpuSandbox: 3.616076749251911
         maxCpuPerSandbox: 5.637376656633329
         maxDiskPerSandbox: 7.061401241503109
         maxDiskPerNonEphemeralSandbox: 9.301444243932576
-        maxDiskPerGpuSandbox: 4.145608029883936
         maxMemoryPerSandbox: 2.3021358869347655
-        totalGpuQuota: 5.962133916683182
         totalMemoryQuota: 6.027456183070403
         totalDiskQuota: 1.4658129805029452
         sandboxClass: ""
-        maxCpuPerGpuSandbox: 3.616076749251911
         maxMemoryPerGpuSandbox: 2.027123023002322
       properties:
         sandboxClass:
@@ -14916,6 +14999,11 @@ components:
           type: number
         totalGpuQuota:
           type: number
+        allowedGpuTypes:
+          items:
+            $ref: "#/components/schemas/GpuType"
+          nullable: true
+          type: array
         maxCpuPerSandbox:
           nullable: true
           type: number

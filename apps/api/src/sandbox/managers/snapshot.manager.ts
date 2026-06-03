@@ -484,6 +484,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
             const runners = await this.runnerService.findAvailableRunners({
               regions: [region],
               gpu: snapshot.gpu,
+              gpuType: snapshot.gpuType ?? null,
               sandboxClass: getRunnerSandboxClass(snapshot.sandboxClass),
             })
             if (!runners.length) {
@@ -712,6 +713,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       unschedulable: Not(true),
       region: In(regionIds),
       gpu: snapshot.gpu > 0 ? MoreThanOrEqual(snapshot.gpu) : Or(IsNull(), Equal(0)),
+      gpuType: snapshot.gpuType ? snapshot.gpuType : IsNull(),
       // Temporary: Android snapshots can go to container runners
       sandboxClass: getRunnerSandboxClass(snapshot.sandboxClass),
     }
@@ -1175,6 +1177,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
                     sandboxClass: sandbox.sandboxClass,
                     excludedRunnerIds: [runner.id],
                     gpu: sandbox.gpu,
+                    gpuType: sandbox.gpuType ?? null,
                   })
 
                   // Check if snapshot runner entry already exists
@@ -1238,7 +1241,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
                   )
                   await this.redisLockProvider.unlock(sandboxLockKey)
                 } catch (e) {
-                  if (e instanceof BadRequestError && e.message === 'No available runners') {
+                  if (e instanceof BadRequestError && e.message.startsWith('No available runners')) {
                     this.logger.warn(
                       `No available runners found in region ${sandbox.region} for sandbox ${sandbox.id} snapshot migration`,
                     )
@@ -1786,6 +1789,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
           excludedRunnerIds: excludedRunnerIds,
           availabilityScoreThreshold: availabilityThreshold,
           gpu: snapshot.gpu,
+          gpuType: snapshot.gpuType ?? null,
         })
         // =================
         this.logger.warn('runnerId', initialRunner?.id)

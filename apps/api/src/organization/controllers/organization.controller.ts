@@ -417,6 +417,7 @@ export class OrganizationController {
         totalMemoryQuota: req.body?.totalMemoryQuota,
         totalDiskQuota: req.body?.totalDiskQuota,
         totalGpuQuota: req.body?.totalGpuQuota,
+        allowedGpuTypes: req.body?.allowedGpuTypes,
         maxCpuPerSandbox: req.body?.maxCpuPerSandbox,
         maxMemoryPerSandbox: req.body?.maxMemoryPerSandbox,
         maxDiskPerSandbox: req.body?.maxDiskPerSandbox,
