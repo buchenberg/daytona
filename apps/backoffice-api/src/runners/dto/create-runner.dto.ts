@@ -7,6 +7,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { IsString, IsNumber, IsEnum, IsBoolean, IsIn, IsOptional, Min, MaxLength } from 'class-validator'
 import { SandboxClass } from '@api/sandbox/enums/sandbox-class.enum'
 import { RunnerState } from '@api/sandbox/enums/runner-state.enum'
+import { GpuType } from '@api/sandbox/enums/gpu-type.enum'
 
 export class CreateRunnerDto {
   @ApiProperty({ description: 'Runner domain name', example: 'h1321.daytona.work' })
@@ -46,10 +47,10 @@ export class CreateRunnerDto {
   @IsOptional()
   gpu?: number
 
-  @ApiPropertyOptional({ description: 'GPU type', example: '' })
-  @IsString()
+  @ApiPropertyOptional({ description: 'GPU type', example: GpuType.H100 })
+  @IsEnum(GpuType)
   @IsOptional()
-  gpuType?: string
+  gpuType?: GpuType
 
   @ApiPropertyOptional({ description: 'Runner state', enum: RunnerState })
   @IsEnum(RunnerState)

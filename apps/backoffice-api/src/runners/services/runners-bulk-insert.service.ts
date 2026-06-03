@@ -121,7 +121,7 @@ export class RunnersBulkInsertService {
             diskGiB: runnerData.diskGiB,
             sandboxClass: runnerData.sandboxClass,
             gpu: runnerData.gpu ?? 0,
-            gpuType: runnerData.gpuType ?? '',
+            gpuType: runnerData.gpuType ?? null,
             state: runnerData.state ?? RunnerState.INITIALIZING,
             unschedulable: runnerData.unschedulable ?? false,
             apiVersion,
