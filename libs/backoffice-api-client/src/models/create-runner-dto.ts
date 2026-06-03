@@ -69,6 +69,7 @@ export const CreateRunnerDtoSandboxClassEnum = {
     LINUX_VM: 'linux-vm',
     CONTAINER: 'container',
     ANDROID: 'android',
+    WINDOWS: 'windows',
 } as const;
 
 export type CreateRunnerDtoSandboxClassEnum = typeof CreateRunnerDtoSandboxClassEnum[keyof typeof CreateRunnerDtoSandboxClassEnum];

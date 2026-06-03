@@ -47,6 +47,7 @@ export const RunnerResponseDtoClassEnum = {
     LINUX_VM: 'linux-vm',
     CONTAINER: 'container',
     ANDROID: 'android',
+    WINDOWS: 'windows',
 } as const;
 
 export type RunnerResponseDtoClassEnum = typeof RunnerResponseDtoClassEnum[keyof typeof RunnerResponseDtoClassEnum];

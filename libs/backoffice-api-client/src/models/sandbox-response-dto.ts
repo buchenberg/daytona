@@ -79,6 +79,7 @@ export const SandboxResponseDtoClassEnum = {
     LINUX_VM: 'linux-vm',
     CONTAINER: 'container',
     ANDROID: 'android',
+    WINDOWS: 'windows',
 } as const;
 
 export type SandboxResponseDtoClassEnum = typeof SandboxResponseDtoClassEnum[keyof typeof SandboxResponseDtoClassEnum];
