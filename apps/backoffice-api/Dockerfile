@@ -15,7 +15,7 @@ COPY package.json yarn.lock .yarnrc.yml ./
 RUN yarn install --immutable
 
 # Nx + TS config
-COPY nx.json tsconfig.base.json ./
+COPY nx.json tsconfig.base.json .nxignore ./
 
 COPY apps/backoffice-api/ apps/backoffice-api/
 COPY apps/backoffice-dashboard/ apps/backoffice-dashboard/
