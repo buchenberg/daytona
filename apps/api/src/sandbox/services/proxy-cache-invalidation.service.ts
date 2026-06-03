@@ -11,12 +11,14 @@ import Redis from 'ioredis'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { SandboxEvents } from '../constants/sandbox-events.constants'
 import { SandboxArchivedEvent } from '../events/sandbox-archived.event'
+import { SandboxPublicStatusUpdatedEvent } from '../events/sandbox-public-status-updated.event'
 
 @Injectable()
 export class ProxyCacheInvalidationService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ProxyCacheInvalidationService.name)
   private static readonly RUNNER_INFO_CACHE_PREFIX = 'proxy:sandbox-runner-info:'
   private proxyEuRedis: Redis | null = null
+  private static readonly PUBLIC_CACHE_PREFIX = 'proxy:sandbox-public:'
 
   constructor(
     @InjectRedis() private readonly redis: Redis,
@@ -45,6 +47,11 @@ export class ProxyCacheInvalidationService implements OnModuleInit, OnModuleDest
     await this.invalidateRunnerCache(event.sandbox.id)
   }
 
+  @OnEvent(SandboxEvents.PUBLIC_STATUS_UPDATED)
+  async handleSandboxPublicStatusUpdated(event: SandboxPublicStatusUpdatedEvent): Promise<void> {
+    await this.invalidatePublicCache(event.sandbox.id)
+  }
+
   private async invalidateRunnerCache(sandboxId: string): Promise<void> {
     const key = `${ProxyCacheInvalidationService.RUNNER_INFO_CACHE_PREFIX}${sandboxId}`
 
@@ -67,5 +74,14 @@ export class ProxyCacheInvalidationService implements OnModuleInit, OnModuleDest
   private async deleteKey(redis: Redis, key: string, label: string): Promise<void> {
     await redis.del(key)
     this.logger.debug(`Deleted cache key from ${label} Redis: ${key}`)
+  }
+
+  private async invalidatePublicCache(sandboxId: string): Promise<void> {
+    try {
+      await this.redis.del(`${ProxyCacheInvalidationService.PUBLIC_CACHE_PREFIX}${sandboxId}`)
+      this.logger.debug(`Invalidated sandbox public cache for ${sandboxId}`)
+    } catch (error) {
+      this.logger.warn(`Failed to invalidate public cache for sandbox ${sandboxId}: ${error.message}`)
+    }
   }
 }
