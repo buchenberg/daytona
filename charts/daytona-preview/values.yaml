@@ -183,7 +183,9 @@ services:
     oidcClientSecret:
       secretName: ''
       secretKey: 'OIDC_CLIENT_SECRET'
-    extraEnv: []
+    extraEnv:
+      - name: PREVIEW_WARNING_ENABLED
+        value: 'true'
     resources:
       limits:
         memory: 256Mi
