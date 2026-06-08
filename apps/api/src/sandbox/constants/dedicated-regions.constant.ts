@@ -111,6 +111,12 @@ export const LG_ORGS = new Set([
 export const BUILD_INFO_BLOCKED_ORGS = ['33c1c3f2-fa47-4951-8694-17e1b71083c4', '6e9d049e-d6c3-44ed-abcc-41b6ea478dce']
 
 /*
+ * Organizations that default to the H100 GPU type when creating a GPU sandbox
+ * without specifying a GPU type.
+ */
+export const GPU_TYPE_DEFAULT_H100_ORGS = new Set(['fd4f4489-5a9b-4d7b-b62e-dbd26113115c'])
+
+/*
  * Regions with restricted sandbox creation
  */
 export const RESTRICTED_REGIONS = ['RL']

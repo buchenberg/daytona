@@ -69,7 +69,9 @@ import {
   BUILD_INFO_BLOCKED_ORGS,
   LARGE_SANDBOX_SHARED_REGION,
   GPU_REGION,
+  GPU_TYPE_DEFAULT_H100_ORGS,
 } from '../constants/dedicated-regions.constant'
+import { GpuType } from '../enums/gpu-type.enum'
 import { PaginatedList } from '../../common/interfaces/paginated-list.interface'
 import {
   SandboxSortFieldDeprecated,
@@ -533,7 +535,13 @@ export class SandboxService {
       const mem = snapshot.mem
       const disk = snapshot.disk
       const gpu = snapshot.gpu
-      const gpuType = snapshot.gpuType ?? null
+      let gpuType = snapshot.gpuType ?? null
+
+      // For select organizations, default GPU sandboxes without an explicit GPU
+      // type to H100.
+      if (gpu > 0 && !gpuType && GPU_TYPE_DEFAULT_H100_ORGS.has(organization.id)) {
+        gpuType = GpuType.H100
+      }
 
       // GPU sandboxes are always ephemeral.
       if (gpu > 0 && !isEphemeral(createSandboxDto)) {
@@ -897,7 +905,19 @@ export class SandboxService {
       const regionQuota = region.enforceQuotas
         ? await this.organizationService.getRegionQuota(organization.id, region.id, SandboxClass.CONTAINER)
         : null
-      const gpuTypePreferences = resolveGpuTypePreferences(gpu, createSandboxDto.gpuType, regionQuota?.allowedGpuTypes)
+
+      // For select organizations, default GPU sandboxes without an explicit GPU
+      // type to H100.
+      let requestedGpuType = createSandboxDto.gpuType
+      if (
+        gpu > 0 &&
+        (!requestedGpuType || requestedGpuType.length === 0) &&
+        GPU_TYPE_DEFAULT_H100_ORGS.has(organization.id)
+      ) {
+        requestedGpuType = [GpuType.H100]
+      }
+
+      const gpuTypePreferences = resolveGpuTypePreferences(gpu, requestedGpuType, regionQuota?.allowedGpuTypes)
 
       const { pendingCpuIncremented, pendingMemoryIncremented, pendingDiskIncremented, pendingGpuIncremented } =
         await this.validateOrganizationQuotas(
