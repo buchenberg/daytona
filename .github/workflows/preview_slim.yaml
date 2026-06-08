@@ -187,9 +187,9 @@ jobs:
             --wait \
             --timeout 10m
 
-      - name: Clean up old releases
-        run: |
-          helm list --namespace preview --date --reverse -q | tail -n +11 | xargs -r -I {} helm uninstall {} --namespace preview
+      # - name: Clean up old releases
+      #   run: |
+      #     helm list --namespace preview --date --reverse -q | tail -n +11 | xargs -r -I {} helm uninstall {} --namespace preview
 
       - name: Print preview URLs
         env:
