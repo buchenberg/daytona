@@ -63,7 +63,7 @@ class RunnerFull(BaseModel):
     updated_at: StrictStr = Field(description="The last update timestamp of the runner", serialization_alias="updatedAt")
     version: StrictStr = Field(description="The version of the runner (deprecated in favor of apiVersion)")
     api_version: StrictStr = Field(description="The api version of the runner", serialization_alias="apiVersion")
-    runner_class: RunnerClass = Field(description="The class of the runner", serialization_alias="runnerClass")
+    runner_class: RunnerClass = Field(description="The class of the runner. Deprecated and always returns \"container\" for backward compatibility - use sandboxClass instead.", serialization_alias="runnerClass")
     app_version: Optional[StrictStr] = Field(default=None, description="The app version of the runner", serialization_alias="appVersion")
     var_class: Optional[StrictStr] = Field(default=None, description="Deprecated runner class property", serialization_alias="class")
     api_key: StrictStr = Field(description="The API key for the runner", serialization_alias="apiKey")

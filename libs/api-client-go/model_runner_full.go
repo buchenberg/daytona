@@ -81,7 +81,8 @@ type RunnerFull struct {
 	// The api version of the runner
 	// Deprecated
 	ApiVersion string `json:"apiVersion"`
-	// The class of the runner
+	// The class of the runner. Deprecated and always returns \"container\" for backward compatibility - use sandboxClass instead.
+	// Deprecated
 	RunnerClass RunnerClass `json:"runnerClass"`
 	// The app version of the runner
 	// Deprecated
@@ -961,6 +962,7 @@ func (o *RunnerFull) SetApiVersion(v string) {
 }
 
 // GetRunnerClass returns the RunnerClass field value
+// Deprecated
 func (o *RunnerFull) GetRunnerClass() RunnerClass {
 	if o == nil {
 		var ret RunnerClass
@@ -972,6 +974,7 @@ func (o *RunnerFull) GetRunnerClass() RunnerClass {
 
 // GetRunnerClassOk returns a tuple with the RunnerClass field value
 // and a boolean to check if the value has been set.
+// Deprecated
 func (o *RunnerFull) GetRunnerClassOk() (*RunnerClass, bool) {
 	if o == nil {
 		return nil, false
@@ -980,6 +983,7 @@ func (o *RunnerFull) GetRunnerClassOk() (*RunnerClass, bool) {
 }
 
 // SetRunnerClass sets field value
+// Deprecated
 func (o *RunnerFull) SetRunnerClass(v RunnerClass) {
 	o.RunnerClass = v
 }
