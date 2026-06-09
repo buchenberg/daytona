@@ -23,7 +23,7 @@ jobs:
   go-work:
     if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
     name: Go work
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -41,7 +41,7 @@ jobs:
   cli-docs:
     if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
     name: CLI docs
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -68,7 +68,7 @@ jobs:
   golangci:
     if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
     name: Go lint
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     strategy:
       matrix:
         working-directory: [apps/daemon, apps/runner, apps/cli, apps/proxy, libs/sdk-go, apps/otel-collector/exporter]
@@ -96,7 +96,7 @@ jobs:
   lint-computer-use:
     if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
     name: Go lint (Computer Use)
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -122,7 +122,7 @@ jobs:
   lint-python:
     if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
     name: Python lint
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -153,7 +153,7 @@ jobs:
   format-lint-api-clients:
     if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
     name: Format, lint and generate API clients
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -180,7 +180,7 @@ jobs:
   typecheck-sdk-typescript:
     if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
     name: TypeScript SDK type check
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -206,7 +206,7 @@ jobs:
 
   test:
     if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -225,7 +225,7 @@ jobs:
 
   build:
     if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -238,7 +238,7 @@ jobs:
 
   license-check:
     if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -261,7 +261,7 @@ jobs:
   yarnrc-lint:
     if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
     name: Yarnrc integrity check
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
