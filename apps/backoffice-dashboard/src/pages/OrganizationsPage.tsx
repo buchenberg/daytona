@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { PageLayout, PageHeader, PageTitle, PageContent } from '@dashboard/components/PageLayout'
+import { PageLayout, PageHeaderBase, PageTitle, PageContent } from '@dashboard/components/PageLayout'
 import { FilterPanel } from '../features/organizations/FilterPanel'
 import { TableView } from '../features/organizations/TableView'
 import { useOrganizations } from '../features/organizations/useOrganizations'
@@ -100,9 +100,9 @@ export const OrganizationsPage = () => {
 
   return (
     <PageLayout>
-      <PageHeader>
+      <PageHeaderBase>
         <PageTitle>Organizations</PageTitle>
-      </PageHeader>
+      </PageHeaderBase>
       <PageContent size="full">
         {canBulkWrite && selectedRowKeys.length > 0 && (
           <BulkActionToolbar

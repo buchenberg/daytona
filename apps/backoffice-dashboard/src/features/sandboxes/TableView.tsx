@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Filter, RefreshCw, Edit } from 'lucide-react'
+import { Filter, RefreshCw, Edit, ScanSearch } from 'lucide-react'
 import { Button } from '@dashboard/ui/button'
 import { Badge } from '@dashboard/ui/badge'
 import { Input } from '@dashboard/ui/input'
@@ -27,6 +27,7 @@ interface TableViewProps {
   onFilterClick: () => void
   onRefresh: () => void
   onEdit?: (sandbox: Sandbox) => void
+  onInspect?: (sandbox: Sandbox) => void
   activeFilterCount: number
   selectedRowKeys: string[]
   onSelectionChange: (selectedRowKeys: string[]) => void
@@ -80,6 +81,7 @@ export const TableView = ({
   onFilterClick,
   onRefresh,
   onEdit,
+  onInspect,
   activeFilterCount,
   selectedRowKeys,
   onSelectionChange,
@@ -209,24 +211,42 @@ export const TableView = ({
     },
   ]
 
-  if (onEdit && canWrite) {
+  const showActionsColumn = (onEdit && canWrite) || Boolean(onInspect)
+  if (showActionsColumn) {
     columns.push({
       key: 'actions',
       title: 'Actions',
-      width: '100px',
+      width: '180px',
       render: (sandbox) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation()
-            onEdit(sandbox)
-          }}
-          disabled={sandbox.state === SandboxState.DESTROYED}
-        >
-          <Edit className="mr-1 h-3 w-3" />
-          Edit
-        </Button>
+        <div className="flex items-center gap-1">
+          {onInspect && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                onInspect(sandbox)
+              }}
+            >
+              <ScanSearch className="mr-1 h-3 w-3" />
+              Inspect
+            </Button>
+          )}
+          {onEdit && canWrite && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdit(sandbox)
+              }}
+              disabled={sandbox.state === SandboxState.DESTROYED}
+            >
+              <Edit className="mr-1 h-3 w-3" />
+              Edit
+            </Button>
+          )}
+        </div>
       ),
     })
   }

@@ -20,7 +20,7 @@
  * so it must stay small and JSON-serializable (no classes, no Dates).
  */
 
-export type SandboxAction = 'read' | 'write' | 'write-bulk' | 'delete'
+export type SandboxAction = 'read' | 'write' | 'write-bulk' | 'delete' | 'resync'
 export type SnapshotAction = 'read' | 'write' | 'write-bulk' | 'delete'
 export type RunnerAction = 'read' | 'write' | 'write-bulk' | 'delete'
 export type OrganizationAction = 'read' | 'write' | 'write-bulk' | 'delete'
@@ -61,7 +61,7 @@ export const ALL_RESOURCES: readonly PermissionResource[] = [
 ] as const
 
 export const ACTIONS_BY_RESOURCE: { [R in PermissionResource]: readonly ActionFor<R>[] } = {
-  sandboxes: ['read', 'write', 'write-bulk', 'delete'],
+  sandboxes: ['read', 'write', 'write-bulk', 'delete', 'resync'],
   snapshots: ['read', 'write', 'write-bulk', 'delete'],
   runners: ['read', 'write', 'write-bulk', 'delete'],
   organizations: ['read', 'write', 'write-bulk', 'delete'],

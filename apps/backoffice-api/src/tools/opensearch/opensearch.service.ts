@@ -75,4 +75,25 @@ export class OpensearchService {
     const resp = await this.getClient().post(`/${index}/_search`, body)
     return resp.data
   }
+
+  /**
+   * Fetch a single document by its OpenSearch `_id` (i.e. `GET /<index>/_doc/<id>`).
+   * Returns `{ found: false, source: null }` cleanly on 404 so callers can distinguish
+   * "document missing" (a drift signal) from "OpenSearch error".
+   */
+  async getDocument(index: string, id: string): Promise<{ found: boolean; source: Record<string, unknown> | null }> {
+    try {
+      const resp = await this.getClient().get(`/${encodeURIComponent(index)}/_doc/${encodeURIComponent(id)}`)
+      const data = resp.data as { found?: boolean; _source?: Record<string, unknown> }
+      if (data.found === false) {
+        return { found: false, source: null }
+      }
+      return { found: true, source: data._source ?? null }
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 404) {
+        return { found: false, source: null }
+      }
+      throw err
+    }
+  }
 }

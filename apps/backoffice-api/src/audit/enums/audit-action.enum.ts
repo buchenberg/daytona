@@ -16,4 +16,5 @@ export enum AuditAction {
   DELETION_PREVIEW = 'deletion_preview',
   IMPORT = 'import',
   LOGIN = 'login',
+  FORCE_RESYNC = 'force_resync',
 }

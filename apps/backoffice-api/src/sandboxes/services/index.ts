@@ -6,3 +6,5 @@
 export * from './sandboxes.service'
 export * from './sandboxes-bulk.service'
 export * from './sandboxes-search.service'
+export * from './sandbox-sync-status.service'
+export * from './sandbox-resync.service'

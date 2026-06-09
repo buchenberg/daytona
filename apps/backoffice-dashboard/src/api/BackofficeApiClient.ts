@@ -57,6 +57,8 @@ import type {
   BulkUpdateResponseDto,
   BulkInsertRunnerDto,
   BulkInsertResponseDto,
+  SandboxSyncStatusResponseDto,
+  SandboxResyncResponseDto,
 } from '@daytonaio/backoffice-api-client'
 import axios from 'axios'
 
@@ -273,6 +275,17 @@ export class BackofficeApiClient {
   // Add snapshot to warm pool
   async addToWarmPool(snapshotId: string, request: AddToWarmPoolDto): Promise<AddToWarmPoolResponseDto> {
     const response = await this.snapshotsApi.snapshotsControllerAddToWarmPool(snapshotId, request)
+    return response.data
+  }
+
+  // Sandbox sync inspector methods
+  async getSandboxSyncStatus(sandboxId: string): Promise<SandboxSyncStatusResponseDto> {
+    const response = await this.sandboxesApi.sandboxSyncStatusControllerGetSyncStatus(sandboxId)
+    return response.data
+  }
+
+  async forceOrganizationResyncForSandbox(sandboxId: string): Promise<SandboxResyncResponseDto> {
+    const response = await this.sandboxesApi.sandboxSyncStatusControllerForceOrganizationResync(sandboxId)
     return response.data
   }
 }

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { PageLayout, PageHeader, PageTitle, PageContent } from '@dashboard/components/PageLayout'
+import { PageLayout, PageHeaderBase, PageTitle, PageContent } from '@dashboard/components/PageLayout'
 import { useState, useEffect } from 'react'
 import { FilterPanel } from '../features/organization-users/FilterPanel'
 import { TableView } from '../features/organization-users/TableView'
@@ -95,9 +95,9 @@ export const OrganizationUsersPage = () => {
 
   return (
     <PageLayout>
-      <PageHeader>
+      <PageHeaderBase>
         <PageTitle>Organization Users</PageTitle>
-      </PageHeader>
+      </PageHeaderBase>
       <PageContent size="full">
         {canBulkWrite && selectedRowKeys.length > 0 && (
           <BulkActionToolbar

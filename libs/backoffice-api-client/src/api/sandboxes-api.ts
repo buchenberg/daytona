@@ -28,7 +28,11 @@ import type { BulkUpdateSandboxDto } from '../models';
 // @ts-ignore
 import type { PatchSandboxDto } from '../models';
 // @ts-ignore
+import type { SandboxResyncResponseDto } from '../models';
+// @ts-ignore
 import type { SandboxSearchResponseDto } from '../models';
+// @ts-ignore
+import type { SandboxSyncStatusResponseDto } from '../models';
 // @ts-ignore
 import type { SearchSandboxDto } from '../models';
 /**
@@ -36,6 +40,82 @@ import type { SearchSandboxDto } from '../models';
  */
 export const SandboxesApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
+        /**
+         * IMPORTANT: this operation is organization-scoped, not sandbox-scoped. The :sandboxId path parameter is only used to resolve the owning organizationId — the resync itself affects EVERY sandbox in that organization. Mechanism: inserts a Debezium signal row that triggers an incremental snapshot of public.sandbox filtered by organizationId. Other sandboxes in the same organization may briefly appear out of sync to their owners while the resync propagates. Idempotent — each call enqueues a fresh signal.
+         * @summary Force an OpenSearch resync for EVERY sandbox in the organization that owns this sandbox (organization-scoped, not sandbox-scoped)
+         * @param {string} sandboxId Any sandbox belonging to the organization you want to resync. Used to derive organizationId server-side.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        sandboxSyncStatusControllerForceOrganizationResync: async (sandboxId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'sandboxId' is not null or undefined
+            assertParamExists('sandboxSyncStatusControllerForceOrganizationResync', 'sandboxId', sandboxId)
+            const localVarPath = `/sandboxes/{sandboxId}/sync-status/resync`
+                .replace(`{${"sandboxId"}}`, encodeURIComponent(String(sandboxId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Returns a field-by-field comparison between the source-of-truth database row and the OpenSearch indexed document. Used to diagnose whether a sandbox is genuinely stuck or whether OpenSearch is stale relative to the database.
+         * @summary Inspect database vs OpenSearch sync state for a single sandbox
+         * @param {string} sandboxId Sandbox ID
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        sandboxSyncStatusControllerGetSyncStatus: async (sandboxId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'sandboxId' is not null or undefined
+            assertParamExists('sandboxSyncStatusControllerGetSyncStatus', 'sandboxId', sandboxId)
+            const localVarPath = `/sandboxes/{sandboxId}/sync-status`
+                .replace(`{${"sandboxId"}}`, encodeURIComponent(String(sandboxId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
         /**
          * 
          * @summary Bulk update sandboxes
@@ -166,6 +246,32 @@ export const SandboxesApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = SandboxesApiAxiosParamCreator(configuration)
     return {
         /**
+         * IMPORTANT: this operation is organization-scoped, not sandbox-scoped. The :sandboxId path parameter is only used to resolve the owning organizationId — the resync itself affects EVERY sandbox in that organization. Mechanism: inserts a Debezium signal row that triggers an incremental snapshot of public.sandbox filtered by organizationId. Other sandboxes in the same organization may briefly appear out of sync to their owners while the resync propagates. Idempotent — each call enqueues a fresh signal.
+         * @summary Force an OpenSearch resync for EVERY sandbox in the organization that owns this sandbox (organization-scoped, not sandbox-scoped)
+         * @param {string} sandboxId Any sandbox belonging to the organization you want to resync. Used to derive organizationId server-side.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async sandboxSyncStatusControllerForceOrganizationResync(sandboxId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SandboxResyncResponseDto>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.sandboxSyncStatusControllerForceOrganizationResync(sandboxId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['SandboxesApi.sandboxSyncStatusControllerForceOrganizationResync']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Returns a field-by-field comparison between the source-of-truth database row and the OpenSearch indexed document. Used to diagnose whether a sandbox is genuinely stuck or whether OpenSearch is stale relative to the database.
+         * @summary Inspect database vs OpenSearch sync state for a single sandbox
+         * @param {string} sandboxId Sandbox ID
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async sandboxSyncStatusControllerGetSyncStatus(sandboxId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SandboxSyncStatusResponseDto>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.sandboxSyncStatusControllerGetSyncStatus(sandboxId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['SandboxesApi.sandboxSyncStatusControllerGetSyncStatus']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @summary Bulk update sandboxes
          * @param {BulkUpdateSandboxDto} bulkUpdateSandboxDto 
@@ -215,6 +321,26 @@ export const SandboxesApiFactory = function (configuration?: Configuration, base
     const localVarFp = SandboxesApiFp(configuration)
     return {
         /**
+         * IMPORTANT: this operation is organization-scoped, not sandbox-scoped. The :sandboxId path parameter is only used to resolve the owning organizationId — the resync itself affects EVERY sandbox in that organization. Mechanism: inserts a Debezium signal row that triggers an incremental snapshot of public.sandbox filtered by organizationId. Other sandboxes in the same organization may briefly appear out of sync to their owners while the resync propagates. Idempotent — each call enqueues a fresh signal.
+         * @summary Force an OpenSearch resync for EVERY sandbox in the organization that owns this sandbox (organization-scoped, not sandbox-scoped)
+         * @param {string} sandboxId Any sandbox belonging to the organization you want to resync. Used to derive organizationId server-side.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        sandboxSyncStatusControllerForceOrganizationResync(sandboxId: string, options?: RawAxiosRequestConfig): AxiosPromise<SandboxResyncResponseDto> {
+            return localVarFp.sandboxSyncStatusControllerForceOrganizationResync(sandboxId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Returns a field-by-field comparison between the source-of-truth database row and the OpenSearch indexed document. Used to diagnose whether a sandbox is genuinely stuck or whether OpenSearch is stale relative to the database.
+         * @summary Inspect database vs OpenSearch sync state for a single sandbox
+         * @param {string} sandboxId Sandbox ID
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        sandboxSyncStatusControllerGetSyncStatus(sandboxId: string, options?: RawAxiosRequestConfig): AxiosPromise<SandboxSyncStatusResponseDto> {
+            return localVarFp.sandboxSyncStatusControllerGetSyncStatus(sandboxId, options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @summary Bulk update sandboxes
          * @param {BulkUpdateSandboxDto} bulkUpdateSandboxDto 
@@ -252,6 +378,28 @@ export const SandboxesApiFactory = function (configuration?: Configuration, base
  * SandboxesApi - object-oriented interface
  */
 export class SandboxesApi extends BaseAPI {
+    /**
+     * IMPORTANT: this operation is organization-scoped, not sandbox-scoped. The :sandboxId path parameter is only used to resolve the owning organizationId — the resync itself affects EVERY sandbox in that organization. Mechanism: inserts a Debezium signal row that triggers an incremental snapshot of public.sandbox filtered by organizationId. Other sandboxes in the same organization may briefly appear out of sync to their owners while the resync propagates. Idempotent — each call enqueues a fresh signal.
+     * @summary Force an OpenSearch resync for EVERY sandbox in the organization that owns this sandbox (organization-scoped, not sandbox-scoped)
+     * @param {string} sandboxId Any sandbox belonging to the organization you want to resync. Used to derive organizationId server-side.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public sandboxSyncStatusControllerForceOrganizationResync(sandboxId: string, options?: RawAxiosRequestConfig) {
+        return SandboxesApiFp(this.configuration).sandboxSyncStatusControllerForceOrganizationResync(sandboxId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Returns a field-by-field comparison between the source-of-truth database row and the OpenSearch indexed document. Used to diagnose whether a sandbox is genuinely stuck or whether OpenSearch is stale relative to the database.
+     * @summary Inspect database vs OpenSearch sync state for a single sandbox
+     * @param {string} sandboxId Sandbox ID
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public sandboxSyncStatusControllerGetSyncStatus(sandboxId: string, options?: RawAxiosRequestConfig) {
+        return SandboxesApiFp(this.configuration).sandboxSyncStatusControllerGetSyncStatus(sandboxId, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
      * 
      * @summary Bulk update sandboxes

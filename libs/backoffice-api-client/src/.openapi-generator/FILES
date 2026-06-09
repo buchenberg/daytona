@@ -83,8 +83,11 @@ models/runner-search-response-dto.ts
 models/sandbox-filters-dto.ts
 models/sandbox-preview-dto.ts
 models/sandbox-response-dto.ts
+models/sandbox-resync-response-dto.ts
 models/sandbox-search-data-dto.ts
 models/sandbox-search-response-dto.ts
+models/sandbox-sync-diff-entry-dto.ts
+models/sandbox-sync-status-response-dto.ts
 models/search-audit-logs-dto.ts
 models/search-organization-dto.ts
 models/search-organization-user-dto.ts

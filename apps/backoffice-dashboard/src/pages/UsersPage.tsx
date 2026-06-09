@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { PageLayout, PageHeader, PageTitle, PageContent } from '@dashboard/components/PageLayout'
+import { PageLayout, PageHeaderBase, PageTitle, PageContent } from '@dashboard/components/PageLayout'
 import { TableView } from '../features/users/TableView'
 import { UserFiltersPanel } from '../features/users/UserFiltersPanel'
 import { DeleteUserWizard } from '../features/users/DeleteUserWizard'
@@ -83,9 +83,9 @@ export const UsersPage = () => {
 
   return (
     <PageLayout>
-      <PageHeader>
+      <PageHeaderBase>
         <PageTitle>Users</PageTitle>
-      </PageHeader>
+      </PageHeaderBase>
       <PageContent size="full">
         <TableView
           users={users}

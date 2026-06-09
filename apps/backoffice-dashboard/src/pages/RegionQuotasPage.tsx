@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { PageLayout, PageHeader, PageTitle, PageContent } from '@dashboard/components/PageLayout'
+import { PageLayout, PageHeaderBase, PageTitle, PageContent } from '@dashboard/components/PageLayout'
 import { useState, useEffect } from 'react'
 import { Button } from '@dashboard/ui/button'
 import { Plus } from 'lucide-react'
@@ -100,7 +100,7 @@ export const RegionQuotasPage = () => {
 
   return (
     <PageLayout>
-      <PageHeader>
+      <PageHeaderBase>
         <PageTitle>Region Quotas</PageTitle>
         {canWrite && (
           <Button onClick={() => setCreateOpen(true)} className="ml-auto">
@@ -108,7 +108,7 @@ export const RegionQuotasPage = () => {
             New Region Quota
           </Button>
         )}
-      </PageHeader>
+      </PageHeaderBase>
       <PageContent size="full">
         {canBulkWrite && selectedRowKeys.length > 0 && (
           <BulkActionToolbar

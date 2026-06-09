@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { PageLayout, PageHeader, PageTitle, PageContent } from '@dashboard/components/PageLayout'
+import { PageLayout, PageHeaderBase, PageTitle, PageContent } from '@dashboard/components/PageLayout'
 import { FilterPanel } from '../features/runners/FilterPanel'
 import { TableView } from '../features/runners/TableView'
 import { EditRunnerModal } from '../features/runners/EditRunnerModal'
@@ -120,7 +120,7 @@ export const RunnersPage = () => {
 
   return (
     <PageLayout>
-      <PageHeader>
+      <PageHeaderBase>
         <PageTitle>Runners</PageTitle>
         {canBulkWrite && (
           <Button onClick={handleImportOpen} variant="outline" className="ml-auto">
@@ -128,7 +128,7 @@ export const RunnersPage = () => {
             Import Runners
           </Button>
         )}
-      </PageHeader>
+      </PageHeaderBase>
       <PageContent size="full">
         {canBulkWrite && selectedRowKeys.length > 0 && (
           <BulkActionToolbar

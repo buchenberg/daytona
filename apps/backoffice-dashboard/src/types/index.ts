@@ -105,6 +105,21 @@ export {
   UpdateOrganizationUserDtoRoleEnum as OrganizationMemberRole,
 } from '@daytonaio/backoffice-api-client'
 
+// Sandbox sync inspector — aliased to generated client types
+import type {
+  SandboxSyncStatusResponseDto,
+  SandboxResyncResponseDto,
+  SandboxSyncDiffEntryDto,
+  SandboxSyncDiffEntryDtoFieldEnum,
+  SandboxSyncDiffEntryDtoStatusEnum,
+} from '@daytonaio/backoffice-api-client'
+
+export type SandboxSyncStatusResponse = SandboxSyncStatusResponseDto
+export type SandboxResyncResponse = SandboxResyncResponseDto
+export type SandboxSyncDiffEntry = SandboxSyncDiffEntryDto
+export type SandboxSyncDiffField = SandboxSyncDiffEntryDtoFieldEnum
+export type SandboxSyncDiffStatus = SandboxSyncDiffEntryDtoStatusEnum
+
 // ============================================================================
 // BACKOFFICE-SPECIFIC TYPES (not in generated client)
 // ============================================================================

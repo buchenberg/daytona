@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { PageLayout, PageHeader, PageTitle, PageContent } from '@dashboard/components/PageLayout'
+import { PageLayout, PageHeaderBase, PageTitle, PageContent } from '@dashboard/components/PageLayout'
 import { useState, useEffect } from 'react'
 import { Label } from '@dashboard/ui/label'
 import { Switch } from '@dashboard/ui/switch'
@@ -11,6 +11,7 @@ import { FilterPanel } from '../features/sandboxes/FilterPanel'
 import { TableView } from '../features/sandboxes/TableView'
 import { EditSandboxModal } from '../features/sandboxes/EditSandboxModal'
 import { BulkEditModal } from '../features/sandboxes/BulkEditModal'
+import { SandboxSyncInspectorSheet } from '../features/sandboxes/SandboxSyncInspectorSheet'
 import { BulkActionToolbar } from '../components/BulkActionToolbar'
 import { useSandboxes } from '../features/sandboxes/useSandboxes'
 import { useHasPermission } from '../providers/ApiProvider'
@@ -21,6 +22,8 @@ export const SandboxesPage = () => {
   const [filterOpen, setFilterOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
+  const [inspectOpen, setInspectOpen] = useState(false)
+  const [inspectSandbox, setInspectSandbox] = useState<Sandbox | null>(null)
   const [selectedSandbox, setSelectedSandbox] = useState<Sandbox | null>(null)
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([])
   const [filters, setFilters] = useState<SandboxFiltersDto>({
@@ -105,6 +108,15 @@ export const SandboxesPage = () => {
     setEditOpen(true)
   }
 
+  const handleInspect = (sandbox: Sandbox) => {
+    setInspectSandbox(sandbox)
+    setInspectOpen(true)
+  }
+
+  const handleInspectClose = () => {
+    setInspectOpen(false)
+  }
+
   const handleEditSuccess = () => {
     refetch()
   }
@@ -139,7 +151,7 @@ export const SandboxesPage = () => {
 
   return (
     <PageLayout>
-      <PageHeader>
+      <PageHeaderBase>
         <PageTitle>Sandboxes</PageTitle>
         <div className="flex items-center gap-6 ml-auto">
           <div className="flex items-center gap-2">
@@ -153,7 +165,7 @@ export const SandboxesPage = () => {
             <Switch id="errors-only" checked={filters.errorOnly || false} onCheckedChange={handleToggleErrorOnly} />
           </div>
         </div>
-      </PageHeader>
+      </PageHeaderBase>
       <PageContent size="full">
         {canBulkWrite && selectedRowKeys.length > 0 && (
           <BulkActionToolbar
@@ -176,6 +188,7 @@ export const SandboxesPage = () => {
           onFilterClick={() => setFilterOpen(true)}
           onRefresh={() => refetch()}
           onEdit={handleEdit}
+          onInspect={handleInspect}
           activeFilterCount={activeFilterCount}
           selectedRowKeys={selectedRowKeys}
           onSelectionChange={handleSelectionChange}
@@ -208,6 +221,7 @@ export const SandboxesPage = () => {
           onClose={handleBulkEditClose}
           onSuccess={handleBulkEditSuccess}
         />
+        <SandboxSyncInspectorSheet sandbox={inspectSandbox} open={inspectOpen} onClose={handleInspectClose} />
       </PageContent>
     </PageLayout>
   )

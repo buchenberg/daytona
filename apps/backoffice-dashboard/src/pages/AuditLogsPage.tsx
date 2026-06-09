@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { PageLayout, PageHeader, PageTitle, PageContent } from '@dashboard/components/PageLayout'
+import { PageLayout, PageHeaderBase, PageTitle, PageContent } from '@dashboard/components/PageLayout'
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Label } from '@dashboard/ui/label'
@@ -184,7 +184,7 @@ export const AuditLogsPage = () => {
 
   return (
     <PageLayout>
-      <PageHeader>
+      <PageHeaderBase>
         <PageTitle>Audit Logs</PageTitle>
         <div className="flex items-center gap-4 ml-auto">
           <DateRangePicker
@@ -200,7 +200,7 @@ export const AuditLogsPage = () => {
             <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
           </div>
         </div>
-      </PageHeader>
+      </PageHeaderBase>
       <PageContent size="full">
         <DataTable
           columns={columns}

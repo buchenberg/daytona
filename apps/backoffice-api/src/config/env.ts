@@ -89,6 +89,12 @@ export const config = {
     organizationId: process.env.ADMIN_ORG_ID || '',
   },
 
+  sandboxSearch: {
+    publish: {
+      opensearchIndexName: process.env.SANDBOX_SEARCH_PUBLISH_OPENSEARCH_INDEX_NAME || 'sandboxes',
+    },
+  },
+
   mali: {
     anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
     model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6',

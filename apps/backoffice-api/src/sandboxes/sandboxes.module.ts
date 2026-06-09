@@ -8,14 +8,33 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 import { Sandbox } from '@api/sandbox/entities/sandbox.entity'
 import { SandboxLastActivity } from '@api/sandbox/entities/sandbox-last-activity.entity'
 import { Runner } from '@api/sandbox/entities/runner.entity'
-import { SandboxesController, SandboxesBulkController, SandboxesSearchController } from './controllers'
-import { SandboxesService, SandboxesBulkService, SandboxesSearchService } from './services'
+import {
+  SandboxesController,
+  SandboxesBulkController,
+  SandboxesSearchController,
+  SandboxSyncStatusController,
+} from './controllers'
+import {
+  SandboxesService,
+  SandboxesBulkService,
+  SandboxesSearchService,
+  SandboxSyncStatusService,
+  SandboxResyncService,
+} from './services'
 import { AuthModule } from '../auth/auth.module'
+import { OpensearchService } from '../tools/opensearch/opensearch.service'
 
 @Module({
   imports: [TypeOrmModule.forFeature([Sandbox, SandboxLastActivity, Runner]), AuthModule],
-  controllers: [SandboxesController, SandboxesBulkController, SandboxesSearchController],
-  providers: [SandboxesService, SandboxesBulkService, SandboxesSearchService],
+  controllers: [SandboxesController, SandboxesBulkController, SandboxesSearchController, SandboxSyncStatusController],
+  providers: [
+    SandboxesService,
+    SandboxesBulkService,
+    SandboxesSearchService,
+    SandboxSyncStatusService,
+    SandboxResyncService,
+    OpensearchService,
+  ],
   exports: [SandboxesService, SandboxesBulkService, SandboxesSearchService],
 })
 export class SandboxesModule {}
