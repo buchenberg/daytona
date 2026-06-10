@@ -38,7 +38,7 @@ import { WithInstrumentation } from '../../common/decorators/otel.decorator'
 import { DockerRegistry } from '../../docker-registry/entities/docker-registry.entity'
 import { SandboxService } from '../services/sandbox.service'
 import { SandboxRepository } from '../repositories/sandbox.repository'
-import { LARGE_SANDBOX_SHARED_REGION } from '../constants/dedicated-regions.constant'
+import { BACKUP_DISABLED_REGIONS, isBackupDisabledRegion } from '../constants/dedicated-regions.constant'
 import { Job } from '../entities/job.entity'
 import { JobStatus } from '../enums/job-status.enum'
 import { JobType } from '../enums/job-type.enum'
@@ -156,7 +156,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
               backupState: In([BackupState.NONE, BackupState.COMPLETED]),
               lastBackupAt: Or(IsNull(), LessThan(new Date(Date.now() - 1 * 60 * 60 * 1000))),
               autoDeleteInterval: Not(0),
-              region: Not(LARGE_SANDBOX_SHARED_REGION),
+              region: Not(In(BACKUP_DISABLED_REGIONS)),
             },
             order: {
               lastBackupAt: 'ASC',
@@ -223,7 +223,9 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         })
         .andWhere('sandbox.desiredState != :destroyed', { destroyed: SandboxDesiredState.DESTROYED })
         .andWhere('r.state = :ready', { ready: RunnerState.READY })
-        .andWhere('sandbox.region != :largeSharedRegion', { largeSharedRegion: LARGE_SANDBOX_SHARED_REGION })
+        .andWhere('sandbox.region NOT IN (:...backupDisabledRegions)', {
+          backupDisabledRegions: BACKUP_DISABLED_REGIONS,
+        })
         // Prioritize manual archival action, then auto-archive poller, then ad-hoc backup poller
         .addSelect(
           `
@@ -515,7 +517,9 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
         .where('sandbox.state IN (:...states)', { states: [SandboxState.ARCHIVING, SandboxState.STOPPED] })
         .andWhere('sandbox.backupState = :none', { none: BackupState.NONE })
-        .andWhere('sandbox.region != :largeSharedRegion', { largeSharedRegion: LARGE_SANDBOX_SHARED_REGION })
+        .andWhere('sandbox.region NOT IN (:...backupDisabledRegions)', {
+          backupDisabledRegions: BACKUP_DISABLED_REGIONS,
+        })
         .andWhere('sandbox.desiredState != :destroyed', { destroyed: SandboxDesiredState.DESTROYED })
         .andWhere('r.state = :ready', { ready: RunnerState.READY })
         .take(100)
@@ -600,6 +604,10 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
   }
 
   async setBackupPending(sandbox: Sandbox): Promise<void> {
+    if (isBackupDisabledRegion(sandbox.region)) {
+      return
+    }
+
     if (sandbox.backupState === BackupState.COMPLETED) {
       return
     }

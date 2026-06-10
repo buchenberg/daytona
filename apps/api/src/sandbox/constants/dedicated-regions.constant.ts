@@ -13,6 +13,21 @@ export const DEEPTUNE_DEDICATED_REGION = 'deeptune-dedicated'
 export const LARGE_SANDBOX_SHARED_REGION = 'large-sandbox-shared'
 export const ELEMENTOR_DEDICATED_REGION = 'elementor-dedicated'
 export const RL_REGION = 'RL'
+export const EXPERIMENTAL_REGION = 'experimental'
+
+/**
+ * Regions where automatic backups and archiving are disabled.
+ *
+ * Sandboxes in these regions are never backed up and cannot be archived.
+ */
+export const BACKUP_DISABLED_REGIONS: string[] = [LARGE_SANDBOX_SHARED_REGION, EXPERIMENTAL_REGION]
+
+/**
+ * @returns true if backups and archiving are disabled for the given region
+ */
+export function isBackupDisabledRegion(region: string): boolean {
+  return BACKUP_DISABLED_REGIONS.includes(region)
+}
 
 /**
  * @returns true if the region requires a higher availability score to be considered for runner assignment

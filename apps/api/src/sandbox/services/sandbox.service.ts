@@ -67,8 +67,8 @@ import { VolumeService } from './volume.service'
 import {
   resolveEffectiveRegion,
   BUILD_INFO_BLOCKED_ORGS,
-  LARGE_SANDBOX_SHARED_REGION,
   GPU_REGION,
+  isBackupDisabledRegion,
 } from '../constants/dedicated-regions.constant'
 import { PaginatedList } from '../../common/interfaces/paginated-list.interface'
 import {
@@ -370,8 +370,8 @@ export class SandboxService {
 
     this.assertSandboxNotErrored(sandbox)
 
-    if (sandbox.region === LARGE_SANDBOX_SHARED_REGION) {
-      throw new SandboxError('Sandboxes in the large sandbox shared region cannot be archived')
+    if (isBackupDisabledRegion(sandbox.region)) {
+      throw new SandboxError('Sandboxes in this region cannot be archived')
     }
 
     if (String(sandbox.state) !== String(sandbox.desiredState)) {
@@ -1109,6 +1109,10 @@ export class SandboxService {
 
     if (isEphemeral(sandbox)) {
       throw new SandboxError('Ephemeral sandboxes cannot be backed up')
+    }
+
+    if (isBackupDisabledRegion(sandbox.region)) {
+      throw new SandboxError('Sandboxes in this region cannot be backed up')
     }
 
     if (![BackupState.COMPLETED, BackupState.NONE].includes(sandbox.backupState)) {
