@@ -19,11 +19,12 @@ export const REGION_PROPAGATION_TIERS: Record<string, { threshold: number; perce
     { threshold: 0, percentage: 8, minimum: 0 },
   ],
   default: [
-    { threshold: 5000, percentage: 40, minimum: 0 },
-    { threshold: 1000, percentage: 20, minimum: 0 },
-    { threshold: 250, percentage: 8, minimum: 10 },
+    { threshold: 10000, percentage: 50, minimum: 40 },
+    { threshold: 5000, percentage: 33, minimum: 40 },
+    { threshold: 1000, percentage: 17, minimum: 40 },
+    { threshold: 250, percentage: 7, minimum: 10 },
     { threshold: 100, percentage: 5, minimum: 5 },
-    { threshold: 0, percentage: 3, minimum: 3 },
+    { threshold: 0, percentage: 2, minimum: 3 },
   ],
 }
 
@@ -31,14 +32,14 @@ export const ORGANIZATION_PROPAGATION_OVERRIDES: Record<
   string,
   { threshold: number; percentage: number; minimum: number }[]
 > = {
-  '8c0f7497-8037-4515-89a3-992bb9230cbc': [{ threshold: 0, percentage: 2, minimum: 0 }],
+  '8c0f7497-8037-4515-89a3-992bb9230cbc': [{ threshold: 0, percentage: 13, minimum: 0 }],
 }
 
 export const FROM_SANDBOX_PROPAGATION_OVERRIDES: Record<
   string,
   { threshold: number; percentage: number; minimum: number }[]
 > = {
-  '55717397-f840-4f5b-a829-77fd6f7cb2fc': [{ threshold: 0, percentage: 20, minimum: 3 }],
+  '55717397-f840-4f5b-a829-77fd6f7cb2fc': [{ threshold: 0, percentage: 10, minimum: 3 }],
 }
 
 const FROM_SANDBOX_DEFAULT_TIERS = [{ threshold: 0, percentage: 3, minimum: 3 }]
