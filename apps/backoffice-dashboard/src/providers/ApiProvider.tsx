@@ -4,7 +4,7 @@
  */
 
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router'
 import BackofficeApiClient from '../api/BackofficeApiClient'
 import { Permissions, PermissionResource, ActionFor, hasPermission } from '@backoffice-api/permissions'
 
