@@ -157,6 +157,12 @@ export class SnapshotService {
 
     const region = await this.getValidatedOrDefaultRegion(organization, createSnapshotDto.regionId)
 
+    if (region.id === 'android' && createSnapshotDto.sandboxClass === SandboxClass.ANDROID) {
+      throw new BadRequestException(
+        'Creating android sandbox snapshot is currently unavailable. Contact our support if you need custom android snapshots.',
+      )
+    }
+
     let pendingSnapshotCountIncrement: number | undefined
 
     if (!createSnapshotDto.imageName) {
@@ -274,6 +280,12 @@ export class SnapshotService {
     }
 
     const region = await this.getValidatedOrDefaultRegion(organization, createSnapshotDto.regionId)
+
+    if (region.id === 'android' && createSnapshotDto.sandboxClass === SandboxClass.ANDROID) {
+      throw new BadRequestException(
+        'Creating android sandbox snapshot is currently unavailable. Contact our support if you need custom android snapshots.',
+      )
+    }
 
     let pendingSnapshotCountIncrement: number | undefined
     let entrypoint: string[] | undefined = undefined
