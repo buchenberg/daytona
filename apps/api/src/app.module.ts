@@ -127,6 +127,7 @@ import { getAppName } from './common/utils/app-mode'
         return [
           {
             rootPath: join(__dirname, '..', 'dashboard'),
+            serveRoot: '/dashboard',
             exclude: ['/api/{*path}'],
             renderPath: '/',
             serveStaticOptions: {
