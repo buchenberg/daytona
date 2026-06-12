@@ -16,7 +16,7 @@ export class Migration1778000000000 implements MigrationInterface {
       await queryRunner.query(
         `ALTER TABLE "${table}" ADD COLUMN "sandboxClass_new" character varying NOT NULL DEFAULT 'container'`,
       )
-      await queryRunner.query(`ALTER TABLE "${table}" DROP COLUMN "sandboxClass"`)
+      await queryRunner.query(`ALTER TABLE "${table}" DROP COLUMN IF EXISTS "sandboxClass"`)
       await queryRunner.query(`ALTER TABLE "${table}" RENAME COLUMN "sandboxClass_new" TO "sandboxClass"`)
     }
 
