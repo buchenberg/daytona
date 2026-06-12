@@ -18,6 +18,7 @@ import { OtelCollectorAuthContext } from '../../common/interfaces/otel-collector
 import { BillingAuthContext } from '../../common/interfaces/billing-auth-context.interface'
 import { RunnerCleanupToolAuthContext } from '../../common/interfaces/runner-cleanup-tool-auth-context.interface'
 import { UserManagementAuthContext } from '../../common/interfaces/user-management-auth-context.interface'
+import { StripeProjectsAuthContext } from '../../common/interfaces/stripe-projects-auth-context.interface'
 import { MOCK_USER_ID, MOCK_USER_EMAIL, MOCK_ORGANIZATION_ID, MOCK_RUNNER_ID, MOCK_REGION_ID } from './constants'
 import { createMockOrganization, createMockOrganizationUser, createMockRunner } from './entity.factory'
 
@@ -160,6 +161,15 @@ export function createMockUserManagementAuthContext(
 ): UserManagementAuthContext {
   return {
     role: 'user-management',
+    ...overrides,
+  }
+}
+
+export function createMockStripeProjectsAuthContext(
+  overrides?: Partial<Omit<StripeProjectsAuthContext, 'role'>>,
+): StripeProjectsAuthContext {
+  return {
+    role: 'stripe-projects',
     ...overrides,
   }
 }

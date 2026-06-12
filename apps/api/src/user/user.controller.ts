@@ -10,6 +10,7 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   Param,
@@ -22,7 +23,10 @@ import { ApiOAuth2, ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiExclud
 import { IsUserAuthContext } from '../common/decorators/auth-context.decorator'
 import { UserAuthContext } from '../common/interfaces/user-auth-context.interface'
 import { UserDto } from './dto/user.dto'
+import { ProvisionUserDto } from './dto/provision-user.dto'
+import { ProvisionUserResponseDto } from './dto/provision-user-response.dto'
 import { TypedConfigService } from '../config/typed-config.service'
+import { Auth0ManagementService } from '../auth0/auth0-management.service'
 import axios from 'axios'
 import { AccountProviderDto } from './dto/account-provider.dto'
 import { ACCOUNT_PROVIDER_DISPLAY_NAME } from './constants/acount-provider-display-name.constant'
@@ -30,11 +34,14 @@ import { AccountProvider } from './enums/account-provider.enum'
 import { CreateLinkedAccountDto } from './dto/create-linked-account.dto'
 import { Audit, TypedRequest } from '../audit/decorators/audit.decorator'
 import { AuditAction } from '../audit/enums/audit-action.enum'
+import { AuditTarget } from '../audit/enums/audit-target.enum'
 import { AuthenticatedRateLimitGuard } from '../common/guards/authenticated-rate-limit.guard'
 import { AuthStrategy } from '../auth/decorators/auth-strategy.decorator'
 import { AuthStrategyType } from '../auth/enums/auth-strategy-type.enum'
 import { UserAuthContextGuard } from './guards/user-auth-context.guard'
 import { UserManagementAuthContextGuard } from './guards/user-management-auth-context.guard'
+import { StripeProjectsAuthContextGuard } from '../auth/guards/stripe-projects-auth-context.guard'
+import { SystemRole } from './enums/system-role.enum'
 
 @Controller('users')
 @ApiTags('users')
@@ -48,6 +55,7 @@ export class UserController {
   constructor(
     private readonly userService: UserService,
     private readonly configService: TypedConfigService,
+    private readonly auth0ManagementService: Auth0ManagementService,
   ) {}
 
   @Get('/me')
@@ -87,7 +95,7 @@ export class UserController {
       throw new NotFoundException()
     }
 
-    const token = await this.getManagementApiToken()
+    const token = await this.auth0ManagementService.getManagementApiToken()
 
     try {
       const response = await axios.get<{ name: string }[]>(
@@ -156,7 +164,7 @@ export class UserController {
       throw new BadRequestException('This account is already associated with another user')
     }
 
-    const token = await this.getManagementApiToken()
+    const token = await this.auth0ManagementService.getManagementApiToken()
 
     // Verify account is eligible to be linked (must be reachable via OIDC Management API)
     try {
@@ -224,7 +232,7 @@ export class UserController {
       throw new NotFoundException()
     }
 
-    const token = await this.getManagementApiToken()
+    const token = await this.auth0ManagementService.getManagementApiToken()
 
     try {
       await axios.delete(
@@ -258,7 +266,7 @@ export class UserController {
       throw new NotFoundException()
     }
 
-    const token = await this.getManagementApiToken()
+    const token = await this.auth0ManagementService.getManagementApiToken()
 
     try {
       const response = await axios.post(
@@ -293,18 +301,49 @@ export class UserController {
     return UserDto.fromUser(user)
   }
 
-  private async getManagementApiToken(): Promise<string> {
-    try {
-      const tokenResponse = await axios.post(`${this.configService.getOrThrow('oidc.issuer')}/oauth/token`, {
-        grant_type: 'client_credentials',
-        client_id: this.configService.getOrThrow('oidc.managementApi.clientId'),
-        client_secret: this.configService.getOrThrow('oidc.managementApi.clientSecret'),
-        audience: this.configService.getOrThrow('oidc.managementApi.audience'),
+  @Post('stripe-projects/provision')
+  @ApiExcludeEndpoint()
+  @AuthStrategy([AuthStrategyType.API_KEY])
+  @UseGuards(StripeProjectsAuthContextGuard)
+  @Audit({
+    action: AuditAction.CREATE,
+    targetType: AuditTarget.USER,
+    targetIdFromResult: (result: ProvisionUserResponseDto) => result?.userId,
+    requestMetadata: {
+      body: (req: TypedRequest<ProvisionUserDto>) => ({
+        email: req.body?.email,
+        name: req.body?.name,
+      }),
+    },
+  })
+  async provisionStripeProjectsUser(@Body() dto: ProvisionUserDto): Promise<ProvisionUserResponseDto> {
+    const email = dto.email.toLowerCase()
+
+    if (!this.auth0ManagementService.isEnabled()) {
+      throw new InternalServerErrorException('Auth0 Management API is not enabled')
+    }
+
+    const auth0User = await this.auth0ManagementService.findOrCreateUserByEmail({
+      email,
+      name: dto.name,
+      emailVerified: dto.emailVerified,
+      appMetadata: { created_via: 'stripe_projects' },
+    })
+
+    const existingUser = await this.userService.findOne(auth0User.user_id)
+    if (!existingUser) {
+      await this.userService.create({
+        id: auth0User.user_id,
+        name: dto.name || auth0User.name || email,
+        email,
+        emailVerified: dto.emailVerified,
+        role: SystemRole.USER,
       })
-      return tokenResponse.data.access_token
-    } catch (error) {
-      this.logger.error('Failed to get OIDC Management API token', error?.message || String(error))
-      throw new UnauthorizedException()
+    }
+
+    return {
+      userId: auth0User.user_id,
+      email,
     }
   }
 }

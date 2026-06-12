@@ -31,6 +31,7 @@ import { handleAuthError } from './utils/handle-auth-error.util'
 import { BillingAuthContext } from '../common/interfaces/billing-auth-context.interface'
 import { RunnerCleanupToolAuthContext } from '../common/interfaces/runner-cleanup-tool-auth-context.interface'
 import { UserManagementAuthContext } from '../common/interfaces/user-management-auth-context.interface'
+import { StripeProjectsAuthContext } from '../common/interfaces/stripe-projects-auth-context.interface'
 
 type ApiKeyAuthContext =
   | UserAuthContext
@@ -44,6 +45,7 @@ type ApiKeyAuthContext =
   | BillingAuthContext
   | RunnerCleanupToolAuthContext
   | UserManagementAuthContext
+  | StripeProjectsAuthContext
 
 type UserCache = {
   userId: string
@@ -115,6 +117,11 @@ export class ApiKeyStrategy extends PassportStrategy(Strategy, AuthStrategyType.
     const userManagementApiKey = this.configService.get('userManagement.apiKey')
     if (userManagementApiKey && userManagementApiKey === token) {
       return { role: 'user-management' } satisfies UserManagementAuthContext
+    }
+
+    const stripeProjectsApiKey = this.configService.get('stripeProjects.apiKey')
+    if (stripeProjectsApiKey && stripeProjectsApiKey === token) {
+      return { role: 'stripe-projects' } satisfies StripeProjectsAuthContext
     }
 
     /**

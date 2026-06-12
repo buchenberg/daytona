@@ -354,6 +354,9 @@ const configuration = {
   userManagement: {
     apiKey: process.env.USER_MANAGEMENT_API_KEY,
   },
+  stripeProjects: {
+    apiKey: process.env.STRIPE_PROJECTS_API_KEY,
+  },
   clickhouse: {
     host: process.env.CLICKHOUSE_HOST,
     port: parseInt(process.env.CLICKHOUSE_PORT || '8123', 10),

@@ -14,6 +14,7 @@ import {
 } from '../test/helpers/controller-metadata.helper'
 import { UserAuthContextGuard } from './guards/user-auth-context.guard'
 import { UserManagementAuthContextGuard } from './guards/user-management-auth-context.guard'
+import { StripeProjectsAuthContextGuard } from '../auth/guards/stripe-projects-auth-context.guard'
 
 describe('[AUTH] UserController', () => {
   const trackMethod = createCoverageTracker(UserController)
@@ -59,5 +60,12 @@ describe('[AUTH] UserController', () => {
     expect(isPublicEndpoint(UserController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(UserController, methodName), [AuthStrategyType.API_KEY])
     expectArrayMatch(getAuthContextGuards(UserController, methodName), [UserManagementAuthContextGuard])
+  })
+
+  it('provisionStripeProjectsUser', () => {
+    const methodName = trackMethod('provisionStripeProjectsUser')
+    expect(isPublicEndpoint(UserController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(UserController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(UserController, methodName), [StripeProjectsAuthContextGuard])
   })
 })

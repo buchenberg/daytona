@@ -5,6 +5,7 @@
 
 import { ApiKeyController } from './api-key.controller'
 import { OrganizationAuthContextGuard } from '../organization/guards/organization-auth-context.guard'
+import { StripeProjectsAuthContextGuard } from '../auth/guards/stripe-projects-auth-context.guard'
 import { AuthStrategyType } from '../auth/enums/auth-strategy-type.enum'
 import {
   getAuthContextGuards,
@@ -70,5 +71,19 @@ describe('[AUTH] ApiKeyController', () => {
     expectArrayMatch(getAuthContextGuards(ApiKeyController, methodName), [OrganizationAuthContextGuard])
     expect(getRequiredOrganizationMemberRole(ApiKeyController, methodName)).toBeUndefined()
     expect(getRequiredOrganizationResourcePermissions(ApiKeyController, methodName)).toBeUndefined()
+  })
+
+  it('provisionStripeProjectsApiKey', () => {
+    const methodName = trackMethod('provisionStripeProjectsApiKey')
+    expect(isPublicEndpoint(ApiKeyController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(ApiKeyController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(ApiKeyController, methodName), [StripeProjectsAuthContextGuard])
+  })
+
+  it('rotateStripeProjectsApiKey', () => {
+    const methodName = trackMethod('rotateStripeProjectsApiKey')
+    expect(isPublicEndpoint(ApiKeyController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(ApiKeyController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(ApiKeyController, methodName), [StripeProjectsAuthContextGuard])
   })
 })

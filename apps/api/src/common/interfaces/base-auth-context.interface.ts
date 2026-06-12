@@ -17,6 +17,7 @@ export interface BaseAuthContext {
     | 'billing'
     | 'runner-cleanup-tool'
     | 'user-management'
+    | 'stripe-projects'
 }
 
 export function isBaseAuthContext(user: unknown): user is BaseAuthContext {
