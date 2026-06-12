@@ -15,7 +15,7 @@ const SORT_FIELD_MAP: Record<string, string> = {
   domain: 'runner.domain',
   region: 'runner.region',
   state: 'runner.state',
-  class: 'runner.class',
+  sandboxClass: 'runner.sandboxClass',
   availabilityScore: 'runner.availabilityScore',
   currentCpuUsagePercentage: 'runner.currentCpuUsagePercentage',
   currentMemoryUsagePercentage: 'runner.currentMemoryUsagePercentage',
@@ -105,8 +105,8 @@ export class RunnersSearchService {
       queryBuilder.andWhere('runner.state IN (:...states)', { states: filters.state })
     }
 
-    if (filters.class && filters.class.length > 0) {
-      queryBuilder.andWhere('runner.class IN (:...classes)', { classes: filters.class })
+    if (filters.sandboxClass && filters.sandboxClass.length > 0) {
+      queryBuilder.andWhere('runner.sandboxClass IN (:...sandboxClasses)', { sandboxClasses: filters.sandboxClass })
     }
 
     if (filters.unschedulable !== undefined) {

@@ -31,9 +31,9 @@ export interface RunnerFiltersDto {
      */
     'state'?: Array<RunnerFiltersDtoStateEnum>;
     /**
-     * Filter by runner class
+     * Filter by sandbox class
      */
-    'class'?: Array<RunnerFiltersDtoClassEnum>;
+    'sandboxClass'?: Array<RunnerFiltersDtoSandboxClassEnum>;
     /**
      * Filter by unschedulable status
      */
@@ -73,13 +73,13 @@ export const RunnerFiltersDtoStateEnum = {
 } as const;
 
 export type RunnerFiltersDtoStateEnum = typeof RunnerFiltersDtoStateEnum[keyof typeof RunnerFiltersDtoStateEnum];
-export const RunnerFiltersDtoClassEnum = {
+export const RunnerFiltersDtoSandboxClassEnum = {
     LINUX_VM: 'linux-vm',
     CONTAINER: 'container',
     ANDROID: 'android',
     WINDOWS: 'windows',
 } as const;
 
-export type RunnerFiltersDtoClassEnum = typeof RunnerFiltersDtoClassEnum[keyof typeof RunnerFiltersDtoClassEnum];
+export type RunnerFiltersDtoSandboxClassEnum = typeof RunnerFiltersDtoSandboxClassEnum[keyof typeof RunnerFiltersDtoSandboxClassEnum];
 
 

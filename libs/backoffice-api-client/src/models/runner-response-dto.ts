@@ -19,7 +19,7 @@ export interface RunnerResponseDto {
     'domain': string;
     'region': string;
     'state': RunnerResponseDtoStateEnum;
-    'class': RunnerResponseDtoClassEnum;
+    'sandboxClass': RunnerResponseDtoSandboxClassEnum;
     'currentCpuUsagePercentage': number;
     'currentMemoryUsagePercentage': number;
     'currentDiskUsagePercentage': number;
@@ -43,13 +43,13 @@ export const RunnerResponseDtoStateEnum = {
 } as const;
 
 export type RunnerResponseDtoStateEnum = typeof RunnerResponseDtoStateEnum[keyof typeof RunnerResponseDtoStateEnum];
-export const RunnerResponseDtoClassEnum = {
+export const RunnerResponseDtoSandboxClassEnum = {
     LINUX_VM: 'linux-vm',
     CONTAINER: 'container',
     ANDROID: 'android',
     WINDOWS: 'windows',
 } as const;
 
-export type RunnerResponseDtoClassEnum = typeof RunnerResponseDtoClassEnum[keyof typeof RunnerResponseDtoClassEnum];
+export type RunnerResponseDtoSandboxClassEnum = typeof RunnerResponseDtoSandboxClassEnum[keyof typeof RunnerResponseDtoSandboxClassEnum];
 
 

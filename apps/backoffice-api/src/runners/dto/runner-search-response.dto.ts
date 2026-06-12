@@ -10,7 +10,7 @@ export class RunnerResponseDto implements Partial<Runner> {
   @Expose() @ApiProperty() domain: string
   @Expose() @ApiProperty() region: string
   @Expose() @ApiProperty({ enum: RunnerState }) state: RunnerState
-  @Expose() @ApiProperty({ enum: SandboxClass }) class: SandboxClass
+  @Expose() @ApiProperty({ enum: SandboxClass }) sandboxClass: SandboxClass
   @Expose() @ApiProperty() currentCpuUsagePercentage: number
   @Expose() @ApiProperty() currentMemoryUsagePercentage: number
   @Expose() @ApiProperty() currentDiskUsagePercentage: number

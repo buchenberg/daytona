@@ -26,10 +26,10 @@ export class RunnerFiltersDto {
   @IsEnum(RunnerState, { each: true })
   state?: RunnerState[]
 
-  @ApiPropertyOptional({ description: 'Filter by runner class', enum: SandboxClass, isArray: true })
+  @ApiPropertyOptional({ description: 'Filter by sandbox class', enum: SandboxClass, isArray: true })
   @IsOptional()
   @IsEnum(SandboxClass, { each: true })
-  class?: SandboxClass[]
+  sandboxClass?: SandboxClass[]
 
   @ApiPropertyOptional({ description: 'Filter by unschedulable status' })
   @IsOptional()
