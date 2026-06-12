@@ -44,9 +44,6 @@ export class Migration1778000000000 implements MigrationInterface {
       )
     `)
 
-    await queryRunner.query(`DROP TYPE IF EXISTS "public"."sandbox_class_enum_new"`)
-    await queryRunner.query(`DROP TYPE IF EXISTS "public"."sandbox_class_enum"`)
-
     await queryRunner.query(
       `ALTER TABLE "sandbox_usage_periods" ADD "sandboxClass" character varying NOT NULL DEFAULT 'container'`,
     )
