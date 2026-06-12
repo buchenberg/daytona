@@ -39,6 +39,7 @@ import { DockerRegistry } from '../../docker-registry/entities/docker-registry.e
 import { SandboxService } from '../services/sandbox.service'
 import { SandboxRepository } from '../repositories/sandbox.repository'
 import { BACKUP_DISABLED_REGIONS, isBackupDisabledRegion } from '../constants/dedicated-regions.constant'
+import { getBackupRegistryOverride } from '../constants/backup-registry-overrides.constant'
 import { Job } from '../entities/job.entity'
 import { JobStatus } from '../enums/job-status.enum'
 import { JobType } from '../enums/job-type.enum'
@@ -630,7 +631,16 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
 
     let registry: DockerRegistry | null = null
 
-    if (sandbox.backupRegistryId) {
+    const overrideRegistryId = getBackupRegistryOverride(sandbox.organizationId)
+
+    if (overrideRegistryId) {
+      registry = await this.dockerRegistryService.findOne(overrideRegistryId)
+      if (!registry) {
+        this.logger.error(
+          `Backup registry override ${overrideRegistryId} for organization ${sandbox.organizationId} not found`,
+        )
+      }
+    } else if (sandbox.backupRegistryId) {
       registry = await this.dockerRegistryService.findOne(sandbox.backupRegistryId)
     } else {
       registry = await this.dockerRegistryService.getAvailableBackupRegistry(sandbox.region)
