@@ -56,8 +56,11 @@ import Redis from 'ioredis'
 import { BACKUP_DISABLED_REGIONS } from '../constants/dedicated-regions.constant'
 import { InjectDataSource } from '@nestjs/typeorm'
 import { DataSource } from 'typeorm'
+import { RunnerState } from '../enums/runner-state.enum'
 
 export const SYNC_INSTANCE_STATE_LOCK_KEY = 'sync-instance-state-'
+
+const DEDICATED_PENDING_BUILD_ORGANIZATION_ID = 'fd4f4489-5a9b-4d7b-b62e-dbd26113115c'
 
 @Injectable()
 export class SandboxManager implements TrackableJobExecutions, OnApplicationShutdown {
@@ -849,7 +852,7 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
           const sandboxes = await this.sandboxRepository.find({
             where: {
               runnerId: runnerId === null ? IsNull() : runnerId,
-              state: Not(SandboxState.RESTORING),
+              state: Not(In([SandboxState.RESTORING, SandboxState.PULLING_SNAPSHOT, SandboxState.PENDING_BUILD])),
               pending: true,
             },
             select: ['id'],
@@ -857,7 +860,7 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
           })
 
           const pendingProcesses: Promise<void>[] = []
-          const concurrencyLimit = 10
+          const concurrencyLimit = runnerId === null ? 50 : 10
 
           for (const sandbox of sandboxes) {
             const lockKey = getStateChangeLockKey(sandbox.id)
@@ -883,8 +886,8 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
     )
   }
 
-  // RESTORING is split out so it gets its own faster cadence and its own per-runner locks,
-  // and is not blocked by the longer-lived state syncs above.
+  // RESTORING and PULLING_SNAPSHOT are split out so they get their own faster cadence and
+  // their own per-runner locks, and are not blocked by the longer-lived state syncs above.
   @Cron(CronExpression.EVERY_5_SECONDS, { name: 'sync-restoring-states' })
   @TrackJobExecution()
   @WithInstrumentation()
@@ -906,7 +909,7 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
           const sandboxes = await this.sandboxRepository.find({
             where: {
               runnerId,
-              state: SandboxState.RESTORING,
+              state: In([SandboxState.RESTORING, SandboxState.PULLING_SNAPSHOT]),
               pending: true,
             },
             select: ['id'],
@@ -940,6 +943,101 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
     )
   }
 
+  @Cron(CronExpression.EVERY_5_SECONDS, { name: 'sync-pending-build-states' })
+  @TrackJobExecution()
+  @WithInstrumentation()
+  @LogExecution('sync-pending-build-states')
+  async syncPendingBuildStates(): Promise<void> {
+    const lockKey = 'sync-pending-build-states'
+    if (!(await this.redisLockProvider.lock(lockKey, 1 * 60))) {
+      return
+    }
+
+    try {
+      const sandboxes = await this.sandboxRepository.find({
+        where: {
+          state: SandboxState.PENDING_BUILD,
+          pending: true,
+          organizationId: Not(DEDICATED_PENDING_BUILD_ORGANIZATION_ID),
+        },
+        select: ['id'],
+        take: 250,
+      })
+
+      const pendingProcesses: Promise<void>[] = []
+      const concurrencyLimit = 25
+
+      for (const sandbox of sandboxes) {
+        const stateChangeLockKey = getStateChangeLockKey(sandbox.id)
+        if (await this.redisLockProvider.isLocked(stateChangeLockKey)) {
+          continue
+        }
+
+        const processPromise = this.syncInstanceState(sandbox.id)
+        pendingProcesses.push(processPromise)
+
+        if (pendingProcesses.length >= concurrencyLimit) {
+          await Promise.allSettled(pendingProcesses.splice(0, pendingProcesses.length))
+        }
+      }
+
+      if (pendingProcesses.length > 0) {
+        await Promise.allSettled(pendingProcesses)
+      }
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  // PENDING_BUILD sync dedicated to a single high-volume organization so its
+  // builds get their own cadence and lock, and don't compete with or block the
+  // shared pending-build sync above.
+  @Cron(CronExpression.EVERY_5_SECONDS, { name: 'sync-pending-build-states-dedicated-org' })
+  @TrackJobExecution()
+  @WithInstrumentation()
+  @LogExecution('sync-pending-build-states-dedicated-org')
+  async syncPendingBuildStatesForDedicatedOrg(): Promise<void> {
+    const lockKey = 'sync-pending-build-states-dedicated-org'
+    if (!(await this.redisLockProvider.lock(lockKey, 1 * 60))) {
+      return
+    }
+
+    try {
+      const sandboxes = await this.sandboxRepository.find({
+        where: {
+          state: SandboxState.PENDING_BUILD,
+          pending: true,
+          organizationId: DEDICATED_PENDING_BUILD_ORGANIZATION_ID,
+        },
+        select: ['id'],
+        take: 250,
+      })
+
+      const pendingProcesses: Promise<void>[] = []
+      const concurrencyLimit = 25
+
+      for (const sandbox of sandboxes) {
+        const stateChangeLockKey = getStateChangeLockKey(sandbox.id)
+        if (await this.redisLockProvider.isLocked(stateChangeLockKey)) {
+          continue
+        }
+
+        const processPromise = this.syncInstanceState(sandbox.id)
+        pendingProcesses.push(processPromise)
+
+        if (pendingProcesses.length >= concurrencyLimit) {
+          await Promise.allSettled(pendingProcesses.splice(0, pendingProcesses.length))
+        }
+      }
+
+      if (pendingProcesses.length > 0) {
+        await Promise.allSettled(pendingProcesses)
+      }
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
   @Cron(CronExpression.EVERY_10_SECONDS, { name: 'sync-archived-desired-states' })
   @TrackJobExecution()
   @LogExecution('sync-archived-desired-states')
@@ -950,16 +1048,17 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
       return
     }
 
-    const sandboxes = await this.sandboxRepository.find({
-      where: {
-        state: In([SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.ERROR]),
-        desiredState: SandboxDesiredState.ARCHIVED,
-      },
-      take: 100,
-      order: {
-        updatedAt: 'ASC',
-      },
-    })
+    const sandboxes = await this.sandboxRepository
+      .createQueryBuilder('sandbox')
+      .leftJoin('runner', 'r', 'r.id = sandbox.runnerId')
+      .where('sandbox.state IN (:...states)', {
+        states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.ERROR],
+      })
+      .andWhere('sandbox.desiredState = :desiredState', { desiredState: SandboxDesiredState.ARCHIVED })
+      .andWhere('( sandbox.runnerId IS NULL OR r.state =:ready )', { ready: RunnerState.READY })
+      .orderBy('sandbox.updatedAt', 'ASC')
+      .take(100)
+      .getMany()
 
     await Promise.all(
       sandboxes.map(async (sandbox) => {
@@ -978,17 +1077,18 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
       return
     }
 
-    const sandboxes = await this.sandboxRepository.find({
-      where: {
-        state: In([SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.ERROR]),
-        desiredState: SandboxDesiredState.ARCHIVED,
-        backupState: BackupState.COMPLETED,
-      },
-      take: 200,
-      order: {
-        updatedAt: 'ASC',
-      },
-    })
+    const sandboxes = await this.sandboxRepository
+      .createQueryBuilder('sandbox')
+      .leftJoin('runner', 'r', 'r.id = sandbox.runnerId')
+      .where('sandbox.state IN (:...states)', {
+        states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.ERROR],
+      })
+      .andWhere('sandbox.desiredState = :desiredState', { desiredState: SandboxDesiredState.ARCHIVED })
+      .andWhere('sandbox.backupState = :backupState', { backupState: BackupState.COMPLETED })
+      .andWhere('( sandbox.runnerId IS NULL OR r.state = :ready )', { ready: RunnerState.READY })
+      .orderBy('RANDOM()')
+      .limit(200)
+      .getMany()
 
     await Promise.allSettled(
       sandboxes.map(async (sandbox) => {
