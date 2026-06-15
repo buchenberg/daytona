@@ -62,6 +62,7 @@ import { SnapshotActivatedEvent } from '../events/snapshot-activated.event'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { getSnapshotPropagationFactor } from '../constants/propagation-tiers.constant'
 import { RegionType } from '../../region/enums/region-type.enum'
+import { GpuType } from '../enums/gpu-type.enum'
 
 /** Fisher-Yates shuffle — uniform random permutation in O(n). */
 function shuffleArray<T>(array: T[]): T[] {
@@ -628,7 +629,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
   @WithInstrumentation()
   async syncRemovingRunnerSnapshotStates() {
     const lockKey = 'sync-removing-runner-snapshot-states-lock'
-    if (!(await this.redisLockProvider.lock(lockKey, 60))) {
+    if (!(await this.redisLockProvider.lock(lockKey, 30))) {
       return
     }
 
@@ -713,7 +714,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       unschedulable: Not(true),
       region: In(regionIds),
       gpu: snapshot.gpu > 0 ? MoreThanOrEqual(snapshot.gpu) : Or(IsNull(), Equal(0)),
-      gpuType: snapshot.gpuType ? snapshot.gpuType : IsNull(),
+      gpuType: snapshot.gpuType ? snapshot.gpuType : Or(IsNull(), Not(In(Object.values(GpuType)))),
       // Temporary: Android snapshots can go to container runners
       sandboxClass: getRunnerSandboxClass(snapshot.sandboxClass),
     }
