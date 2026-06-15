@@ -500,17 +500,6 @@ export class SandboxStartAction extends SandboxAction {
       if (shouldMoveToNewRunner) {
         sandbox.prevRunnerId = originalRunnerId
         sandbox.runnerId = null
-
-        await this.sandboxRepository.update(
-          sandbox.id,
-          {
-            updateData: {
-              prevRunnerId: originalRunnerId,
-              runnerId: null,
-            },
-          },
-          true,
-        )
       }
 
       // If the sandbox is on a runner and its backupState is COMPLETED
@@ -536,16 +525,6 @@ export class SandboxStartAction extends SandboxAction {
             sandbox.prevRunnerId = originalRunnerId
             sandbox.runnerId = null
 
-            await this.sandboxRepository.update(
-              sandbox.id,
-              {
-                updateData: {
-                  prevRunnerId: originalRunnerId,
-                  runnerId: null,
-                },
-              },
-              true,
-            )
             try {
               const runnerAdapter = await this.runnerAdapterFactory.create(runner)
               await runnerAdapter.destroySandbox(sandbox.id)
@@ -917,7 +896,17 @@ export class SandboxStartAction extends SandboxAction {
     // Clear the retry counter on success
     await this.redis.del(restoreBackupSnapshotRetryKey)
 
-    await this.updateSandboxState(sandbox, SandboxState.RESTORING, lockCode, runner.id)
+    await this.updateSandboxState(
+      sandbox,
+      SandboxState.RESTORING,
+      lockCode,
+      runner.id,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      excludedRunnerId,
+    )
 
     //  workaround for CA restore issue
     //  DO NOT COMMIT
