@@ -37,7 +37,7 @@ import {
   RL_REGION,
   ELEMENTOR_DEDICATED_REGION,
   META_DEDICATED_REGION,
-  DEEPTUNE_DEDICATED_REGION,
+  DEEPTUNE_AND_HUD_DEDICATED_REGION,
   getFallbackRegion,
 } from '../constants/dedicated-regions.constant'
 import { areResourcesLargerThanDefault } from '../utils/resources'
@@ -60,7 +60,10 @@ import { SandboxRepository } from '../repositories/sandbox.repository'
 import { SnapshotInfoResponse } from '@daytona/runner-api-client'
 import { SnapshotActivatedEvent } from '../events/snapshot-activated.event'
 import { TypedConfigService } from '../../config/typed-config.service'
-import { getSnapshotPropagationFactor } from '../constants/propagation-tiers.constant'
+import {
+  getSnapshotPropagationFactor,
+  DEDICATED_REGION_PROPAGATION_OVERRIDES,
+} from '../constants/propagation-tiers.constant'
 import { RegionType } from '../../region/enums/region-type.enum'
 import { GpuType } from '../enums/gpu-type.enum'
 
@@ -482,6 +485,10 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
         return Promise.allSettled(
           regions.map(async (region) => {
+            if (!snapshot.ref) {
+              return
+            }
+
             const runners = await this.runnerService.findAvailableRunners({
               regions: [region],
               gpu: snapshot.gpu,
@@ -492,22 +499,28 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
               return
             }
 
+            // Runners that already have (or are pulling) this snapshot are skipped.
+            const existingSnapshotRunners = await this.snapshotRunnerRepository.find({
+              where: {
+                snapshotRef: snapshot.ref,
+                runnerId: In(runners.map((runner) => runner.id)),
+              },
+            })
+            const allocatedRunnerIds = new Set(existingSnapshotRunners.map((sr) => sr.runnerId))
+
+            let runnersToPropagateTo = runners.filter((runner) => !allocatedRunnerIds.has(runner.id))
+
+            // By default dedicated regions receive the snapshot on every runner (100%). Some orgs are
+            // capped to a percentage of the dedicated fleet instead.
+            const override = DEDICATED_REGION_PROPAGATION_OVERRIDES[snapshot.organizationId]
+            if (override) {
+              const target = Math.max(override.minimum, Math.ceil((override.percentage / 100) * runners.length))
+              const remaining = Math.max(0, target - allocatedRunnerIds.size)
+              runnersToPropagateTo = shuffleArray(runnersToPropagateTo).slice(0, remaining)
+            }
+
             return Promise.allSettled(
-              runners.map(async (runner) => {
-                if (!snapshot.ref) {
-                  return
-                }
-
-                const snapshotRunner = await this.snapshotRunnerRepository.findOne({
-                  where: {
-                    snapshotRef: snapshot.ref,
-                    runnerId: runner.id,
-                  },
-                })
-                if (snapshotRunner) {
-                  return
-                }
-
+              runnersToPropagateTo.map(async (runner) => {
                 await this.runnerService.createSnapshotRunnerEntry(
                   runner.id,
                   snapshot.ref,
@@ -1903,7 +1916,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       // Dedicated regions get a much shorter staleness window so we don't pin disk space
       // on small fleets when an org stops using a snapshot.
       const stalenessDays = this.configService.getOrThrow('buildInfoSnapshotRunnerStalenessDays')
-      const stalenessInterval = `(CASE WHEN r.region IN (:dedicatedMeta, :dedicatedDeeptune) THEN interval '3 hours' WHEN r.region IN (:dedicatedElementor, :dedicatedRL) THEN interval '10 hours' ELSE interval '${stalenessDays} days' END)`
+      const stalenessInterval = `(CASE WHEN r.region IN (:dedicatedMeta, :dedicatedDeeptuneAndHud) THEN interval '3 hours' WHEN r.region IN (:dedicatedElementor, :dedicatedRL) THEN interval '10 hours' ELSE interval '${stalenessDays} days' END)`
 
       const staleEntries = await this.snapshotRunnerRepository
         .createQueryBuilder('sr')
@@ -1918,7 +1931,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
           dedicatedElementor: ELEMENTOR_DEDICATED_REGION,
           dedicatedRL: RL_REGION,
           dedicatedMeta: META_DEDICATED_REGION,
-          dedicatedDeeptune: DEEPTUNE_DEDICATED_REGION,
+          dedicatedDeeptuneAndHud: DEEPTUNE_AND_HUD_DEDICATED_REGION,
         })
         .limit(500)
         .getMany()

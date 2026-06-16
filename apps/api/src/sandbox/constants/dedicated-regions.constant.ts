@@ -9,7 +9,7 @@ export const GPU_REGION = 'gpu-experimental'
 const WRITER_DEDICATED_US = 'writer-dedicated-us'
 const WRITER_DEDICATED_EU = 'writer-dedicated-eu'
 export const META_DEDICATED_REGION = 'meta-dedicated'
-export const DEEPTUNE_DEDICATED_REGION = 'deeptune-dedicated'
+export const DEEPTUNE_AND_HUD_DEDICATED_REGION = 'deeptune-dedicated'
 export const LARGE_SANDBOX_SHARED_REGION = 'large-sandbox-shared'
 export const ELEMENTOR_DEDICATED_REGION = 'elementor-dedicated'
 export const RL_REGION = 'RL'
@@ -50,7 +50,7 @@ export const hasFallbackRegion = (region: string): boolean => {
     case WRITER_DEDICATED_US:
     case WRITER_DEDICATED_EU:
     case META_DEDICATED_REGION:
-    case DEEPTUNE_DEDICATED_REGION:
+    case DEEPTUNE_AND_HUD_DEDICATED_REGION:
       return true
     default:
       return false
@@ -68,7 +68,7 @@ export function getFallbackRegion(region: string): string | null {
       return 'eu'
     case META_DEDICATED_REGION:
       return 'us'
-    case DEEPTUNE_DEDICATED_REGION:
+    case DEEPTUNE_AND_HUD_DEDICATED_REGION:
       return 'us'
     default:
       return null
@@ -120,7 +120,10 @@ export function isSpilloverOnErrorOrg(organizationId: string): boolean {
   return SPILLOVER_ON_ERROR_ORGS.has(organizationId)
 }
 
-const DEEPTUNE_ORGS = new Set(['c0a5d258-844b-44da-aac0-706f31c3027f'])
+const DEEPTUNE_AND_HUD_ORGS = new Set([
+  'c0a5d258-844b-44da-aac0-706f31c3027f', // deeptune
+  '6748f7e2-93b7-4d51-8341-b1ae2f64072d', // hud
+])
 
 /*
  * Add here organization IDs that are blocked from creating sandboxes from build info
@@ -159,7 +162,7 @@ export const DEDICATED_REGIONS_PER_ORGANIZATION: Record<string, string[]> = (() 
   const orgRegionMappings = [
     { orgs: WRITER_ORGS, regions: [WRITER_DEDICATED_US, WRITER_DEDICATED_EU] },
     { orgs: META_ORGS, regions: [META_DEDICATED_REGION] },
-    { orgs: DEEPTUNE_ORGS, regions: [DEEPTUNE_DEDICATED_REGION] },
+    { orgs: DEEPTUNE_AND_HUD_ORGS, regions: [DEEPTUNE_AND_HUD_DEDICATED_REGION] },
     { orgs: LARGE_SANDBOX_ORGS, regions: [LARGE_SANDBOX_SHARED_REGION] },
     { orgs: LG_ORGS, regions: [ELEMENTOR_DEDICATED_REGION] },
     { orgs: ['9f4f4bb5-a521-47a2-9263-462dc409db1d'], regions: [WRITER_DEDICATED_US] },
@@ -207,8 +210,8 @@ export function resolveEffectiveRegion(
     return META_DEDICATED_REGION
   }
 
-  if (DEEPTUNE_ORGS.has(organizationId) && baseRegionId === 'us') {
-    return DEEPTUNE_DEDICATED_REGION
+  if (DEEPTUNE_AND_HUD_ORGS.has(organizationId) && baseRegionId === 'us') {
+    return DEEPTUNE_AND_HUD_DEDICATED_REGION
   }
 
   if (LG_ORGS.has(organizationId)) {
