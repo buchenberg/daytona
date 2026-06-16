@@ -112,6 +112,14 @@ export const WRITER_ORGS = [
 
 const META_ORGS = new Set(['fd4f4489-5a9b-4d7b-b62e-dbd26113115c'])
 
+export const SPILLOVER_ON_ERROR_ORGS = new Set<string>([
+  'fd4f4489-5a9b-4d7b-b62e-dbd26113115c', // Meta
+])
+
+export function isSpilloverOnErrorOrg(organizationId: string): boolean {
+  return SPILLOVER_ON_ERROR_ORGS.has(organizationId)
+}
+
 const DEEPTUNE_ORGS = new Set(['c0a5d258-844b-44da-aac0-706f31c3027f'])
 
 /*

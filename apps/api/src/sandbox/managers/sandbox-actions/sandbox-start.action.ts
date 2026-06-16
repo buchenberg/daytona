@@ -5,7 +5,7 @@
 
 import { Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { SandboxRepository } from '../../repositories/sandbox.repository'
-import { RECOVERY_ERROR_SUBSTRINGS } from '../../constants/errors-for-recovery'
+import { isSpilloverError, RECOVERY_ERROR_SUBSTRINGS } from '../../constants/errors-for-recovery'
 import { Sandbox } from '../../entities/sandbox.entity'
 import { SandboxState } from '../../enums/sandbox-state.enum'
 import { DONT_SYNC_AGAIN, SandboxAction, SYNC_AGAIN, SyncState } from './sandbox.action'
@@ -24,7 +24,12 @@ import { Snapshot } from '../../entities/snapshot.entity'
 import { OrganizationService } from '../../../organization/services/organization.service'
 import { TypedConfigService } from '../../../config/typed-config.service'
 import { Runner } from '../../entities/runner.entity'
-import { resolveEffectiveRegion, getFallbackRegion } from '../../constants/dedicated-regions.constant'
+import {
+  resolveEffectiveRegion,
+  getFallbackRegion,
+  hasFallbackRegion,
+  isSpilloverOnErrorOrg,
+} from '../../constants/dedicated-regions.constant'
 import { Organization } from '../../../organization/entities/organization.entity'
 import { LockCode, RedisLockProvider } from '../../common/redis-lock.provider'
 import { InjectRedis } from '@nestjs-modules/ioredis'
@@ -32,6 +37,9 @@ import Redis from 'ioredis'
 import { WithSpan } from '../../../common/decorators/otel.decorator'
 import { SandboxActivityService } from '../../services/sandbox-activity.service'
 import { getRunnerSandboxClass, isRegistryBasedSandboxClass } from '../../utils/sandbox-class.util'
+
+// How long the spillover hint persists so a re-assignment lands on the fallback region.
+const FORCE_SPILLOVER_TTL_SECONDS = 1 * 60
 
 @Injectable()
 export class SandboxStartAction extends SandboxAction {
@@ -163,6 +171,37 @@ export class SandboxStartAction extends SandboxAction {
     return DONT_SYNC_AGAIN
   }
 
+  private getForceSpilloverKey(sandboxId: string): string {
+    return `sandbox-${sandboxId}-force-spillover-region`
+  }
+
+  private async resolveRegionWithSpillover(sandbox: Sandbox): Promise<string> {
+    const effectiveRegion = resolveEffectiveRegion(sandbox.organizationId, sandbox.region, this.configService, {
+      cpu: sandbox.cpu,
+      memory: sandbox.mem,
+      disk: sandbox.disk,
+    })
+
+    if (!hasFallbackRegion(effectiveRegion)) {
+      return effectiveRegion
+    }
+
+    const forceSpillover = await this.redis.get(this.getForceSpilloverKey(sandbox.id))
+    if (!forceSpillover) {
+      return effectiveRegion
+    }
+
+    const fallbackRegion = getFallbackRegion(effectiveRegion)
+    if (!fallbackRegion) {
+      return effectiveRegion
+    }
+
+    this.logger.warn(
+      `Forcing spillover region ${fallbackRegion} for sandbox ${sandbox.id} (dedicated region ${effectiveRegion})`,
+    )
+    return fallbackRegion
+  }
+
   private async handleUnassignedRunnerSandbox(
     sandbox: Sandbox,
     lockCode: LockCode,
@@ -179,11 +218,7 @@ export class SandboxStartAction extends SandboxAction {
     }
 
     // Try to assign an available runner with the snapshot build
-    const effectiveRegion = resolveEffectiveRegion(sandbox.organizationId, sandbox.region, this.configService, {
-      cpu: sandbox.cpu,
-      memory: sandbox.mem,
-      disk: sandbox.disk,
-    })
+    const effectiveRegion = await this.resolveRegionWithSpillover(sandbox)
 
     const declarativeBuildScoreThreshold = this.configService.get('runnerScore.thresholds.declarativeBuild')
 
@@ -461,20 +496,62 @@ export class SandboxStartAction extends SandboxAction {
       sandboxName: sandbox.name,
     }
 
-    const result = await runnerAdapter.createSandbox(
-      sandbox,
-      snapshotRef,
-      internalRegistry,
-      entrypoint,
-      metadata,
-      this.configService.get('otelCollector.endpointUrl'),
-    )
+    let result
+    try {
+      result = await runnerAdapter.createSandbox(
+        sandbox,
+        snapshotRef,
+        internalRegistry,
+        entrypoint,
+        metadata,
+        this.configService.get('otelCollector.endpointUrl'),
+      )
+    } catch (error) {
+      sandbox.snapshot = originalSnapshot
+
+      // For eligible dedicated-region orgs, certain runner failures on the dedicated runner
+      // should retry creation on the spillover region rather than failing the sandbox.
+      if (await this.trySpilloverOnRunnerError(sandbox, runner, error, lockCode)) {
+        return SYNC_AGAIN
+      }
+
+      throw error
+    }
 
     sandbox.snapshot = originalSnapshot
 
     await this.updateSandboxState(sandbox, SandboxState.CREATING, lockCode, undefined, undefined, result?.daemonVersion)
     //  sync states again immediately for sandbox
     return SYNC_AGAIN
+  }
+
+  private async trySpilloverOnRunnerError(
+    sandbox: Sandbox,
+    runner: Runner,
+    error: any,
+    lockCode: LockCode,
+  ): Promise<boolean> {
+    if (!isSpilloverError(error?.message)) {
+      return false
+    }
+
+    // Only retry on spillover for eligible orgs whose sandbox is currently on a dedicated region with a fallback.
+    if (!isSpilloverOnErrorOrg(sandbox.organizationId) || !hasFallbackRegion(runner.region)) {
+      return false
+    }
+
+    this.logger.warn(
+      `Sandbox ${sandbox.id} hit spillover-eligible error on dedicated runner ${runner.id} (region ${runner.region}); retrying creation on spillover region`,
+    )
+
+    // Persist a hint so re-assignment skips the dedicated region and uses the fallback (spillover) region.
+    await this.redis.setex(this.getForceSpilloverKey(sandbox.id), FORCE_SPILLOVER_TTL_SECONDS, '1')
+
+    // Unassign the failed dedicated runner and push the sandbox back to an unassigned state so the next
+    // sync re-runs runner assignment, now targeting the spillover region.
+    const reassignState = sandbox.buildInfo ? SandboxState.PENDING_BUILD : SandboxState.PULLING_SNAPSHOT
+    await this.updateSandboxState(sandbox, reassignState, lockCode, null)
+    return true
   }
 
   private async handleRunnerSandboxStoppedOrArchivedStateOnDesiredStateStart(
