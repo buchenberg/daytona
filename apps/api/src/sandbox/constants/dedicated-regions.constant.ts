@@ -9,6 +9,14 @@ export const GPU_REGION = 'gpu-experimental'
 const WRITER_DEDICATED_US = 'writer-dedicated-us'
 const WRITER_DEDICATED_EU = 'writer-dedicated-eu'
 export const META_DEDICATED_REGION = 'meta-dedicated'
+export const META_LARGE_SANDBOX_REGION = 'us-central-1'
+
+/*
+ * Meta sandboxes exceeding either of these thresholds (GB) are pinned to
+ * META_LARGE_SANDBOX_REGION with no fallback and no spillover.
+ */
+const META_LARGE_SANDBOX_MEMORY_GB = 16
+const META_LARGE_SANDBOX_DISK_GB = 32
 export const DEEPTUNE_AND_HUD_DEDICATED_REGION = 'deeptune-dedicated'
 export const LARGE_SANDBOX_SHARED_REGION = 'large-sandbox-shared'
 export const ELEMENTOR_DEDICATED_REGION = 'elementor-dedicated'
@@ -112,6 +120,15 @@ export const WRITER_ORGS = [
 
 const META_ORGS = new Set(['fd4f4489-5a9b-4d7b-b62e-dbd26113115c'])
 
+/*
+ * Orgs whose large sandboxes (over the thresholds below) are pinned to
+ * META_LARGE_SANDBOX_REGION with no fallback and no spillover.
+ */
+const META_LARGE_SANDBOX_ORGS = new Set([
+  'fd4f4489-5a9b-4d7b-b62e-dbd26113115c', // Meta
+  'aeffef97-aab0-460b-bcb1-75cec66d0a65', // testing
+])
+
 export const SPILLOVER_ON_ERROR_ORGS = new Set<string>([
   'fd4f4489-5a9b-4d7b-b62e-dbd26113115c', // Meta
 ])
@@ -204,6 +221,15 @@ export function resolveEffectiveRegion(
     } else if (baseRegionId === 'eu') {
       return WRITER_DEDICATED_EU
     }
+  }
+
+  // Large sandboxes for these orgs are pinned to a dedicated region with no
+  // fallback and no spillover, regardless of the base region.
+  if (
+    META_LARGE_SANDBOX_ORGS.has(organizationId) &&
+    (resources.memory > META_LARGE_SANDBOX_MEMORY_GB || resources.disk > META_LARGE_SANDBOX_DISK_GB)
+  ) {
+    return META_LARGE_SANDBOX_REGION
   }
 
   if (META_ORGS.has(organizationId) && baseRegionId === 'us') {
