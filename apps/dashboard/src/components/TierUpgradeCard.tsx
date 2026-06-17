@@ -311,5 +311,5 @@ function TierRequirementItem({ checked, label, link, externalLink }: TierRequire
     )
   }
 
-  return <div className={cn(checked ? 'text-foreground' : 'text-muted-foreground')}>{content}</div>
+  return <div className={cn({ 'text-foreground': checked, 'text-muted-foreground': !checked })}>{content}</div>
 }
