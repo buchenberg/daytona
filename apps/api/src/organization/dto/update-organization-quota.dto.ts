@@ -45,4 +45,11 @@ export class UpdateOrganizationQuotaDto {
 
   @ApiProperty({ nullable: true, description: 'Time in minutes before an unused snapshot is deactivated' })
   snapshotDeactivationTimeoutMinutes?: number
+
+  @ApiProperty({
+    nullable: true,
+    description:
+      'Maximum number of snapshots an organization can process (building or pulling) concurrently. Excess are queued. <= 0 means unlimited.',
+  })
+  maxConcurrentSnapshotProcessing?: number
 }

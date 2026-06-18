@@ -153,6 +153,10 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         )
       `,
       )
+      // Don't scale down freshly-created snapshots; give propagation time to settle first.
+      .andWhere('snapshot."createdAt" < :scaleDownSnapshotCutoff', {
+        scaleDownSnapshotCutoff: new Date(Date.now() - 60 * 60 * 1000),
+      })
       .orderBy('snapshot.createdAt', 'ASC')
       .limit(100)
       .offset(Number(skip))
@@ -303,6 +307,10 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         )
       `,
       )
+      // Skip freshly-created snapshots; waitForInitialPropagation already does the initial push for them.
+      .andWhere('snapshot."createdAt" < :syncSnapshotCutoff', {
+        syncSnapshotCutoff: new Date(Date.now() - 10 * 60 * 1000),
+      })
       .orderBy('snapshot.createdAt', 'ASC')
       .limit(150)
       .offset(Number(skip))
@@ -1470,9 +1478,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     if (snapshot.ref && snapshotRunner) {
       const readyForActive = isRegistryBasedSandboxClass(snapshot.sandboxClass) ? snapshot.size != null : true
       if (snapshotRunner.state === SnapshotRunnerState.READY && readyForActive) {
-        if (runner.region === RL_REGION) {
-          await this.waitForRLRegionPropagation(snapshot)
-        }
+        await this.waitForInitialPropagation(snapshot)
         await this.updateSnapshotState(snapshot, SnapshotState.ACTIVE)
         return DONT_SYNC_AGAIN
       } else if (snapshotRunner.state === SnapshotRunnerState.ERROR) {
@@ -1573,9 +1579,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       return DONT_SYNC_AGAIN
     }
 
-    if (runner.region === RL_REGION) {
-      await this.waitForRLRegionPropagation(snapshot)
-    }
+    await this.waitForInitialPropagation(snapshot)
 
     await this.updateSnapshotState(snapshot, SnapshotState.ACTIVE)
 
@@ -1602,43 +1606,81 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
   }
 
   /**
-   * Blocks until the snapshot is propagated to at least two RL runners, or until timeout.
-   *
-   * Works on a best effort basis to propagate the snapshot to the target number of RL runners.
-   * If the snapshot is not propagated to enough RL runners, it will eventually be marked as ACTIVE with partial propagation by the caller.
+   * Resolve the org's CPU quota for its default region, mirroring the quota join used by the
+   * sync-runner-snapshots[-rl] crons (region_quota on org.defaultRegionId). The propagation factor is
+   * derived from this so the initial run targets the same number of runners the crons maintain.
    */
-  private async waitForRLRegionPropagation(snapshot: Snapshot): Promise<void> {
+  private async getOrganizationDefaultRegionCpuQuota(snapshot: Snapshot): Promise<number> {
+    const organization = await this.organizationService.findOne(snapshot.organizationId)
+    if (!organization?.defaultRegionId) {
+      return 0
+    }
     const regionQuota = await this.organizationService.getRegionQuota(
       snapshot.organizationId,
-      RL_REGION,
+      organization.defaultRegionId,
       snapshot.sandboxClass,
     )
-    const cpuQuota = regionQuota?.totalCpuQuota ?? 0
-    const { factor: propagationFactor, minimum: minimumRunners } = getSnapshotPropagationFactor(
-      cpuQuota,
-      snapshot,
-      RL_REGION,
-    )
+    return regionQuota?.totalCpuQuota ?? 0
+  }
 
-    const runners = await this.runnerRepository.find({
-      where: {
-        state: RunnerState.READY,
-        unschedulable: Not(true),
-        region: RL_REGION,
-      },
+  /**
+   * Kick off an initial propagation run for a freshly-built snapshot across all of its regions so copies
+   * start landing on shared runners immediately, instead of waiting for the next sync-runner-snapshots cron
+   * cycle. Then block (best effort) until a couple of runners are READY so the first sandboxes created from the
+   * snapshot start fast.
+   *
+   * The propagation tiers mirror the steady-state cron so the initial target matches it and they don't fight.
+   * If propagation doesn't reach the target in time, the caller still activates the snapshot with partial
+   * propagation — the crons finish the job afterwards.
+   */
+  private async waitForInitialPropagation(snapshot: Snapshot): Promise<void> {
+    const regions = await this.snapshotService.getSnapshotRegions(snapshot.id)
+
+    const sharedRegionIds = regions.filter((r) => r.organizationId === null).map((r) => r.id)
+    const organizationRegionIds = regions.filter((r) => r.organizationId === snapshot.organizationId).map((r) => r.id)
+
+    if (sharedRegionIds.length === 0 && organizationRegionIds.length === 0) {
+      return
+    }
+
+    const cpuQuota = await this.getOrganizationDefaultRegionCpuQuota(snapshot)
+    const { factor, minimum } = getSnapshotPropagationFactor(cpuQuota, snapshot)
+
+    // Determine how many runners we expect to end up holding the snapshot (org runners always get a copy;
+    // shared runners are limited by the propagation factor), and collect their ids so we can poll readiness.
+    const eligibleRunners = await this.runnerRepository.find({
+      where: this.eligibleRunnerWhere(snapshot, [...sharedRegionIds, ...organizationRegionIds]),
     })
-    const runnerIds = runners.map((r) => r.id)
+    const targetRunnerIds = new Set(eligibleRunners.map((runner) => runner.id))
 
-    const targetRunnerCount = Math.max(minimumRunners, Math.ceil(propagationFactor * runners.length))
-    const minimumReadyRunners = 2
-    const targetReadyCount = Math.min(targetRunnerCount, minimumReadyRunners)
+    const sharedRunnerCount = eligibleRunners.filter((runner) => sharedRegionIds.includes(runner.region)).length
+    const organizationRunnerCount = eligibleRunners.filter((runner) =>
+      organizationRegionIds.includes(runner.region),
+    ).length
 
+    const targetRunnerCount =
+      organizationRunnerCount + this.getTargetSharedRunnerCount(sharedRunnerCount, factor, minimum)
+
+    // Fire-and-forget: this creates the snapshot_runner rows and dispatches the pulls; the readiness poll
+    // below (and the crons) take over from there. propagateSnapshotToRunners never throws.
+    this.propagateSnapshotToRunners(snapshot, sharedRegionIds, organizationRegionIds, factor, minimum)
+
+    if (targetRunnerIds.size === 0) {
+      return
+    }
+
+    // Activate once at least 2 runners (or a configurable fraction of the desired propagation target, whichever is
+    // greater) are READY so the first sandboxes start fast while the crons finish topping up the rest. Never require
+    // more than the target itself.
+    const readyFactor = this.configService.getOrThrow('initialSnapshotPropagationReadyFactor')
+    const targetReadyCount = Math.min(targetRunnerCount, Math.max(2, Math.ceil(targetRunnerCount * readyFactor)))
+    if (targetReadyCount === 0) {
+      return
+    }
+
+    const runnerIds = [...targetRunnerIds]
     const startedAt = Date.now()
-    const waitTimeMs = 5 * 60 * 1000 // 5 minutes
-
-    this.propagateSnapshotToRunners(snapshot, [RL_REGION], [], propagationFactor, minimumRunners)
-
-    this.logger.warn('waitForRLRegionPropagation, snapshotId:', snapshot.id, 'startedAt:', startedAt)
+    const waitTimeMs = 10 * 60 * 1000 // 10 minutes
 
     while (Date.now() - startedAt < waitTimeMs) {
       const currentReadyCount = await this.snapshotRunnerRepository.count({
@@ -1649,15 +1691,6 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         },
       })
 
-      this.logger.warn(
-        'waitForRLRegionPropagation, snapshotId:',
-        snapshot.id,
-        'currentReadyCount:',
-        currentReadyCount,
-        'targetReadyCount:',
-        targetReadyCount,
-      )
-
       if (currentReadyCount >= targetReadyCount) {
         return
       }
@@ -1665,7 +1698,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       await sleep(10_000)
     }
 
-    this.logger.warn(`Snapshot ${snapshot.id} RL propagation timed out, activating with partial propagation`)
+    this.logger.warn(`Snapshot ${snapshot.id} initial propagation timed out, activating with partial propagation`)
   }
 
   async processPullOnInitialRunner(snapshot: Snapshot, runner: Runner) {
@@ -1748,6 +1781,51 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     let initialRunner: Runner | undefined = undefined
 
     if (!snapshot.initialRunnerId) {
+      // Per-org concurrency gate ("queue") to cap how many snapshots an org can be processing concurrently.
+      // Snapshots over the limit stay in PENDING and are retried on the next cron tick, so creations are still
+      // admitted but their eager propagation work (other runners pulling the ref from the registry) is spread out
+      // instead of bursting (e.g. an org churning hundreds of snapshots). Both build and pull snapshots propagate
+      // at activation and sit in BUILDING/PULLING while waitForInitialPropagation runs, so both count toward the
+      // cap. A value of <= 0 means unlimited. Admission is serialized per org with a short lock so concurrent cron
+      // ticks can't overshoot.
+      const organization = await this.organizationService.findOne(snapshot.organizationId)
+      const maxConcurrentProcessing =
+        organization?.maxConcurrentSnapshotProcessing ??
+        this.configService.getOrThrow('defaultOrganizationQuota.maxConcurrentSnapshotProcessing')
+
+      let admissionLockKey: string | undefined
+      if (maxConcurrentProcessing > 0) {
+        admissionLockKey = `snapshot-processing-admission-${snapshot.organizationId}`
+        if (!(await this.redisLockProvider.lock(admissionLockKey, 30))) {
+          // Another admission for this org is in progress; retry on the next cron tick.
+          return DONT_SYNC_AGAIN
+        }
+
+        // Snapshots already holding a processing slot: actively building/pulling, plus ones just admitted (they
+        // have claimed an initial runner) that haven't transitioned out of PENDING yet.
+        const inProgressCount = await this.snapshotRepository.count({
+          where: [
+            {
+              organizationId: snapshot.organizationId,
+              id: Not(snapshot.id),
+              state: In([SnapshotState.BUILDING, SnapshotState.PULLING]),
+            },
+            {
+              organizationId: snapshot.organizationId,
+              id: Not(snapshot.id),
+              state: SnapshotState.PENDING,
+              initialRunnerId: Not(IsNull()),
+            },
+          ],
+        })
+
+        if (inProgressCount >= maxConcurrentProcessing) {
+          // At capacity — leave this snapshot queued in PENDING; it will be retried on the next cron tick.
+          await this.redisLockProvider.unlock(admissionLockKey)
+          return DONT_SYNC_AGAIN
+        }
+      }
+
       // TODO: get only runners where the base snapshot is available (extract from buildInfo)
       const excludedRunnerIds = snapshot.buildInfo
         ? await this.runnerService.getRunnersWithMultipleSnapshotsBuilding()
@@ -1814,6 +1892,9 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
       if (!initialRunner) {
         // No runners available, retry later
+        if (admissionLockKey) {
+          await this.redisLockProvider.unlock(admissionLockKey)
+        }
         return DONT_SYNC_AGAIN
       }
 
@@ -1822,6 +1903,12 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       }
 
       await this.snapshotRepository.update(snapshot.id, { updateData, entity: snapshot })
+
+      // Slot is now claimed (initialRunnerId set, counted by the next admission); release the admission lock so the
+      // slow build/pull below runs without holding it.
+      if (admissionLockKey) {
+        await this.redisLockProvider.unlock(admissionLockKey)
+      }
     } else {
       initialRunner = await this.runnerService.findOneOrFail(snapshot.initialRunnerId)
     }

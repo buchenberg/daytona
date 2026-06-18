@@ -197,6 +197,8 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
       updateDto.sandboxLifecycleRateLimitTtlSeconds ?? organization.sandboxLifecycleRateLimitTtlSeconds
     organization.snapshotDeactivationTimeoutMinutes =
       updateDto.snapshotDeactivationTimeoutMinutes ?? organization.snapshotDeactivationTimeoutMinutes
+    organization.maxConcurrentSnapshotProcessing =
+      updateDto.maxConcurrentSnapshotProcessing ?? organization.maxConcurrentSnapshotProcessing
 
     await this.organizationRepository.save(organization)
   }
@@ -638,6 +640,9 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
     organization.snapshotQuota = quota.snapshotQuota
     organization.maxSnapshotSize = quota.maxSnapshotSize
     organization.volumeQuota = quota.volumeQuota
+    if (quota.maxConcurrentSnapshotProcessing !== undefined) {
+      organization.maxConcurrentSnapshotProcessing = quota.maxConcurrentSnapshotProcessing
+    }
 
     if (!creatorEmailVerified && !this.configService.get('skipUserEmailVerification')) {
       organization.suspended = true

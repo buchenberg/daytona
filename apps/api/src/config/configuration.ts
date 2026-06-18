@@ -314,6 +314,10 @@ const configuration = {
     snapshotQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_SNAPSHOT_QUOTA || '30', 10),
     maxSnapshotSize: parseInt(process.env.DEFAULT_ORG_QUOTA_MAX_SNAPSHOT_SIZE || '20', 10),
     volumeQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_VOLUME_QUOTA || '100', 10),
+    maxConcurrentSnapshotProcessing: parseInt(
+      process.env.DEFAULT_ORG_QUOTA_MAX_CONCURRENT_SNAPSHOT_PROCESSING || '10',
+      10,
+    ),
   },
   defaultRegion: {
     id: process.env.DEFAULT_REGION_ID || 'us',
@@ -331,6 +335,7 @@ const configuration = {
     snapshotQuota: parseInt(process.env.ADMIN_SNAPSHOT_QUOTA || '100', 10),
     maxSnapshotSize: parseInt(process.env.ADMIN_MAX_SNAPSHOT_SIZE || '100', 10),
     volumeQuota: parseInt(process.env.ADMIN_VOLUME_QUOTA || '0', 10),
+    maxConcurrentSnapshotProcessing: parseInt(process.env.ADMIN_MAX_CONCURRENT_SNAPSHOT_PROCESSING || '0', 10),
   },
   skipUserEmailVerification: process.env.SKIP_USER_EMAIL_VERIFICATION === 'true',
   apiKey: {
@@ -374,6 +379,7 @@ const configuration = {
     salt: process.env.ENCRYPTION_SALT,
   },
   sandboxSnapshottingTimeoutMin: parseInt(process.env.SANDBOX_SNAPSHOTTING_TIMEOUT_MIN || '60', 10),
+  initialSnapshotPropagationReadyFactor: parseFloat(process.env.INITIAL_SNAPSHOT_PROPAGATION_READY_FACTOR || '0.2'),
   failedSnapshotRunnerRetentionHours: parseInt(process.env.FAILED_SNAPSHOT_RUNNER_RETENTION_HOURS || '3', 10),
   buildInfoSnapshotRunnerStalenessDays: parseInt(process.env.BUILDINFO_SNAPSHOT_RUNNER_STALENESS_DAYS || '7', 10),
   // DRAINING_MODE: 'migrate' (default) relocates stopped sandboxes to another runner;

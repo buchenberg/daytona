@@ -70,6 +70,13 @@ export class Organization {
 
   @Column({
     type: 'int',
+    default: 10,
+    name: 'max_concurrent_snapshot_processing',
+  })
+  maxConcurrentSnapshotProcessing: number
+
+  @Column({
+    type: 'int',
     default: 100,
     name: 'volume_quota',
   })

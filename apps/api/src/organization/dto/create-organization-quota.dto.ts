@@ -52,4 +52,12 @@ export class CreateOrganizationQuotaDto {
   @IsNumber()
   @IsOptional()
   volumeQuota?: number
+
+  @ApiPropertyOptional({
+    description:
+      'Maximum number of snapshots an organization can process (building or pulling) concurrently. Excess are queued. <= 0 means unlimited.',
+  })
+  @IsNumber()
+  @IsOptional()
+  maxConcurrentSnapshotProcessing?: number
 }

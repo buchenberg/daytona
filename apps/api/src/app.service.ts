@@ -196,6 +196,7 @@ export class AppService implements OnApplicationBootstrap, OnApplicationShutdown
         snapshotQuota: this.configService.getOrThrow('admin.snapshotQuota'),
         maxSnapshotSize: this.configService.getOrThrow('admin.maxSnapshotSize'),
         volumeQuota: this.configService.getOrThrow('admin.volumeQuota'),
+        maxConcurrentSnapshotProcessing: this.configService.getOrThrow('admin.maxConcurrentSnapshotProcessing'),
       },
       personalOrganizationDefaultRegionId: this.configService.getOrThrow('defaultRegion.id'),
       role: SystemRole.ADMIN,
