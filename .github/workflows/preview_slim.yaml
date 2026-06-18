@@ -185,7 +185,8 @@ jobs:
             --set services.api.ingress.tlsSecretName=api-p-stage-tls \
             --set services.proxy.oidcClientSecret.secretName=stage-preview-job \
             --wait \
-            --timeout 10m
+            --timeout 10m \
+            --debug
 
       # - name: Clean up old releases
       #   run: |
