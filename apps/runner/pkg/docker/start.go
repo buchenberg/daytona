@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"time"
 
@@ -55,7 +56,7 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, authToken 
 	}
 
 	// If the container is using runc, swap it for a kata-clh container before starting.
-	if c.HostConfig != nil && c.HostConfig.Runtime == "runc" && !isAndroidDeviceContainer(c) {
+	if os.Getenv("SKIP_KATA_CONVERSION") != "true" && c.HostConfig != nil && c.HostConfig.Runtime == "runc" && !isAndroidDeviceContainer(c) {
 		converted, err := d.convertRuncToKata(ctx, containerId, c)
 		if err != nil {
 			return nil, "", err
