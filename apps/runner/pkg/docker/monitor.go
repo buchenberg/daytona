@@ -145,7 +145,9 @@ func (dm *DockerMonitor) handleContainerEvent(event events.Message) {
 			return
 		}
 		shortContainerID := containerID[:12]
-		err = dm.netRulesManager.AssignNetworkRules(shortContainerID, GetContainerIpAddress(dm.ctx, &ct))
+		ip := GetContainerIpAddress(dm.ctx, &ct)
+		veth := resolveHostVeth(dm.log, &ct, ip)
+		err = dm.netRulesManager.AssignNetworkRules(shortContainerID, ip, veth)
 		if err != nil {
 			dm.log.Error("Error assigning network rules", "error", err)
 		}
@@ -182,26 +184,31 @@ func (dm *DockerMonitor) reconcileNetworkRules(table string, chain string) {
 	}
 
 	for _, rule := range rules {
-		// Parse the rule to extract chain name and source IP
+		// Parse the rule to extract the chain name and its anchor (host veth
+		// and/or source IP).
 		args, err := netrules.ParseRuleArguments(rule)
 		if err != nil {
 			dm.log.Error("Error parsing rule", "rule", rule, "error", err)
 			continue
 		}
 
-		// Find the chain name and source IP from the rule arguments
-		var chainName, sourceIP string
+		var chainName, sourceIP, physVeth string
 		for i, arg := range args {
-			if arg == "-j" && i+1 < len(args) {
-				chainName = args[i+1]
+			if i+1 >= len(args) {
+				continue
 			}
-			if arg == "-s" && i+1 < len(args) {
+			switch arg {
+			case "-j":
+				chainName = args[i+1]
+			case "-s":
 				sourceIP = args[i+1]
+			case "--physdev-in":
+				physVeth = args[i+1]
 			}
 		}
 
-		if chainName == "" || sourceIP == "" {
-			dm.log.Warn("Could not extract chain name or source IP from rule", "rule", rule)
+		if chainName == "" || (sourceIP == "" && physVeth == "") {
+			dm.log.Warn("Could not extract chain name or anchor from rule", "rule", rule)
 			continue
 		}
 
@@ -212,8 +219,8 @@ func (dm *DockerMonitor) reconcileNetworkRules(table string, chain string) {
 			continue
 		}
 
-		// Inspect the container to get its current IP
-		container, err := dm.apiClient.ContainerInspect(dm.ctx, containerID)
+		// Inspect the container to get its current network identity
+		ct, err := dm.apiClient.ContainerInspect(dm.ctx, containerID)
 		if err != nil {
 			dm.log.Error("Error inspecting container", "containerID", containerID, "error", err)
 			// Container doesn't exist, unassign the rules
@@ -225,24 +232,63 @@ func (dm *DockerMonitor) reconcileNetworkRules(table string, chain string) {
 			continue
 		}
 
-		ipAddress := GetContainerIpAddress(dm.ctx, &container)
+		ipAddress := GetContainerIpAddress(dm.ctx, &ct)
+		currentVeth := resolveHostVeth(dm.log, &ct, ipAddress)
 
-		// Check if the container IP matches the rule's source IP
-		// Handle CIDR notation by extracting just the IP part
-		ruleIP := sourceIP
-		if strings.Contains(sourceIP, "/") {
-			ruleIP = strings.Split(sourceIP, "/")[0]
+		// Decide whether the existing rule's anchor is still correct.
+		stale := false
+		switch {
+		case currentVeth != "":
+			// Preferred, unspoofable anchor is available. The rule is stale if it
+			// is a legacy source-IP rule (physVeth == "") or if the veth changed
+			// across a container restart.
+			stale = physVeth != currentVeth
+		case physVeth == "":
+			// Cannot resolve the current veth; fall back to the source-IP check so
+			// rules left over from a previous container IP are still pruned.
+			ruleIP := sourceIP
+			if strings.Contains(sourceIP, "/") {
+				ruleIP = strings.Split(sourceIP, "/")[0]
+			}
+			stale = ipAddress != ruleIP
+		default:
+			// Rule already uses a veth anchor but we can't resolve the current one;
+			// leave it untouched rather than risk removing a valid rule.
+			stale = false
 		}
 
-		if ipAddress != ruleIP {
-			dm.log.Warn("IP mismatch for container", "containerID", containerID, "ruleIP", ruleIP, "containerIP", ipAddress)
+		if !stale {
+			continue
+		}
 
-			// Delete only this specific mismatched rule
-			if err := dm.netRulesManager.DeleteChainRule(table, chain, rule); err != nil {
-				dm.log.Error("Error deleting mismatched rule for container", "containerID", containerID, "error", err)
-			} else {
-				dm.log.Info("Deleted mismatched rule for container", "containerID", containerID)
-			}
+		// Without either a resolvable veth or an IP we cannot build a valid
+		// replacement anchor; leave the existing rule in place.
+		if currentVeth == "" && ipAddress == "" {
+			continue
+		}
+
+		dm.log.Warn("Stale sandbox egress anchor; migrating", "containerID", containerID,
+			"ruleVeth", physVeth, "currentVeth", currentVeth, "containerIP", ipAddress)
+
+		// Re-add the correct anchor BEFORE deleting the stale one so the sandbox
+		// is never transiently unfiltered. Skip the delete if re-add fails.
+		var reassignErr error
+		switch table {
+		case "filter":
+			reassignErr = dm.netRulesManager.AssignNetworkRules(containerID, ipAddress, currentVeth)
+		case "mangle":
+			reassignErr = dm.netRulesManager.SetNetworkLimiter(containerID, ipAddress, currentVeth)
+		}
+		if reassignErr != nil {
+			dm.log.Error("Error re-assigning network rules; keeping existing rule", "containerID", containerID, "error", reassignErr)
+			continue
+		}
+
+		// Delete the stale rule.
+		if err := dm.netRulesManager.DeleteChainRule(table, chain, rule); err != nil {
+			dm.log.Error("Error deleting stale rule for container", "containerID", containerID, "error", err)
+		} else {
+			dm.log.Info("Migrated sandbox egress rule to veth anchor", "containerID", containerID, "veth", currentVeth)
 		}
 	}
 }

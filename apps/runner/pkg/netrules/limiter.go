@@ -5,8 +5,10 @@ package netrules
 
 import "strings"
 
-// SetNetworkLimiter creates and configures network rules for a container
-func (manager *NetRulesManager) SetNetworkLimiter(name string, sourceIp string) error {
+// SetNetworkLimiter creates and configures network rules for a container.
+// Like the filter rules, the PREROUTING jump is anchored on the host veth when
+// available so a sandbox cannot dodge egress marking by rebinding its IP.
+func (manager *NetRulesManager) SetNetworkLimiter(name string, sourceIp string, vethName string) error {
 
 	// Add prefix to chain name
 	chainName := formatChainName(name)
@@ -30,8 +32,9 @@ func (manager *NetRulesManager) SetNetworkLimiter(name string, sourceIp string) 
 		return err
 	}
 
-	// Assign the rules to the container IP
-	if err := manager.ipt.AppendUnique("mangle", "PREROUTING", "-j", chainName, "-s", sourceIp, "-p", "all"); err != nil {
+	// Assign the rules to the container (anchor on host veth when available)
+	rulespec := append(buildAnchor(sourceIp, vethName), "-j", chainName)
+	if err := manager.ipt.AppendUnique("mangle", "PREROUTING", rulespec...); err != nil {
 		return err
 	}
 

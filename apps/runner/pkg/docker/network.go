@@ -25,6 +25,8 @@ func (d *DockerClient) UpdateNetworkSettings(ctx context.Context, containerId st
 		return errors.New("sandbox does not have an IP address")
 	}
 
+	veth := resolveHostVeth(d.logger, info, ipAddress)
+
 	blockAll := updateNetworkSettingsDto.NetworkBlockAll != nil && *updateNetworkSettingsDto.NetworkBlockAll
 	var allowListTrimmed string
 	hasAllowList := false
@@ -35,9 +37,9 @@ func (d *DockerClient) UpdateNetworkSettings(ctx context.Context, containerId st
 
 	switch {
 	case blockAll:
-		err = d.netRulesManager.SetNetworkRules(containerShortId, ipAddress, "")
+		err = d.netRulesManager.SetNetworkRules(containerShortId, ipAddress, veth, "")
 	case hasAllowList:
-		err = d.netRulesManager.SetNetworkRules(containerShortId, ipAddress, allowListTrimmed)
+		err = d.netRulesManager.SetNetworkRules(containerShortId, ipAddress, veth, allowListTrimmed)
 	case updateNetworkSettingsDto.NetworkBlockAll != nil && !*updateNetworkSettingsDto.NetworkBlockAll && !hasAllowList:
 		// Restore general outbound access (clear Daytona filter rules for this sandbox)
 		err = d.netRulesManager.DeleteNetworkRules(containerShortId)
@@ -53,7 +55,7 @@ func (d *DockerClient) UpdateNetworkSettings(ctx context.Context, containerId st
 	}
 
 	if updateNetworkSettingsDto.NetworkLimitEgress != nil && *updateNetworkSettingsDto.NetworkLimitEgress {
-		err = d.netRulesManager.SetNetworkLimiter(containerShortId, ipAddress)
+		err = d.netRulesManager.SetNetworkLimiter(containerShortId, ipAddress, veth)
 		if err != nil {
 			return err
 		}

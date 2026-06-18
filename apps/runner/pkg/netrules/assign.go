@@ -3,8 +3,10 @@
 
 package netrules
 
-// AssignNetworkRules assigns network rules to a container by inserting a rule in DOCKER-USER chain
-func (manager *NetRulesManager) AssignNetworkRules(name string, sourceIp string) error {
+// AssignNetworkRules assigns network rules to a container by inserting a rule in
+// the DOCKER-USER chain. It anchors on the host veth when available and falls
+// back to source IP otherwise (see buildAnchor).
+func (manager *NetRulesManager) AssignNetworkRules(name string, sourceIp string, vethName string) error {
 	// Add prefix to chain name
 	chainName := formatChainName(name)
 
@@ -22,5 +24,6 @@ func (manager *NetRulesManager) AssignNetworkRules(name string, sourceIp string)
 		return nil
 	}
 
-	return manager.ipt.InsertUnique("filter", "DOCKER-USER", 1, "-j", chainName, "-s", sourceIp, "-p", "all")
+	rulespec := append(buildAnchor(sourceIp, vethName), "-j", chainName)
+	return manager.ipt.InsertUnique("filter", "DOCKER-USER", 1, rulespec...)
 }

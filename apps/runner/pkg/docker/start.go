@@ -99,9 +99,10 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, authToken 
 		}
 
 		if metadata["limitNetworkEgress"] == "true" {
+			veth := resolveHostVeth(d.logger, runningContainer, containerIP)
 			go func() {
 				containerShortId := c.ID[:12]
-				if err := d.netRulesManager.SetNetworkLimiter(containerShortId, containerIP); err != nil {
+				if err := d.netRulesManager.SetNetworkLimiter(containerShortId, containerIP, veth); err != nil {
 					d.logger.ErrorContext(ctx, "Failed to set network limiter", "error", err)
 				}
 			}()
@@ -128,9 +129,10 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, authToken 
 	}
 
 	if metadata["limitNetworkEgress"] == "true" {
+		veth := resolveHostVeth(d.logger, runningContainer, containerIP)
 		go func() {
 			containerShortId := c.ID[:12]
-			err = d.netRulesManager.SetNetworkLimiter(containerShortId, containerIP)
+			err = d.netRulesManager.SetNetworkLimiter(containerShortId, containerIP, veth)
 			if err != nil {
 				d.logger.ErrorContext(ctx, "Failed to set network limiter", "error", err)
 			}

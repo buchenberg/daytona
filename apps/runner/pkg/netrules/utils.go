@@ -56,3 +56,20 @@ func formatChainName(name string) string {
 	}
 	return ChainPrefix + name
 }
+
+// buildAnchor returns the iptables match spec that selects a sandbox's traffic
+// for its per-sandbox chain.
+//
+// The preferred anchor is the container's host veth interface via the physdev
+// match. The host veth lives in the host network namespace and cannot be
+// renamed or moved from inside the sandbox, so it is unspoofable. Source IP is
+// used only as a fallback when the veth cannot be resolved: a root sandbox with
+// CAP_NET_ADMIN can add secondary in-subnet addresses to bypass a source-IP
+// match (GHSA-fxgg-wfpj-frg3), so it is intentionally never combined with the
+// veth match (combining them would re-open the bypass via an unmatched -s).
+func buildAnchor(sourceIp, vethName string) []string {
+	if vethName != "" {
+		return []string{"-m", "physdev", "--physdev-in", vethName, "-p", "all"}
+	}
+	return []string{"-s", sourceIp, "-p", "all"}
+}
