@@ -222,7 +222,6 @@ services:
       # Token must match services.api.env.DEFAULT_RUNNER_API_KEY (set via runner.apiToken)
       API_TOKEN: 'preview_runner_token'
       RESOURCE_LIMITS_DISABLED: 'true'
-      SKIP_KATA_CONVERSION: 'true'
       # SSH Gateway — the runner exposes an SSH endpoint on SSH_GATEWAY_PORT that the
       # external ssh-gateway service dials into. SSH_PUBLIC_KEY is the external gateway's
       # public key (base64) that the runner trusts; it must correspond to the private key
@@ -231,7 +230,9 @@ services:
       SSH_GATEWAY_PORT: '2220'
       SSH_PUBLIC_KEY: 'c3NoLXJzYSBBQUFBQjNOemFDMXljMkVBQUFBREFRQUJBQUFCZ1FEZUtocFdOYVhVNkpSMnJXekc1NlZJeksrcmsrdForcCtVUmwyeWF5cWRnZGg2bnVOL1NtVnJsYmV4MGlrRVZZemdRWUIwWno5M2dqOVhxSkd4WjJiMHVoSDFzNkp2bnhKZVdIK05rbjBNMzRiRjZkeVloZ3o4M0JaTitWcElJdnVDT1pxYWE4VnlRWjhPdjVLMU00enlmQnFCMld3ejcwZEVWUnFaMnVZckd5U0RqUUIrU3hRQ3phY0djb2JRQTFUd2QxdEJvSk5BaVpPWXFSU3d6TmNoTk5hZHlxSHRGdkZRQ0hhNjZWaVBmQ0FVUGt2cEN6ZGh3TmJGdVhGVWkxbnZOWkx4M056RU41M05LWUhZcWU3Y3dXZkI4QjBoRDhDd3hmSDd6T0o1b1RCMnBMVVlsUWpZRDNsN3k4SkFTbDZpYkpuR1A1SWczVXpZWlRIdUdkNzVXWktnNTRJTVROQlFPMWpJdE9HL0orUm1XbzB0YTdpRkF6ZExyL1BmbDdXTVMwbEZhSm9scTdUVmJLUG1JODFTOU04VEgrbXhLbGZ5b2NqZzhwSUdlQUllcEo3dXl1Vk1xT2wxeVVuSFNycDRlVEVlR0k3NlpCOFRoUzhkYnBLUTIvb2RYMHkwc3FSZDI0Y2lGdnM0dnZVaW80NFdYNlNWRG54dXpWRHc1Rzg9IGRheXRvbmFAMDQwNjZiZDIwY2Vi'
     # Runner resources (needs more than API/proxy for sandbox management)
-    extraEnv: []
+    extraEnv:
+      - name: SKIP_KATA_CONVERSION
+        value: 'true'
     resources:
       limits:
         memory: 2Gi
