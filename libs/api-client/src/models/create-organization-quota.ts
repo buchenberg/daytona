@@ -24,5 +24,9 @@ export interface CreateOrganizationQuota {
     'snapshotQuota'?: number;
     'maxSnapshotSize'?: number;
     'volumeQuota'?: number;
+    /**
+     * Maximum number of snapshots an organization can process (building or pulling) concurrently. Excess are queued. <= 0 means unlimited.
+     */
+    'maxConcurrentSnapshotProcessing'?: number;
 }
 

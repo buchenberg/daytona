@@ -110,4 +110,12 @@ public class CreateOrganizationQuotaTest {
         // TODO: test volumeQuota
     }
 
+    /**
+     * Test the property 'maxConcurrentSnapshotProcessing'
+     */
+    @Test
+    public void maxConcurrentSnapshotProcessingTest() {
+        // TODO: test maxConcurrentSnapshotProcessing
+    }
+
 }

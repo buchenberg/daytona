@@ -10025,6 +10025,7 @@ components:
         sandboxLifecycleRateLimitTtlSeconds: 7.386281948385884
         maxCpuPerSandbox: 0.8008281904610115
         maxDiskPerSandbox: 1.4658129805029452
+        maxConcurrentSnapshotProcessing: 1.0246457001441578
         snapshotDeactivationTimeoutMinutes: 1.2315135367772556
         maxMemoryPerSandbox: 6.027456183070403
         authenticatedRateLimitTtlSeconds: 2.027123023002322
@@ -10069,9 +10070,15 @@ components:
           description: Time in minutes before an unused snapshot is deactivated
           nullable: true
           type: number
+        maxConcurrentSnapshotProcessing:
+          description: Maximum number of snapshots an organization can process (building
+            or pulling) concurrently. Excess are queued. <= 0 means unlimited.
+          nullable: true
+          type: number
       required:
       - authenticatedRateLimit
       - authenticatedRateLimitTtlSeconds
+      - maxConcurrentSnapshotProcessing
       - maxCpuPerSandbox
       - maxDiskPerSandbox
       - maxMemoryPerSandbox
@@ -14728,6 +14735,7 @@ components:
         totalCpuQuota: 0.8008281904610115
         maxCpuPerSandbox: 5.962133916683182
         maxDiskPerSandbox: 2.3021358869347655
+        maxConcurrentSnapshotProcessing: 2.027123023002322
         maxMemoryPerSandbox: 5.637376656633329
         volumeQuota: 3.616076749251911
         totalMemoryQuota: 6.027456183070403
@@ -14752,6 +14760,10 @@ components:
           type: number
         volumeQuota:
           type: number
+        maxConcurrentSnapshotProcessing:
+          description: Maximum number of snapshots an organization can process (building
+            or pulling) concurrently. Excess are queued. <= 0 means unlimited.
+          type: number
       type: object
     CreateUser:
       example:
@@ -14765,6 +14777,7 @@ components:
           totalCpuQuota: 0.8008281904610115
           maxCpuPerSandbox: 5.962133916683182
           maxDiskPerSandbox: 2.3021358869347655
+          maxConcurrentSnapshotProcessing: 2.027123023002322
           maxMemoryPerSandbox: 5.637376656633329
           volumeQuota: 3.616076749251911
           totalMemoryQuota: 6.027456183070403

@@ -33,6 +33,9 @@ module DaytonaApiClient
 
     attr_accessor :volume_quota
 
+    # Maximum number of snapshots an organization can process (building or pulling) concurrently. Excess are queued. <= 0 means unlimited.
+    attr_accessor :max_concurrent_snapshot_processing
+
     # Attribute mapping from ruby-style variable name to JSON key.
     def self.attribute_map
       {
@@ -44,7 +47,8 @@ module DaytonaApiClient
         :'max_disk_per_sandbox' => :'maxDiskPerSandbox',
         :'snapshot_quota' => :'snapshotQuota',
         :'max_snapshot_size' => :'maxSnapshotSize',
-        :'volume_quota' => :'volumeQuota'
+        :'volume_quota' => :'volumeQuota',
+        :'max_concurrent_snapshot_processing' => :'maxConcurrentSnapshotProcessing'
       }
     end
 
@@ -69,7 +73,8 @@ module DaytonaApiClient
         :'max_disk_per_sandbox' => :'Float',
         :'snapshot_quota' => :'Float',
         :'max_snapshot_size' => :'Float',
-        :'volume_quota' => :'Float'
+        :'volume_quota' => :'Float',
+        :'max_concurrent_snapshot_processing' => :'Float'
       }
     end
 
@@ -130,6 +135,10 @@ module DaytonaApiClient
       if attributes.key?(:'volume_quota')
         self.volume_quota = attributes[:'volume_quota']
       end
+
+      if attributes.key?(:'max_concurrent_snapshot_processing')
+        self.max_concurrent_snapshot_processing = attributes[:'max_concurrent_snapshot_processing']
+      end
     end
 
     # Show invalid properties with the reasons. Usually used together with valid?
@@ -160,7 +169,8 @@ module DaytonaApiClient
           max_disk_per_sandbox == o.max_disk_per_sandbox &&
           snapshot_quota == o.snapshot_quota &&
           max_snapshot_size == o.max_snapshot_size &&
-          volume_quota == o.volume_quota
+          volume_quota == o.volume_quota &&
+          max_concurrent_snapshot_processing == o.max_concurrent_snapshot_processing
     end
 
     # @see the `==` method
@@ -172,7 +182,7 @@ module DaytonaApiClient
     # Calculates hash code according to all attributes.
     # @return [Integer] Hash code
     def hash
-      [total_cpu_quota, total_memory_quota, total_disk_quota, max_cpu_per_sandbox, max_memory_per_sandbox, max_disk_per_sandbox, snapshot_quota, max_snapshot_size, volume_quota].hash
+      [total_cpu_quota, total_memory_quota, total_disk_quota, max_cpu_per_sandbox, max_memory_per_sandbox, max_disk_per_sandbox, snapshot_quota, max_snapshot_size, volume_quota, max_concurrent_snapshot_processing].hash
     end
 
     # Builds the object from hash

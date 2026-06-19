@@ -31,5 +31,9 @@ export interface UpdateOrganizationQuota {
      * Time in minutes before an unused snapshot is deactivated
      */
     'snapshotDeactivationTimeoutMinutes': number | null;
+    /**
+     * Maximum number of snapshots an organization can process (building or pulling) concurrently. Excess are queued. <= 0 means unlimited.
+     */
+    'maxConcurrentSnapshotProcessing': number | null;
 }
 

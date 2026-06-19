@@ -29,6 +29,8 @@ type CreateOrganizationQuota struct {
 	SnapshotQuota *float32 `json:"snapshotQuota,omitempty"`
 	MaxSnapshotSize *float32 `json:"maxSnapshotSize,omitempty"`
 	VolumeQuota *float32 `json:"volumeQuota,omitempty"`
+	// Maximum number of snapshots an organization can process (building or pulling) concurrently. Excess are queued. <= 0 means unlimited.
+	MaxConcurrentSnapshotProcessing *float32 `json:"maxConcurrentSnapshotProcessing,omitempty"`
 	AdditionalProperties map[string]interface{}
 }
 
@@ -339,6 +341,38 @@ func (o *CreateOrganizationQuota) SetVolumeQuota(v float32) {
 	o.VolumeQuota = &v
 }
 
+// GetMaxConcurrentSnapshotProcessing returns the MaxConcurrentSnapshotProcessing field value if set, zero value otherwise.
+func (o *CreateOrganizationQuota) GetMaxConcurrentSnapshotProcessing() float32 {
+	if o == nil || IsNil(o.MaxConcurrentSnapshotProcessing) {
+		var ret float32
+		return ret
+	}
+	return *o.MaxConcurrentSnapshotProcessing
+}
+
+// GetMaxConcurrentSnapshotProcessingOk returns a tuple with the MaxConcurrentSnapshotProcessing field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *CreateOrganizationQuota) GetMaxConcurrentSnapshotProcessingOk() (*float32, bool) {
+	if o == nil || IsNil(o.MaxConcurrentSnapshotProcessing) {
+		return nil, false
+	}
+	return o.MaxConcurrentSnapshotProcessing, true
+}
+
+// HasMaxConcurrentSnapshotProcessing returns a boolean if a field has been set.
+func (o *CreateOrganizationQuota) HasMaxConcurrentSnapshotProcessing() bool {
+	if o != nil && !IsNil(o.MaxConcurrentSnapshotProcessing) {
+		return true
+	}
+
+	return false
+}
+
+// SetMaxConcurrentSnapshotProcessing gets a reference to the given float32 and assigns it to the MaxConcurrentSnapshotProcessing field.
+func (o *CreateOrganizationQuota) SetMaxConcurrentSnapshotProcessing(v float32) {
+	o.MaxConcurrentSnapshotProcessing = &v
+}
+
 func (o CreateOrganizationQuota) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -376,6 +410,9 @@ func (o CreateOrganizationQuota) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.VolumeQuota) {
 		toSerialize["volumeQuota"] = o.VolumeQuota
 	}
+	if !IsNil(o.MaxConcurrentSnapshotProcessing) {
+		toSerialize["maxConcurrentSnapshotProcessing"] = o.MaxConcurrentSnapshotProcessing
+	}
 
 	for key, value := range o.AdditionalProperties {
 		toSerialize[key] = value
@@ -407,6 +444,7 @@ func (o *CreateOrganizationQuota) UnmarshalJSON(data []byte) (err error) {
 		delete(additionalProperties, "snapshotQuota")
 		delete(additionalProperties, "maxSnapshotSize")
 		delete(additionalProperties, "volumeQuota")
+		delete(additionalProperties, "maxConcurrentSnapshotProcessing")
 		o.AdditionalProperties = additionalProperties
 	}
 

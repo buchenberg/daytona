@@ -142,4 +142,12 @@ public class UpdateOrganizationQuotaTest {
         // TODO: test snapshotDeactivationTimeoutMinutes
     }
 
+    /**
+     * Test the property 'maxConcurrentSnapshotProcessing'
+     */
+    @Test
+    public void maxConcurrentSnapshotProcessingTest() {
+        // TODO: test maxConcurrentSnapshotProcessing
+    }
+
 }

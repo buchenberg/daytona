@@ -35,6 +35,8 @@ type UpdateOrganizationQuota struct {
 	SandboxLifecycleRateLimitTtlSeconds NullableFloat32 `json:"sandboxLifecycleRateLimitTtlSeconds"`
 	// Time in minutes before an unused snapshot is deactivated
 	SnapshotDeactivationTimeoutMinutes NullableFloat32 `json:"snapshotDeactivationTimeoutMinutes"`
+	// Maximum number of snapshots an organization can process (building or pulling) concurrently. Excess are queued. <= 0 means unlimited.
+	MaxConcurrentSnapshotProcessing NullableFloat32 `json:"maxConcurrentSnapshotProcessing"`
 	AdditionalProperties map[string]interface{}
 }
 
@@ -44,7 +46,7 @@ type _UpdateOrganizationQuota UpdateOrganizationQuota
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewUpdateOrganizationQuota(maxCpuPerSandbox NullableFloat32, maxMemoryPerSandbox NullableFloat32, maxDiskPerSandbox NullableFloat32, snapshotQuota NullableFloat32, maxSnapshotSize NullableFloat32, volumeQuota NullableFloat32, authenticatedRateLimit NullableFloat32, sandboxCreateRateLimit NullableFloat32, sandboxLifecycleRateLimit NullableFloat32, authenticatedRateLimitTtlSeconds NullableFloat32, sandboxCreateRateLimitTtlSeconds NullableFloat32, sandboxLifecycleRateLimitTtlSeconds NullableFloat32, snapshotDeactivationTimeoutMinutes NullableFloat32) *UpdateOrganizationQuota {
+func NewUpdateOrganizationQuota(maxCpuPerSandbox NullableFloat32, maxMemoryPerSandbox NullableFloat32, maxDiskPerSandbox NullableFloat32, snapshotQuota NullableFloat32, maxSnapshotSize NullableFloat32, volumeQuota NullableFloat32, authenticatedRateLimit NullableFloat32, sandboxCreateRateLimit NullableFloat32, sandboxLifecycleRateLimit NullableFloat32, authenticatedRateLimitTtlSeconds NullableFloat32, sandboxCreateRateLimitTtlSeconds NullableFloat32, sandboxLifecycleRateLimitTtlSeconds NullableFloat32, snapshotDeactivationTimeoutMinutes NullableFloat32, maxConcurrentSnapshotProcessing NullableFloat32) *UpdateOrganizationQuota {
 	this := UpdateOrganizationQuota{}
 	this.MaxCpuPerSandbox = maxCpuPerSandbox
 	this.MaxMemoryPerSandbox = maxMemoryPerSandbox
@@ -59,6 +61,7 @@ func NewUpdateOrganizationQuota(maxCpuPerSandbox NullableFloat32, maxMemoryPerSa
 	this.SandboxCreateRateLimitTtlSeconds = sandboxCreateRateLimitTtlSeconds
 	this.SandboxLifecycleRateLimitTtlSeconds = sandboxLifecycleRateLimitTtlSeconds
 	this.SnapshotDeactivationTimeoutMinutes = snapshotDeactivationTimeoutMinutes
+	this.MaxConcurrentSnapshotProcessing = maxConcurrentSnapshotProcessing
 	return &this
 }
 
@@ -408,6 +411,32 @@ func (o *UpdateOrganizationQuota) SetSnapshotDeactivationTimeoutMinutes(v float3
 	o.SnapshotDeactivationTimeoutMinutes.Set(&v)
 }
 
+// GetMaxConcurrentSnapshotProcessing returns the MaxConcurrentSnapshotProcessing field value
+// If the value is explicit nil, the zero value for float32 will be returned
+func (o *UpdateOrganizationQuota) GetMaxConcurrentSnapshotProcessing() float32 {
+	if o == nil || o.MaxConcurrentSnapshotProcessing.Get() == nil {
+		var ret float32
+		return ret
+	}
+
+	return *o.MaxConcurrentSnapshotProcessing.Get()
+}
+
+// GetMaxConcurrentSnapshotProcessingOk returns a tuple with the MaxConcurrentSnapshotProcessing field value
+// and a boolean to check if the value has been set.
+// NOTE: If the value is an explicit nil, `nil, true` will be returned
+func (o *UpdateOrganizationQuota) GetMaxConcurrentSnapshotProcessingOk() (*float32, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return o.MaxConcurrentSnapshotProcessing.Get(), o.MaxConcurrentSnapshotProcessing.IsSet()
+}
+
+// SetMaxConcurrentSnapshotProcessing sets field value
+func (o *UpdateOrganizationQuota) SetMaxConcurrentSnapshotProcessing(v float32) {
+	o.MaxConcurrentSnapshotProcessing.Set(&v)
+}
+
 func (o UpdateOrganizationQuota) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -431,6 +460,7 @@ func (o UpdateOrganizationQuota) ToMap() (map[string]interface{}, error) {
 	toSerialize["sandboxCreateRateLimitTtlSeconds"] = o.SandboxCreateRateLimitTtlSeconds.Get()
 	toSerialize["sandboxLifecycleRateLimitTtlSeconds"] = o.SandboxLifecycleRateLimitTtlSeconds.Get()
 	toSerialize["snapshotDeactivationTimeoutMinutes"] = o.SnapshotDeactivationTimeoutMinutes.Get()
+	toSerialize["maxConcurrentSnapshotProcessing"] = o.MaxConcurrentSnapshotProcessing.Get()
 
 	for key, value := range o.AdditionalProperties {
 		toSerialize[key] = value
@@ -457,6 +487,7 @@ func (o *UpdateOrganizationQuota) UnmarshalJSON(data []byte) (err error) {
 		"sandboxCreateRateLimitTtlSeconds",
 		"sandboxLifecycleRateLimitTtlSeconds",
 		"snapshotDeactivationTimeoutMinutes",
+		"maxConcurrentSnapshotProcessing",
 	}
 
 	allProperties := make(map[string]interface{})
@@ -499,6 +530,7 @@ func (o *UpdateOrganizationQuota) UnmarshalJSON(data []byte) (err error) {
 		delete(additionalProperties, "sandboxCreateRateLimitTtlSeconds")
 		delete(additionalProperties, "sandboxLifecycleRateLimitTtlSeconds")
 		delete(additionalProperties, "snapshotDeactivationTimeoutMinutes")
+		delete(additionalProperties, "maxConcurrentSnapshotProcessing")
 		o.AdditionalProperties = additionalProperties
 	}
 

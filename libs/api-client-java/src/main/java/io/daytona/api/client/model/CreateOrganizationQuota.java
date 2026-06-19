@@ -96,6 +96,11 @@ public class CreateOrganizationQuota {
   @javax.annotation.Nullable
   private BigDecimal volumeQuota;
 
+  public static final String SERIALIZED_NAME_MAX_CONCURRENT_SNAPSHOT_PROCESSING = "maxConcurrentSnapshotProcessing";
+  @SerializedName(SERIALIZED_NAME_MAX_CONCURRENT_SNAPSHOT_PROCESSING)
+  @javax.annotation.Nullable
+  private BigDecimal maxConcurrentSnapshotProcessing;
+
   public CreateOrganizationQuota() {
   }
 
@@ -269,6 +274,25 @@ public class CreateOrganizationQuota {
     this.volumeQuota = volumeQuota;
   }
 
+
+  public CreateOrganizationQuota maxConcurrentSnapshotProcessing(@javax.annotation.Nullable BigDecimal maxConcurrentSnapshotProcessing) {
+    this.maxConcurrentSnapshotProcessing = maxConcurrentSnapshotProcessing;
+    return this;
+  }
+
+  /**
+   * Maximum number of snapshots an organization can process (building or pulling) concurrently. Excess are queued. &lt;&#x3D; 0 means unlimited.
+   * @return maxConcurrentSnapshotProcessing
+   */
+  @javax.annotation.Nullable
+  public BigDecimal getMaxConcurrentSnapshotProcessing() {
+    return maxConcurrentSnapshotProcessing;
+  }
+
+  public void setMaxConcurrentSnapshotProcessing(@javax.annotation.Nullable BigDecimal maxConcurrentSnapshotProcessing) {
+    this.maxConcurrentSnapshotProcessing = maxConcurrentSnapshotProcessing;
+  }
+
   /**
    * A container for additional, undeclared properties.
    * This is a holder for any undeclared properties as specified with
@@ -332,13 +356,14 @@ public class CreateOrganizationQuota {
         Objects.equals(this.maxDiskPerSandbox, createOrganizationQuota.maxDiskPerSandbox) &&
         Objects.equals(this.snapshotQuota, createOrganizationQuota.snapshotQuota) &&
         Objects.equals(this.maxSnapshotSize, createOrganizationQuota.maxSnapshotSize) &&
-        Objects.equals(this.volumeQuota, createOrganizationQuota.volumeQuota)&&
+        Objects.equals(this.volumeQuota, createOrganizationQuota.volumeQuota) &&
+        Objects.equals(this.maxConcurrentSnapshotProcessing, createOrganizationQuota.maxConcurrentSnapshotProcessing)&&
         Objects.equals(this.additionalProperties, createOrganizationQuota.additionalProperties);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(totalCpuQuota, totalMemoryQuota, totalDiskQuota, maxCpuPerSandbox, maxMemoryPerSandbox, maxDiskPerSandbox, snapshotQuota, maxSnapshotSize, volumeQuota, additionalProperties);
+    return Objects.hash(totalCpuQuota, totalMemoryQuota, totalDiskQuota, maxCpuPerSandbox, maxMemoryPerSandbox, maxDiskPerSandbox, snapshotQuota, maxSnapshotSize, volumeQuota, maxConcurrentSnapshotProcessing, additionalProperties);
   }
 
   @Override
@@ -354,6 +379,7 @@ public class CreateOrganizationQuota {
     sb.append("    snapshotQuota: ").append(toIndentedString(snapshotQuota)).append("\n");
     sb.append("    maxSnapshotSize: ").append(toIndentedString(maxSnapshotSize)).append("\n");
     sb.append("    volumeQuota: ").append(toIndentedString(volumeQuota)).append("\n");
+    sb.append("    maxConcurrentSnapshotProcessing: ").append(toIndentedString(maxConcurrentSnapshotProcessing)).append("\n");
     sb.append("    additionalProperties: ").append(toIndentedString(additionalProperties)).append("\n");
     sb.append("}");
     return sb.toString();
@@ -373,7 +399,7 @@ public class CreateOrganizationQuota {
 
   static {
     // a set of all properties/fields (JSON key names)
-    openapiFields = new HashSet<String>(Arrays.asList("totalCpuQuota", "totalMemoryQuota", "totalDiskQuota", "maxCpuPerSandbox", "maxMemoryPerSandbox", "maxDiskPerSandbox", "snapshotQuota", "maxSnapshotSize", "volumeQuota"));
+    openapiFields = new HashSet<String>(Arrays.asList("totalCpuQuota", "totalMemoryQuota", "totalDiskQuota", "maxCpuPerSandbox", "maxMemoryPerSandbox", "maxDiskPerSandbox", "snapshotQuota", "maxSnapshotSize", "volumeQuota", "maxConcurrentSnapshotProcessing"));
 
     // a set of required properties/fields (JSON key names)
     openapiRequiredFields = new HashSet<String>(0);

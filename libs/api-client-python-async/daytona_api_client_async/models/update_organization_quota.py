@@ -43,8 +43,9 @@ class UpdateOrganizationQuota(BaseModel):
     sandbox_create_rate_limit_ttl_seconds: Optional[Union[StrictFloat, StrictInt]] = Field(serialization_alias="sandboxCreateRateLimitTtlSeconds")
     sandbox_lifecycle_rate_limit_ttl_seconds: Optional[Union[StrictFloat, StrictInt]] = Field(serialization_alias="sandboxLifecycleRateLimitTtlSeconds")
     snapshot_deactivation_timeout_minutes: Optional[Union[StrictFloat, StrictInt]] = Field(description="Time in minutes before an unused snapshot is deactivated", serialization_alias="snapshotDeactivationTimeoutMinutes")
+    max_concurrent_snapshot_processing: Optional[Union[StrictFloat, StrictInt]] = Field(description="Maximum number of snapshots an organization can process (building or pulling) concurrently. Excess are queued. <= 0 means unlimited.", serialization_alias="maxConcurrentSnapshotProcessing")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["maxCpuPerSandbox", "maxMemoryPerSandbox", "maxDiskPerSandbox", "snapshotQuota", "maxSnapshotSize", "volumeQuota", "authenticatedRateLimit", "sandboxCreateRateLimit", "sandboxLifecycleRateLimit", "authenticatedRateLimitTtlSeconds", "sandboxCreateRateLimitTtlSeconds", "sandboxLifecycleRateLimitTtlSeconds", "snapshotDeactivationTimeoutMinutes"]
+    __properties: ClassVar[List[str]] = ["maxCpuPerSandbox", "maxMemoryPerSandbox", "maxDiskPerSandbox", "snapshotQuota", "maxSnapshotSize", "volumeQuota", "authenticatedRateLimit", "sandboxCreateRateLimit", "sandboxLifecycleRateLimit", "authenticatedRateLimitTtlSeconds", "sandboxCreateRateLimitTtlSeconds", "sandboxLifecycleRateLimitTtlSeconds", "snapshotDeactivationTimeoutMinutes", "maxConcurrentSnapshotProcessing"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -156,6 +157,11 @@ class UpdateOrganizationQuota(BaseModel):
         if self.snapshot_deactivation_timeout_minutes is None and "snapshot_deactivation_timeout_minutes" in self.model_fields_set:
             _dict['snapshotDeactivationTimeoutMinutes'] = None
 
+        # set to None if max_concurrent_snapshot_processing (nullable) is None
+        # and model_fields_set contains the field
+        if self.max_concurrent_snapshot_processing is None and "max_concurrent_snapshot_processing" in self.model_fields_set:
+            _dict['maxConcurrentSnapshotProcessing'] = None
+
         return _dict
 
     @classmethod
@@ -180,7 +186,8 @@ class UpdateOrganizationQuota(BaseModel):
             "authenticated_rate_limit_ttl_seconds": obj.get("authenticatedRateLimitTtlSeconds"),
             "sandbox_create_rate_limit_ttl_seconds": obj.get("sandboxCreateRateLimitTtlSeconds"),
             "sandbox_lifecycle_rate_limit_ttl_seconds": obj.get("sandboxLifecycleRateLimitTtlSeconds"),
-            "snapshot_deactivation_timeout_minutes": obj.get("snapshotDeactivationTimeoutMinutes")
+            "snapshot_deactivation_timeout_minutes": obj.get("snapshotDeactivationTimeoutMinutes"),
+            "max_concurrent_snapshot_processing": obj.get("maxConcurrentSnapshotProcessing")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():
