@@ -22,7 +22,6 @@ import { sanitizeSandboxError } from '../utils/sanitize-error.util'
 import { OrganizationUsageService } from '../../organization/services/organization-usage.service'
 import { SandboxRepository } from '../repositories/sandbox.repository'
 import { Sandbox } from '../entities/sandbox.entity'
-import { RL_REGION } from '../constants/dedicated-regions.constant'
 import { Runner } from '../entities/runner.entity'
 import { RedisLockProvider } from '../common/redis-lock.provider'
 import { ResourceType } from '../enums/resource-type.enum'
@@ -30,6 +29,8 @@ import { getStateChangeLockKey } from '../utils/lock-key.util'
 import { SandboxEvents } from '../constants/sandbox-events.constants'
 import { SandboxStartedEvent } from '../events/sandbox-started.event'
 import { persistSnapshotFromSandbox } from '../utils/persist-snapshot-from-sandbox.util'
+import { SnapshotEvents } from '../constants/snapshot-events'
+import { SnapshotInitialRunnerReadyEvent } from '../events/snapshot-initial-runner-ready.event'
 
 /**
  * Service for handling entity state updates based on job completion (v2 runners only).
@@ -321,6 +322,9 @@ export class JobStateHandlerService {
         return
       }
 
+      // Activation is deferred to SnapshotManager so the snapshot is propagated before going ACTIVE.
+      let snapshotIdToActivate: string | undefined
+
       if (job.status === JobStatus.COMPLETED) {
         this.logger.debug(
           `PULL_SNAPSHOT job ${job.id} completed successfully, marking SnapshotRunner ${snapshotRunner.id} as READY`,
@@ -328,26 +332,12 @@ export class JobStateHandlerService {
         snapshotRunner.state = SnapshotRunnerState.READY
         snapshotRunner.errorReason = null
 
-        const runner = await this.runnerRepository.findOne({ where: { id: runnerId } })
-        if (!runner) {
-          this.logger.warn(`Runner not found for snapshot ${snapshotRef} on runner ${runnerId}`)
-          return
-        }
-
-        if (runner.region !== RL_REGION) {
-          // Check if this is the initial runner for a snapshot and update the snapshot state (outside RL region only)
-          const snapshot = await this.snapshotRepository.findOne({
-            where: { initialRunnerId: runnerId, ref: snapshotRef },
-          })
-          if (snapshot && (snapshot.state === SnapshotState.PULLING || snapshot.state === SnapshotState.BUILDING)) {
-            this.logger.debug(`Marking snapshot ${snapshot.id} as ACTIVE after initial pull completed`)
-            const updateData: Partial<Snapshot> = {
-              state: SnapshotState.ACTIVE,
-              errorReason: null,
-              lastUsedAt: new Date(),
-            }
-            await this.snapshotRepository.update(snapshot.id, { updateData, entity: snapshot })
-          }
+        // If this is the initial runner for a snapshot, hand off to SnapshotManager for activation.
+        const snapshot = await this.snapshotRepository.findOne({
+          where: { initialRunnerId: runnerId, ref: snapshotRef },
+        })
+        if (snapshot && (snapshot.state === SnapshotState.PULLING || snapshot.state === SnapshotState.BUILDING)) {
+          snapshotIdToActivate = snapshot.id
         }
       } else if (job.status === JobStatus.FAILED) {
         this.logger.error(`PULL_SNAPSHOT job ${job.id} failed for snapshot ${snapshotRef}: ${job.errorMessage}`)
@@ -369,6 +359,14 @@ export class JobStateHandlerService {
       }
 
       await this.snapshotRunnerRepository.save(snapshotRunner)
+
+      // Emit after the SnapshotRunner is persisted as READY so SnapshotManager observes it.
+      if (snapshotIdToActivate) {
+        this.eventEmitter.emit(
+          SnapshotEvents.INITIAL_RUNNER_READY,
+          new SnapshotInitialRunnerReadyEvent(snapshotIdToActivate),
+        )
+      }
     } catch (error) {
       this.logger.error(`Error handling PULL_SNAPSHOT job completion for snapshot ${snapshotRef}:`, error)
     }
@@ -396,20 +394,16 @@ export class JobStateHandlerService {
       if (job.status === JobStatus.COMPLETED) {
         this.logger.debug(`BUILD_SNAPSHOT job ${job.id} completed successfully for snapshot ref ${snapshotRef}`)
 
-        if (snapshot?.state === SnapshotState.BUILDING) {
-          const updateData: Partial<Snapshot> = {
-            state: SnapshotState.ACTIVE,
-            errorReason: null,
-            lastUsedAt: new Date(),
-          }
-          await this.snapshotRepository.update(snapshot.id, { updateData, entity: snapshot })
-          this.logger.debug(`Marked snapshot ${snapshot.id} as ACTIVE after build completed`)
-        }
-
+        // Persist the ready initial runner first so SnapshotManager observes it when activating.
         if (snapshotRunner) {
           snapshotRunner.state = SnapshotRunnerState.READY
           snapshotRunner.errorReason = null
           await this.snapshotRunnerRepository.save(snapshotRunner)
+        }
+
+        if (snapshot?.state === SnapshotState.BUILDING) {
+          // Hand off to SnapshotManager for activation so the snapshot is propagated before going ACTIVE.
+          this.eventEmitter.emit(SnapshotEvents.INITIAL_RUNNER_READY, new SnapshotInitialRunnerReadyEvent(snapshot.id))
         }
       } else if (job.status === JobStatus.FAILED) {
         this.logger.error(`BUILD_SNAPSHOT job ${job.id} failed for snapshot ref ${snapshotRef}: ${job.errorMessage}`)

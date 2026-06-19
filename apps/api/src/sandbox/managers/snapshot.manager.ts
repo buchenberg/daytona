@@ -59,6 +59,7 @@ import { BadRequestError } from '../../exceptions/bad-request.exception'
 import { SandboxRepository } from '../repositories/sandbox.repository'
 import { SnapshotInfoResponse } from '@daytona/runner-api-client'
 import { SnapshotActivatedEvent } from '../events/snapshot-activated.event'
+import { SnapshotInitialRunnerReadyEvent } from '../events/snapshot-initial-runner-ready.event'
 import { TypedConfigService } from '../../config/typed-config.service'
 import {
   getSnapshotPropagationFactor,
@@ -2260,5 +2261,14 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
   })
   private async handleSnapshotActivatedEvent(event: SnapshotActivatedEvent) {
     await this.syncSnapshotState(event.snapshot.id)
+  }
+
+  // Fired by the v2 job handler when the initial pull/build lands, so activation goes through
+  // handleCheckInitialRunnerSnapshot -> waitForInitialPropagation instead of activating without propagation.
+  @OnAsyncEvent({
+    event: SnapshotEvents.INITIAL_RUNNER_READY,
+  })
+  private async handleSnapshotInitialRunnerReadyEvent(event: SnapshotInitialRunnerReadyEvent) {
+    await this.syncSnapshotState(event.snapshotId)
   }
 }
