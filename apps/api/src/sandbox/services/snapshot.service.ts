@@ -150,6 +150,16 @@ export class SnapshotService {
       .getExists()
   }
 
+  private async assertHasSchedulableRunner(region: Region, sandboxClass: SandboxClass): Promise<void> {
+    // Temporary: Android snapshots can go to container runners
+    const hasRunner = await this.runnerService.hasSchedulableRunner(region.id, getRunnerSandboxClass(sandboxClass))
+    if (!hasRunner) {
+      throw new BadRequestException(
+        `No runners are configured in region '${region.name}' for sandbox class '${sandboxClass}'. Try a different region or sandbox class.`,
+      )
+    }
+  }
+
   async createFromPull(organization: Organization, createSnapshotDto: CreateSnapshotDto, general = false) {
     if (!organization.defaultRegionId) {
       throw new DefaultRegionRequiredException()
@@ -201,6 +211,8 @@ export class SnapshotService {
           'Windows snapshots cannot be created via this endpoint; they are produced by snapshot-from-sandbox flows.',
         )
       }
+
+      await this.assertHasSchedulableRunner(region, sandboxClass)
 
       this.organizationService.assertOrganizationIsNotSuspended(organization)
 
@@ -313,6 +325,8 @@ export class SnapshotService {
           'Windows snapshots cannot be created via this endpoint; they are produced by snapshot-from-sandbox flows.',
         )
       }
+
+      await this.assertHasSchedulableRunner(region, sandboxClass)
 
       this.organizationService.assertOrganizationIsNotSuspended(organization)
 
