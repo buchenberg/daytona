@@ -126,6 +126,12 @@ export class SandboxesService {
         SandboxState.BUILD_FAILED,
         SandboxState.ARCHIVING,
       ],
+      [SandboxDesiredState.PAUSED]: [
+        SandboxState.STARTED,
+        SandboxState.PAUSING,
+        SandboxState.PAUSED,
+        SandboxState.ERROR,
+      ],
     }
 
     const allowedStates = validTransitions[desiredState]
