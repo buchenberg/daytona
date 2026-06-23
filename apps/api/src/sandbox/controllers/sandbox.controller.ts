@@ -276,6 +276,7 @@ export class SandboxController {
         buildInfo: req.body?.buildInfo,
         networkBlockAll: req.body?.networkBlockAll,
         networkAllowList: req.body?.networkAllowList,
+        domainAllowList: req.body?.domainAllowList,
         linkedSandbox: req.body?.linkedSandbox,
       }),
     },
@@ -1147,6 +1148,7 @@ export class SandboxController {
       body: (req: TypedRequest<UpdateSandboxNetworkSettingsDto>) => ({
         networkBlockAll: req.body?.networkBlockAll,
         networkAllowList: req.body?.networkAllowList,
+        domainAllowList: req.body?.domainAllowList,
       }),
     },
   })
@@ -1160,13 +1162,18 @@ export class SandboxController {
         'Network access is restricted and cannot be overridden at the sandbox level. See https://www.daytona.io/docs/en/network-limits/#tier-based-network-restrictions',
       )
     }
-    if (networkSettings.networkBlockAll === undefined && networkSettings.networkAllowList === undefined) {
-      throw new BadRequestError('At least one of networkBlockAll or networkAllowList must be provided')
+    if (
+      networkSettings.networkBlockAll === undefined &&
+      networkSettings.networkAllowList === undefined &&
+      networkSettings.domainAllowList === undefined
+    ) {
+      throw new BadRequestError('At least one of networkBlockAll, networkAllowList or domainAllowList must be provided')
     }
     const sandbox = await this.sandboxService.updateNetworkSettings(
       sandboxIdOrName,
       networkSettings.networkBlockAll,
       networkSettings.networkAllowList,
+      networkSettings.domainAllowList,
       authContext.organizationId,
     )
     return this.sandboxService.toSandboxDto(sandbox)

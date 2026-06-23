@@ -29,4 +29,5 @@ libs
 !libs/backoffice-api-client
 !libs/runner-proto
 !libs/billing-api-client
+!libs/netleash
 Dockerfile

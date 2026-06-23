@@ -181,17 +181,19 @@
         "local-registry": {
           "push": true,
           "tags": [
-            "registry:5000/daytonaio/test-daytona-{projectName}:$VERSION",
-            "registry:5000/daytonaio/test-daytona-{projectName}:latest"
+            "registry:5000/ghcr.io/daytonaio/test-daytona-{projectName}:$VERSION",
+            "registry:5000/ghcr.io/daytonaio/test-daytona-{projectName}:latest"
           ],
-          "cache-from": ["type=registry,ref=registry:5000/daytonaio/test-daytona-{projectName}:buildcache"],
-          "cache-to": ["type=registry,ref=registry:5000/daytonaio/test-daytona-{projectName}:buildcache,mode=max"]
+          "cache-from": ["type=registry,ref=registry:5000/ghcr.io/daytonaio/test-daytona-{projectName}:buildcache"],
+          "cache-to": [
+            "type=registry,ref=registry:5000/ghcr.io/daytonaio/test-daytona-{projectName}:buildcache,mode=max"
+          ]
         },
         "pr-build": {
           "push": false,
           "load": false,
           "platforms": ["linux/amd64"],
-          "tags": ["daytonaio/daytona-{projectName}:$VERSION"],
+          "tags": ["ghcr.io/daytonaio/daytona-{projectName}:$VERSION"],
           "cache-from": ["type=gha,scope=docker-{projectName}"],
           "cache-to": ["type=gha,scope=docker-{projectName},mode=max"]
         }
