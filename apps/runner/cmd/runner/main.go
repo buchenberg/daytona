@@ -13,6 +13,7 @@ import (
 
 	"github.com/daytonaio/common-go/pkg/log"
 	"github.com/daytonaio/common-go/pkg/telemetry"
+	"github.com/daytonaio/daytona/libs/netleash/pkg/manager"
 	"github.com/daytonaio/runner/cmd/runner/config"
 	"github.com/daytonaio/runner/internal"
 	"github.com/daytonaio/runner/internal/metrics"
@@ -127,6 +128,17 @@ func run() int {
 	}
 	defer netRulesManager.Stop()
 
+	// Start the netleash service: a single, long-lived service that enforces
+	// per-sandbox domain allow lists via eBPF egress filtering. It is created
+	// once for the runner's lifetime and configured per sandbox on lifecycle
+	// events. Disabled unless NETLEASH_ENABLED is set.
+	var netleashManager *manager.Manager
+	if cfg.NetleashEnabled {
+		netleashManager = manager.New(logger, cfg.NetleashInternalDNSZones)
+		logger.Info("Netleash service started")
+		defer netleashManager.Close()
+	}
+
 	daemonPath, err := daemon.WriteStaticBinary("daemon-amd64")
 	if err != nil {
 		logger.Error("Error writing daemon binary", "error", err)
@@ -152,6 +164,7 @@ func run() int {
 		DaemonPath:                   daemonPath,
 		ComputerUsePluginPath:        pluginPath,
 		NetRulesManager:              netRulesManager,
+		NetleashManager:              netleashManager,
 		ResourceLimitsDisabled:       cfg.ResourceLimitsDisabled,
 		DaemonStartTimeoutSec:        cfg.DaemonStartTimeoutSec,
 		SandboxStartTimeoutSec:       cfg.SandboxStartTimeoutSec,
@@ -181,7 +194,7 @@ func run() int {
 			dockerClient.CleanupOrphanedVolumeMounts(ctx)
 		},
 	}
-	monitor := docker.NewDockerMonitor(logger, cli, netRulesManager, monitorOpts)
+	monitor := docker.NewDockerMonitor(logger, cli, netRulesManager, netleashManager, monitorOpts)
 	monitorErrChan := make(chan error)
 	go func() {
 		logger.Info("Starting Docker monitor")
@@ -235,6 +248,7 @@ func run() int {
 		SandboxService:     sandboxService,
 		MetricsCollector:   metricsCollector,
 		NetRulesManager:    netRulesManager,
+		NetleashManager:    netleashManager,
 		SSHGatewayService:  sshGatewayService,
 	})
 	if err != nil {

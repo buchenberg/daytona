@@ -67,6 +67,17 @@ type Config struct {
 	BuildEngine                        string        `envconfig:"BUILD_ENGINE" default:"buildkit" validate:"oneof=buildkit legacy"`
 	ForceSnapshotRemoval               bool          `envconfig:"FORCE_SNAPSHOT_REMOVAL" default:"true"`
 	MountKvmToAndroidSandbox           bool          `envconfig:"MOUNT_KVM_TO_ANDROID_SANDBOX" default:"false"`
+	// NetleashEnabled turns on the netleash service, which enforces per-sandbox
+	// domain allow lists via eBPF egress filtering. Requires root/CAP_BPF and a
+	// cgroup v2 host; disabled by default so it can be rolled out per runner.
+	NetleashEnabled bool `envconfig:"NETLEASH_ENABLED" default:"false"`
+	// NetleashInternalDNSZones are cluster-internal DNS zones whose queries are
+	// passed through to the resolver instead of being dropped by the domain
+	// allow list. Without this, Kubernetes search-domain expansion (e.g.
+	// "index.hr.<ns>.svc.cluster.local") stalls resolution of allowed external
+	// domains, since the suffixed queries aren't in the allow list. Defaults to
+	// the standard Kubernetes cluster domain.
+	NetleashInternalDNSZones []string `envconfig:"NETLEASH_INTERNAL_DNS_ZONES" default:"cluster.local"`
 }
 
 var DEFAULT_API_PORT int = 8080

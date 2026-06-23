@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/daytonaio/daytona/libs/netleash/pkg/manager"
 	"github.com/daytonaio/runner/pkg/netrules"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
@@ -26,10 +27,11 @@ type DockerMonitor struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	netRulesManager *netrules.NetRulesManager
+	netleashManager *manager.Manager
 	opts            MonitorOptions
 }
 
-func NewDockerMonitor(logger *slog.Logger, apiClient client.APIClient, netRulesManager *netrules.NetRulesManager, opts MonitorOptions) *DockerMonitor {
+func NewDockerMonitor(logger *slog.Logger, apiClient client.APIClient, netRulesManager *netrules.NetRulesManager, netleashManager *manager.Manager, opts MonitorOptions) *DockerMonitor {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &DockerMonitor{
@@ -38,6 +40,7 @@ func NewDockerMonitor(logger *slog.Logger, apiClient client.APIClient, netRulesM
 		ctx:             ctx,
 		cancel:          cancel,
 		netRulesManager: netRulesManager,
+		netleashManager: netleashManager,
 		opts:            opts,
 	}
 }
@@ -152,6 +155,9 @@ func (dm *DockerMonitor) handleContainerEvent(event events.Message) {
 			dm.log.Error("Error assigning network rules", "error", err)
 		}
 	case "stop":
+		// The container's cgroup is torn down on stop, so detach netleash to
+		// free its eBPF resources. A subsequent start re-applies the allow list.
+		dm.removeNetleash(containerID)
 	case "kill":
 		shortContainerID := containerID[:12]
 		err := dm.netRulesManager.UnassignNetworkRules(shortContainerID)
@@ -162,16 +168,28 @@ func (dm *DockerMonitor) handleContainerEvent(event events.Message) {
 		if err != nil {
 			dm.log.Error("Error removing network limiter", "error", err)
 		}
+		dm.removeNetleash(containerID)
 	case "destroy":
 		shortContainerID := containerID[:12]
 		err := dm.netRulesManager.DeleteNetworkRules(shortContainerID)
 		if err != nil {
 			dm.log.Error("Error deleting network rules", "error", err)
 		}
+		dm.removeNetleash(containerID)
 		if dm.opts.OnDestroyEvent != nil {
 			go dm.opts.OnDestroyEvent(dm.ctx)
 		}
 	}
+}
+
+// removeNetleash detaches any netleash domain allow list for the container.
+// The netleash manager keys entries by full container ID. No-op when netleash
+// is disabled or no entry exists.
+func (dm *DockerMonitor) removeNetleash(containerID string) {
+	if dm.netleashManager == nil {
+		return
+	}
+	dm.netleashManager.Remove(containerID)
 }
 
 // reconcileNetworkRules is called when reconnection is established

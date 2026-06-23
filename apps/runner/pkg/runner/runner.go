@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/daytonaio/daytona/libs/netleash/pkg/manager"
 	"github.com/daytonaio/runner/internal/metrics"
 	"github.com/daytonaio/runner/pkg/cache"
 	"github.com/daytonaio/runner/pkg/docker"
@@ -26,6 +27,7 @@ type RunnerInstanceConfig struct {
 	MetricsCollector   *metrics.Collector
 	SandboxService     *services.SandboxService
 	NetRulesManager    *netrules.NetRulesManager
+	NetleashManager    *manager.Manager
 	SSHGatewayService  *sshgateway.Service
 }
 
@@ -37,6 +39,7 @@ type Runner struct {
 	MetricsCollector   *metrics.Collector
 	SandboxService     *services.SandboxService
 	NetRulesManager    *netrules.NetRulesManager
+	NetleashManager    *manager.Manager
 	SSHGatewayService  *sshgateway.Service
 }
 
@@ -65,6 +68,7 @@ func GetInstance(config *RunnerInstanceConfig) (*Runner, error) {
 			SandboxService:     config.SandboxService,
 			MetricsCollector:   config.MetricsCollector,
 			NetRulesManager:    config.NetRulesManager,
+			NetleashManager:    config.NetleashManager,
 			SSHGatewayService:  config.SSHGatewayService,
 		}
 	}

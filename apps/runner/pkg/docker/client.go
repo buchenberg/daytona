@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/daytonaio/common-go/pkg/utils"
+	"github.com/daytonaio/daytona/libs/netleash/pkg/manager"
 	"github.com/daytonaio/runner/pkg/cache"
 	"github.com/daytonaio/runner/pkg/common"
 	"github.com/daytonaio/runner/pkg/netrules"
@@ -30,6 +31,7 @@ type DockerClientConfig struct {
 	DaemonPath                   string
 	ComputerUsePluginPath        string
 	NetRulesManager              *netrules.NetRulesManager
+	NetleashManager              *manager.Manager
 	ResourceLimitsDisabled       bool
 	DaemonStartTimeoutSec        int
 	SandboxStartTimeoutSec       int
@@ -148,6 +150,7 @@ func NewDockerClient(ctx context.Context, config DockerClientConfig) (*DockerCli
 		daemonPath:                   config.DaemonPath,
 		computerUsePluginPath:        config.ComputerUsePluginPath,
 		netRulesManager:              config.NetRulesManager,
+		netleashManager:              config.NetleashManager,
 		resourceLimitsDisabled:       config.ResourceLimitsDisabled,
 		daemonStartTimeoutSec:        config.DaemonStartTimeoutSec,
 		sandboxStartTimeoutSec:       config.SandboxStartTimeoutSec,
@@ -205,6 +208,7 @@ type DockerClient struct {
 	daemonPath                   string
 	computerUsePluginPath        string
 	netRulesManager              *netrules.NetRulesManager
+	netleashManager              *manager.Manager
 	resourceLimitsDisabled       bool
 	daemonStartTimeoutSec        int
 	sandboxStartTimeoutSec       int

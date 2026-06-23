@@ -33,7 +33,8 @@ COPY apps/runner/go.mod apps/runner/go.sum apps/runner/
 COPY apps/daemon/go.mod apps/daemon/go.sum apps/daemon/
 COPY libs/common-go/go.mod libs/common-go/go.sum libs/common-go/
 COPY libs/api-client-go/go.mod libs/api-client-go/go.sum libs/api-client-go/
-RUN head -1 go.work > go.work.tmp && printf '\nuse (\n\t./apps/runner\n\t./apps/daemon\n\t./libs/common-go\n\t./libs/api-client-go\n)\n' >> go.work.tmp && mv go.work.tmp go.work
+COPY libs/netleash/go.mod libs/netleash/go.sum libs/netleash/
+RUN head -1 go.work > go.work.tmp && printf '\nuse (\n\t./apps/runner\n\t./apps/daemon\n\t./libs/common-go\n\t./libs/api-client-go\n\t./libs/netleash\n)\n' >> go.work.tmp && mv go.work.tmp go.work
 
 ENV NX_DAEMON=false
 ENV GONOSUMDB=github.com/daytonaio/daytona
@@ -41,13 +42,15 @@ ENV GONOSUMDB=github.com/daytonaio/daytona
 RUN go -C apps/runner mod download \
   && go -C apps/daemon mod download \
   && go -C libs/common-go mod download \
-  && go -C libs/api-client-go mod download
+  && go -C libs/api-client-go mod download \
+  && go -C libs/netleash mod download
 
 # Go source
 COPY apps/runner/ apps/runner/
 COPY apps/daemon/ apps/daemon/
 COPY libs/common-go/ libs/common-go/
 COPY libs/api-client-go/ libs/api-client-go/
+COPY libs/netleash/ libs/netleash/
 COPY libs/computer-use/ libs/computer-use/
 
 # Pre-built computer-use binary and build script

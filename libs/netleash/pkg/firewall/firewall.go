@@ -1,0 +1,465 @@
+package firewall
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"log/slog"
+	"net"
+	"os"
+	"os/exec"
+	"os/user"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"syscall"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
+	"golang.org/x/sys/unix"
+)
+
+// isTCMode returns true if the firewall is in TC/interface mode.
+func (fw *Firewall) isTCMode() bool {
+	return fw.cfg.Interface != ""
+}
+
+const cgroupBase = "/sys/fs/cgroup"
+
+// Config holds all configuration for the firewall.
+type Config struct {
+	Domains          []string                                         // whitelisted domains for egress
+	InternalDNSZones []string                                         // cluster-internal DNS zones (e.g. "cluster.local") whose queries pass through to the resolver
+	AllowedExecs     []string                                         // whitelisted executable paths (empty = no exec filtering)
+	ProxyAddr        string                                           // "127.0.0.1:18080" (empty = no proxy)
+	SecretsEnv       map[string]string                                // env var NAME → placeholder value
+	CACertFile       string                                           // path to combined CA cert file
+	JavaTrustStore   string                                           // path to PKCS12 keystore for JVM TLS (empty = no JVM truststore)
+	CgroupPath       string                                           // attach to existing cgroup (empty = create new) — cgroup mode
+	Interface        string                                           // network interface name (e.g., "tap0", "veth0") — TC mode
+	Tap              bool                                             // swap TC attach directions for tap devices (use with Interface)
+	Stdout           io.Writer                                        // child process stdout (nil = os.Stdout)
+	Stderr           io.Writer                                        // child process stderr (nil = os.Stderr)
+	Stdin            io.Reader                                        // child process stdin (nil = os.Stdin)
+	Env              []string                                         // additional env vars for the child process
+	User             string                                           // drop privileges to this user (e.g., "goran" or "1000")
+	OnBlocked        func(dstIP string, dstPort uint16, proto string) // optional callback for blocked packets
+	OnExecBlocked    func(path string)                                // optional callback for blocked exec attempts
+	Logger           *slog.Logger                                     // if nil, slog.Default() is used
+}
+
+// Firewall manages the eBPF-based egress firewall for a child process.
+type Firewall struct {
+	cfg         Config
+	log         *slog.Logger
+	cgroupPath  string
+	cgroupFD    int                  // file descriptor for CLONE_INTO_CGROUP
+	ownsCgroup  bool                 // true if we created the cgroup (and should remove it on cleanup)
+	maps        firewallMapsAccessor // uniform map access for both modes
+	cgObjs      *firewallObjects     // non-nil in cgroup mode
+	tcObjs      *firewallTcObjects   // non-nil in TC mode
+	lsmObjs     *firewallLsmObjects  // non-nil when exec filtering is active
+	egressLink  link.Link
+	ingressLink link.Link
+	lsmLink     link.Link
+}
+
+// New creates a new Firewall with the given configuration.
+func New(cfg Config) *Firewall {
+	log := cfg.Logger
+	if log == nil {
+		log = slog.Default()
+	}
+	return &Firewall{
+		cfg:      cfg,
+		log:      log,
+		cgroupFD: -1,
+	}
+}
+
+// Setup loads eBPF programs and attaches them. In cgroup mode (default), it
+// creates or attaches to a cgroup. In TC mode (when Interface is set), it
+// attaches TC programs to the specified network interface.
+func (fw *Firewall) Setup() error {
+	if fw.cfg.Interface != "" {
+		return fw.setupTC()
+	}
+	return fw.setupCgroup()
+}
+
+// setupCgroup creates or attaches to a cgroup, loads cgroup_skb programs, and attaches them.
+func (fw *Firewall) setupCgroup() error {
+	if fw.cfg.CgroupPath != "" {
+		// Attach to an existing cgroup.
+		info, err := os.Stat(fw.cfg.CgroupPath)
+		if err != nil || !info.IsDir() {
+			return fmt.Errorf("cgroup path does not exist: %s", fw.cfg.CgroupPath)
+		}
+		fw.cgroupPath = fw.cfg.CgroupPath
+		fw.ownsCgroup = false
+		fw.log.Debug("attaching to existing cgroup", "path", fw.cgroupPath)
+	} else {
+		// Create a new cgroup for this firewall instance.
+		fw.cgroupPath = filepath.Join(cgroupBase, fmt.Sprintf("netleash-%d", os.Getpid()))
+		if err := os.MkdirAll(fw.cgroupPath, 0755); err != nil {
+			return fmt.Errorf("creating cgroup %s: %w", fw.cgroupPath, err)
+		}
+		fw.ownsCgroup = true
+		fw.log.Debug("created cgroup", "path", fw.cgroupPath)
+
+		// Open a file descriptor for CLONE_INTO_CGROUP (only needed when spawning children).
+		fd, err := syscall.Open(fw.cgroupPath, syscall.O_RDONLY|syscall.O_DIRECTORY, 0)
+		if err != nil {
+			return fmt.Errorf("opening cgroup fd: %w", err)
+		}
+		fw.cgroupFD = fd
+	}
+
+	// Load the compiled eBPF objects (programs + maps).
+	var objs firewallObjects
+	if err := loadFirewallObjects(&objs, nil); err != nil {
+		return fmt.Errorf("loading eBPF objects: %w", err)
+	}
+	fw.cgObjs = &objs
+	fw.maps = firewallMapsAccessor{
+		AllowedDomains:   objs.AllowedDomains,
+		AllowedIps:       objs.AllowedIps,
+		AllowedWildcards: objs.AllowedWildcards,
+		InternalDNSZones: objs.InternalDnsZones,
+		Events:           objs.Events,
+	}
+
+	// Attach the cgroup_skb/egress program (domain firewall).
+	el, err := link.AttachCgroup(link.CgroupOptions{
+		Path:    fw.cgroupPath,
+		Attach:  ebpf.AttachCGroupInetEgress,
+		Program: objs.FirewallEgress,
+	})
+	if err != nil {
+		return fmt.Errorf("attaching eBPF egress to cgroup: %w", err)
+	}
+	fw.egressLink = el
+
+	// Attach the cgroup_skb/ingress program (DNS response interception).
+	il, err := link.AttachCgroup(link.CgroupOptions{
+		Path:    fw.cgroupPath,
+		Attach:  ebpf.AttachCGroupInetIngress,
+		Program: objs.FirewallDnsIngress,
+	})
+	if err != nil {
+		el.Close()
+		return fmt.Errorf("attaching eBPF ingress to cgroup: %w", err)
+	}
+	fw.ingressLink = il
+	fw.log.Debug("eBPF programs attached to cgroup")
+
+	// Populate the allowed_domains eBPF map so the ingress program knows which
+	// DNS responses to learn IPs from.
+	if err := fw.populateAllowedDomains(); err != nil {
+		return fmt.Errorf("populating allowed domains: %w", err)
+	}
+
+	// Seed cluster-internal DNS zones whose queries are passed through to the
+	// resolver (so Kubernetes search-domain expansion doesn't stall).
+	if err := fw.populateInternalDNSZones(); err != nil {
+		return fmt.Errorf("populating internal DNS zones: %w", err)
+	}
+
+	// Allow the proxy IP in the egress filter (if proxy is configured).
+	if err := fw.allowProxyIP(); err != nil {
+		return fmt.Errorf("allowing proxy IP: %w", err)
+	}
+
+	// If exec filtering is configured, load and attach LSM program.
+	if len(fw.cfg.AllowedExecs) > 0 {
+		if err := fw.setupLSM(); err != nil {
+			return fmt.Errorf("setting up exec filter: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// setupLSM loads the LSM eBPF program for exec filtering and attaches it globally.
+// Filtering is scoped to the target cgroup via bpf_get_current_cgroup_id().
+func (fw *Firewall) setupLSM() error {
+	var objs firewallLsmObjects
+	if err := loadFirewallLsmObjects(&objs, nil); err != nil {
+		return fmt.Errorf("loading LSM eBPF objects: %w (is CONFIG_BPF_LSM=y and 'bpf' in the kernel LSM list?)", err)
+	}
+	fw.lsmObjs = &objs
+
+	// Attach LSM program globally.
+	ll, err := link.AttachLSM(link.LSMOptions{
+		Program: objs.ExecFilter,
+	})
+	if err != nil {
+		objs.Close()
+		fw.lsmObjs = nil
+		return fmt.Errorf("attaching LSM exec filter: %w", err)
+	}
+	fw.lsmLink = ll
+
+	// Store the target cgroup ID so the BPF program only filters our cgroup.
+	cgroupID, err := getCgroupID(fw.cgroupPath)
+	if err != nil {
+		return fmt.Errorf("getting cgroup ID: %w", err)
+	}
+	if err := objs.TargetCgroupId.Put(uint32(0), cgroupID); err != nil {
+		return fmt.Errorf("setting target cgroup ID: %w", err)
+	}
+	fw.log.Debug("LSM exec filter target cgroup", "id", cgroupID, "path", fw.cgroupPath)
+
+	// Populate the allowed_execs map.
+	if err := fw.populateAllowedExecs(); err != nil {
+		return fmt.Errorf("populating allowed execs: %w", err)
+	}
+
+	fw.log.Debug("LSM exec filter attached", "allowed_execs", len(fw.cfg.AllowedExecs))
+	return nil
+}
+
+// setupTC loads TC eBPF programs and attaches them to the configured network interface.
+func (fw *Firewall) setupTC() error {
+	iface, err := net.InterfaceByName(fw.cfg.Interface)
+	if err != nil {
+		return fmt.Errorf("looking up interface %q: %w", fw.cfg.Interface, err)
+	}
+
+	var objs firewallTcObjects
+	if err := loadFirewallTcObjects(&objs, nil); err != nil {
+		return fmt.Errorf("loading TC eBPF objects: %w", err)
+	}
+	fw.tcObjs = &objs
+	fw.maps = firewallMapsAccessor{
+		AllowedDomains:   objs.AllowedDomains,
+		AllowedIps:       objs.AllowedIps,
+		AllowedWildcards: objs.AllowedWildcards,
+		InternalDNSZones: objs.InternalDnsZones,
+		Events:           objs.Events,
+	}
+
+	// Determine attachment directions. On tap devices, TC directions are
+	// inverted relative to the VM's perspective: VM egress arrives as
+	// ingress on the tap, and DNS responses to the VM are egress on the tap.
+	egressAttach := ebpf.AttachTCXEgress
+	ingressAttach := ebpf.AttachTCXIngress
+	if fw.cfg.Tap {
+		egressAttach = ebpf.AttachTCXIngress
+		ingressAttach = ebpf.AttachTCXEgress
+	}
+
+	// Attach TC egress filter (blocks non-allowed traffic).
+	el, err := link.AttachTCX(link.TCXOptions{
+		Interface: iface.Index,
+		Program:   objs.FirewallTcEgress,
+		Attach:    egressAttach,
+	})
+	if err != nil {
+		return fmt.Errorf("attaching TC egress to %s: %w", fw.cfg.Interface, err)
+	}
+	fw.egressLink = el
+
+	// Attach TC ingress program (DNS response learning).
+	il, err := link.AttachTCX(link.TCXOptions{
+		Interface: iface.Index,
+		Program:   objs.FirewallTcDnsIngress,
+		Attach:    ingressAttach,
+	})
+	if err != nil {
+		el.Close()
+		return fmt.Errorf("attaching TC ingress to %s: %w", fw.cfg.Interface, err)
+	}
+	fw.ingressLink = il
+	fw.log.Debug("TC eBPF programs attached", "interface", fw.cfg.Interface, "tap", fw.cfg.Tap)
+
+	if err := fw.populateAllowedDomains(); err != nil {
+		return fmt.Errorf("populating allowed domains: %w", err)
+	}
+	if err := fw.populateInternalDNSZones(); err != nil {
+		return fmt.Errorf("populating internal DNS zones: %w", err)
+	}
+	if err := fw.allowProxyIP(); err != nil {
+		return fmt.Errorf("allowing proxy IP: %w", err)
+	}
+
+	return nil
+}
+
+// Wait blocks until the context is cancelled, keeping the eBPF filter active.
+// Used in attach mode when no child process is spawned.
+func (fw *Firewall) Wait(ctx context.Context) {
+	fw.StartEventReader(ctx)
+	<-ctx.Done()
+}
+
+// RunProcess starts the child command inside the firewall's cgroup, waits for it,
+// and returns its exit code. Only available in cgroup mode.
+func (fw *Firewall) RunProcess(ctx context.Context, args []string) (int, error) {
+	if fw.isTCMode() {
+		return 1, fmt.Errorf("RunProcess is not supported in TC/interface mode")
+	}
+	fw.StartEventReader(ctx)
+
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Stdin = fw.cfg.Stdin
+	if cmd.Stdin == nil {
+		cmd.Stdin = os.Stdin
+	}
+	cmd.Stdout = fw.cfg.Stdout
+	if cmd.Stdout == nil {
+		cmd.Stdout = os.Stdout
+	}
+	cmd.Stderr = fw.cfg.Stderr
+	if cmd.Stderr == nil {
+		cmd.Stderr = os.Stderr
+	}
+
+	// Place the child directly into our cgroup at fork time (CLONE_INTO_CGROUP).
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		CgroupFD:    fw.cgroupFD,
+		UseCgroupFD: true,
+	}
+
+	// Drop privileges to the specified user (run as root, jail as user).
+	if fw.cfg.User != "" {
+		cred, err := resolveUser(fw.cfg.User)
+		if err != nil {
+			return 1, fmt.Errorf("resolving user %q: %w", fw.cfg.User, err)
+		}
+		cmd.SysProcAttr.Credential = cred
+		fw.log.Debug("dropping privileges", "user", fw.cfg.User, "uid", cred.Uid, "gid", cred.Gid)
+	}
+
+	// Start with the current environment, add caller-supplied vars, then overlay proxy/secret vars.
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, fw.cfg.Env...)
+
+	// Inject placeholder secret env vars (child sees placeholders, not real values).
+	for name, placeholder := range fw.cfg.SecretsEnv {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", name, placeholder))
+	}
+
+	// If proxy is configured, set proxy env vars so the child routes through it.
+	if fw.cfg.ProxyAddr != "" {
+		proxyURL := fmt.Sprintf("http://%s", fw.cfg.ProxyAddr)
+		proxyHost, proxyPort, _ := net.SplitHostPort(fw.cfg.ProxyAddr)
+		cmd.Env = append(cmd.Env,
+			"HTTP_PROXY="+proxyURL,
+			"HTTPS_PROXY="+proxyURL,
+			"http_proxy="+proxyURL,
+			"https_proxy="+proxyURL,
+		)
+		// JVM ignores *_PROXY env vars; it reads proxy settings from system properties.
+		javaOpts := fmt.Sprintf("-Dhttp.proxyHost=%s -Dhttp.proxyPort=%s -Dhttps.proxyHost=%s -Dhttps.proxyPort=%s", proxyHost, proxyPort, proxyHost, proxyPort)
+		if fw.cfg.JavaTrustStore != "" {
+			javaOpts += fmt.Sprintf(" -Djavax.net.ssl.trustStore=%s -Djavax.net.ssl.trustStorePassword=changeit", fw.cfg.JavaTrustStore)
+		}
+		cmd.Env = append(cmd.Env, "JAVA_TOOL_OPTIONS="+javaOpts)
+		fw.log.Debug("proxy env vars set", "proxy", proxyURL)
+	}
+
+	// If a custom CA cert file is provided, inject it for TLS trust.
+	if fw.cfg.CACertFile != "" {
+		cmd.Env = append(cmd.Env,
+			"SSL_CERT_FILE="+fw.cfg.CACertFile,
+			"NODE_EXTRA_CA_CERTS="+fw.cfg.CACertFile,
+			"REQUESTS_CA_BUNDLE="+fw.cfg.CACertFile,
+			"CURL_CA_BUNDLE="+fw.cfg.CACertFile,
+		)
+		fw.log.Debug("CA cert injected", "path", fw.cfg.CACertFile)
+	}
+
+	// Set PR_SET_NO_NEW_PRIVS on the current OS thread before fork.
+	// This prevents the child from gaining privileges via setuid/setgid binaries
+	// (e.g., sudo, su), which would allow escaping the cgroup jail.
+	// The flag is inherited across fork+exec and cannot be unset.
+	runtime.LockOSThread()
+	if _, _, errno := syscall.RawSyscall(syscall.SYS_PRCTL, unix.PR_SET_NO_NEW_PRIVS, 1, 0); errno != 0 {
+		runtime.UnlockOSThread()
+		return 1, fmt.Errorf("setting no_new_privs: %w", errno)
+	}
+	err := cmd.Start()
+	runtime.UnlockOSThread()
+	if err != nil {
+		return 1, fmt.Errorf("starting process: %w", err)
+	}
+
+	fw.log.Debug("process started in cgroup", "pid", cmd.Process.Pid, "no_new_privs", true)
+
+	err = cmd.Wait()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return exitErr.ExitCode(), nil
+		}
+		return 1, err
+	}
+	return 0, nil
+}
+
+// Cleanup detaches the eBPF programs, closes objects, and optionally removes the cgroup.
+func (fw *Firewall) Cleanup() {
+	if fw.egressLink != nil {
+		fw.egressLink.Close()
+	}
+	if fw.ingressLink != nil {
+		fw.ingressLink.Close()
+	}
+	if fw.lsmLink != nil {
+		fw.lsmLink.Close()
+	}
+
+	if fw.cgObjs != nil {
+		fw.cgObjs.Close()
+	}
+	if fw.tcObjs != nil {
+		fw.tcObjs.Close()
+	}
+	if fw.lsmObjs != nil {
+		fw.lsmObjs.Close()
+	}
+
+	if fw.cgroupFD >= 0 {
+		syscall.Close(fw.cgroupFD)
+	}
+
+	if fw.ownsCgroup && fw.cgroupPath != "" {
+		os.Remove(fw.cgroupPath)
+		fw.log.Debug("cleaned up cgroup", "path", fw.cgroupPath)
+	}
+}
+
+// getCgroupID returns the kernel cgroup ID for the given cgroup path.
+// This matches what bpf_get_current_cgroup_id() returns in-kernel.
+func getCgroupID(cgroupPath string) (uint64, error) {
+	var stat unix.Stat_t
+	if err := unix.Stat(cgroupPath, &stat); err != nil {
+		return 0, fmt.Errorf("stat %s: %w", cgroupPath, err)
+	}
+	return stat.Ino, nil
+}
+
+// resolveUser looks up a user by name or numeric UID and returns
+// a syscall.Credential suitable for SysProcAttr.
+func resolveUser(nameOrID string) (*syscall.Credential, error) {
+	u, err := user.Lookup(nameOrID)
+	if err != nil {
+		// Try as numeric UID.
+		u, err = user.LookupId(nameOrID)
+		if err != nil {
+			return nil, fmt.Errorf("user %q not found", nameOrID)
+		}
+	}
+	uid, err := strconv.ParseUint(u.Uid, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("parsing uid %q: %w", u.Uid, err)
+	}
+	gid, err := strconv.ParseUint(u.Gid, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("parsing gid %q: %w", u.Gid, err)
+	}
+	return &syscall.Credential{
+		Uid: uint32(uid),
+		Gid: uint32(gid),
+	}, nil
+}

@@ -66,5 +66,13 @@ func (d *DockerClient) UpdateNetworkSettings(ctx context.Context, containerId st
 		}
 	}
 
+	// Apply (or clear) the eBPF domain allow list via netleash. Keyed by the
+	// full container ID so it stays consistent across the sandbox lifecycle.
+	// An empty list clears any existing restriction.
+	if updateNetworkSettingsDto.DomainAllowList != nil {
+		domainAllowList := *updateNetworkSettingsDto.DomainAllowList
+		go d.applyDomainAllowList(context.Background(), info.ID, domainAllowList)
+	}
+
 	return nil
 }

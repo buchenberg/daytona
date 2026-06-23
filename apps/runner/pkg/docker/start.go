@@ -139,6 +139,10 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, authToken 
 		}()
 	}
 
+	if domainAllowList := metadata["domainAllowList"]; domainAllowList != "" {
+		go d.applyDomainAllowList(context.Background(), c.ID, domainAllowList)
+	}
+
 	return runningContainer, daemonVersion, nil
 }
 

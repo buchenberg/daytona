@@ -120,6 +120,14 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 				metadata["volumes"] = string(volumesJSON)
 			}
 		}
+		// Carry the domain allow list through to Start so resuming a stopped
+		// sandbox re-applies the netleash egress filter.
+		if sandboxDto.DomainAllowList != nil && *sandboxDto.DomainAllowList != "" {
+			if metadata == nil {
+				metadata = make(map[string]string)
+			}
+			metadata["domainAllowList"] = *sandboxDto.DomainAllowList
+		}
 		_, daemonVersion, err := d.Start(ctx, sandboxDto.Id, sandboxDto.AuthToken, metadata)
 		if err != nil {
 			if strings.Contains(err.Error(), "OCI runtime create failed") {
@@ -309,6 +317,10 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 				d.logger.ErrorContext(ctx, "Failed to update sandbox network settings", "error", err)
 			}
 		}()
+	}
+
+	if sandboxDto.DomainAllowList != nil && *sandboxDto.DomainAllowList != "" {
+		go d.applyDomainAllowList(context.Background(), runningContainer.ID, *sandboxDto.DomainAllowList)
 	}
 
 	return c.ID, daemonVersion, nil
