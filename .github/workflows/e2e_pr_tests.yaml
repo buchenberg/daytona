@@ -11,6 +11,7 @@ on:
     branches:
       - main
       - develop
+      - prod
 
 permissions:
   contents: read
