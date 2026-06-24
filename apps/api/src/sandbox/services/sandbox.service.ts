@@ -3209,6 +3209,10 @@ export class SandboxService {
       effectiveDomainAllowList = null
     }
 
+    // Explicit clear -> '' so the runner drops the restriction; untouched -> undefined so it's left as-is.
+    const runnerDomainAllowList =
+      domainAllowList !== undefined ? (effectiveDomainAllowList ?? '') : (effectiveDomainAllowList ?? undefined)
+
     // Update network settings on the runner
     if (sandbox.runnerId) {
       const runner = await this.runnerService.findOne(sandbox.runnerId)
@@ -3219,7 +3223,7 @@ export class SandboxService {
           effectiveNetworkBlockAll,
           effectiveNetworkAllowList ?? undefined,
           undefined,
-          effectiveDomainAllowList ?? undefined,
+          runnerDomainAllowList,
         )
       }
     }
