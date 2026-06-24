@@ -43,7 +43,9 @@
         #         libs/{sdk-go,api-client-go,common-go,computer-use,toolbox-api-client-go}
         # ──────────────────────────────────────────────
         goPkgs = with pkgs; [
-          go # 1.25.x — matches go.work constraint
+          go_1_25 # pin to 1.25.x — matches go.work (go 1.25.5) and the devcontainer
+          # (go feature 1.25.5). The unversioned `go` attr now tracks 1.26, which
+          # produces different `gomarkdoc` output for the Go SDK docs.
           golangci-lint
           protobuf # provides protoc
           buf
@@ -58,10 +60,16 @@
           export GOBIN="$GOPATH/bin"
           export PATH="$GOBIN:$PATH"
 
-          # Install Go tools not packaged in nixpkgs
+          # Install Go tools not packaged in nixpkgs. Reinstall when missing OR
+          # when the cached binary was built with a different Go toolchain than the
+          # active one: a tool's output can depend on the Go version it was compiled
+          # with (e.g. gomarkdoc embeds go/doc/comment, whose [Type.Field] doc-link
+          # rendering changed in Go 1.26), so a stale binary silently desyncs the
+          # generated docs from what go.work / CI produce.
           _nix_install_go_tool() {
-            local name="$1" pkg="$2"
-            if ! command -v "$name" &>/dev/null; then
+            local name="$1" pkg="$2" bin
+            bin="$(command -v "$name" 2>/dev/null)"
+            if [ -z "$bin" ] || [ "$(go version "$bin" 2>/dev/null | awk '{print $2}')" != "$(go env GOVERSION)" ]; then
               echo "nix-shell: installing $name ..."
               go install "$pkg" 2>/dev/null || echo "nix-shell: warning — failed to install $name"
             fi
@@ -158,12 +166,14 @@
         #         examples/java
         # ──────────────────────────────────────────────
         javaPkgs = [
-          pkgs.jdk17 # Gradle 8.10 requires JDK 17+; source targets Java 11
+          pkgs.jdk21 # matches the devcontainer (java feature 21.0.11, Temurin);
+          # source still targets Java 11 and Gradle 8.10 supports JDK 21. The JDK
+          # major version affects Javadoc → Markdown output for the Java SDK docs.
           pkgs.gradle
         ];
 
         javaShellHook = ''
-          export JAVA_HOME="${pkgs.jdk17.home}"
+          export JAVA_HOME="${pkgs.jdk21.home}"
         '';
 
       in
