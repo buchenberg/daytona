@@ -1107,11 +1107,19 @@ func (s *Sandbox) ExperimentalCreateSnapshot(ctx context.Context, name string) e
 //	err := sandbox.ExperimentalCreateSnapshotWithTimeout(ctx, "my-snapshot", 2*time.Minute)
 func (s *Sandbox) ExperimentalCreateSnapshotWithTimeout(ctx context.Context, name string, timeout time.Duration) error {
 	return withInstrumentationVoid(ctx, s.otel, "Sandbox", "ExperimentalCreateSnapshotWithTimeout", func(ctx context.Context) error {
-		return s.doExperimentalCreateSnapshotWithTimeout(ctx, name, timeout)
+		return s.doExperimentalCreateSnapshotWithTimeout(ctx, name, false, timeout)
 	})
 }
 
-func (s *Sandbox) doExperimentalCreateSnapshotWithTimeout(ctx context.Context, name string, timeout time.Duration) error {
+// ExperimentalCreateSnapshotWithMemory creates a snapshot including VM memory state.
+// VM sandboxes only (Windows, Linux VM). The sandbox must be STARTED.
+func (s *Sandbox) ExperimentalCreateSnapshotWithMemory(ctx context.Context, name string, timeout time.Duration) error {
+	return withInstrumentationVoid(ctx, s.otel, "Sandbox", "ExperimentalCreateSnapshotWithMemory", func(ctx context.Context) error {
+		return s.doExperimentalCreateSnapshotWithTimeout(ctx, name, true, timeout)
+	})
+}
+
+func (s *Sandbox) doExperimentalCreateSnapshotWithTimeout(ctx context.Context, name string, includeMemory bool, timeout time.Duration) error {
 	if timeout < 0 {
 		return errors.NewDaytonaError("Timeout must be a non-negative number", 0, nil)
 	}
@@ -1123,6 +1131,7 @@ func (s *Sandbox) doExperimentalCreateSnapshotWithTimeout(ctx context.Context, n
 	}
 
 	req := apiclient.NewCreateSandboxSnapshot(name)
+	req.SetIncludeMemory(includeMemory)
 
 	authCtx := s.client.getAuthContext(ctx)
 	_, httpResp, err := s.client.apiClient.SandboxAPI.CreateSandboxSnapshot(authCtx, s.ID).CreateSandboxSnapshot(*req).Execute()

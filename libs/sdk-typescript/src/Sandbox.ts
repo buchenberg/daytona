@@ -398,15 +398,19 @@ export class Sandbox {
    * const sandbox = await daytona.get('my-sandbox');
    * await sandbox._experimental_createSnapshot('my-snapshot');
    * console.log('Snapshot created successfully');
+   *
+   * @example
+   * // Include memory state (VM sandboxes only - Windows, Linux VM)
+   * await sandbox._experimental_createSnapshot('my-snapshot', 60, true);
    */
   @WithInstrumentation()
-  public async _experimental_createSnapshot(name: string, timeout = 60): Promise<void> {
+  public async _experimental_createSnapshot(name: string, timeout = 60, includeMemory = false): Promise<void> {
     if (timeout < 0) {
       throw new DaytonaValidationError('Timeout must be a non-negative number')
     }
 
     const startTime = Date.now()
-    const req: CreateSandboxSnapshot = { name }
+    const req: CreateSandboxSnapshot = { name, includeMemory }
     await this.sandboxApi.createSandboxSnapshot(this.id, req, undefined, {
       timeout: timeout * 1000,
     })

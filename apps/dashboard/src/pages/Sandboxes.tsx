@@ -812,7 +812,11 @@ const Sandboxes: React.FC = () => {
     const sandbox = sandboxes.find((s) => s.id === id)
     setSandboxToSnapshot(id)
     setSnapshotName('')
-    setSnapshotIncludeMemory(sandbox?.sandboxClass === SandboxClass.WINDOWS && sandbox?.state === SandboxState.STARTED)
+    setSnapshotIncludeMemory(
+      sandbox?.sandboxClass !== undefined &&
+        ([SandboxClass.WINDOWS, SandboxClass.LINUX_VM] as string[]).includes(sandbox?.sandboxClass) &&
+        sandbox?.state === SandboxState.STARTED,
+    )
   }
 
   const handleFork = async (id: string) => {
@@ -1395,7 +1399,9 @@ const Sandboxes: React.FC = () => {
                 placeholder="Snapshot name"
                 disabled={createSandboxSnapshotMutation.isPending}
               />
-              {sandboxes.find((s) => s.id === sandboxToSnapshot)?.sandboxClass === SandboxClass.WINDOWS && (
+              {([SandboxClass.WINDOWS, SandboxClass.LINUX_VM] as string[]).includes(
+                sandboxes.find((s) => s.id === sandboxToSnapshot)?.sandboxClass as SandboxClass,
+              ) && (
                 <div className="flex items-start gap-3">
                   <Checkbox id="snapshot-include-memory" checked={snapshotIncludeMemory} disabled className="mt-0.5" />
                   <div className="grid gap-1 leading-none">

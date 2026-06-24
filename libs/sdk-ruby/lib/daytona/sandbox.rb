@@ -541,13 +541,16 @@ module Daytona
     #
     # @param name [String] Name for the new snapshot
     # @param timeout [Numeric] Maximum wait time in seconds (defaults to 60 s)
+    # @param include_memory [Boolean] Include VM memory in the snapshot. VM sandboxes only (Windows, Linux VM)
     # @return [void]
-    def experimental_create_snapshot(name:, timeout: DEFAULT_TIMEOUT)
+    def experimental_create_snapshot(name:, timeout: DEFAULT_TIMEOUT, include_memory: false)
       with_timeout(
         timeout:,
         message: "Sandbox #{id} snapshot failed within the #{timeout} seconds timeout period",
         setup: proc {
-          sandbox_api.create_sandbox_snapshot(id, DaytonaApiClient::CreateSandboxSnapshot.new(name:))
+          sandbox_api.create_sandbox_snapshot(
+            id, DaytonaApiClient::CreateSandboxSnapshot.new(name:, include_memory:)
+          )
           refresh
         }
       ) { wait_for_snapshot_complete }

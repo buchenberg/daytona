@@ -1367,15 +1367,15 @@ export class SandboxService {
 
       const runner = await this.runnerService.findOneOrFail(sandbox.runnerId)
 
-      if (sandbox.sandboxClass === SandboxClass.WINDOWS) {
+      if ([SandboxClass.WINDOWS, SandboxClass.LINUX_VM].includes(sandbox.sandboxClass)) {
         if (includeMemory && sandbox.state !== SandboxState.STARTED) {
-          throw new BadRequestError('Snapshots with memory require the Windows sandbox to be running (STARTED)')
+          throw new BadRequestError('Snapshots with memory require the VM sandbox to be running (STARTED)')
         }
         if (!includeMemory && sandbox.state !== SandboxState.STOPPED) {
-          throw new BadRequestError('Filesystem-only snapshots require the Windows sandbox to be stopped (STOPPED)')
+          throw new BadRequestError('Filesystem-only snapshots require the VM sandbox to be stopped (STOPPED)')
         }
       } else if (includeMemory) {
-        throw new BadRequestError('includeMemory is only supported for Windows sandboxes')
+        throw new BadRequestError('includeMemory is only supported for VM sandboxes (Windows, Linux VM)')
       }
 
       this.organizationService.assertOrganizationIsNotSuspended(organization)

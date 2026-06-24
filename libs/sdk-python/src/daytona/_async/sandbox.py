@@ -772,7 +772,9 @@ class AsyncSandbox(SandboxDto):
     @intercept_errors(message_prefix="Failed to create snapshot: ")
     @with_timeout()
     @with_instrumentation()
-    async def _experimental_create_snapshot(self, name: str, timeout: float | None = 60) -> None:
+    async def _experimental_create_snapshot(
+        self, name: str, timeout: float | None = 60, include_memory: bool = False
+    ) -> None:
         """Creates a snapshot from the current state of the Sandbox.
 
         This captures the Sandbox's filesystem into a reusable snapshot that can be
@@ -782,6 +784,7 @@ class AsyncSandbox(SandboxDto):
         Args:
             name (str): Name for the new snapshot.
             timeout (float | None): Maximum time to wait in seconds. 0 means no timeout. Default is 60 seconds.
+            include_memory (bool): Include VM memory in the snapshot. VM sandboxes only (Windows, Linux VM).
 
         Raises:
             DaytonaError: If the snapshot operation fails or times out.
@@ -794,7 +797,9 @@ class AsyncSandbox(SandboxDto):
             ```
         """
         _ = await self._sandbox_api.create_sandbox_snapshot(
-            self.id, CreateSandboxSnapshot(name=name), _request_timeout=http_timeout(timeout)
+            self.id,
+            CreateSandboxSnapshot(name=name, include_memory=include_memory),
+            _request_timeout=http_timeout(timeout),
         )
         await self.refresh_data()
         await self.__wait_for_snapshot_complete()

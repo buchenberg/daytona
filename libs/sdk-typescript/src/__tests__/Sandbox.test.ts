@@ -248,9 +248,12 @@ describe('Sandbox', () => {
 
     await sandbox._experimental_createSnapshot('snap-1', 1)
 
-    expect(sandboxApi.createSandboxSnapshot).toHaveBeenCalledWith('sb-1', { name: 'snap-1' }, undefined, {
-      timeout: 1000,
-    })
+    expect(sandboxApi.createSandboxSnapshot).toHaveBeenCalledWith(
+      'sb-1',
+      { name: 'snap-1', includeMemory: false },
+      undefined,
+      { timeout: 1000 },
+    )
   })
 
   it('waitUntilStarted throws when sandbox enters an error state', async () => {

@@ -526,7 +526,7 @@ public class Sandbox {
      * @throws DaytonaException if the snapshot operation fails
      */
     public void experimentalCreateSnapshot(String name) {
-        experimentalCreateSnapshot(name, 60);
+        experimentalCreateSnapshot(name, 60, false);
     }
 
     /**
@@ -538,8 +538,22 @@ public class Sandbox {
      * @throws DaytonaException if the snapshot operation fails
      */
     public void experimentalCreateSnapshot(String name, long timeoutSeconds) {
+        experimentalCreateSnapshot(name, timeoutSeconds, false);
+    }
+
+    /**
+     * Creates a snapshot from the current state of this Sandbox.
+     * The Sandbox will temporarily enter a 'snapshotting' state and return to its previous state when complete.
+     *
+     * @param name name for the new snapshot
+     * @param timeoutSeconds reserved timeout parameter for parity with other SDKs
+     * @param includeMemory include VM memory in the snapshot (VM sandboxes only: Windows, Linux VM)
+     * @throws DaytonaException if the snapshot operation fails
+     */
+    public void experimentalCreateSnapshot(String name, long timeoutSeconds, boolean includeMemory) {
         CreateSandboxSnapshot req = new CreateSandboxSnapshot();
         req.setName(name);
+        req.setIncludeMemory(includeMemory);
         ExceptionMapper.callMain(() -> sandboxApi.createSandboxSnapshot(id, req, null));
         refreshData();
         waitForSnapshotComplete(timeoutSeconds);
