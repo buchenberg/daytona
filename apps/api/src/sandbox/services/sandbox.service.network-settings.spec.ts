@@ -120,6 +120,24 @@ describe('SandboxService.updateNetworkSettings', () => {
     )
 
     it.each([
+      ['blockAll=undefined + both lists', undefined, '10.0.0.0/24', 'example.com'],
+      ['blockAll=false + both lists', false, '10.0.0.0/24', 'example.com'],
+    ])(
+      '%s rejects with 400 BadRequestError (networkAllowList and domainAllowList are mutually exclusive)',
+      async (_label, blockAll, network, domain) => {
+        service = newServiceWithSandbox(buildFixture())
+
+        await expect(
+          service.updateNetworkSettings('sb-1', blockAll as boolean | undefined, network, domain, 'org-1'),
+        ).rejects.toThrow(BadRequestError)
+
+        expect(sandboxFindOne).not.toHaveBeenCalled()
+        expect(sandboxUpdate).not.toHaveBeenCalled()
+        expect(runnerAdapterCreate).not.toHaveBeenCalled()
+      },
+    )
+
+    it.each([
       ['blockAll=true + empty networkAllowList', true, '', undefined],
       ['blockAll=true + whitespace networkAllowList', true, '   ', undefined],
       ['blockAll=true + empty domainAllowList', true, undefined, ''],

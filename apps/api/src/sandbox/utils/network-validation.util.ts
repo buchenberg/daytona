@@ -80,6 +80,10 @@ export function validateDomainAllowList(domainAllowList: string): void {
 /**
  * Asserts that the supplied network settings are internally consistent.
  *
+ * `networkAllowList` and `domainAllowList` are mutually exclusive: a request may
+ * supply at most one of them. Sending both non-empty allow-lists at the same time
+ * is rejected so the caller is forced to pick a single egress model.
+ *
  * `networkBlockAll: true` denies all egress, which makes any non-empty
  * `networkAllowList` / `domainAllowList` semantically contradictory. Rejecting
  * the combination at the boundary keeps the API DB and the runner in sync and
@@ -93,19 +97,26 @@ export function validateDomainAllowList(domainAllowList: string): void {
  * @param networkBlockAll - Whether to block all outbound network access
  * @param networkAllowList - Comma-separated CIDR allow-list (may be undefined or empty)
  * @param domainAllowList - Comma-separated domain allow-list (may be undefined or empty)
- * @throws Error if `networkBlockAll === true` and a non-empty allow-list is also supplied
+ * @throws Error if both allow-lists are supplied non-empty, or if `networkBlockAll === true` and a non-empty allow-list is also supplied
  */
 export function assertNetworkSettingsCompatible(
   networkBlockAll: boolean | undefined,
   networkAllowList: string | undefined,
   domainAllowList: string | undefined,
 ): void {
+  const hasNetworkAllowList = typeof networkAllowList === 'string' && networkAllowList.trim().length > 0
+  const hasDomainAllowList = typeof domainAllowList === 'string' && domainAllowList.trim().length > 0
+
+  if (hasNetworkAllowList && hasDomainAllowList) {
+    throw new Error(
+      'networkAllowList and domainAllowList are mutually exclusive and cannot be set at the same time. ' +
+        'Provide only one of them.',
+    )
+  }
+
   if (networkBlockAll !== true) {
     return
   }
-
-  const hasNetworkAllowList = typeof networkAllowList === 'string' && networkAllowList.trim().length > 0
-  const hasDomainAllowList = typeof domainAllowList === 'string' && domainAllowList.trim().length > 0
 
   if (hasNetworkAllowList || hasDomainAllowList) {
     throw new Error(

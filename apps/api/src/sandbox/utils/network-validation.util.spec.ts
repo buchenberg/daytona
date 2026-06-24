@@ -74,9 +74,10 @@ describe('network-validation.util', () => {
       ['blockAll=true with empty domainAllowList', true, undefined, ''],
       ['blockAll=true with whitespace domainAllowList', true, undefined, '   '],
       ['blockAll=true with both empty', true, '', ''],
-      ['blockAll=undefined with both lists', undefined, '10.0.0.0/24', 'example.com'],
       ['networkAllowList alone', undefined, '10.0.0.0/24', undefined],
       ['domainAllowList alone', undefined, undefined, 'example.com'],
+      ['networkAllowList with empty domainAllowList', undefined, '10.0.0.0/24', ''],
+      ['domainAllowList with empty networkAllowList', undefined, '', 'example.com'],
     ])('does not throw for %s', (_label, blockAll, network, domain) => {
       expect(() =>
         assertNetworkSettingsCompatible(
@@ -90,7 +91,6 @@ describe('network-validation.util', () => {
     it.each([
       ['networkAllowList', '10.0.0.0/24', undefined],
       ['domainAllowList', undefined, 'example.com'],
-      ['both lists', '10.0.0.0/24', 'example.com'],
     ])('throws when blockAll=true is combined with non-empty %s', (_label, network, domain) => {
       expect(() =>
         assertNetworkSettingsCompatible(true, network as string | undefined, domain as string | undefined),
@@ -101,6 +101,19 @@ describe('network-validation.util', () => {
       expect(() => assertNetworkSettingsCompatible(true, '10.0.0.0/24', undefined)).toThrow(
         /Remove the allow-list\(s\) or set networkBlockAll to false\./,
       )
+    })
+
+    const mutualExclusionMessage =
+      'networkAllowList and domainAllowList are mutually exclusive and cannot be set at the same time. ' +
+      'Provide only one of them.'
+
+    it.each([
+      ['blockAll=undefined', undefined],
+      ['blockAll=false', false],
+    ])('throws when both networkAllowList and domainAllowList are sent (%s)', (_label, blockAll) => {
+      expect(() =>
+        assertNetworkSettingsCompatible(blockAll as boolean | undefined, '10.0.0.0/24', 'example.com'),
+      ).toThrow(mutualExclusionMessage)
     })
   })
 })
