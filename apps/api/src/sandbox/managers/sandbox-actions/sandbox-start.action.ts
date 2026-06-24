@@ -183,6 +183,7 @@ export class SandboxStartAction extends SandboxAction {
       cpu: sandbox.cpu,
       memory: sandbox.mem,
       disk: sandbox.disk,
+      gpu: sandbox.gpu,
     })
 
     if (!hasFallbackRegion(effectiveRegion)) {
@@ -592,6 +593,7 @@ export class SandboxStartAction extends SandboxAction {
                 cpu: sandbox.cpu,
                 memory: sandbox.mem,
                 disk: sandbox.disk,
+                gpu: sandbox.gpu,
               }),
             ],
             sandboxClass: sandbox.sandboxClass,
@@ -883,6 +885,7 @@ export class SandboxStartAction extends SandboxAction {
       cpu: sandbox.cpu,
       memory: sandbox.mem,
       disk: sandbox.disk,
+      gpu: sandbox.gpu,
     })
 
     let availableRunners: Runner[] = []

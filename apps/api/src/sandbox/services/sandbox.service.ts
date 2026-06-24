@@ -641,7 +641,9 @@ export class SandboxService {
         this.runnerService.assertRunnerCanHost(runner)
       } else {
         runner = await this.runnerService.getRandomAvailableRunner({
-          regions: [resolveEffectiveRegion(organization.id, region.id, this.configService, { cpu, memory: mem, disk })],
+          regions: [
+            resolveEffectiveRegion(organization.id, region.id, this.configService, { cpu, memory: mem, disk, gpu }),
+          ],
           sandboxClass: snapshot.sandboxClass,
           snapshotRef: snapshot.ref,
           gpu,
@@ -1021,6 +1023,7 @@ export class SandboxService {
               cpu,
               memory: mem,
               disk,
+              gpu: sandbox.gpu,
             }),
           ],
           sandboxClass: sandbox.sandboxClass,

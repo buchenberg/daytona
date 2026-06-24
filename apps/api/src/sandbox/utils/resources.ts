@@ -4,6 +4,7 @@ export interface Resources {
   cpu: number
   memory: number
   disk: number
+  gpu: number
 }
 
 export function areResourcesLargerThanDefault(configService: TypedConfigService, resources: Resources): boolean {

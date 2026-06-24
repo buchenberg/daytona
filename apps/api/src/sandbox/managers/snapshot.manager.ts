@@ -472,6 +472,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
               cpu: snapshot.cpu,
               memory: snapshot.mem,
               disk: snapshot.disk,
+              gpu: snapshot.gpu,
             })
             if (dedicatedRegion !== region) {
               regions.push(dedicatedRegion)
@@ -487,6 +488,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
             cpu: snapshot.cpu,
             memory: snapshot.mem,
             disk: snapshot.disk,
+            gpu: snapshot.gpu,
           })
         ) {
           regions = regions.filter((region) => region !== LARGE_SANDBOX_SHARED_REGION)
@@ -1865,6 +1867,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
             cpu: snapshot.cpu,
             memory: snapshot.mem,
             disk: snapshot.disk,
+            gpu: snapshot.gpu,
           })
         ) {
           dedicatedRegions = dedicatedRegions.filter((region) => region !== LARGE_SANDBOX_SHARED_REGION)

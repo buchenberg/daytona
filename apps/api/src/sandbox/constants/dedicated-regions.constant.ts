@@ -214,6 +214,10 @@ export function resolveEffectiveRegion(
   configService: TypedConfigService,
   resources: Resources,
 ) {
+  if (resources.gpu > 0) {
+    return baseRegionId
+  }
+
   // if (DAYTONA_MEMBERS_ORGS.includes(organizationId)) {
   if (WRITER_ORGS.includes(organizationId)) {
     if (baseRegionId === 'us') {
