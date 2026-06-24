@@ -190,9 +190,9 @@ const Composer: FC<{ onCompact: () => void; registerCompactCallback: (cb: () => 
       {status && (
         <div className="mb-1.5 px-2.5 py-1 rounded-md border text-xs flex items-center gap-2 bg-muted/50 text-muted-foreground">
           {busy ? (
-            <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse flex-shrink-0" />
+            <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse shrink-0" />
           ) : (
-            <div className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0" />
+            <div className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
           )}
           <span className="flex-1">{status}</span>
           {!busy && (
@@ -320,7 +320,7 @@ const AssistantMessage: FC = () => {
   return (
     <MessageActivityContext.Provider value={{ setTextStreaming, setToolRunning }}>
       <MessagePrimitive.Root className="flex mb-4 gap-2">
-        <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+        <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
           <span className="text-xs font-bold text-primary">M</span>
         </div>
         <div className="max-w-[80%]">

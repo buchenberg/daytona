@@ -25,15 +25,15 @@ export const ToolCallDisplay: FC<ToolCallDisplayProps> = ({ toolName, result, is
         disabled={isRunning}
       >
         {isRunning ? (
-          <div className="h-2.5 w-2.5 rounded-full bg-blue-500 animate-pulse flex-shrink-0" />
+          <div className="h-2.5 w-2.5 rounded-full bg-blue-500 animate-pulse shrink-0" />
         ) : isError ? (
-          <div className="h-2.5 w-2.5 rounded-full bg-red-500 flex-shrink-0" />
+          <div className="h-2.5 w-2.5 rounded-full bg-red-500 shrink-0" />
         ) : (
-          <div className="h-2.5 w-2.5 rounded-full bg-green-500 flex-shrink-0" />
+          <div className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0" />
         )}
         <span className="font-mono text-muted-foreground truncate">{toolName}</span>
         {!isRunning && (
-          <span className="ml-auto text-muted-foreground/50 flex-shrink-0">
+          <span className="ml-auto text-muted-foreground/50 shrink-0">
             {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
           </span>
         )}

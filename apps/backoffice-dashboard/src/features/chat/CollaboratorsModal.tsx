@@ -138,7 +138,7 @@ export const CollaboratorsModal: FC<CollaboratorsModalProps> = ({ conversationId
                       </div>
                       <button
                         onClick={() => handleRemove(c.userId)}
-                        className="text-muted-foreground hover:text-destructive ml-2 flex-shrink-0"
+                        className="text-muted-foreground hover:text-destructive ml-2 shrink-0"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

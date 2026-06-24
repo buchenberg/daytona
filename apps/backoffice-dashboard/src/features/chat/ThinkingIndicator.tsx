@@ -50,7 +50,7 @@ export const ThinkingIndicator: FC = () => {
 
   return (
     <div className="flex items-center gap-2 py-1 text-xs text-muted-foreground">
-      <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent flex-shrink-0" />
+      <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent shrink-0" />
       <span
         className={`transition-all duration-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}`}
       >

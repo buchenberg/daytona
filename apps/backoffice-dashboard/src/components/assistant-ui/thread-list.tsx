@@ -97,11 +97,11 @@ const ThreadListItem: FC = () => {
       </ThreadListItemPrimitive.Trigger>
       <button
         onClick={startEditing}
-        className="opacity-0 group-hover:opacity-100 inline-flex items-center justify-center rounded-md h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted transition-all flex-shrink-0"
+        className="opacity-0 group-hover:opacity-100 inline-flex items-center justify-center rounded-md h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted transition-all shrink-0"
       >
         <Pencil className="h-3 w-3" />
       </button>
-      <ThreadListItemPrimitive.Delete className="opacity-0 group-hover:opacity-100 inline-flex items-center justify-center rounded-md h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-muted transition-all flex-shrink-0">
+      <ThreadListItemPrimitive.Delete className="opacity-0 group-hover:opacity-100 inline-flex items-center justify-center rounded-md h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-muted transition-all shrink-0">
         <Trash2 className="h-3.5 w-3.5" />
       </ThreadListItemPrimitive.Delete>
     </ThreadListItemPrimitive.Root>

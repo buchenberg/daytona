@@ -40,7 +40,7 @@ export const ChatLayout: FC = () => {
       <aside
         className={`
           fixed md:relative z-40 md:z-auto
-          w-64 border-r flex-shrink-0 flex flex-col bg-background h-full overflow-hidden
+          w-64 border-r shrink-0 flex flex-col bg-background h-full overflow-hidden
           transition-transform duration-200 ease-in-out
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
