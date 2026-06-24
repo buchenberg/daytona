@@ -1775,6 +1775,9 @@ const docTemplate = `{
                     "type": "integer",
                     "minimum": 1
                 },
+                "domainAllowList": {
+                    "type": "string"
+                },
                 "env": {
                     "type": "object",
                     "additionalProperties": {

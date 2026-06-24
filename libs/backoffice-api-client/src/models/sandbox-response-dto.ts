@@ -63,6 +63,9 @@ export const SandboxResponseDtoStateEnum = {
     RESIZING: 'resizing',
     SNAPSHOTTING: 'snapshotting',
     FORKING: 'forking',
+    PAUSING: 'pausing',
+    PAUSED: 'paused',
+    RESUMING: 'resuming',
 } as const;
 
 export type SandboxResponseDtoStateEnum = typeof SandboxResponseDtoStateEnum[keyof typeof SandboxResponseDtoStateEnum];
@@ -72,6 +75,7 @@ export const SandboxResponseDtoDesiredStateEnum = {
     STOPPED: 'stopped',
     RESIZED: 'resized',
     ARCHIVED: 'archived',
+    PAUSED: 'paused',
 } as const;
 
 export type SandboxResponseDtoDesiredStateEnum = typeof SandboxResponseDtoDesiredStateEnum[keyof typeof SandboxResponseDtoDesiredStateEnum];

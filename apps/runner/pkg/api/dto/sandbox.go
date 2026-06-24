@@ -76,6 +76,7 @@ type RecoverSandboxDTO struct {
 	Volumes          []VolumeDTO       `json:"volumes,omitempty"`
 	NetworkBlockAll  *bool             `json:"networkBlockAll,omitempty"`
 	NetworkAllowList *string           `json:"networkAllowList,omitempty"`
+	DomainAllowList  *string           `json:"domainAllowList,omitempty"`
 	// At least one of ErrorReason or BackupErrorReason must yield a recovery type; both are optional.
 	ErrorReason       string       `json:"errorReason,omitempty"`
 	BackupErrorReason string       `json:"backupErrorReason,omitempty"`

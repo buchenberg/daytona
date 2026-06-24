@@ -104,6 +104,9 @@ export const SandboxFiltersDtoStateEnum = {
     RESIZING: 'resizing',
     SNAPSHOTTING: 'snapshotting',
     FORKING: 'forking',
+    PAUSING: 'pausing',
+    PAUSED: 'paused',
+    RESUMING: 'resuming',
 } as const;
 
 export type SandboxFiltersDtoStateEnum = typeof SandboxFiltersDtoStateEnum[keyof typeof SandboxFiltersDtoStateEnum];
@@ -127,6 +130,9 @@ export const SandboxFiltersDtoExcludeStatesEnum = {
     RESIZING: 'resizing',
     SNAPSHOTTING: 'snapshotting',
     FORKING: 'forking',
+    PAUSING: 'pausing',
+    PAUSED: 'paused',
+    RESUMING: 'resuming',
 } as const;
 
 export type SandboxFiltersDtoExcludeStatesEnum = typeof SandboxFiltersDtoExcludeStatesEnum[keyof typeof SandboxFiltersDtoExcludeStatesEnum];

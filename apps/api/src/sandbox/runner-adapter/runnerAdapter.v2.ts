@@ -257,6 +257,7 @@ export class RunnerAdapterV2 implements RunnerAdapter {
       })),
       networkBlockAll: sandbox.networkBlockAll,
       networkAllowList: sandbox.networkAllowList,
+      domainAllowList: sandbox.domainAllowList,
       errorReason: sandbox.errorReason,
       backupErrorReason: sandbox.backupErrorReason,
       registry: registry

@@ -61,7 +61,11 @@ import { WarmPool } from '../entities/warm-pool.entity'
 import { SandboxDto, SandboxVolume } from '../dto/sandbox.dto'
 import { isValidUuid } from '../../common/utils/uuid'
 import { RunnerAdapter, RunnerAdapterFactory } from '../runner-adapter/runnerAdapter'
-import { validateDomainAllowList, validateNetworkAllowList } from '../utils/network-validation.util'
+import {
+  assertNetworkSettingsCompatible,
+  validateDomainAllowList,
+  validateNetworkAllowList,
+} from '../utils/network-validation.util'
 import { OrganizationUsageService } from '../../organization/services/organization-usage.service'
 import { SshAccess } from '../entities/ssh-access.entity'
 import { SshAccessDto, SshAccessValidationDto } from '../dto/ssh-access.dto'
@@ -670,15 +674,21 @@ export class SandboxService {
 
       sandbox.public = createSandboxDto.public || false
 
+      this.validateNetworkSettingsCompatibility(
+        createSandboxDto.networkBlockAll,
+        createSandboxDto.networkAllowList,
+        createSandboxDto.domainAllowList,
+      )
+
       if (createSandboxDto.networkBlockAll !== undefined) {
         sandbox.networkBlockAll = createSandboxDto.networkBlockAll
       }
 
-      if (createSandboxDto.networkAllowList !== undefined) {
+      if (createSandboxDto.networkAllowList !== undefined && createSandboxDto.networkAllowList.trim() !== '') {
         sandbox.networkAllowList = this.resolveNetworkAllowList(createSandboxDto.networkAllowList)
       }
 
-      if (createSandboxDto.domainAllowList !== undefined) {
+      if (createSandboxDto.domainAllowList !== undefined && createSandboxDto.domainAllowList.trim() !== '') {
         sandbox.domainAllowList = this.resolveDomainAllowList(createSandboxDto.domainAllowList)
       }
 
@@ -815,16 +825,28 @@ export class SandboxService {
       updateData.autoDeleteInterval = createSandboxDto.autoDeleteInterval
     }
 
+    this.validateNetworkSettingsCompatibility(
+      createSandboxDto.networkBlockAll,
+      createSandboxDto.networkAllowList,
+      createSandboxDto.domainAllowList,
+    )
+
     if (createSandboxDto.networkBlockAll !== undefined) {
       updateData.networkBlockAll = createSandboxDto.networkBlockAll
     }
 
     if (createSandboxDto.networkAllowList !== undefined) {
-      updateData.networkAllowList = this.resolveNetworkAllowList(createSandboxDto.networkAllowList)
+      updateData.networkAllowList =
+        createSandboxDto.networkAllowList.trim() === ''
+          ? null
+          : this.resolveNetworkAllowList(createSandboxDto.networkAllowList)
     }
 
     if (createSandboxDto.domainAllowList !== undefined) {
-      updateData.domainAllowList = this.resolveDomainAllowList(createSandboxDto.domainAllowList)
+      updateData.domainAllowList =
+        createSandboxDto.domainAllowList.trim() === ''
+          ? null
+          : this.resolveDomainAllowList(createSandboxDto.domainAllowList)
     }
 
     if (!warmPoolSandbox.runnerId) {
@@ -841,8 +863,8 @@ export class SandboxService {
       const runnerAdapter = await this.runnerAdapterFactory.create(runner)
       await runnerAdapter.updateNetworkSettings(
         warmPoolSandbox.id,
-        createSandboxDto.networkBlockAll,
-        createSandboxDto.networkAllowList,
+        updateData.networkBlockAll,
+        updateData.networkAllowList ?? undefined,
         organization.sandboxLimitedNetworkEgress,
         updateData.domainAllowList ?? undefined,
       )
@@ -955,15 +977,21 @@ export class SandboxService {
       sandbox.disk = disk
       sandbox.public = createSandboxDto.public || false
 
+      this.validateNetworkSettingsCompatibility(
+        createSandboxDto.networkBlockAll,
+        createSandboxDto.networkAllowList,
+        createSandboxDto.domainAllowList,
+      )
+
       if (createSandboxDto.networkBlockAll !== undefined) {
         sandbox.networkBlockAll = createSandboxDto.networkBlockAll
       }
 
-      if (createSandboxDto.networkAllowList !== undefined) {
+      if (createSandboxDto.networkAllowList !== undefined && createSandboxDto.networkAllowList.trim() !== '') {
         sandbox.networkAllowList = this.resolveNetworkAllowList(createSandboxDto.networkAllowList)
       }
 
-      if (createSandboxDto.domainAllowList !== undefined) {
+      if (createSandboxDto.domainAllowList !== undefined && createSandboxDto.domainAllowList.trim() !== '') {
         sandbox.domainAllowList = this.resolveDomainAllowList(createSandboxDto.domainAllowList)
       }
 
@@ -1185,6 +1213,7 @@ export class SandboxService {
       forkedSandbox.volumes = sourceSandbox.volumes?.map((volume) => ({ ...volume }))
       forkedSandbox.networkBlockAll = sourceSandbox.networkBlockAll
       forkedSandbox.networkAllowList = sourceSandbox.networkAllowList
+      forkedSandbox.domainAllowList = sourceSandbox.domainAllowList
       forkedSandbox.runnerId = sourceSandbox.runnerId
       forkedSandbox.pending = true
       forkedSandbox.state = SandboxState.CREATING
@@ -3130,6 +3159,8 @@ export class SandboxService {
     domainAllowList?: string,
     organizationId?: string,
   ): Promise<Sandbox> {
+    this.validateNetworkSettingsCompatibility(networkBlockAll, networkAllowList, domainAllowList)
+
     const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
 
     const updateData: Partial<Sandbox> = {}
@@ -3147,15 +3178,6 @@ export class SandboxService {
       }
     }
 
-    if (networkBlockAll !== undefined) {
-      updateData.networkBlockAll = networkBlockAll
-      effectiveNetworkBlockAll = networkBlockAll
-      if (networkBlockAll === true) {
-        updateData.networkAllowList = null
-        effectiveNetworkAllowList = null
-      }
-    }
-
     if (networkAllowList !== undefined) {
       if (networkAllowList.trim() === '') {
         updateData.networkAllowList = null
@@ -3163,13 +3185,28 @@ export class SandboxService {
       } else {
         const resolvedNetworkAllowList = this.resolveNetworkAllowList(networkAllowList)
         updateData.networkAllowList = resolvedNetworkAllowList
-        updateData.networkBlockAll = false
         effectiveNetworkAllowList = resolvedNetworkAllowList
-        effectiveNetworkBlockAll = false
       }
-    } else if (networkBlockAll === false) {
+    }
+
+    if (networkBlockAll !== undefined) {
+      updateData.networkBlockAll = networkBlockAll
+      effectiveNetworkBlockAll = networkBlockAll
+    } else if (sandbox.networkBlockAll === true && (effectiveNetworkAllowList || effectiveDomainAllowList)) {
+      updateData.networkBlockAll = false
+      effectiveNetworkBlockAll = false
+    }
+
+    if (effectiveNetworkBlockAll === true) {
       updateData.networkAllowList = null
+      updateData.domainAllowList = null
       effectiveNetworkAllowList = null
+      effectiveDomainAllowList = null
+    } else if (networkBlockAll === false && networkAllowList === undefined && domainAllowList === undefined) {
+      updateData.networkAllowList = null
+      updateData.domainAllowList = null
+      effectiveNetworkAllowList = null
+      effectiveDomainAllowList = null
     }
 
     // Update network settings on the runner
@@ -3409,6 +3446,18 @@ export class SandboxService {
     }
 
     return domainAllowList
+  }
+
+  private validateNetworkSettingsCompatibility(
+    networkBlockAll: boolean | undefined,
+    networkAllowList: string | undefined,
+    domainAllowList: string | undefined,
+  ): void {
+    try {
+      assertNetworkSettingsCompatible(networkBlockAll, networkAllowList, domainAllowList)
+    } catch (error) {
+      throw new BadRequestError(error instanceof Error ? error.message : 'Conflicting network settings')
+    }
   }
 
   // Resolves each volumeId (which may be a volume name) to the volume's UUID — the

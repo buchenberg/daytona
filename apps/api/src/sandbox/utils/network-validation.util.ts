@@ -11,18 +11,26 @@ import { isIPv4 } from 'net'
  */
 export function validateNetworkAllowList(networkAllowList: string): void {
   const networks = networkAllowList.split(',').map((net: string) => net.trim())
+  const nonEmptyNetworks = networks.filter((network) => network.length > 0)
 
-  for (const network of networks) {
-    if (!network) continue // Skip empty entries
+  for (const network of nonEmptyNetworks) {
+    const networkParts = network.split('/')
+    if (networkParts.length !== 2) {
+      throw new Error(`Invalid network format: "${network}". Must be CIDR notation (e.g., 192.168.1.0/24)`)
+    }
 
-    const [ipAddress, prefixLength] = network.split('/')
+    const [ipAddress, prefixLength] = networkParts
 
     if (!isIPv4(ipAddress)) {
       throw new Error(`Invalid IP address: "${ipAddress}" in network "${network}". Must be a valid IPv4 address`)
     }
 
-    if (!prefixLength) {
+    if (prefixLength === undefined || prefixLength === '') {
       throw new Error(`Invalid network format: "${network}". Missing CIDR prefix length (e.g., /24)`)
+    }
+
+    if (!/^\d+$/.test(prefixLength)) {
+      throw new Error(`Invalid CIDR prefix length: ${network}. Prefix must be an integer between 0 and 32`)
     }
 
     // Validate CIDR prefix length (0-32 for IPv4)
@@ -32,31 +40,77 @@ export function validateNetworkAllowList(networkAllowList: string): void {
     }
   }
 
-  if (networks.length > 10) {
+  if (nonEmptyNetworks.length > 10) {
     throw new Error(`Network allow list cannot contain more than 10 networks`)
   }
 }
 
 /**
  * Validates domain allow list to ensure valid domain names are allowed
+ *
+ * Known limitation: the TLD must be alphabetic ASCII (`[a-zA-Z]{2,}`), so any
+ * domain whose TLD contains digits is rejected — this includes punycode IDN
+ * TLDs such as `xn--p1ai` (`.рф`). Punycode in second-level labels (e.g.
+ * `xn--bcher-kva.de`) is accepted because those labels are alphanumeric +
+ * hyphen. Convert IDN TLDs upstream if they need to be supported.
+ *
  * @param domainAllowList - Comma-separated string of domains (optionally prefixed with a `*.` wildcard)
  * @throws Error if any domain is invalid or the list is too long
  */
 export function validateDomainAllowList(domainAllowList: string): void {
   const domains = domainAllowList.split(',').map((domain: string) => domain.trim())
+  const nonEmptyDomains = domains.filter((domain) => domain.length > 0)
 
   // Hostname label format, optionally prefixed with a single `*.` wildcard (e.g. "*.daytona.io")
   const domainRegex = /^(\*\.)?([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/
 
-  for (const domain of domains) {
-    if (!domain) continue // Skip empty entries
-
+  for (const domain of nonEmptyDomains) {
     if (!domainRegex.test(domain)) {
-      throw new Error(`Invalid domain: "${domain}". Must be a valid domain name`)
+      throw new Error(
+        `Invalid domain: "${domain}". Must be a valid ASCII domain (optional leading *.) with an alphabetic top-level domain`,
+      )
     }
   }
 
-  if (domains.length > 10) {
+  if (nonEmptyDomains.length > 10) {
     throw new Error(`Domain allow list cannot contain more than 10 domains`)
+  }
+}
+
+/**
+ * Asserts that the supplied network settings are internally consistent.
+ *
+ * `networkBlockAll: true` denies all egress, which makes any non-empty
+ * `networkAllowList` / `domainAllowList` semantically contradictory. Rejecting
+ * the combination at the boundary keeps the API DB and the runner in sync and
+ * forces the caller to be explicit instead of relying on silent precedence
+ * (which has historically differed between the create and update paths).
+ *
+ * Empty / whitespace-only allow-list strings are treated as "no allow-list"
+ * and do not conflict — that is the documented way to clear an existing
+ * allow-list on the update endpoint.
+ *
+ * @param networkBlockAll - Whether to block all outbound network access
+ * @param networkAllowList - Comma-separated CIDR allow-list (may be undefined or empty)
+ * @param domainAllowList - Comma-separated domain allow-list (may be undefined or empty)
+ * @throws Error if `networkBlockAll === true` and a non-empty allow-list is also supplied
+ */
+export function assertNetworkSettingsCompatible(
+  networkBlockAll: boolean | undefined,
+  networkAllowList: string | undefined,
+  domainAllowList: string | undefined,
+): void {
+  if (networkBlockAll !== true) {
+    return
+  }
+
+  const hasNetworkAllowList = typeof networkAllowList === 'string' && networkAllowList.trim().length > 0
+  const hasDomainAllowList = typeof domainAllowList === 'string' && domainAllowList.trim().length > 0
+
+  if (hasNetworkAllowList || hasDomainAllowList) {
+    throw new Error(
+      'networkBlockAll: true cannot be combined with a non-empty networkAllowList or domainAllowList. ' +
+        'Remove the allow-list(s) or set networkBlockAll to false.',
+    )
   }
 }

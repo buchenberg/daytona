@@ -23,6 +23,7 @@ import type { RegistryDTO } from './registry-dto';
 export interface RecoverSandboxDTO {
     'backupErrorReason'?: string;
     'cpuQuota'?: number;
+    'domainAllowList'?: string;
     'env'?: { [key: string]: string; };
     /**
      * At least one of ErrorReason or BackupErrorReason must yield a recovery type; both are optional.

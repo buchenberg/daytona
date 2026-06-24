@@ -113,6 +113,9 @@ export const UpdateSandboxDtoStateEnum = {
     RESIZING: 'resizing',
     SNAPSHOTTING: 'snapshotting',
     FORKING: 'forking',
+    PAUSING: 'pausing',
+    PAUSED: 'paused',
+    RESUMING: 'resuming',
 } as const;
 
 export type UpdateSandboxDtoStateEnum = typeof UpdateSandboxDtoStateEnum[keyof typeof UpdateSandboxDtoStateEnum];
@@ -122,6 +125,7 @@ export const UpdateSandboxDtoDesiredStateEnum = {
     STOPPED: 'stopped',
     RESIZED: 'resized',
     ARCHIVED: 'archived',
+    PAUSED: 'paused',
 } as const;
 
 export type UpdateSandboxDtoDesiredStateEnum = typeof UpdateSandboxDtoDesiredStateEnum[keyof typeof UpdateSandboxDtoDesiredStateEnum];
