@@ -122,6 +122,20 @@
 
         pythonShellHook = ''
           export POETRY_VIRTUALENVS_IN_PROJECT=true
+
+          # The Poetry dev group provides Python tooling not packaged in nixpkgs
+          # (e.g. pydoc-markdown, used by `npm run docs` in libs/sdk-python). Its
+          # `python` loader imports the editable `daytona` package and all its
+          # runtime deps, so the tool and the SDK must live in one venv — bootstrap
+          # the in-project venv and put it on PATH so those binaries resolve.
+          if [ ! -x "$PWD/.venv/bin/pydoc-markdown" ]; then
+            echo "nix-shell: installing Python dev dependencies (poetry install) ..."
+            poetry install --no-interaction 2>/dev/null \
+              || echo "nix-shell: warning — poetry install failed; run it manually"
+          fi
+          if [ -d "$PWD/.venv/bin" ]; then
+            export PATH="$PWD/.venv/bin:$PATH"
+          fi
         '';
 
         # ──────────────────────────────────────────────
