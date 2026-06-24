@@ -134,8 +134,10 @@ func run() int {
 	// events. Disabled unless NETLEASH_ENABLED is set.
 	var netleashManager *manager.Manager
 	if cfg.NetleashEnabled {
-		netleashManager = manager.New(logger, cfg.NetleashInternalDNSZones)
+		netleashManager = manager.New(logger, cfg.NetleashInternalDNSZones, cfg.NetleashPinPath)
 		logger.Info("Netleash service started")
+		// Close (not tear down): on shutdown the eBPF filters stay attached via
+		// their bpffs pins so domain filtering survives the restart with no gap.
 		defer netleashManager.Close()
 	}
 
@@ -186,6 +188,14 @@ func run() int {
 	if err != nil {
 		logger.Error("Error creating Docker client wrapper", "error", err)
 		return 2
+	}
+
+	// Re-attach / adopt netleash domain filters for sandboxes that are already
+	// running (e.g. after a runner restart) and keep them reconciled. Pinned
+	// filters survive the restart with zero gap; this restores management of
+	// them and re-applies any that were lost.
+	if netleashManager != nil {
+		dockerClient.StartNetleashReconcile(ctx)
 	}
 
 	// Start Docker events monitor

@@ -36,6 +36,7 @@ type Config struct {
 	CACertFile       string                                           // path to combined CA cert file
 	JavaTrustStore   string                                           // path to PKCS12 keystore for JVM TLS (empty = no JVM truststore)
 	CgroupPath       string                                           // attach to existing cgroup (empty = create new) — cgroup mode
+	PinPath          string                                           // bpffs dir to pin links+maps (empty = no pinning) — cgroup mode; survives a restart of this process
 	Interface        string                                           // network interface name (e.g., "tap0", "veth0") — TC mode
 	Tap              bool                                             // swap TC attach directions for tap devices (use with Interface)
 	Stdout           io.Writer                                        // child process stdout (nil = os.Stdout)
@@ -62,7 +63,20 @@ type Firewall struct {
 	egressLink  link.Link
 	ingressLink link.Link
 	lsmLink     link.Link
+	adopted     bool        // true if re-opened from pinned objects (Adopt) rather than freshly attached
+	pinnedMaps  []*ebpf.Map // maps re-opened during Adopt (closed on teardown)
 }
+
+// Pin filenames under Config.PinPath for the cgroup-mode firewall.
+const (
+	pinEgressLink       = "egress_link"
+	pinIngressLink      = "ingress_link"
+	pinAllowedDomains   = "allowed_domains"
+	pinAllowedWildcards = "allowed_wildcards"
+	pinAllowedIps       = "allowed_ips"
+	pinInternalZones    = "internal_dns_zones"
+	pinEvents           = "events"
+)
 
 // New creates a new Firewall with the given configuration.
 func New(cfg Config) *Firewall {
@@ -168,6 +182,15 @@ func (fw *Firewall) setupCgroup() error {
 	// Allow the proxy IP in the egress filter (if proxy is configured).
 	if err := fw.allowProxyIP(); err != nil {
 		return fmt.Errorf("allowing proxy IP: %w", err)
+	}
+
+	// Pin links + maps to bpffs so the filter survives a restart of this
+	// process (pinned cgroup links stay attached with no userspace owner).
+	if fw.cfg.PinPath != "" {
+		if err := fw.pinCgroup(); err != nil {
+			fw.Detach() // best-effort: remove any partial pins + detach
+			return fmt.Errorf("pinning firewall: %w", err)
+		}
 	}
 
 	// If exec filtering is configured, load and attach LSM program.
@@ -397,8 +420,140 @@ func (fw *Firewall) RunProcess(ctx context.Context, args []string) (int, error) 
 	return 0, nil
 }
 
-// Cleanup detaches the eBPF programs, closes objects, and optionally removes the cgroup.
-func (fw *Firewall) Cleanup() {
+// Pin pins an already-attached cgroup-mode firewall's links and maps to bpffs
+// at pinPath, so the egress filter survives a restart of this process. Call
+// after a successful Setup; Adopt re-opens the pins in the next process. Pinning
+// after Setup (rather than via Config.PinPath) lets a caller swap allow lists
+// without two firewalls colliding on the same pin path.
+func (fw *Firewall) Pin(pinPath string) error {
+	if fw.cgObjs == nil {
+		return fmt.Errorf("pin requires a cgroup-mode firewall created via Setup")
+	}
+	fw.cfg.PinPath = pinPath
+	return fw.pinCgroup()
+}
+
+// pinCgroup pins the cgroup links and the maps needed for management to bpffs
+// under fw.cfg.PinPath. Pinned cgroup links keep the programs attached to the
+// container's cgroup even with no userspace owner, so the egress filter
+// survives a restart of this process (Adopt re-opens them, zero gap). PinPath
+// must live on a bpffs mount (e.g. /sys/fs/bpf) that persists across the
+// restart — on bare metal this is the host's own bpffs.
+func (fw *Firewall) pinCgroup() error {
+	if err := os.MkdirAll(fw.cfg.PinPath, 0o700); err != nil {
+		return fmt.Errorf("creating pin dir %s: %w", fw.cfg.PinPath, err)
+	}
+	// Pin atomically: if any individual pin fails, remove the whole directory so
+	// we never leave a partial pin set behind. A partial set (e.g. egress pinned
+	// but ingress not) would survive a restart — keeping a half-attached filter
+	// alive — yet be un-adoptable, since Adopt needs every pin. Rolling back
+	// leaves the in-process links attached (the filter keeps working this
+	// session) but unpinned, so the worst case is simply "won't survive a
+	// restart" rather than a broken, stuck state.
+	if err := fw.pinAll(); err != nil {
+		if rmErr := os.RemoveAll(fw.cfg.PinPath); rmErr != nil {
+			fw.log.Warn("failed to roll back partial pins", "path", fw.cfg.PinPath, "error", rmErr)
+		}
+		return err
+	}
+	fw.log.Debug("pinned cgroup firewall", "path", fw.cfg.PinPath)
+	return nil
+}
+
+// pinAll pins the cgroup links and the maps Adopt needs. On the first failure it
+// returns immediately; pinCgroup is responsible for cleaning up partial state.
+func (fw *Firewall) pinAll() error {
+	if err := fw.egressLink.Pin(filepath.Join(fw.cfg.PinPath, pinEgressLink)); err != nil {
+		return fmt.Errorf("pinning egress link: %w", err)
+	}
+	if err := fw.ingressLink.Pin(filepath.Join(fw.cfg.PinPath, pinIngressLink)); err != nil {
+		return fmt.Errorf("pinning ingress link: %w", err)
+	}
+	for name, m := range fw.pinnableMaps() {
+		if err := m.Pin(filepath.Join(fw.cfg.PinPath, name)); err != nil {
+			return fmt.Errorf("pinning map %s: %w", name, err)
+		}
+	}
+	return nil
+}
+
+// pinnableMaps returns the cgroup-mode maps that Adopt needs to re-open, keyed
+// by pin filename. The other maps (reported_ips, inbound_conns) are managed
+// entirely in-kernel and stay alive via the pinned programs, so they need no
+// userspace handle after a restart.
+func (fw *Firewall) pinnableMaps() map[string]*ebpf.Map {
+	return map[string]*ebpf.Map{
+		pinAllowedDomains:   fw.cgObjs.AllowedDomains,
+		pinAllowedWildcards: fw.cgObjs.AllowedWildcards,
+		pinAllowedIps:       fw.cgObjs.AllowedIps,
+		pinInternalZones:    fw.cgObjs.InternalDnsZones,
+		pinEvents:           fw.cgObjs.Events,
+	}
+}
+
+// Adopt re-opens a cgroup firewall previously pinned to fw.cfg.PinPath by an
+// earlier process, instead of attaching a fresh one. The pinned links keep the
+// programs attached across the restart (zero gap); Adopt just restores the
+// userspace handles so the event reader and allow-list maps can be managed
+// again. The caller is responsible for verifying the underlying cgroup/workload
+// still exists.
+func (fw *Firewall) Adopt() error {
+	if fw.cfg.PinPath == "" {
+		return fmt.Errorf("adopt requires PinPath")
+	}
+	el, err := link.LoadPinnedLink(filepath.Join(fw.cfg.PinPath, pinEgressLink), nil)
+	if err != nil {
+		return fmt.Errorf("loading pinned egress link: %w", err)
+	}
+	fw.egressLink = el
+	il, err := link.LoadPinnedLink(filepath.Join(fw.cfg.PinPath, pinIngressLink), nil)
+	if err != nil {
+		fw.Cleanup()
+		return fmt.Errorf("loading pinned ingress link: %w", err)
+	}
+	fw.ingressLink = il
+
+	for _, name := range []string{pinAllowedDomains, pinAllowedWildcards, pinAllowedIps, pinInternalZones, pinEvents} {
+		m, err := ebpf.LoadPinnedMap(filepath.Join(fw.cfg.PinPath, name), nil)
+		if err != nil {
+			fw.Cleanup()
+			return fmt.Errorf("loading pinned map %s: %w", name, err)
+		}
+		fw.pinnedMaps = append(fw.pinnedMaps, m)
+		switch name {
+		case pinAllowedDomains:
+			fw.maps.AllowedDomains = m
+		case pinAllowedWildcards:
+			fw.maps.AllowedWildcards = m
+		case pinAllowedIps:
+			fw.maps.AllowedIps = m
+		case pinInternalZones:
+			fw.maps.InternalDNSZones = m
+		case pinEvents:
+			fw.maps.Events = m
+		}
+	}
+
+	fw.adopted = true
+	fw.cgroupPath = fw.cfg.CgroupPath
+	fw.log.Debug("adopted pinned cgroup firewall", "path", fw.cfg.PinPath)
+	return nil
+}
+
+// Cleanup releases this process's handles to the firewall but LEAVES any bpffs
+// pins in place, so a pinned cgroup filter keeps running uninterrupted across a
+// restart of this process (zero gap). Use Detach to tear the filter down.
+func (fw *Firewall) Cleanup() { fw.teardown(false) }
+
+// Detach tears the firewall down for good: it removes the bpffs pins — which
+// detaches the eBPF programs from the cgroup — in addition to releasing
+// handles. Use when the workload is gone (sandbox stopped/destroyed).
+func (fw *Firewall) Detach() { fw.teardown(true) }
+
+// teardown closes all in-process handles. When unpin is true it also removes
+// the bpffs pin directory, dropping the kernel references so the programs
+// detach; when false the pins (and thus the attachment) are left intact.
+func (fw *Firewall) teardown(unpin bool) {
 	if fw.egressLink != nil {
 		fw.egressLink.Close()
 	}
@@ -418,9 +573,24 @@ func (fw *Firewall) Cleanup() {
 	if fw.lsmObjs != nil {
 		fw.lsmObjs.Close()
 	}
+	for _, m := range fw.pinnedMaps {
+		if m != nil {
+			m.Close()
+		}
+	}
 
 	if fw.cgroupFD >= 0 {
 		syscall.Close(fw.cgroupFD)
+		fw.cgroupFD = -1
+	}
+
+	if unpin && fw.cfg.PinPath != "" {
+		// Removing the bpffs pin files drops the kernel references; once the
+		// fds above are also closed the links (and their programs) are freed
+		// and detached from the cgroup.
+		if err := os.RemoveAll(fw.cfg.PinPath); err != nil {
+			fw.log.Warn("failed to remove firewall pin dir", "path", fw.cfg.PinPath, "error", err)
+		}
 	}
 
 	if fw.ownsCgroup && fw.cgroupPath != "" {

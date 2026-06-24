@@ -78,6 +78,14 @@ type Config struct {
 	// domains, since the suffixed queries aren't in the allow list. Defaults to
 	// the standard Kubernetes cluster domain.
 	NetleashInternalDNSZones []string `envconfig:"NETLEASH_INTERNAL_DNS_ZONES" default:"cluster.local"`
+	// NetleashPinPath is the bpffs directory under which netleash pins each
+	// sandbox's eBPF links and maps. Pinning keeps the egress filter attached
+	// across a runner restart (zero gap) so domain filtering is never lost
+	// during an update; on startup the runner adopts the surviving pins. Must be
+	// a bpffs mount that persists across the restart — on bare metal this is the
+	// host's own /sys/fs/bpf. Set empty to disable pinning (e.g. in environments
+	// where bpffs is not persistent across restarts).
+	NetleashPinPath string `envconfig:"NETLEASH_PIN_PATH" default:"/sys/fs/bpf/netleash"`
 }
 
 var DEFAULT_API_PORT int = 8080
