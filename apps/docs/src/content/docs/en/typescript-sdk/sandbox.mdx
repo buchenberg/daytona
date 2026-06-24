@@ -91,7 +91,10 @@ Creates a new Sandbox instance
 #### \_experimental\_createSnapshot()
 
 ```ts
-_experimental_createSnapshot(name: string, timeout?: number): Promise<void>
+_experimental_createSnapshot(
+   name: string, 
+   timeout?: number, 
+includeMemory?: boolean): Promise<void>
 ```
 
 Creates a snapshot from the current state of the Sandbox.
@@ -105,6 +108,7 @@ used to create new Sandboxes. The Sandbox will temporarily enter a
 - `name` _string_ - Name for the new snapshot
 - `timeout?` _number = 60_ - Maximum time to wait in seconds. 0 means no timeout.
     Defaults to 60-second timeout.
+- `includeMemory?` _boolean = false_
 
 
 **Returns**:
@@ -117,12 +121,17 @@ used to create new Sandboxes. The Sandbox will temporarily enter a
 
 - If the snapshot operation fails or times out
 
-**Example:**
+**Examples:**
 
 ```ts
 const sandbox = await daytona.get('my-sandbox');
 await sandbox._experimental_createSnapshot('my-snapshot');
 console.log('Snapshot created successfully');
+```
+
+```ts
+// Include memory state (VM sandboxes only - Windows, Linux VM)
+await sandbox._experimental_createSnapshot('my-snapshot', 60, true);
 ```
 
 ***

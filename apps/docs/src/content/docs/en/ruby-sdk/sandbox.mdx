@@ -965,7 +965,7 @@ with the same disk contents but operates independently from that point on.
 #### experimental_create_snapshot()
 
 ```ruby
-def experimental_create_snapshot(name:, timeout:)
+def experimental_create_snapshot(name:, timeout:, include_memory:)
 
 ```
 
@@ -976,6 +976,7 @@ The Sandbox will temporarily enter a 'snapshotting' state and return to its prev
 
 - `name` _String_ - Name for the new snapshot
 - `timeout` _Numeric_ - Maximum wait time in seconds (defaults to 60 s)
+- `include_memory` _Boolean_ - Include VM memory in the snapshot. VM sandboxes only (Windows, Linux VM)
 
 **Returns**:
 

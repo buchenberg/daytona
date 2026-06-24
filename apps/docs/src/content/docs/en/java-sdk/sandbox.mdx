@@ -335,6 +335,24 @@ The Sandbox will temporarily enter a 'snapshotting' state and return to its prev
 
 - `DaytonaException` - if the snapshot operation fails
 
+#### experimentalCreateSnapshot()
+```java
+public void experimentalCreateSnapshot(String name, long timeoutSeconds, boolean includeMemory)
+```
+
+Creates a snapshot from the current state of this Sandbox.
+The Sandbox will temporarily enter a 'snapshotting' state and return to its previous state when complete.
+
+**Parameters**:
+
+- `name` _String_ - name for the new snapshot
+- `timeoutSeconds` _long_ - reserved timeout parameter for parity with other SDKs
+- `includeMemory` _boolean_ - include VM memory in the snapshot (VM sandboxes only: Windows, Linux VM)
+
+**Throws**:
+
+- `DaytonaException` - if the snapshot operation fails
+
 #### pause()
 ```java
 public void pause() throws DaytonaException

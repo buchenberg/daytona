@@ -243,6 +243,7 @@ result, err := sandbox.Process.ExecuteCommand(ctx, "ls -la")
   - [func \(s \*Sandbox\) Delete\(ctx context.Context\) error](<#Sandbox.Delete>)
   - [func \(s \*Sandbox\) DeleteWithTimeout\(ctx context.Context, timeout time.Duration\) error](<#Sandbox.DeleteWithTimeout>)
   - [func \(s \*Sandbox\) ExperimentalCreateSnapshot\(ctx context.Context, name string\) error](<#Sandbox.ExperimentalCreateSnapshot>)
+  - [func \(s \*Sandbox\) ExperimentalCreateSnapshotWithMemory\(ctx context.Context, name string, timeout time.Duration\) error](<#Sandbox.ExperimentalCreateSnapshotWithMemory>)
   - [func \(s \*Sandbox\) ExperimentalCreateSnapshotWithTimeout\(ctx context.Context, name string, timeout time.Duration\) error](<#Sandbox.ExperimentalCreateSnapshotWithTimeout>)
   - [func \(s \*Sandbox\) ExperimentalFork\(ctx context.Context, name \*string\) \(\*Sandbox, error\)](<#Sandbox.ExperimentalFork>)
   - [func \(s \*Sandbox\) ExperimentalForkWithTimeout\(ctx context.Context, name \*string, timeout time.Duration\) \(\*Sandbox, error\)](<#Sandbox.ExperimentalForkWithTimeout>)
@@ -4230,6 +4231,15 @@ if err != nil {
     return err
 }
 ```
+
+<a name="Sandbox.ExperimentalCreateSnapshotWithMemory"></a>
+### func \(\*Sandbox\) ExperimentalCreateSnapshotWithMemory
+
+```go
+func (s *Sandbox) ExperimentalCreateSnapshotWithMemory(ctx context.Context, name string, timeout time.Duration) error
+```
+
+ExperimentalCreateSnapshotWithMemory creates a snapshot including VM memory state. VM sandboxes only \(Windows, Linux VM\). The sandbox must be STARTED.
 
 <a name="Sandbox.ExperimentalCreateSnapshotWithTimeout"></a>
 ### func \(\*Sandbox\) ExperimentalCreateSnapshotWithTimeout
