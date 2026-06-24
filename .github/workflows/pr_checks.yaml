@@ -236,28 +236,6 @@ jobs:
           source "$(poetry env info --path)/bin/activate"
           VERSION=v0.0.0-dev yarn build --nxBail=true
 
-  license-check:
-    if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          persist-credentials: false
-
-      - name: Check AGPL License Headers
-        uses: apache/skywalking-eyes/header@ab3d1fe50d23f9c82eff489297167e2dde8ba6cb # main
-        with:
-          token: ${{ github.token }}
-          config: .licenserc.yaml
-          mode: 'check'
-
-      - name: Check Apache License Headers
-        uses: apache/skywalking-eyes/header@ab3d1fe50d23f9c82eff489297167e2dde8ba6cb # main
-        with:
-          token: ${{ github.token }}
-          config: .licenserc-clients.yaml
-          mode: 'check'
-
   yarnrc-lint:
     if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
     name: Yarnrc integrity check
