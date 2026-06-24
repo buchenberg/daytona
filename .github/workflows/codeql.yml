@@ -1,12 +1,12 @@
 name: CodeQL
 
 on:
-  pull_request:
-    branches:
-      - prod
-  push:
-    branches:
-      - prod
+  # pull_request:
+  #   branches:
+  #     - prod
+  # push:
+  #   branches:
+  #     - prod
   schedule:
     # Mondays 06:00 UTC -- 02:00 ET Monday, catches newly-released CodeQL queries
     - cron: '0 6 * * 1'
@@ -24,8 +24,8 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
-      security-events: write  # upload CodeQL SARIF to the code-scanning API
-      actions: read  # codeql-action/init introspects the triggering workflow run
+      security-events: write # upload CodeQL SARIF to the code-scanning API
+      actions: read # codeql-action/init introspects the triggering workflow run
 
     strategy:
       fail-fast: false
