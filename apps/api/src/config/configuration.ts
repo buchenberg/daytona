@@ -382,6 +382,12 @@ const configuration = {
   initialSnapshotPropagationReadyFactor: parseFloat(process.env.INITIAL_SNAPSHOT_PROPAGATION_READY_FACTOR || '0.2'),
   failedSnapshotRunnerRetentionHours: parseInt(process.env.FAILED_SNAPSHOT_RUNNER_RETENTION_HOURS || '3', 10),
   buildInfoSnapshotRunnerStalenessDays: parseInt(process.env.BUILDINFO_SNAPSHOT_RUNNER_STALENESS_DAYS || '7', 10),
+  // How long a runner can stay out of contact (not READY) before its in-progress snapshot_runner rows
+  // are reaped. Within this window the rows are retained to avoid flapping on transient unresponsiveness.
+  unresponsiveRunnerSnapshotRetentionHours: parseInt(
+    process.env.UNRESPONSIVE_RUNNER_SNAPSHOT_RETENTION_HOURS || '12',
+    10,
+  ),
   // DRAINING_MODE: 'migrate' (default) relocates stopped sandboxes to another runner;
   // 'archive' archives in place (no target capacity needed — for k8s full drains).
   // DRAINING_FORCE: when true, force-stops running sandboxes so the drain converges.

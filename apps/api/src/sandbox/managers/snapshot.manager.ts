@@ -704,8 +704,20 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     }
 
     if (runner.state !== RunnerState.READY) {
-      //  todo: handle timeout policy
-      //  for now just remove the snapshot runner record if the runner is not ready
+      const unresponsiveRetentionMs =
+        this.configService.getOrThrow('unresponsiveRunnerSnapshotRetentionHours') * 60 * 60 * 1000
+      const recentlySignaled =
+        runner.state !== RunnerState.DECOMMISSIONED &&
+        runner.lastChecked != null &&
+        Date.now() - runner.lastChecked.getTime() < unresponsiveRetentionMs
+
+      if (recentlySignaled) {
+        // Keep the row and back off; the runner is likely to recover and resume the pull.
+        throw new RunnerNotReadyError(
+          `Runner ${runner.id} is not ready (state=${runner.state}); retaining snapshot runner ${snapshotRunner.id}`,
+        )
+      }
+
       await this.snapshotRunnerRepository.delete(snapshotRunner.id)
 
       throw new RunnerNotReadyError(`Runner ${runner.id} is not ready`)
