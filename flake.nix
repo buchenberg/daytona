@@ -101,6 +101,23 @@
         ];
 
         # ──────────────────────────────────────────────
+        # X11 development libraries (Linux only)
+        # Covers: libs/computer-use — `go build` compiles github.com/go-vgo/robotgo
+        # via CGO, whose Linux build declares `#cgo LDFLAGS: -lX11 -lXtst` and
+        # includes <X11/Xlib.h>, <X11/Xutil.h>, <X11/XF86keysym.h> and
+        # <X11/extensions/XTest.h>. The devcontainer installs the libx11-dev /
+        # libxtst-dev apt packages; these are the nixpkgs equivalents.
+        # Like the BPF headers above, they go in buildInputs (not packages) so the
+        # cc-wrapper injects the include dirs (NIX_CFLAGS_COMPILE) and library
+        # paths/rpath (NIX_LDFLAGS) — no Makefile/cgo changes needed.
+        computerUseInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [
+          pkgs.libx11 # -lX11; <X11/Xlib.h>, <X11/Xutil.h>, <X11/Xresource.h>
+          pkgs.libxtst # -lXtst; <X11/extensions/XTest.h>
+          pkgs.libxi # <X11/extensions/XInput.h> (pulled in by XTest.h)
+          pkgs.xorgproto # <X11/Xatom.h>, <X11/XF86keysym.h>, <X11/extensions/XI.h>, ...
+        ];
+
+        # ──────────────────────────────────────────────
         # Node.js / TypeScript toolchain
         # Covers: apps/{api,dashboard,docs}
         #         libs/{sdk-typescript,api-client,toolbox-api-client,analytics-api-client,runner-api-client,opencode-plugin}
@@ -184,7 +201,7 @@
           default = pkgs.mkShell {
             name = "daytona";
             packages = commonPkgs ++ goPkgs ++ nodePkgs ++ pythonPkgs ++ rubyPkgs ++ javaPkgs;
-            buildInputs = bpfHeaderInputs;
+            buildInputs = bpfHeaderInputs ++ computerUseInputs;
             # bpf2go invokes clang with `-target bpf`; the cc-wrapper's hardening
             # flags (e.g. -fzero-call-used-regs) are unsupported for that target.
             hardeningDisable = [ "all" ];
@@ -201,7 +218,7 @@
           go = pkgs.mkShell {
             name = "daytona-go";
             packages = commonPkgs ++ goPkgs;
-            buildInputs = bpfHeaderInputs;
+            buildInputs = bpfHeaderInputs ++ computerUseInputs;
             # bpf2go invokes clang with `-target bpf`; the cc-wrapper's hardening
             # flags (e.g. -fzero-call-used-regs) are unsupported for that target.
             hardeningDisable = [ "all" ];
