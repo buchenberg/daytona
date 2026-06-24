@@ -1,14 +1,9 @@
 name: '[PR] Code coverage'
 
-# on:
-#   pull_request:
-#     branches:
-#       - main
-#       - prod
-#       - develop
-#   push:
-#     branches:
-#       - prod
+on:
+  push:
+    branches:
+      - prod
 
 permissions:
   contents: read
