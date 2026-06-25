@@ -49,6 +49,8 @@ import { AuthenticatedRateLimitGuard } from '../common/guards/authenticated-rate
 import { AuthStrategy } from '../auth/decorators/auth-strategy.decorator'
 import { AuthStrategyType } from '../auth/enums/auth-strategy-type.enum'
 import { STRIPE_PROJECTS_API_KEY_PERMISSIONS } from './constants/stripe-projects-api-key-permissions.constant'
+import { OpenFeature } from '@openfeature/server-sdk'
+import { FeatureFlags } from '../common/constants/feature-flags'
 
 @Controller('api-keys')
 @ApiTags('api-keys')
@@ -75,6 +77,7 @@ export class ApiKeyController {
     description: 'API key created successfully.',
     type: ApiKeyResponseDto,
   })
+  @AuthStrategy([AuthStrategyType.JWT, AuthStrategyType.API_KEY])
   @Audit({
     action: AuditAction.CREATE,
     targetType: AuditTarget.API_KEY,
@@ -92,7 +95,10 @@ export class ApiKeyController {
     @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
     @Body() createApiKeyDto: CreateApiKeyDto,
   ): Promise<ApiKeyResponseDto> {
-    this.validateRequestedApiKeyPermissions(authContext, createApiKeyDto.permissions)
+    const manageApiKeysEnabled = await this.isManageApiKeysEnabled(authContext)
+
+    this.validateApiKeyCreator(authContext, manageApiKeysEnabled)
+    this.validateRequestedApiKeyPermissions(authContext, createApiKeyDto.permissions, manageApiKeysEnabled)
 
     const { apiKey, value } = await this.apiKeyService.createApiKey(
       authContext.organizationId,
@@ -305,10 +311,61 @@ export class ApiKeyController {
     }
   }
 
+  /**
+   * Evaluates the `manage_api_keys` feature flag for the current request. The flag gates the entire
+   * "manage API keys with an API key" capability and is targeted per user / organization via
+   * PostHog. Falls back to disabled when no flag provider is configured.
+   */
+  private async isManageApiKeysEnabled(authContext: OrganizationAuthContext): Promise<boolean> {
+    return OpenFeature.getClient().getBooleanValue(FeatureFlags.MANAGE_API_KEYS, false, {
+      targetingKey: authContext.userId,
+      organizationId: authContext.organizationId,
+    })
+  }
+
+  /**
+   * When the request itself is authenticated with an API key (rather than an interactive JWT
+   * session), creating API keys is only allowed if the manage:api_keys feature flag is enabled and
+   * the calling key carries the dedicated MANAGE_API_KEYS permission. This prevents a leaked key
+   * from silently minting persistent keys.
+   */
+  private validateApiKeyCreator(authContext: OrganizationAuthContext, manageApiKeysEnabled: boolean): void {
+    if (!authContext.apiKey) {
+      return
+    }
+
+    if (!manageApiKeysEnabled) {
+      throw new ForbiddenException('Managing API keys with an API key is not enabled for this organization')
+    }
+
+    if (!authContext.apiKey.permissions.includes(OrganizationResourcePermission.MANAGE_API_KEYS)) {
+      throw new ForbiddenException('This API key is not authorized to manage API keys')
+    }
+  }
+
   private validateRequestedApiKeyPermissions(
     authContext: OrganizationAuthContext,
     requestedPermissions: OrganizationResourcePermission[],
+    manageApiKeysEnabled: boolean,
   ): void {
+    // The MANAGE_API_KEYS permission can only be assigned when the feature flag is enabled.
+    if (requestedPermissions.includes(OrganizationResourcePermission.MANAGE_API_KEYS) && !manageApiKeysEnabled) {
+      throw new ForbiddenException('The manage:api_keys permission is not enabled for this organization')
+    }
+
+    // A request authenticated with an API key can never create a key more powerful than itself,
+    // regardless of the owning user's role.
+    if (authContext.apiKey) {
+      const callerPermissions = new Set(authContext.apiKey.permissions)
+      const forbiddenPermissions = requestedPermissions.filter((permission) => !callerPermissions.has(permission))
+
+      if (forbiddenPermissions.length) {
+        throw new ForbiddenException(`Insufficient permissions for assigning: ${forbiddenPermissions.join(', ')}`)
+      }
+
+      return
+    }
+
     if (authContext.organizationUser.role === OrganizationMemberRole.OWNER) {
       return
     }

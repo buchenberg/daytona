@@ -22,7 +22,10 @@ describe('[AUTH] ApiKeyController', () => {
   it('createApiKey', () => {
     const methodName = trackMethod('createApiKey')
     expect(isPublicEndpoint(ApiKeyController, methodName)).toBe(false)
-    expectArrayMatch(getAllowedAuthStrategies(ApiKeyController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAllowedAuthStrategies(ApiKeyController, methodName), [
+      AuthStrategyType.JWT,
+      AuthStrategyType.API_KEY,
+    ])
     expectArrayMatch(getAuthContextGuards(ApiKeyController, methodName), [OrganizationAuthContextGuard])
     expect(getRequiredOrganizationMemberRole(ApiKeyController, methodName)).toBeUndefined()
     expect(getRequiredOrganizationResourcePermissions(ApiKeyController, methodName)).toBeUndefined()

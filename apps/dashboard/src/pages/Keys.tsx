@@ -26,6 +26,8 @@ import { ApiKeyList, CreateApiKeyPermissionsEnum, OrganizationUserRoleEnum } fro
 import { PlusIcon } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { useFeatureFlagEnabled } from 'posthog-js/react'
+import { FeatureFlags } from '@/enums/FeatureFlags'
 import { ApiKeyTable } from '../components/ApiKeyTable'
 
 const Keys: React.FC = () => {
@@ -38,18 +40,32 @@ const Keys: React.FC = () => {
   const { selectedOrganization, authenticatedUserOrganizationMember } = useSelectedOrganization()
   const revokeApiKeyMutation = useRevokeApiKeyMutation()
   const apiKeysQuery = useApiKeysQuery(selectedOrganization?.id)
+  const allowsManageApiKeys = useFeatureFlagEnabled(FeatureFlags.MANAGE_API_KEYS) === true
 
   const availablePermissions = useMemo<CreateApiKeyPermissionsEnum[]>(() => {
     if (!authenticatedUserOrganizationMember) {
       return []
     }
+
+    let permissions: CreateApiKeyPermissionsEnum[]
     if (authenticatedUserOrganizationMember.role === OrganizationUserRoleEnum.OWNER) {
-      return Object.values(CreateApiKeyPermissionsEnum).filter(
+      permissions = Object.values(CreateApiKeyPermissionsEnum).filter(
         (value) => value !== CreateApiKeyPermissionsEnum.UNKNOWN_DEFAULT_OPEN_API,
       )
+    } else {
+      permissions = Array.from(
+        new Set(authenticatedUserOrganizationMember.assignedRoles.flatMap((role) => role.permissions)),
+      ) as CreateApiKeyPermissionsEnum[]
     }
-    return Array.from(new Set(authenticatedUserOrganizationMember.assignedRoles.flatMap((role) => role.permissions)))
-  }, [authenticatedUserOrganizationMember])
+
+    // The backend rejects assigning manage:api_keys unless the feature flag is enabled,
+    // so hide it from the picker entirely in that case.
+    if (!allowsManageApiKeys) {
+      permissions = permissions.filter((p) => p !== CreateApiKeyPermissionsEnum.MANAGE_API_KEYS)
+    }
+
+    return permissions
+  }, [authenticatedUserOrganizationMember, allowsManageApiKeys])
 
   const handleRevoke = async (key: ApiKeyList) => {
     if (!selectedOrganization) {

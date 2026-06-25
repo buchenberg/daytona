@@ -49,8 +49,16 @@ interface CreateApiKeySheetProps {
 const isReadPermission = (permission: CreateApiKeyPermissionsEnum) => permission.startsWith('read:')
 const isWritePermission = (permission: CreateApiKeyPermissionsEnum) => permission.startsWith('write:')
 const isDeletePermission = (permission: CreateApiKeyPermissionsEnum) => permission.startsWith('delete:')
+const isManagePermission = (permission: CreateApiKeyPermissionsEnum) => permission.startsWith('manage:')
 
 const IMPLICIT_READ_RESOURCES = ['Sandboxes', 'Snapshots', 'Registries', 'Regions']
+
+// Permissions excluded from the "Full Access" preset and from the form's initial state.
+// They are opt-in: the user must explicitly toggle them on.
+const OPT_IN_PERMISSIONS: CreateApiKeyPermissionsEnum[] = [CreateApiKeyPermissionsEnum.MANAGE_API_KEYS]
+
+const withoutOptIn = (permissions: CreateApiKeyPermissionsEnum[]) =>
+  permissions.filter((p) => !OPT_IN_PERMISSIONS.includes(p))
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -87,7 +95,7 @@ export const CreateApiKeySheet: React.FC<CreateApiKeySheetProps> = ({
     defaultValues: {
       name: '',
       expiresAt: undefined,
-      permissions: availablePermissions,
+      permissions: withoutOptIn(availablePermissions),
     } as FormValues,
     validators: {
       onSubmit: formSchema,
@@ -127,7 +135,7 @@ export const CreateApiKeySheet: React.FC<CreateApiKeySheetProps> = ({
     resetForm({
       name: '',
       expiresAt: undefined,
-      permissions: availablePermissions,
+      permissions: withoutOptIn(availablePermissions),
     })
     resetCreateApiKeyMutation()
   }, [resetForm, resetCreateApiKeyMutation, availablePermissions])
@@ -214,7 +222,7 @@ export const CreateApiKeySheet: React.FC<CreateApiKeySheetProps> = ({
                 className="items-start pb-4"
                 onValueChange={(value) => {
                   if (value === 'full-access') {
-                    form.setFieldValue('permissions', availablePermissions)
+                    form.setFieldValue('permissions', withoutOptIn(availablePermissions))
                   } else if (value === 'sandbox-access') {
                     form.setFieldValue('permissions', [
                       CreateApiKeyPermissionsEnum.WRITE_SANDBOXES,
@@ -261,7 +269,10 @@ export const CreateApiKeySheet: React.FC<CreateApiKeySheetProps> = ({
                               const readPermission = group.permissions.find(isReadPermission)
                               const writePermission = group.permissions.find(isWritePermission)
                               const deletePermission = group.permissions.find(isDeletePermission)
+                              const managePermission = group.permissions.find(isManagePermission)
                               const hasImplicitRead = IMPLICIT_READ_RESOURCES.includes(group.name)
+                              const isManageOnlyGroup =
+                                !!managePermission && !readPermission && !writePermission && !deletePermission
 
                               return (
                                 <div
@@ -289,42 +300,54 @@ export const CreateApiKeySheet: React.FC<CreateApiKeySheetProps> = ({
                                       ] as CreateApiKeyPermissionsEnum[])
                                     }}
                                   >
-                                    {hasImplicitRead ? (
+                                    {isManageOnlyGroup ? (
                                       <ToggleGroupItem
-                                        value=""
-                                        aria-label="Implicit read access"
+                                        value={managePermission!}
+                                        aria-label="Toggle manage"
                                         className="min-w-[64px]"
-                                        disabled
-                                        data-state="on"
                                       >
-                                        Read*
+                                        Manage
                                       </ToggleGroupItem>
                                     ) : (
-                                      <ToggleGroupItem
-                                        value={readPermission ?? ''}
-                                        aria-label="Toggle read"
-                                        className="min-w-[64px]"
-                                        disabled={!readPermission}
-                                      >
-                                        {readPermission ? 'Read' : '-'}
-                                      </ToggleGroupItem>
+                                      <>
+                                        {hasImplicitRead ? (
+                                          <ToggleGroupItem
+                                            value=""
+                                            aria-label="Implicit read access"
+                                            className="min-w-[64px]"
+                                            disabled
+                                            data-state="on"
+                                          >
+                                            Read*
+                                          </ToggleGroupItem>
+                                        ) : (
+                                          <ToggleGroupItem
+                                            value={readPermission ?? ''}
+                                            aria-label="Toggle read"
+                                            className="min-w-[64px]"
+                                            disabled={!readPermission}
+                                          >
+                                            {readPermission ? 'Read' : '-'}
+                                          </ToggleGroupItem>
+                                        )}
+                                        <ToggleGroupItem
+                                          value={writePermission ?? ''}
+                                          aria-label="Toggle write"
+                                          className="min-w-[64px]"
+                                          disabled={!writePermission}
+                                        >
+                                          {writePermission ? 'Write' : '-'}
+                                        </ToggleGroupItem>
+                                        <ToggleGroupItem
+                                          value={deletePermission ?? ''}
+                                          aria-label="Toggle delete"
+                                          className="min-w-[64px]"
+                                          disabled={!deletePermission}
+                                        >
+                                          {deletePermission ? 'Delete' : '-'}
+                                        </ToggleGroupItem>
+                                      </>
                                     )}
-                                    <ToggleGroupItem
-                                      value={writePermission ?? ''}
-                                      aria-label="Toggle write"
-                                      className="min-w-[64px]"
-                                      disabled={!writePermission}
-                                    >
-                                      {writePermission ? 'Write' : '-'}
-                                    </ToggleGroupItem>
-                                    <ToggleGroupItem
-                                      value={deletePermission ?? ''}
-                                      aria-label="Toggle delete"
-                                      className="min-w-[64px]"
-                                      disabled={!deletePermission}
-                                    >
-                                      {deletePermission ? 'Delete' : '-'}
-                                    </ToggleGroupItem>
                                   </ToggleGroup>
                                 </div>
                               )

@@ -42,4 +42,8 @@ export const CREATE_API_KEY_PERMISSIONS_GROUPS: { name: string; permissions: Cre
     name: 'Audit',
     permissions: [CreateApiKeyPermissionsEnum.READ_AUDIT_LOGS],
   },
+  {
+    name: 'API Keys',
+    permissions: [CreateApiKeyPermissionsEnum.MANAGE_API_KEYS],
+  },
 ]
