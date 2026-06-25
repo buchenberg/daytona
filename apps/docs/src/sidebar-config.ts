@@ -575,6 +575,18 @@ export const getSidebarConfig = (
         },
         {
           type: 'link',
+          href: localizePath(
+            '/docs/guides/devin/devin-cli-run-tasks-stream-logs-sandbox',
+            locale
+          ),
+          label: t('sidebarconfig.devin'),
+          disablePagination: true,
+          attrs: {
+            icon: 'devin.svg',
+          },
+        },
+        {
+          type: 'link',
           href: localizePath('/docs/guides/openclaw', locale),
           label: t('sidebarconfig.openclaw'),
           disablePagination: true,

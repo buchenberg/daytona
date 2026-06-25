@@ -149,6 +149,7 @@
   "sidebarconfig.pi": "Pi",
   "sidebarconfig.claude": "Claude",
   "sidebarconfig.gemini": "Gemini",
+  "sidebarconfig.devin": "Devin",
   "sidebarconfig.openclaw": "OpenClaw",
   "sidebarconfig.vercelAiSdk": "Vercel AI SDK",
   "sidebarconfig.codex": "Codex",
