@@ -7,7 +7,6 @@ import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import { NotificationSocketProvider } from '@/providers/NotificationSocketProvider'
 import { OrganizationsProvider } from '@/providers/OrganizationsProvider'
 import { SelectedOrganizationProvider } from '@/providers/SelectedOrganizationProvider'
-import { UserOrganizationInvitationsProvider } from '@/providers/UserOrganizationInvitationsProvider'
 import { initPylon } from '@/vendor/pylon'
 import { OrganizationRolePermissionsEnum, OrganizationUserRoleEnum } from '@daytona/api-client'
 import { ShieldAlert } from 'lucide-react'
@@ -139,23 +138,21 @@ function DashboardOutlet() {
       <ApiProvider>
         <OrganizationsProvider>
           <SelectedOrganizationProvider>
-            <UserOrganizationInvitationsProvider>
-              <NotificationSocketProvider>
-                <CommandPaletteProvider>
-                  <BannerProvider>
-                    <Dashboard>
-                      {isRouteLoading ? (
-                        <div className="flex min-h-screen w-full items-center justify-center bg-background p-6">
-                          <LoadingFallbackContent source="route-navigation" />
-                        </div>
-                      ) : (
-                        <Outlet />
-                      )}
-                    </Dashboard>
-                  </BannerProvider>
-                </CommandPaletteProvider>
-              </NotificationSocketProvider>
-            </UserOrganizationInvitationsProvider>
+            <NotificationSocketProvider>
+              <CommandPaletteProvider>
+                <BannerProvider>
+                  <Dashboard>
+                    {isRouteLoading ? (
+                      <div className="flex min-h-screen w-full items-center justify-center bg-background p-6">
+                        <LoadingFallbackContent source="route-navigation" />
+                      </div>
+                    ) : (
+                      <Outlet />
+                    )}
+                  </Dashboard>
+                </BannerProvider>
+              </CommandPaletteProvider>
+            </NotificationSocketProvider>
           </SelectedOrganizationProvider>
         </OrganizationsProvider>
       </ApiProvider>

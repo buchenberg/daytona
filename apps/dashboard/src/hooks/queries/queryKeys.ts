@@ -44,6 +44,7 @@ export const queryKeys = {
   user: {
     all: ['users'] as const,
     accountProviders: () => [...queryKeys.user.all, 'account-providers'] as const,
+    invitations: () => [...queryKeys.user.all, 'invitations'] as const,
   },
   billing: {
     all: ['billing'] as const,

@@ -24,6 +24,7 @@ import { useConfig } from '@/hooks/useConfig'
 import { useDocsSearchCommands } from '@/hooks/useDocsSearchCommands'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import { useSuspensionBanner } from '@/hooks/useSuspensionBanner'
+import { useUserOrganizationInvitationsBanner } from '@/hooks/useUserOrganizationInvitationsBanner'
 import { cn } from '@/lib/utils'
 import { SlackLogoIcon } from '@phosphor-icons/react'
 import { BookOpen, BookSearchIcon, SunMoon } from 'lucide-react'
@@ -86,6 +87,7 @@ const Dashboard: React.FC<DashboardProps> = ({ children }) => {
   useDocsSearchCommands()
 
   useSuspensionBanner(selectedOrganization)
+  useUserOrganizationInvitationsBanner()
 
   useEffect(() => {
     if (

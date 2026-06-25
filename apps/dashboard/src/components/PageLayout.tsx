@@ -6,7 +6,7 @@
 import { DAYTONA_DOCS_URL } from '@/constants/ExternalLinks'
 import { useTheme } from '@/contexts/ThemeContext'
 import { RoutePath } from '@/enums/RoutePath'
-import { useUserOrganizationInvitations } from '@/hooks/useUserOrganizationInvitations'
+import { useUserOrganizationInvitationsQuery } from '@/hooks/queries/useUserOrganizationInvitationsQuery'
 import { cn } from '@/lib/utils'
 import { usePylon } from '@/vendor/pylon'
 import {
@@ -142,7 +142,8 @@ function PageHeaderProfileMenu() {
   const posthog = usePostHog()
   const { theme, setTheme } = useTheme()
   const { user, signoutRedirect } = useAuth()
-  const { count: organizationInvitationsCount } = useUserOrganizationInvitations()
+  const { data: userOrganizationInvitations = [] } = useUserOrganizationInvitationsQuery()
+  const organizationInvitationsCount = userOrganizationInvitations.length
 
   const handleSignOut = () => {
     posthog?.reset()
