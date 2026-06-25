@@ -357,11 +357,13 @@ export class RunnerAdapterV2 implements RunnerAdapter {
     destinationRef?: string,
     newTag?: string,
     sandboxClass?: SandboxClass,
+    diskGiB?: number,
   ): Promise<void> {
     const payload: PullSnapshotRequestDTO = {
       snapshot: snapshotName,
       newTag,
       sandboxClass,
+      diskGiB,
     }
 
     if (registry) {

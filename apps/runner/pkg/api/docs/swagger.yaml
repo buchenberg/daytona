@@ -182,6 +182,8 @@ definitions:
         type: string
       destinationRegistry:
         $ref: '#/definitions/RegistryDTO'
+      diskGiB:
+        type: integer
       newTag:
         type: string
       registry:

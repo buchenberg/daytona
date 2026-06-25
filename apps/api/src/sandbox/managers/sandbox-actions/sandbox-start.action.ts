@@ -392,6 +392,7 @@ export class SandboxStartAction extends SandboxAction {
       undefined,
       undefined,
       snapshot.sandboxClass,
+      snapshot.disk,
     )
 
     const pollTimeoutMs = 60 * 60 * 1_000 // 1 hour

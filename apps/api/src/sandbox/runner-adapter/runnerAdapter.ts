@@ -112,6 +112,7 @@ export interface RunnerAdapter {
     destinationRef?: string,
     newTag?: string,
     sandboxClass?: SandboxClass,
+    diskGiB?: number,
   ): Promise<void>
   snapshotExists(snapshotRef: string): Promise<boolean>
   getSnapshotInfo(snapshotName: string): Promise<RunnerSnapshotInfo>

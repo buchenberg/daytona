@@ -20,6 +20,7 @@ import type { RegistryDTO } from './registry-dto';
 export interface PullSnapshotRequestDTO {
     'destinationRef'?: string;
     'destinationRegistry'?: RegistryDTO;
+    'diskGiB'?: number;
     'newTag'?: string;
     'registry'?: RegistryDTO;
     'sandboxClass'?: string;

@@ -543,7 +543,15 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
                   snapshot.ref,
                   regionForRegistry,
                 )
-                return this.pullSnapshotRunner(runner, snapshot.ref, dockerRegistry)
+                return this.pullSnapshotRunner(
+                  runner,
+                  snapshot.ref,
+                  dockerRegistry,
+                  undefined,
+                  undefined,
+                  undefined,
+                  snapshot.disk,
+                )
               }),
             )
           }),
@@ -939,6 +947,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
                 undefined,
                 undefined,
                 snapshot.sandboxClass,
+                snapshot.disk,
               )
             } else if (snapshotRunner.state === SnapshotRunnerState.PULLING_SNAPSHOT) {
               await this.handleSnapshotRunnerStatePullingSnapshot(snapshotRunner, runner)
@@ -1052,6 +1061,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     destinationRegistry?: DockerRegistry,
     destinationRef?: string,
     sandboxClass?: SandboxClass,
+    diskGiB?: number,
   ) {
     const runnerAdapter = await this.runnerAdapterFactory.create(runner)
     // Runner returns immediately; polling for completion is handled by syncRunnerSnapshotStates cron
@@ -1062,6 +1072,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       destinationRef,
       undefined,
       sandboxClass,
+      diskGiB,
     )
   }
 
@@ -1124,6 +1135,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         undefined,
         undefined,
         sandboxClass,
+        snapshot?.disk,
       )
       return
     }
@@ -1271,6 +1283,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
                     undefined,
                     undefined,
                     sandbox.sandboxClass,
+                    sandbox.disk,
                   )
 
                   this.logger.log(
@@ -1773,9 +1786,18 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
           destinationRegistry,
           snapshot.ref ? snapshot.ref : undefined,
           snapshot.sandboxClass,
+          snapshot.disk,
         )
       } else {
-        await this.pullSnapshotRunner(runner, snapshot.ref, undefined, undefined, undefined, snapshot.sandboxClass)
+        await this.pullSnapshotRunner(
+          runner,
+          snapshot.ref,
+          undefined,
+          undefined,
+          undefined,
+          snapshot.sandboxClass,
+          snapshot.disk,
+        )
       }
     } catch (err) {
       // Validation errors are still returned synchronously

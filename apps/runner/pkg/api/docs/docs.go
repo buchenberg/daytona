@@ -1747,6 +1747,9 @@ const docTemplate = `{
                 "destinationRegistry": {
                     "$ref": "#/definitions/RegistryDTO"
                 },
+                "diskGiB": {
+                    "type": "integer"
+                },
                 "newTag": {
                     "type": "string"
                 },

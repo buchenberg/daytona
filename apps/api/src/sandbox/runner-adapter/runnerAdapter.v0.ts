@@ -38,6 +38,7 @@ import { Sandbox } from '../entities/sandbox.entity'
 import { BuildInfo } from '../entities/build-info.entity'
 import { DockerRegistry } from '../../docker-registry/entities/docker-registry.entity'
 import { SandboxState } from '../enums/sandbox-state.enum'
+import { SandboxClass } from '../enums/sandbox-class.enum'
 import { BackupState } from '../enums/backup-state.enum'
 import { RunnerApiError } from '../errors/runner-api-error'
 
@@ -333,10 +334,14 @@ export class RunnerAdapterV0 implements RunnerAdapter {
     destinationRegistry?: DockerRegistry,
     destinationRef?: string,
     newTag?: string,
+    sandboxClass?: SandboxClass,
+    diskGiB?: number,
   ): Promise<void> {
     const request: PullSnapshotRequestDTO = {
       snapshot: snapshotName,
       newTag,
+      sandboxClass,
+      diskGiB,
     }
 
     if (registry) {
