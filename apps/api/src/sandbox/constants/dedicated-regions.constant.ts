@@ -131,6 +131,7 @@ const META_LARGE_SANDBOX_ORGS = new Set([
 
 export const SPILLOVER_ON_ERROR_ORGS = new Set<string>([
   'fd4f4489-5a9b-4d7b-b62e-dbd26113115c', // Meta
+  'c0a5d258-844b-44da-aac0-706f31c3027f', // deeptune
 ])
 
 export function isSpilloverOnErrorOrg(organizationId: string): boolean {
