@@ -15,6 +15,7 @@ import { ListAuditLogsQueryDto } from '../dto/list-audit-logs-query.dto'
 import { AuthenticatedRateLimitGuard } from '../../common/guards/authenticated-rate-limit.guard'
 import { AuthStrategy } from '../../auth/decorators/auth-strategy.decorator'
 import { AuthStrategyType } from '../../auth/enums/auth-strategy-type.enum'
+import { buildAuditLogFilter } from '../utils/build-audit-log-filter'
 
 @Controller('audit')
 @ApiTags('audit')
@@ -50,10 +51,7 @@ export class AuditController {
       organizationId,
       query.page,
       query.limit,
-      {
-        from: query.from,
-        to: query.to,
-      },
+      buildAuditLogFilter(query),
       query.nextToken,
     )
     return {

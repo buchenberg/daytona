@@ -14,6 +14,7 @@ import { PaginatedAuditLogsDto } from '../../audit/dto/paginated-audit-logs.dto'
 import { ListAuditLogsQueryDto } from '../../audit/dto/list-audit-logs-query.dto'
 import { AuthStrategy } from '../../auth/decorators/auth-strategy.decorator'
 import { AuthStrategyType } from '../../auth/enums/auth-strategy-type.enum'
+import { buildAuditLogFilter } from '../../audit/utils/build-audit-log-filter'
 
 @Controller('admin/audit')
 @ApiTags('admin')
@@ -39,10 +40,7 @@ export class AdminAuditController {
     const result = await this.auditService.getAllLogs(
       query.page,
       query.limit,
-      {
-        from: query.from,
-        to: query.to,
-      },
+      buildAuditLogFilter(query),
       query.nextToken,
     )
     return {

@@ -8341,7 +8341,8 @@ paths:
           minimum: 1
           type: number
         style: form
-      - description: From date (ISO 8601 format)
+      - deprecated: true
+        description: "Deprecated alias for `createdAt[gte]`. From date (ISO 8601 format)."
         explode: true
         in: query
         name: from
@@ -8350,7 +8351,8 @@ paths:
           format: date-time
           type: string
         style: form
-      - description: To date (ISO 8601 format)
+      - deprecated: true
+        description: "Deprecated alias for `createdAt[lte]`. To date (ISO 8601 format)."
         explode: true
         in: query
         name: to
@@ -8367,6 +8369,86 @@ paths:
         required: false
         schema:
           type: string
+        style: form
+      - description: Filter by audit log ID.
+        explode: true
+        in: query
+        name: id
+        required: false
+        schema:
+          $ref: "#/components/schemas/StringFilter"
+        style: form
+      - description: Filter by actor user ID.
+        explode: true
+        in: query
+        name: actorId
+        required: false
+        schema:
+          $ref: "#/components/schemas/StringFilter"
+        style: form
+      - description: Filter by actor email.
+        explode: true
+        in: query
+        name: actorEmail
+        required: false
+        schema:
+          $ref: "#/components/schemas/StringFilter"
+        style: form
+      - description: Filter by actor API key prefix.
+        explode: true
+        in: query
+        name: actorApiKeyPrefix
+        required: false
+        schema:
+          $ref: "#/components/schemas/StringFilter"
+        style: form
+      - description: Filter by actor API key suffix.
+        explode: true
+        in: query
+        name: actorApiKeySuffix
+        required: false
+        schema:
+          $ref: "#/components/schemas/StringFilter"
+        style: form
+      - description: Filter by action.
+        explode: true
+        in: query
+        name: action
+        required: false
+        schema:
+          $ref: "#/components/schemas/StringFilter"
+        style: form
+      - description: Filter by target type.
+        explode: true
+        in: query
+        name: targetType
+        required: false
+        schema:
+          $ref: "#/components/schemas/StringFilter"
+        style: form
+      - description: Filter by target ID.
+        explode: true
+        in: query
+        name: targetId
+        required: false
+        schema:
+          $ref: "#/components/schemas/StringFilter"
+        style: form
+      - description: Filter by HTTP status code.
+        explode: true
+        in: query
+        name: statusCode
+        required: false
+        schema:
+          $ref: "#/components/schemas/IntFilter"
+        style: form
+      - description: Filter by creation timestamp.
+        explode: true
+        in: query
+        name: createdAt
+        required: false
+        schema:
+          $ref: "#/components/schemas/DateFilter"
         style: form
       responses:
         "200":
@@ -8720,7 +8802,8 @@ paths:
           minimum: 1
           type: number
         style: form
-      - description: From date (ISO 8601 format)
+      - deprecated: true
+        description: "Deprecated alias for `createdAt[gte]`. From date (ISO 8601 format)."
         explode: true
         in: query
         name: from
@@ -8729,7 +8812,8 @@ paths:
           format: date-time
           type: string
         style: form
-      - description: To date (ISO 8601 format)
+      - deprecated: true
+        description: "Deprecated alias for `createdAt[lte]`. To date (ISO 8601 format)."
         explode: true
         in: query
         name: to
@@ -8746,6 +8830,86 @@ paths:
         required: false
         schema:
           type: string
+        style: form
+      - description: Filter by audit log ID.
+        explode: true
+        in: query
+        name: id
+        required: false
+        schema:
+          $ref: "#/components/schemas/StringFilter"
+        style: form
+      - description: Filter by actor user ID.
+        explode: true
+        in: query
+        name: actorId
+        required: false
+        schema:
+          $ref: "#/components/schemas/StringFilter"
+        style: form
+      - description: Filter by actor email.
+        explode: true
+        in: query
+        name: actorEmail
+        required: false
+        schema:
+          $ref: "#/components/schemas/StringFilter"
+        style: form
+      - description: Filter by actor API key prefix.
+        explode: true
+        in: query
+        name: actorApiKeyPrefix
+        required: false
+        schema:
+          $ref: "#/components/schemas/StringFilter"
+        style: form
+      - description: Filter by actor API key suffix.
+        explode: true
+        in: query
+        name: actorApiKeySuffix
+        required: false
+        schema:
+          $ref: "#/components/schemas/StringFilter"
+        style: form
+      - description: Filter by action.
+        explode: true
+        in: query
+        name: action
+        required: false
+        schema:
+          $ref: "#/components/schemas/StringFilter"
+        style: form
+      - description: Filter by target type.
+        explode: true
+        in: query
+        name: targetType
+        required: false
+        schema:
+          $ref: "#/components/schemas/StringFilter"
+        style: form
+      - description: Filter by target ID.
+        explode: true
+        in: query
+        name: targetId
+        required: false
+        schema:
+          $ref: "#/components/schemas/StringFilter"
+        style: form
+      - description: Filter by HTTP status code.
+        explode: true
+        in: query
+        name: statusCode
+        required: false
+        schema:
+          $ref: "#/components/schemas/IntFilter"
+        style: form
+      - description: Filter by creation timestamp.
+        explode: true
+        in: query
+        name: createdAt
+        required: false
+        schema:
+          $ref: "#/components/schemas/DateFilter"
         style: form
       responses:
         "200":
@@ -14940,6 +15104,79 @@ components:
           type: boolean
       required:
       - general
+      type: object
+    StringFilter:
+      properties:
+        eq:
+          description: Match values equal to this value.
+          type: string
+        not:
+          description: Match values not equal to this value.
+          type: string
+        in:
+          description: Match values present in this list. Accepts comma-separated
+            values or repeated query parameters. Maximum 100 entries.
+          items:
+            type: string
+          type: array
+        notIn:
+          description: Match values not present in this list. Accepts comma-separated
+            values or repeated query parameters. Maximum 100 entries.
+          items:
+            type: string
+          type: array
+      type: object
+    IntFilter:
+      properties:
+        eq:
+          description: Match values equal to this value.
+          type: number
+        not:
+          description: Match values not equal to this value.
+          type: number
+        in:
+          description: Match values present in this list. Accepts comma-separated
+            values or repeated query parameters. Maximum 100 entries.
+          items:
+            type: number
+          type: array
+        notIn:
+          description: Match values not present in this list. Accepts comma-separated
+            values or repeated query parameters. Maximum 100 entries.
+          items:
+            type: number
+          type: array
+        gte:
+          description: Match values greater than or equal to this value.
+          type: number
+        lte:
+          description: Match values less than or equal to this value.
+          type: number
+        gt:
+          description: Match values strictly greater than this value.
+          type: number
+        lt:
+          description: Match values strictly less than this value.
+          type: number
+      type: object
+    DateFilter:
+      properties:
+        gte:
+          description: Match values greater than or equal to this timestamp (ISO 8601).
+          format: date-time
+          type: string
+        lte:
+          description: Match values less than or equal to this timestamp (ISO 8601).
+          format: date-time
+          type: string
+        gt:
+          description: Match values strictly greater than this timestamp (ISO 8601).
+          format: date-time
+          type: string
+        lt:
+          description: Match values strictly less than this timestamp (ISO 8601).
+          format: date-time
+          type: string
       type: object
     AuditLog:
       example:

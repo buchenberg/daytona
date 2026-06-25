@@ -9,6 +9,9 @@ import { AuditLog } from '../entities/audit-log.entity'
 import { PaginatedList } from '../../common/interfaces/paginated-list.interface'
 import { AuditLogStorageAdapter } from '../interfaces/audit-storage.interface'
 import { AuditLogFilter } from '../interfaces/audit-filter.interface'
+import { StringFilter } from '../../common/dto/string-filter.dto'
+import { IntFilter } from '../../common/dto/int-filter.dto'
+import { DateFilter } from '../../common/dto/date-filter.dto'
 import { AUDIT_LOG_SYSTEM_ACTOR_ID } from '../constants/audit-log-system-actor.constant'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { OpensearchClient } from 'nestjs-opensearch'
@@ -345,42 +348,122 @@ export class AuditOpenSearchStorageAdapter implements AuditLogStorageAdapter, On
   }
 
   private buildDateRangeQuery(filters?: AuditLogFilter): QueryContainer {
+    const { filter, mustNot } = this.buildFilterClauses(filters)
     return {
       bool: {
-        filter: [
-          {
-            range: {
-              createdAt: {
-                gte: filters?.from?.toISOString(),
-                lte: filters?.to?.toISOString(),
-              },
-            },
-          },
-        ],
-        must_not: [{ term: { actorId: AUDIT_LOG_SYSTEM_ACTOR_ID } }],
+        filter,
+        must_not: [{ term: { actorId: AUDIT_LOG_SYSTEM_ACTOR_ID } }, ...mustNot],
       },
     }
   }
 
   private buildOrganizationQuery(organizationId: string, filters?: AuditLogFilter): QueryContainer {
+    const { filter, mustNot } = this.buildFilterClauses(filters)
     return {
       bool: {
-        filter: [
-          {
-            term: { organizationId },
-          },
-          {
-            range: {
-              createdAt: {
-                gte: filters?.from?.toISOString(),
-                lte: filters?.to?.toISOString(),
-              },
-            },
-          },
-        ],
-        must_not: [{ term: { actorId: AUDIT_LOG_SYSTEM_ACTOR_ID } }],
+        filter: [{ term: { organizationId } }, ...filter],
+        must_not: [{ term: { actorId: AUDIT_LOG_SYSTEM_ACTOR_ID } }, ...mustNot],
       },
     }
+  }
+
+  private buildFilterClauses(filters?: AuditLogFilter): {
+    filter: QueryContainer[]
+    mustNot: QueryContainer[]
+  } {
+    const filter: QueryContainer[] = []
+    const mustNot: QueryContainer[] = []
+
+    const stringFields: Array<keyof AuditLogFilter & string> = [
+      'id',
+      'actorId',
+      'actorEmail',
+      'actorApiKeyPrefix',
+      'actorApiKeySuffix',
+      'action',
+      'targetType',
+      'targetId',
+    ]
+
+    for (const field of stringFields) {
+      const fieldFilter = filters?.[field] as StringFilter | undefined
+      if (!fieldFilter) continue
+      this.appendStringFilterClauses(field, fieldFilter, filter, mustNot)
+    }
+
+    if (filters?.statusCode) {
+      this.appendIntFilterClauses('statusCode', filters.statusCode, filter, mustNot)
+    }
+
+    const createdAtRange = this.mergeCreatedAtRange(filters)
+    if (createdAtRange) {
+      filter.push({ range: { createdAt: createdAtRange } })
+    }
+
+    return { filter, mustNot }
+  }
+
+  private appendStringFilterClauses(
+    field: string,
+    fieldFilter: StringFilter,
+    filter: QueryContainer[],
+    mustNot: QueryContainer[],
+  ): void {
+    if (fieldFilter.eq !== undefined) {
+      filter.push({ term: { [field]: fieldFilter.eq } })
+    }
+    if (fieldFilter.in && fieldFilter.in.length > 0) {
+      filter.push({ terms: { [field]: fieldFilter.in } })
+    }
+    if (fieldFilter.not !== undefined) {
+      mustNot.push({ term: { [field]: fieldFilter.not } })
+    }
+    if (fieldFilter.notIn && fieldFilter.notIn.length > 0) {
+      mustNot.push({ terms: { [field]: fieldFilter.notIn } })
+    }
+  }
+
+  private appendIntFilterClauses(
+    field: string,
+    fieldFilter: IntFilter,
+    filter: QueryContainer[],
+    mustNot: QueryContainer[],
+  ): void {
+    if (fieldFilter.eq !== undefined) {
+      filter.push({ term: { [field]: fieldFilter.eq } })
+    }
+    if (fieldFilter.in && fieldFilter.in.length > 0) {
+      filter.push({ terms: { [field]: fieldFilter.in } })
+    }
+    if (fieldFilter.not !== undefined) {
+      mustNot.push({ term: { [field]: fieldFilter.not } })
+    }
+    if (fieldFilter.notIn && fieldFilter.notIn.length > 0) {
+      mustNot.push({ terms: { [field]: fieldFilter.notIn } })
+    }
+
+    const range: Record<string, number> = {}
+    if (fieldFilter.gte !== undefined) range.gte = fieldFilter.gte
+    if (fieldFilter.lte !== undefined) range.lte = fieldFilter.lte
+    if (fieldFilter.gt !== undefined) range.gt = fieldFilter.gt
+    if (fieldFilter.lt !== undefined) range.lt = fieldFilter.lt
+    if (Object.keys(range).length > 0) {
+      filter.push({ range: { [field]: range } })
+    }
+  }
+
+  private mergeCreatedAtRange(filters?: AuditLogFilter): Record<string, string> | undefined {
+    const createdAt: DateFilter | undefined = filters?.createdAt
+    const range: Record<string, string> = {}
+
+    const gte = createdAt?.gte ?? filters?.from
+    const lte = createdAt?.lte ?? filters?.to
+    if (gte) range.gte = gte.toISOString()
+    if (lte) range.lte = lte.toISOString()
+    if (createdAt?.gt) range.gt = createdAt.gt.toISOString()
+    if (createdAt?.lt) range.lt = createdAt.lt.toISOString()
+
+    return Object.keys(range).length > 0 ? range : undefined
   }
 
   private buildSearchBody(
