@@ -93,10 +93,17 @@ func (m *Manager) pinPathFor(id string) string {
 //
 //   - empty domains  → any existing firewall is removed (unrestricted egress)
 //   - same domains   → no-op (the working filter is left in place)
-//   - changed domains → the firewall is rebuilt with the new allow list
+//   - changed domains → the existing filter's allow list is updated IN PLACE
+//   - new workload    → a fresh firewall is attached and pinned
 //
-// eBPF allow-list maps are additive, so the safe way to apply a changed list is
-// to tear down and recreate the firewall rather than mutate it in place.
+// Updating in place (rather than tearing down and rebuilding) is what keeps
+// established connections alive across a domain change: the eBPF programs stay
+// attached, so the inbound-connection tracking (inbound_conns) and the learned-
+// IP cache (allowed_ips) are preserved. A rebuild would start those maps empty,
+// silently dropping reply packets on already-open connections — terminal
+// websockets, pooled toolbox connections, in-flight downloads — making them
+// hang. The workload ID is the container ID, which maps to exactly one cgroup,
+// so an existing entry is always the same workload and can be updated directly.
 func (m *Manager) Configure(id, cgroupPath string, domains []string) error {
 	norm := normalizeDomains(domains)
 
@@ -113,20 +120,21 @@ func (m *Manager) Configure(id, cgroupPath string, domains []string) error {
 		return nil
 	}
 
-	// Unchanged → leave the working filter untouched.
-	if ok && existing.cgroupPath == cgroupPath && equalDomains(existing.domains, norm) {
+	// Existing workload → update the allow list in place, preserving the live
+	// connection tracking and learned IPs so open connections don't hang.
+	if ok {
+		if equalDomains(existing.domains, norm) {
+			return nil // unchanged
+		}
+		if err := existing.fw.UpdateDomains(norm); err != nil {
+			return fmt.Errorf("netleash: updating workload %s: %w", id, err)
+		}
+		existing.domains = norm
+		m.log.Info("domain allow list updated", "workload", id, "domains", norm)
 		return nil
 	}
 
-	// New or changed: build and attach the NEW filter before retiring the old
-	// one. Tearing the old filter down first would leave a window of fully
-	// unrestricted egress while the new eBPF programs load and attach (which
-	// takes a moment) — during which the workload could reach domains on neither
-	// the old nor the new list. While both filters are attached to the cgroup
-	// the kernel applies the intersection of their allow lists (a cgroup_skb
-	// egress packet is dropped if any attached program denies it), so egress is
-	// never more permissive mid-swap. It also keeps the old restriction in force
-	// if Setup fails, rather than failing open.
+	// New workload → attach a fresh firewall and pin it.
 	ctx, cancel := context.WithCancel(context.Background())
 	// The firewall logs every egress decision (with the reason) on this
 	// workload-scoped logger: blocked requests at warn, allowed/learned
@@ -138,25 +146,16 @@ func (m *Manager) Configure(id, cgroupPath string, domains []string) error {
 		Logger:           m.log.With(slog.String("workload", id)),
 	})
 	if err := fw.Setup(); err != nil {
-		fw.Cleanup() // detach the partially-attached new filter; leave the old one in force
+		fw.Cleanup()
 		cancel()
 		return fmt.Errorf("netleash: configuring workload %s: %w", id, err)
 	}
 	fw.StartEventReader(ctx)
 
-	// New filter is live; now retire the old one (if any). Detaching it removes
-	// its bpffs pins and relaxes the intersection down to exactly the new allow
-	// list. Done before pinning the new one so they don't collide on the pin path.
-	if ok {
-		existing.cancel()
-		existing.fw.Detach()
-	}
-
 	// Pin the new filter so it survives a restart of this process (zero gap).
 	// Pinning failure is non-fatal: the filter is attached and enforcing now; it
 	// just won't survive a restart. Pin is atomic — on failure it rolls back any
-	// partial pins, so no half-pinned (un-adoptable) state is left behind — and a
-	// later network-settings change re-applies and re-pins the filter.
+	// partial pins, so no half-pinned (un-adoptable) state is left behind.
 	if pinPath := m.pinPathFor(id); pinPath != "" {
 		if err := fw.Pin(pinPath); err != nil {
 			m.log.Error("netleash: failed to pin firewall; filter active but won't survive a restart",

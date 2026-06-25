@@ -172,14 +172,22 @@ int firewall_dns_ingress(struct __sk_buff *skb) {
 
 	int ip_hdr_len = ip.ihl * 4;
 
-	// Record connections a remote peer initiates into this workload (inbound
-	// SYN with no ACK) so the egress program can allow the workload's replies.
-	// SYN-ACKs and data of workload-initiated outbound connections are excluded
-	// by the !tcp.ack test, so this never widens outbound reach.
+	// Record connections a remote peer initiated *into* this workload so the
+	// egress program can allow the workload's replies. We key off the peer NOT
+	// being an allowed egress destination rather than off the SYN flag: the
+	// workload could never have dialed out to a non-allowed IP (its SYN is
+	// dropped on egress), so any TCP packet arriving from such a peer belongs to
+	// a connection the peer opened inbound. Recording on every such packet — not
+	// only the SYN — means connections that were already established before this
+	// program attached, or before a domain-list change, still get their replies
+	// allowed: the next inbound packet re-records them. Peers that ARE allowed
+	// need no entry — egress to them is already permitted via allowed_ips — so
+	// this never widens outbound reach.
 	if (ip.protocol == IPPROTO_TCP) {
 		struct tcphdr tcp;
 		if (bpf_skb_load_bytes(skb, ip_hdr_len, &tcp, sizeof(tcp)) == 0) {
-			if (tcp.syn && !tcp.ack) {
+			__u32 peer = ip.saddr;
+			if (!bpf_map_lookup_elem(&allowed_ips, &peer)) {
 				struct conn_key key = {};
 				key.remote_ip = ip.saddr;
 				key.remote_port = tcp.source;

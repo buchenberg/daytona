@@ -2,9 +2,12 @@ package firewall
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
+
+	"github.com/cilium/ebpf"
 )
 
 // maxDNSNameLen must match MAX_DNS_NAME_LEN in bpf/firewall.c.
@@ -71,6 +74,51 @@ func (fw *Firewall) populateAllowedDomains() error {
 			return fmt.Errorf("adding domain %q to allowed_domains map: %w", baseDomain, err)
 		}
 		fw.log.Debug("allowed domain in eBPF map", "domain", baseDomain)
+	}
+	return nil
+}
+
+// UpdateDomains replaces the allow list in place — clearing allowed_domains and
+// allowed_wildcards and repopulating them from the new list — without detaching
+// or reloading the eBPF programs. Crucially it leaves allowed_ips (learned DNS
+// IPs) and inbound_conns (peer-initiated connection tracking) untouched, so a
+// domain-list change does NOT drop established connections: terminal websockets,
+// pooled toolbox connections, and in-flight outbound flows keep working instead
+// of hanging on silently-dropped reply packets. Because the programs and their
+// bpffs pins are untouched, the change is reflected in the pinned state for free.
+//
+// The brief window during the clear+repopulate only ever makes the allow list
+// momentarily smaller (a fresh DNS query could be dropped and retried), never
+// more permissive, so it is fail-closed and safe.
+func (fw *Firewall) UpdateDomains(domains []string) error {
+	fw.cfg.Domains = domains
+	if err := clearDNSKeyMap(fw.maps.AllowedDomains); err != nil {
+		return fmt.Errorf("clearing allowed_domains: %w", err)
+	}
+	if err := clearDNSKeyMap(fw.maps.AllowedWildcards); err != nil {
+		return fmt.Errorf("clearing allowed_wildcards: %w", err)
+	}
+	return fw.populateAllowedDomains()
+}
+
+// clearDNSKeyMap deletes every entry from a DNS-name-keyed hash map (BPF maps
+// have no bulk clear). Keys are collected before deleting, since deleting during
+// iteration is undefined.
+func clearDNSKeyMap(m *ebpf.Map) error {
+	var keys []firewallDnsNameKey
+	var k firewallDnsNameKey
+	var v uint8
+	it := m.Iterate()
+	for it.Next(&k, &v) {
+		keys = append(keys, k)
+	}
+	if err := it.Err(); err != nil {
+		return err
+	}
+	for i := range keys {
+		if err := m.Delete(&keys[i]); err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
+			return err
+		}
 	}
 	return nil
 }
