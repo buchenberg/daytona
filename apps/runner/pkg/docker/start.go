@@ -55,13 +55,18 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, authToken 
 		return c, daemonVersion, nil
 	}
 
-	// If the container is using runc, swap it for a kata-clh container before starting.
-	if os.Getenv("SKIP_KATA_CONVERSION") != "true" && c.HostConfig != nil && c.HostConfig.Runtime == "runc" && !isAndroidDeviceContainer(c) {
-		converted, err := d.convertRuncToKata(ctx, containerId, c)
-		if err != nil {
-			return nil, "", err
+	// Swap a non-kata container for a kata-clh one before starting. This happens for the
+	// default runc->kata conversion (skippable via SKIP_KATA_CONVERSION) and unconditionally
+	// when the org is kata-only (forceKata=true in metadata, sent by the API).
+	forceKata := metadata["forceKata"] == "true"
+	if c.HostConfig != nil && c.HostConfig.Runtime != "kata-clh" && !isAndroidDeviceContainer(c) {
+		if forceKata || (os.Getenv("SKIP_KATA_CONVERSION") != "true" && c.HostConfig.Runtime == "runc") {
+			converted, err := d.convertRuncToKata(ctx, containerId, c)
+			if err != nil {
+				return nil, "", err
+			}
+			c = converted
 		}
-		c = converted
 	}
 
 	// Re-establish FUSE mounts that may have died since the container was last running.

@@ -188,6 +188,14 @@ export class Organization {
   })
   sandboxLimitedNetworkEgress: boolean
 
+  // Internal flag: when true, all sandboxes for this org are forced onto the kata-clh
+  // runtime on the runner (via forceKata in the sandbox create/start metadata).
+  // Not exposed through the API.
+  @Column({
+    default: false,
+  })
+  forceKataRuntime: boolean
+
   @CreateDateColumn({
     type: 'timestamp with time zone',
   })
@@ -214,11 +222,15 @@ export class Organization {
   otelConfig: { endpoint: string; headers: Record<string, string> } | null
 
   get sandboxMetadata(): Record<string, string> {
-    return {
+    const metadata: Record<string, string> = {
       organizationId: this.id,
       organizationName: this.name,
       limitNetworkEgress: String(this.sandboxLimitedNetworkEgress),
     }
+    if (this.forceKataRuntime) {
+      metadata.forceKata = 'true'
+    }
+    return metadata
   }
 
   constructor(defaultRegionId?: string) {

@@ -207,7 +207,11 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		return "", "", err
 	}
 
-	if noSysbox {
+	// Orgs in the API's kata-only list send forceKata=true so the sandbox is always
+	// created on the kata-clh runtime, regardless of the configured default runtime.
+	forceKata := sandboxDto.Metadata["forceKata"] == "true"
+
+	if noSysbox || forceKata {
 		hostConfig.Privileged = false
 		hostConfig.Runtime = "kata-clh"
 		// Kata VM default size is 1vcpu and 2Gi RAM
