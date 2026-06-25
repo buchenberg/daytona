@@ -1691,8 +1691,10 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       organizationRegionIds.includes(runner.region),
     ).length
 
-    const targetRunnerCount =
-      organizationRunnerCount + this.getTargetSharedRunnerCount(sharedRunnerCount, factor, minimum)
+    const targetRunnerCount = Math.min(
+      targetRunnerIds.size,
+      organizationRunnerCount + this.getTargetSharedRunnerCount(sharedRunnerCount, factor, minimum),
+    )
 
     // Fire-and-forget: this creates the snapshot_runner rows and dispatches the pulls; the readiness poll
     // below (and the crons) take over from there. propagateSnapshotToRunners never throws.
