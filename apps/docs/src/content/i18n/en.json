@@ -115,6 +115,8 @@
   "sidebarconfig.previewDescription": "Preview URLs and authentication tokens.",
   "sidebarconfig.customPreviewProxy": "Custom Preview Proxy",
   "sidebarconfig.customPreviewProxyDescription": "Deploy your own preview proxy with custom domains, authentication, and styling.",
+  "sidebarconfig.secrets": "Secrets",
+  "sidebarconfig.secretsDescription": "Store and use sensitive values such as API keys, tokens, and passwords across your Daytona sandboxes.",
   "sidebarconfig.auditLogs": "Audit Logs",
   "sidebarconfig.auditLogsDescription": "Monitor and track activities across your Daytona organization.",
   "sidebarconfig.securityExhibit": "Security Exhibit",

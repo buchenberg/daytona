@@ -829,6 +829,15 @@ export const getSidebarConfig = (
       entries: [
         {
           type: 'link',
+          href: localizePath('/docs/secrets', locale),
+          label: t('sidebarconfig.secrets'),
+          description: t('sidebarconfig.secretsDescription'),
+          attrs: {
+            icon: 'shield.svg',
+          },
+        },
+        {
+          type: 'link',
           href: localizePath('/docs/audit-logs', locale),
           label: t('sidebarconfig.auditLogs'),
           description: t('sidebarconfig.auditLogsDescription'),
