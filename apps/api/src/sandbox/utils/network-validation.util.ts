@@ -72,8 +72,8 @@ export function validateDomainAllowList(domainAllowList: string): void {
     }
   }
 
-  if (nonEmptyDomains.length > 10) {
-    throw new Error(`Domain allow list cannot contain more than 10 domains`)
+  if (nonEmptyDomains.length > 20) {
+    throw new Error(`Domain allow list cannot contain more than 20 domains`)
   }
 }
 
