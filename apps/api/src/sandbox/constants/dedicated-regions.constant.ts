@@ -1,4 +1,5 @@
 import { TypedConfigService } from '../../config/typed-config.service'
+import { SandboxClass } from '../enums/sandbox-class.enum'
 import { areResourcesLargerThanDefault, Resources } from '../utils/resources'
 
 export const GPU_REGION = 'gpu-experimental'
@@ -31,10 +32,32 @@ export const EXPERIMENTAL_REGION = 'experimental'
 export const BACKUP_DISABLED_REGIONS: string[] = [LARGE_SANDBOX_SHARED_REGION, EXPERIMENTAL_REGION]
 
 /**
+ * Sandbox classes where automatic backups and archiving are disabled.
+ *
+ * Sandboxes of these classes are never backed up and cannot be archived.
+ */
+export const BACKUP_DISABLED_SANDBOX_CLASSES: SandboxClass[] = [SandboxClass.LINUX_VM]
+
+/**
  * @returns true if backups and archiving are disabled for the given region
  */
 export function isBackupDisabledRegion(region: string): boolean {
   return BACKUP_DISABLED_REGIONS.includes(region)
+}
+
+/**
+ * @returns true if backups and archiving are disabled for the given sandbox class
+ */
+export function isBackupDisabledClass(sandboxClass: SandboxClass): boolean {
+  return BACKUP_DISABLED_SANDBOX_CLASSES.includes(sandboxClass)
+}
+
+/**
+ * @returns true if backups and archiving are disabled for the given sandbox,
+ * either because of its region or its class
+ */
+export function isBackupDisabled(sandbox: { region: string; sandboxClass: SandboxClass }): boolean {
+  return isBackupDisabledRegion(sandbox.region) || isBackupDisabledClass(sandbox.sandboxClass)
 }
 
 /**

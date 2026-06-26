@@ -53,7 +53,7 @@ import { TypedConfigService } from '../../config/typed-config.service'
 import { BackupManager } from './backup.manager'
 import { InjectRedis } from '@nestjs-modules/ioredis'
 import Redis from 'ioredis'
-import { BACKUP_DISABLED_REGIONS } from '../constants/dedicated-regions.constant'
+import { BACKUP_DISABLED_REGIONS, BACKUP_DISABLED_SANDBOX_CLASSES } from '../constants/dedicated-regions.constant'
 import { InjectDataSource } from '@nestjs/typeorm'
 import { DataSource } from 'typeorm'
 import { RunnerState } from '../enums/runner-state.enum'
@@ -211,6 +211,9 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
         .andWhere('sandbox.pending != true')
         .andWhere('sandbox.region NOT IN (:...backupDisabledRegions)', {
           backupDisabledRegions: BACKUP_DISABLED_REGIONS,
+        })
+        .andWhere('sandbox.sandboxClass NOT IN (:...backupDisabledClasses)', {
+          backupDisabledClasses: BACKUP_DISABLED_SANDBOX_CLASSES,
         })
         .andWhere('activity."lastActivityAt" < NOW() - INTERVAL \'1 minute\' * sandbox."autoArchiveInterval"')
         .orderBy('sandbox."lastBackupAt"', 'ASC')
@@ -500,6 +503,7 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
         backupSnapshot: Not(IsNull()),
         pending: false,
         region: Not(In(BACKUP_DISABLED_REGIONS)),
+        sandboxClass: Not(In(BACKUP_DISABLED_SANDBOX_CLASSES)),
       },
       take: 100,
     })
@@ -542,6 +546,7 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
         backupState: BackupState.COMPLETED,
         backupSnapshot: Not(IsNull()),
         region: Not(In(BACKUP_DISABLED_REGIONS)),
+        sandboxClass: Not(In(BACKUP_DISABLED_SANDBOX_CLASSES)),
       },
       take: 100,
     })

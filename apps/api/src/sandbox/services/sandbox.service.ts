@@ -74,7 +74,7 @@ import {
   resolveEffectiveRegion,
   BUILD_INFO_BLOCKED_ORGS,
   GPU_REGION,
-  isBackupDisabledRegion,
+  isBackupDisabled,
 } from '../constants/dedicated-regions.constant'
 import { PaginatedList } from '../../common/interfaces/paginated-list.interface'
 import {
@@ -382,8 +382,8 @@ export class SandboxService {
 
     this.assertSandboxNotErrored(sandbox)
 
-    if (isBackupDisabledRegion(sandbox.region)) {
-      throw new SandboxError('Sandboxes in this region cannot be archived')
+    if (isBackupDisabled(sandbox)) {
+      throw new SandboxError('Sandboxes in this region or class cannot be archived')
     }
 
     if (String(sandbox.state) !== String(sandbox.desiredState)) {
@@ -1187,8 +1187,8 @@ export class SandboxService {
       throw new SandboxError('Ephemeral sandboxes cannot be backed up')
     }
 
-    if (isBackupDisabledRegion(sandbox.region)) {
-      throw new SandboxError('Sandboxes in this region cannot be backed up')
+    if (isBackupDisabled(sandbox)) {
+      throw new SandboxError('Sandboxes in this region or class cannot be backed up')
     }
 
     if (![BackupState.COMPLETED, BackupState.NONE].includes(sandbox.backupState)) {
