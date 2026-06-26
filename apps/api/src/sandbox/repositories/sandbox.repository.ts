@@ -18,6 +18,8 @@ import { SandboxPublicStatusUpdatedEvent } from '../events/sandbox-public-status
 import { SandboxOrganizationUpdatedEvent } from '../events/sandbox-organization-updated.event'
 import { SandboxLookupCacheInvalidationService } from '../services/sandbox-lookup-cache-invalidation.service'
 import { SandboxFork } from '../entities/sandbox-fork.entity'
+import { SandboxSecret } from '../entities/sandbox-secret.entity'
+import { SandboxState } from '../enums/sandbox-state.enum'
 
 @Injectable()
 export class SandboxRepository extends BaseRepository<Sandbox> {
@@ -47,6 +49,19 @@ export class SandboxRepository extends BaseRepository<Sandbox> {
       await entityManager.insert(Sandbox, sandbox)
       await this.upsertLastActivity(entityManager, sandbox.id, sandbox.createdAt)
       sandbox.lastActivityAt = { sandboxId: sandbox.id, lastActivityAt: sandbox.createdAt }
+
+      // entityManager.insert does not cascade the sandboxSecrets relation, so persist the
+      // join rows explicitly within the same transaction as the sandbox.
+      if (sandbox.sandboxSecrets?.length) {
+        await entityManager.insert(
+          SandboxSecret,
+          sandbox.sandboxSecrets.map((sandboxSecret) => ({
+            sandboxId: sandbox.id,
+            envVar: sandboxSecret.envVar,
+            secretId: sandboxSecret.secretId,
+          })),
+        )
+      }
 
       if (parentId) {
         await entityManager.insert(SandboxFork, {
@@ -226,7 +241,7 @@ export class SandboxRepository extends BaseRepository<Sandbox> {
    */
   private invalidateLookupCacheOnUpdate(
     updatedSandbox: Sandbox,
-    previousSandbox: Pick<Sandbox, 'organizationId' | 'name' | 'authToken'>,
+    previousSandbox: Pick<Sandbox, 'organizationId' | 'name' | 'authToken' | 'state'>,
   ): void {
     try {
       this.sandboxLookupCacheInvalidationService.invalidate({
@@ -243,16 +258,31 @@ export class SandboxRepository extends BaseRepository<Sandbox> {
     }
 
     try {
+      // The auth-token lookup cache backs findByAuthToken / findBySandboxAuthToken, which
+      // resolve to null once a sandbox is destroyed/archived. Bust it both when the token
+      // itself rotates and when that destroyed/archived gate flips in either direction, so
+      // the cached row never serves a stale state past those transitions.
+      const authTokensToInvalidate = new Set<string>()
       if (updatedSandbox.authToken !== previousSandbox.authToken) {
-        this.sandboxLookupCacheInvalidationService.invalidate({
-          authToken: updatedSandbox.authToken,
-        })
+        authTokensToInvalidate.add(previousSandbox.authToken)
+      }
+      if (this.isInactiveState(previousSandbox.state) !== this.isInactiveState(updatedSandbox.state)) {
+        authTokensToInvalidate.add(updatedSandbox.authToken)
+      }
+      for (const authToken of authTokensToInvalidate) {
+        if (authToken) {
+          this.sandboxLookupCacheInvalidationService.invalidate({ authToken })
+        }
       }
     } catch (error) {
       this.logger.warn(
         `Failed to enqueue sandbox lookup cache invalidation on update (authToken) for ${updatedSandbox.id}: ${error instanceof Error ? error.message : String(error)}`,
       )
     }
+  }
+
+  private isInactiveState(state: SandboxState): boolean {
+    return state === SandboxState.DESTROYED || state === SandboxState.ARCHIVED
   }
 
   /**

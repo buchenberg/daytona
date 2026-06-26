@@ -12,6 +12,8 @@ export interface BaseAuthContext {
     | 'ssh-gateway'
     | 'region-proxy'
     | 'region-ssh-gateway'
+    | 'sandbox'
+    | 'sandbox-secrets'
     | 'otel-collector'
     | 'health-check'
     | 'billing'

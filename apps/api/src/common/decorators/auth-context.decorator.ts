@@ -9,6 +9,8 @@ import { isUserAuthContext } from '../interfaces/user-auth-context.interface'
 import { isOrganizationAuthContext } from '../interfaces/organization-auth-context.interface'
 import { isRunnerAuthContext } from '../interfaces/runner-auth-context.interface'
 import { isUserManagementAuthContext } from '../interfaces/user-management-auth-context.interface'
+import { isSandboxAuthContext } from '../interfaces/sandbox-auth-context.interface'
+import { isSandboxSecretsAuthContext } from '../interfaces/sandbox-secrets-auth-context.interface'
 import { getAuthContext } from '../utils/get-auth-context'
 
 /**
@@ -56,3 +58,7 @@ export const IsRunnerAuthContext = () => AuthContext(isRunnerAuthContext)
  * Extracts the authenticated user context and validates it is a {@link UserManagementAuthContext} at runtime.
  */
 export const IsUserManagementAuthContext = () => AuthContext(isUserManagementAuthContext)
+
+export const IsSandboxAuthContext = () => AuthContext(isSandboxAuthContext)
+
+export const IsSandboxSecretsAuthContext = () => AuthContext(isSandboxSecretsAuthContext)

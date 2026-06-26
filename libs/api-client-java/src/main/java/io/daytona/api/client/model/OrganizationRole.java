@@ -105,6 +105,8 @@ public class OrganizationRole {
     
     MANAGE_API_KEYS("manage:api_keys"),
     
+    MANAGE_SECRETS("manage:secrets"),
+    
     UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;

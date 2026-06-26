@@ -100,6 +100,13 @@ func (d *DockerClient) getContainerCreateConfig(sandboxDto dto.CreateSandboxDTO,
 		envVars = append(envVars, "DAYTONA_REGION_ID="+*sandboxDto.RegionId)
 	}
 
+	// Route a secret-using sandbox's HTTP(S) traffic through the shared netleash
+	// proxy and trust its CA, so placeholders in outbound requests get swapped
+	// for real secret values. No-op for sandboxes without secrets.
+	if secretEnv := d.secretProxyEnvVars(sandboxDto.Env); len(secretEnv) > 0 {
+		envVars = append(envVars, secretEnv...)
+	}
+
 	labels := make(map[string]string)
 	if sandboxDto.Name != "" {
 		labels[sandboxNameLabel] = sandboxDto.Name
@@ -195,6 +202,12 @@ func (d *DockerClient) getContainerHostConfig(sandboxDto dto.CreateSandboxDTO, v
 
 	if len(volumeMountPathBinds) > 0 {
 		binds = append(binds, volumeMountPathBinds...)
+	}
+
+	// Mount the shared proxy's CA bundle into secret-using sandboxes so the
+	// injected *_CA_BUNDLE / SSL_CERT_FILE env vars resolve to it.
+	if bind := d.secretProxyCABind(sandboxDto.Env); bind != "" {
+		binds = append(binds, bind)
 	}
 
 	hostConfig := &container.HostConfig{

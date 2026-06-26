@@ -184,6 +184,10 @@ func run() int {
 		InterSandboxNetworkEnabled:   cfg.InterSandboxNetworkEnabled,
 		GpuEnabled:                   cfg.GpuEnabled,
 		MountKvmToAndroidSandbox:     cfg.MountKvmToAndroidSandbox,
+		SecretProxyEnabled:           cfg.NetleashEnabled && cfg.NetleashSecretsEnabled,
+		SecretProxyPort:              cfg.NetleashSecretProxyPort,
+		SecretCADir:                  cfg.NetleashSecretCADir,
+		DaytonaApiUrl:                cfg.DaytonaApiUrl,
 	})
 	if err != nil {
 		logger.Error("Error creating Docker client wrapper", "error", err)
@@ -196,6 +200,18 @@ func run() int {
 	// them and re-applies any that were lost.
 	if netleashManager != nil {
 		dockerClient.StartNetleashReconcile(ctx)
+	}
+
+	// Bring up the shared secret-injection proxy (if enabled) and re-register
+	// secret bindings for sandboxes that survived a runner restart. The proxy's
+	// fixed address and persisted CA stay valid across the restart; this restores
+	// the in-memory per-sandbox bindings the registry lost.
+	if cfg.NetleashEnabled && cfg.NetleashSecretsEnabled {
+		if err := dockerClient.EnableSecretInjection(ctx); err != nil {
+			logger.Error("Failed to enable secret injection proxy; continuing without it", "error", err)
+		} else {
+			dockerClient.StartSecretReconcile(ctx)
+		}
 	}
 
 	// Start Docker events monitor

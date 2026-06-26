@@ -174,6 +174,27 @@ func TestHostAllowed(t *testing.T) {
 	}
 }
 
+func TestHostAllowed_Wildcard(t *testing.T) {
+	tests := []struct {
+		host    string
+		allowed []string
+		want    bool
+	}{
+		{"api.example.com", []string{"*.example.com"}, true},
+		{"deep.api.example.com", []string{"*.example.com"}, true},
+		{"example.com", []string{"*.example.com"}, true}, // base domain matches too
+		{"example.com.evil.com", []string{"*.example.com"}, false},
+		{"notexample.com", []string{"*.example.com"}, false},
+		{"API.Example.COM", []string{"*.example.com"}, true}, // case-insensitive
+		{"api.example.com", []string{"*.EXAMPLE.COM"}, true},
+	}
+	for _, tt := range tests {
+		if got := hostAllowed(tt.host, tt.allowed); got != tt.want {
+			t.Errorf("hostAllowed(%q, %v) = %v, want %v", tt.host, tt.allowed, got, tt.want)
+		}
+	}
+}
+
 func TestStripPort(t *testing.T) {
 	tests := []struct {
 		input string

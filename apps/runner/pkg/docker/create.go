@@ -128,7 +128,7 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 			}
 			metadata["domainAllowList"] = *sandboxDto.DomainAllowList
 		}
-		_, daemonVersion, err := d.Start(ctx, sandboxDto.Id, sandboxDto.AuthToken, metadata)
+		_, daemonVersion, err := d.Start(ctx, sandboxDto.Id, sandboxDto.AuthToken, sandboxDto.SecretsToken, metadata)
 		if err != nil {
 			if strings.Contains(err.Error(), "OCI runtime create failed") {
 				if didTryWithoutSysbox {
@@ -278,7 +278,7 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		return c.ID, "", nil
 	}
 
-	runningContainer, daemonVersion, err := d.Start(ctx, sandboxDto.Id, sandboxDto.AuthToken, sandboxDto.Metadata)
+	runningContainer, daemonVersion, err := d.Start(ctx, sandboxDto.Id, sandboxDto.AuthToken, sandboxDto.SecretsToken, sandboxDto.Metadata)
 	if err != nil {
 		if strings.Contains(err.Error(), "OCI runtime create failed") {
 			if didTryWithoutSysbox {
@@ -326,6 +326,15 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 	if sandboxDto.DomainAllowList != nil && *sandboxDto.DomainAllowList != "" {
 		go d.applyDomainAllowList(context.Background(), runningContainer.ID, *sandboxDto.DomainAllowList)
 	}
+
+	// Register this sandbox's secrets with the shared injection proxy (no-op when
+	// it uses none). Keyed by the full container ID, matching the eBPF/lifecycle
+	// teardown path. An empty domain allow list means unrestricted egress.
+	domainAllowList := ""
+	if sandboxDto.DomainAllowList != nil {
+		domainAllowList = *sandboxDto.DomainAllowList
+	}
+	d.registerSandboxSecrets(context.Background(), runningContainer.ID, sandboxDto.Id, sandboxDto.SecretsToken, ip, domainAllowList, sandboxDto.Env)
 
 	return c.ID, daemonVersion, nil
 }

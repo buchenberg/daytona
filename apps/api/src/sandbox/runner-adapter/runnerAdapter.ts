@@ -90,6 +90,7 @@ export interface RunnerAdapter {
   startSandbox(
     sandboxId: string,
     authToken: string,
+    secretsToken: string | null,
     metadata?: { [key: string]: string },
     skipStart?: boolean,
   ): Promise<StartSandboxResponse | undefined>

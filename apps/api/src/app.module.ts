@@ -47,6 +47,7 @@ import { AdminModule } from './admin/admin.module'
 import { ClickHouseModule } from './clickhouse/clickhouse.module'
 import { SandboxTelemetryModule } from './sandbox-telemetry/sandbox-telemetry.module'
 import { getAppName } from './common/utils/app-mode'
+import { SecretModule } from './secret/secret.module'
 
 @Module({
   imports: [
@@ -214,6 +215,7 @@ import { getAppName } from './common/utils/app-mode'
     HealthModule,
     ClickHouseModule,
     SandboxTelemetryModule,
+    SecretModule,
     OpenFeatureModule.forRoot({
       contextFactory: (request: ExecutionContext) => {
         const req = request.switchToHttp().getRequest()

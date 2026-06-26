@@ -18,17 +18,17 @@ var quiet = WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil)))
 func TestNewServer_ExactDomains(t *testing.T) {
 	s := NewServer("127.0.0.1:0", nil, NewInjector(nil), []string{"example.com", "api.github.com"}, "", quiet)
 
-	if !s.allowedDomains["example.com"] {
+	if !s.static.allowedDomains["example.com"] {
 		t.Fatal("example.com should be allowed")
 	}
-	if !s.allowedDomains["api.github.com"] {
+	if !s.static.allowedDomains["api.github.com"] {
 		t.Fatal("api.github.com should be allowed")
 	}
-	if s.allowedDomains["evil.com"] {
+	if s.static.allowedDomains["evil.com"] {
 		t.Fatal("evil.com should not be allowed")
 	}
-	if len(s.wildcardSuffixes) != 0 {
-		t.Fatalf("expected no wildcard suffixes, got %v", s.wildcardSuffixes)
+	if len(s.static.wildcardSuffixes) != 0 {
+		t.Fatalf("expected no wildcard suffixes, got %v", s.static.wildcardSuffixes)
 	}
 }
 
@@ -36,11 +36,11 @@ func TestNewServer_WildcardDomains(t *testing.T) {
 	s := NewServer("127.0.0.1:0", nil, NewInjector(nil), []string{"*.github.com"}, "", quiet)
 
 	// Wildcard base domain should be in exact match too.
-	if !s.allowedDomains["github.com"] {
+	if !s.static.allowedDomains["github.com"] {
 		t.Fatal("github.com (base) should be in allowed domains")
 	}
-	if len(s.wildcardSuffixes) != 1 || s.wildcardSuffixes[0] != ".github.com" {
-		t.Fatalf("expected [.github.com], got %v", s.wildcardSuffixes)
+	if len(s.static.wildcardSuffixes) != 1 || s.static.wildcardSuffixes[0] != ".github.com" {
+		t.Fatalf("expected [.github.com], got %v", s.static.wildcardSuffixes)
 	}
 }
 
@@ -66,10 +66,10 @@ func TestNewServer_NoClientIPRestriction(t *testing.T) {
 func TestNewServer_DomainLowercased(t *testing.T) {
 	s := NewServer("127.0.0.1:0", nil, NewInjector(nil), []string{"Example.COM", "*.GitHub.COM"}, "", quiet)
 
-	if !s.allowedDomains["example.com"] {
+	if !s.static.allowedDomains["example.com"] {
 		t.Fatal("domains should be lowercased")
 	}
-	if !s.allowedDomains["github.com"] {
+	if !s.static.allowedDomains["github.com"] {
 		t.Fatal("wildcard base should be lowercased")
 	}
 }
@@ -77,13 +77,13 @@ func TestNewServer_DomainLowercased(t *testing.T) {
 func TestIsAllowed_ExactMatch(t *testing.T) {
 	s := NewServer("127.0.0.1:0", nil, NewInjector(nil), []string{"example.com", "api.github.com"}, "", quiet)
 
-	if !s.isAllowed("example.com") {
+	if !s.static.isAllowed("example.com") {
 		t.Fatal("example.com should be allowed")
 	}
-	if !s.isAllowed("api.github.com") {
+	if !s.static.isAllowed("api.github.com") {
 		t.Fatal("api.github.com should be allowed")
 	}
-	if s.isAllowed("evil.com") {
+	if s.static.isAllowed("evil.com") {
 		t.Fatal("evil.com should not be allowed")
 	}
 }
@@ -91,7 +91,7 @@ func TestIsAllowed_ExactMatch(t *testing.T) {
 func TestIsAllowed_CaseInsensitive(t *testing.T) {
 	s := NewServer("127.0.0.1:0", nil, NewInjector(nil), []string{"example.com"}, "", quiet)
 
-	if !s.isAllowed("Example.COM") {
+	if !s.static.isAllowed("Example.COM") {
 		t.Fatal("isAllowed should be case-insensitive")
 	}
 }
@@ -99,16 +99,16 @@ func TestIsAllowed_CaseInsensitive(t *testing.T) {
 func TestIsAllowed_WildcardMatch(t *testing.T) {
 	s := NewServer("127.0.0.1:0", nil, NewInjector(nil), []string{"*.github.com"}, "", quiet)
 
-	if !s.isAllowed("api.github.com") {
+	if !s.static.isAllowed("api.github.com") {
 		t.Fatal("api.github.com should match *.github.com")
 	}
-	if !s.isAllowed("raw.githubusercontent.github.com") {
+	if !s.static.isAllowed("raw.githubusercontent.github.com") {
 		t.Fatal("deep subdomain should match *.github.com")
 	}
-	if !s.isAllowed("github.com") {
+	if !s.static.isAllowed("github.com") {
 		t.Fatal("base domain should be allowed too")
 	}
-	if s.isAllowed("evil.com") {
+	if s.static.isAllowed("evil.com") {
 		t.Fatal("evil.com should not match *.github.com")
 	}
 }

@@ -32,6 +32,8 @@ import { SandboxActivityService } from './sandbox-activity.service'
 import { DockerRegistryService } from '../../docker-registry/services/docker-registry.service'
 import { SandboxSearchAdapter } from '../interfaces/sandbox-search.interface'
 import { BadRequestError } from '../../exceptions/bad-request.exception'
+import { SecretService } from '../../secret/services/secret.service'
+import { SandboxSecret } from '../entities/sandbox-secret.entity'
 
 type SandboxFixture = Partial<Sandbox>
 
@@ -96,6 +98,8 @@ describe('SandboxService.updateNetworkSettings', () => {
       undefined as unknown as DockerRegistryService,
       undefined as unknown as Repository<SandboxFork>,
       undefined as unknown as SandboxSearchAdapter,
+      undefined as unknown as SecretService,
+      undefined as unknown as Repository<SandboxSecret>,
     )
   }
 

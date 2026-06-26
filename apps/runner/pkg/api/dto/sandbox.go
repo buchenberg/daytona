@@ -26,8 +26,11 @@ type CreateSandboxDTO struct {
 	DomainAllowList  *string           `json:"domainAllowList,omitempty"`
 	Metadata         map[string]string `json:"metadata,omitempty"`
 	AuthToken        *string           `json:"authToken,omitempty"`
-	OtelEndpoint     *string           `json:"otelEndpoint,omitempty"`
-	SkipStart        *bool             `json:"skipStart,omitempty"`
+	// SecretsToken is a runner-only token used solely to resolve plaintext
+	// secrets from the API (separate from AuthToken, which lives in the sandbox).
+	SecretsToken *string `json:"secretsToken,omitempty"`
+	OtelEndpoint *string `json:"otelEndpoint,omitempty"`
+	SkipStart    *bool   `json:"skipStart,omitempty"`
 
 	// Optional for backward compatibility, but when provided, indicates the class of sandbox to create.
 	SandboxClass *string `json:"sandboxClass,omitempty"`

@@ -114,6 +114,7 @@ import {
   SANDBOX_LOOKUP_CACHE_TTL_MS,
   SANDBOX_ORG_ID_CACHE_TTL_MS,
   TOOLBOX_PROXY_URL_CACHE_TTL_S,
+  sandboxLookupCacheKeyByAuthToken,
   sandboxLookupCacheKeyById,
   sandboxLookupCacheKeyByName,
   sandboxOrgIdCacheKeyById,
@@ -127,6 +128,8 @@ import { ListSandboxesResponseDto } from '../dto/list-sandboxes-response.dto'
 import { ListSandboxesQueryDto } from '../dto/list-sandboxes-query.dto'
 import { SANDBOX_SEARCH_ADAPTER } from '../constants/sandbox-tokens'
 import { SandboxSearchAdapter } from '../interfaces/sandbox-search.interface'
+import { SecretService } from '../../secret/services/secret.service'
+import { SandboxSecret } from '../entities/sandbox-secret.entity'
 
 const DEFAULT_CPU = 1
 const DEFAULT_MEMORY = 1
@@ -165,6 +168,9 @@ export class SandboxService {
     private readonly sandboxForkRepository: Repository<SandboxFork>,
     @Inject(SANDBOX_SEARCH_ADAPTER)
     private readonly sandboxSearchAdapter: SandboxSearchAdapter,
+    private readonly secretService: SecretService,
+    @InjectRepository(SandboxSecret)
+    private readonly sandboxSecretRepository: Repository<SandboxSecret>,
   ) {}
 
   protected getLockKey(id: string): string {
@@ -592,11 +598,18 @@ export class SandboxService {
       // Resolve volume names to UUIDs before runner assignment, so invalid references fail fast
       const resolvedVolumes = await this.resolveVolumes(organization.id, createSandboxDto.volumes)
 
+      const resolvedSecretMounts = await this.validateSecrets(createSandboxDto.secrets, organization.id)
+
       // GPU sandboxes are always ephemeral: they get exclusive ownership of a
       // runner for their lifetime and are auto-deleted on first stop. Skip the
       // warm-pool path entirely so we always provision a fresh container on a
       // currently-unoccupied GPU runner.
-      if (gpu <= 0 && !linkedSandbox && (!createSandboxDto.volumes || createSandboxDto.volumes.length === 0)) {
+      if (
+        gpu <= 0 &&
+        !linkedSandbox &&
+        (!createSandboxDto.volumes || createSandboxDto.volumes.length === 0) &&
+        resolvedSecretMounts.length === 0
+      ) {
         const skipWarmPool = false
         // const skipWarmPool = (await this.redis.exists(`warm-pool:skip:${snapshot.id}`)) === 1
 
@@ -666,6 +679,10 @@ export class SandboxService {
       sandbox.env = createSandboxDto.env || {}
       sandbox.labels = createSandboxDto.labels || {}
 
+      for (const mount of resolvedSecretMounts) {
+        sandbox.env[mount.envVar] = mount.placeholder
+      }
+
       sandbox.cpu = cpu
       sandbox.gpu = gpu
       sandbox.gpuType = gpuType
@@ -712,6 +729,12 @@ export class SandboxService {
       sandbox.linkedSandboxId = linkedSandbox?.id ?? null
       sandbox.pending = true
 
+      sandbox.sandboxSecrets = resolvedSecretMounts.map((m) => ({
+        sandboxId: sandbox.id,
+        secretId: m.secretId,
+        envVar: m.envVar,
+      }))
+
       const insertedSandbox = await this.sandboxRepository.insert(sandbox)
 
       if (gpuRunnerAssignmentLockKey) {
@@ -740,7 +763,11 @@ export class SandboxService {
         )
       }
 
-      if (error.code === '23505') {
+      if (
+        error.code === '23505' &&
+        error.constraint?.includes('sandbox') &&
+        !error.constraint?.includes('sandbox_secrets')
+      ) {
         throw new ConflictException(`Sandbox with name ${createSandboxDto.name} already exists`)
       }
 
@@ -962,6 +989,8 @@ export class SandboxService {
       // Resolve volume names to UUIDs, failing fast on invalid references
       const resolvedVolumes = await this.resolveVolumes(organization.id, createSandboxDto.volumes)
 
+      const resolvedSecretMounts = await this.validateSecrets(createSandboxDto.secrets, organization.id)
+
       const sandbox = new Sandbox({ region: region.id, name: createSandboxDto.name })
 
       sandbox.organizationId = organization.id
@@ -970,6 +999,16 @@ export class SandboxService {
       sandbox.osUser = createSandboxDto.user || 'daytona'
       sandbox.env = createSandboxDto.env || {}
       sandbox.labels = createSandboxDto.labels || {}
+
+      for (const mount of resolvedSecretMounts) {
+        sandbox.env[mount.envVar] = mount.placeholder
+      }
+
+      sandbox.sandboxSecrets = resolvedSecretMounts.map((m) => ({
+        sandboxId: sandbox.id,
+        secretId: m.secretId,
+        envVar: m.envVar,
+      }))
 
       sandbox.cpu = cpu
       sandbox.gpu = gpu
@@ -1123,7 +1162,11 @@ export class SandboxService {
         pendingGpuIncrement,
       )
 
-      if (error.code === '23505') {
+      if (
+        error.code === '23505' &&
+        error.constraint?.includes('sandbox') &&
+        !error.constraint?.includes('sandbox_secrets')
+      ) {
         throw new ConflictException(`Sandbox with name ${createSandboxDto.name} already exists`)
       }
 
@@ -1888,6 +1931,117 @@ export class SandboxService {
     return sandbox
   }
 
+  async findByAuthToken(authToken: string): Promise<Sandbox | null> {
+    const sandbox = await this.sandboxRepository.findOne({
+      where: { authToken },
+      // Shares the auth-token lookup cache (same query, same key) with
+      // OrganizationService.findBySandboxAuthToken; invalidated on token rotation and
+      // destroyed/archived state flips by SandboxLookupCacheInvalidationService.
+      cache: {
+        id: sandboxLookupCacheKeyByAuthToken({ authToken }),
+        milliseconds: 10_000,
+      },
+    })
+
+    if (!sandbox) {
+      return null
+    }
+
+    if (sandbox.state === SandboxState.DESTROYED || sandbox.state === SandboxState.ARCHIVED) {
+      return null
+    }
+
+    return sandbox
+  }
+
+  // Looks up a sandbox by its secrets token (the runner-only token used to
+  // resolve plaintext secrets). Intentionally not cached: the token rotates on
+  // every start, and a rotated token must stop authorizing immediately. Only
+  // ever used by the sandbox-secrets auth context.
+  async findBySecretsToken(secretsToken: string): Promise<Sandbox | null> {
+    const sandbox = await this.sandboxRepository.findOne({
+      where: { secretsToken },
+    })
+
+    if (!sandbox) {
+      return null
+    }
+
+    // A destroyed/archived sandbox must not keep authorizing secret resolution
+    // (mirrors findByAuthToken).
+    if (sandbox.state === SandboxState.DESTROYED || sandbox.state === SandboxState.ARCHIVED) {
+      return null
+    }
+
+    return sandbox
+  }
+
+  private async validateSecrets(
+    secrets: Record<string, string>[] | undefined,
+    organizationId: string,
+  ): Promise<{ envVar: string; secretId: string; placeholder: string }[]> {
+    if (!secrets?.length) {
+      return []
+    }
+
+    const mounts: { envVar: string; vaultName: string }[] = []
+    const seenEnvVars = new Set<string>()
+
+    for (const entry of secrets) {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        throw new BadRequestError('Each secret entry must be an object mapping an env var name to a vault secret name')
+      }
+      const keys = Object.keys(entry)
+      if (keys.length !== 1) {
+        throw new BadRequestError(
+          'Each secret entry must have exactly one key (env var name) mapping to a vault secret name',
+        )
+      }
+      const envVar = keys[0]
+      const vaultName = entry[envVar]
+      if (typeof envVar !== 'string' || typeof vaultName !== 'string' || !envVar || !vaultName) {
+        throw new BadRequestError('Secret env var name and vault secret name must be non-empty strings')
+      }
+      if (seenEnvVars.has(envVar)) {
+        throw new BadRequestError(`Duplicate env var name: ${envVar}`)
+      }
+      seenEnvVars.add(envVar)
+      mounts.push({ envVar, vaultName })
+    }
+
+    const vaultNames = [...new Set(mounts.map((m) => m.vaultName))]
+    const foundSecrets = await this.secretService.findByNames(vaultNames, organizationId)
+    const nameToSecret = new Map(foundSecrets.map((s) => [s.name, s]))
+
+    const missing = vaultNames.filter((n) => !nameToSecret.has(n))
+    if (missing.length > 0) {
+      throw new BadRequestError(`Secrets not found: ${missing.join(', ')}`)
+    }
+
+    return mounts.map((m) => {
+      const secret = nameToSecret.get(m.vaultName)!
+      return { envVar: m.envVar, secretId: secret.id, placeholder: secret.placeholder }
+    })
+  }
+
+  async resolveSecrets(
+    sandboxId: string,
+    organizationId: string,
+  ): Promise<{ env: string; placeholder: string; value: string; hosts: string[] }[]> {
+    const sandboxSecrets = await this.sandboxSecretRepository.find({
+      where: { sandboxId },
+    })
+
+    if (sandboxSecrets.length === 0) {
+      return []
+    }
+
+    return this.secretService.resolveForSandbox(
+      sandboxSecrets.map((ss) => ({ secretId: ss.secretId, envVar: ss.envVar })),
+      organizationId,
+    )
+  }
+
   async getOrganizationId(sandboxIdOrName: string, organizationId?: string): Promise<string> {
     let sandbox = await this.sandboxRepository.findOne({
       where: {
@@ -2207,11 +2361,15 @@ export class SandboxService {
         ? {
             pending: true,
             desiredState: SandboxDesiredState.STARTED,
+            // Lazily backfill the secrets token for sandboxes that predate the
+            // column (or otherwise lack one); don't rotate an existing one.
+            ...(!sandbox.secretsToken && { secretsToken: nanoid(32).toLocaleLowerCase() }),
           }
         : {
             pending: true,
             desiredState: SandboxDesiredState.STARTED,
             authToken: nanoid(32).toLocaleLowerCase(),
+            ...(!sandbox.secretsToken && { secretsToken: nanoid(32).toLocaleLowerCase() }),
           }
 
       const updatedSandbox = await this.sandboxRepository.updateWhere(sandbox.id, {
@@ -2403,6 +2561,7 @@ export class SandboxService {
         errorReason: null,
         recoverable: false,
         authToken: nanoid(32).toLocaleLowerCase(),
+        ...(!sandbox.secretsToken && { secretsToken: nanoid(32).toLocaleLowerCase() }),
         ...(sandbox.runnerId && { prevRunnerId: sandbox.runnerId }),
       }
 
@@ -2463,7 +2622,10 @@ export class SandboxService {
         await this.sandboxRepository.updateWhere(sandbox.id, {
           updateData: {
             desiredState: skipStart ? SandboxDesiredState.STOPPED : SandboxDesiredState.STARTED,
-            ...(willStartOnV2 && { authToken: nanoid(32).toLocaleLowerCase() }),
+            ...(willStartOnV2 && {
+              authToken: nanoid(32).toLocaleLowerCase(),
+              ...(!sandbox.secretsToken && { secretsToken: nanoid(32).toLocaleLowerCase() }),
+            }),
           },
           whereCondition: { state: SandboxState.ERROR },
         })

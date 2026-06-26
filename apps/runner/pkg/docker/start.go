@@ -20,7 +20,7 @@ import (
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-func (d *DockerClient) Start(ctx context.Context, containerId string, authToken *string, metadata map[string]string) (*container.InspectResponse, string, error) {
+func (d *DockerClient) Start(ctx context.Context, containerId string, authToken *string, secretsToken *string, metadata map[string]string) (*container.InspectResponse, string, error) {
 	defer timer.Timer()()
 
 	// Cancel a backup if it's already in progress
@@ -51,6 +51,10 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, authToken 
 		if err != nil {
 			return nil, "", err
 		}
+
+		// Re-register secrets for an already-running sandbox (e.g. idempotent
+		// Start retry); no-op when it uses none.
+		d.registerSandboxSecrets(ctx, c.ID, containerId, secretsToken, containerIP, metadata["domainAllowList"], envSliceToMap(c.Config.Env))
 
 		return c, daemonVersion, nil
 	}
@@ -147,6 +151,10 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, authToken 
 	if domainAllowList := metadata["domainAllowList"]; domainAllowList != "" {
 		go d.applyDomainAllowList(context.Background(), c.ID, domainAllowList)
 	}
+
+	// Register this sandbox's secrets with the shared injection proxy after it
+	// (re)starts; no-op when it uses none.
+	d.registerSandboxSecrets(context.Background(), runningContainer.ID, containerId, secretsToken, containerIP, metadata["domainAllowList"], envSliceToMap(runningContainer.Config.Env))
 
 	return runningContainer, daemonVersion, nil
 }

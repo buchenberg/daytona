@@ -27,16 +27,21 @@ import { RegionProxyAuthContext } from '../common/interfaces/region-proxy-auth-c
 import { RegionSSHGatewayAuthContext } from '../common/interfaces/region-ssh-gateway-auth-context.interface'
 import { OtelCollectorAuthContext } from '../common/interfaces/otel-collector-auth-context.interface'
 import { HealthCheckAuthContext } from '../common/interfaces/health-check-auth-context.interface'
+import { SandboxAuthContext } from '../common/interfaces/sandbox-auth-context.interface'
+import { SandboxSecretsAuthContext } from '../common/interfaces/sandbox-secrets-auth-context.interface'
 import { handleAuthError } from './utils/handle-auth-error.util'
 import { BillingAuthContext } from '../common/interfaces/billing-auth-context.interface'
 import { RunnerCleanupToolAuthContext } from '../common/interfaces/runner-cleanup-tool-auth-context.interface'
 import { UserManagementAuthContext } from '../common/interfaces/user-management-auth-context.interface'
 import { StripeProjectsAuthContext } from '../common/interfaces/stripe-projects-auth-context.interface'
+import { SandboxService } from '../sandbox/services/sandbox.service'
 
 type ApiKeyAuthContext =
   | UserAuthContext
   | ProxyAuthContext
   | RunnerAuthContext
+  | SandboxAuthContext
+  | SandboxSecretsAuthContext
   | SshGatewayAuthContext
   | RegionProxyAuthContext
   | RegionSSHGatewayAuthContext
@@ -64,6 +69,7 @@ export class ApiKeyStrategy extends PassportStrategy(Strategy, AuthStrategyType.
     private readonly configService: TypedConfigService,
     private readonly runnerService: RunnerService,
     private readonly regionService: RegionService,
+    private readonly sandboxService: SandboxService,
   ) {
     super({ passReqToCallback: true })
   }
@@ -197,6 +203,40 @@ export class ApiKeyStrategy extends PassportStrategy(Strategy, AuthStrategyType.
       }
     } catch (error) {
       handleAuthError(error, 'Error validating runner API key')
+    }
+
+    /**
+     * Check for valid sandbox auth token
+     */
+    try {
+      const sandbox = await this.sandboxService.findByAuthToken(token)
+      if (sandbox) {
+        return {
+          role: 'sandbox',
+          sandboxId: sandbox.id,
+          organizationId: sandbox.organizationId,
+        } satisfies SandboxAuthContext
+      }
+    } catch (error) {
+      handleAuthError(error, 'Error validating sandbox auth token')
+    }
+
+    /**
+     * Check for valid sandbox secrets token. This is a distinct, runner-only
+     * credential that yields its own auth context — it is the only token allowed
+     * to resolve a sandbox's plaintext secrets, and it grants nothing else.
+     */
+    try {
+      const sandbox = await this.sandboxService.findBySecretsToken(token)
+      if (sandbox) {
+        return {
+          role: 'sandbox-secrets',
+          sandboxId: sandbox.id,
+          organizationId: sandbox.organizationId,
+        } satisfies SandboxSecretsAuthContext
+      }
+    } catch (error) {
+      handleAuthError(error, 'Error validating sandbox secrets token')
     }
 
     /**

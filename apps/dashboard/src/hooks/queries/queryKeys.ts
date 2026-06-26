@@ -15,6 +15,10 @@ export const queryKeys = {
     all: ['api-keys'] as const,
     list: (organizationId: string) => [...queryKeys.apiKeys.all, organizationId, 'list'] as const,
   },
+  secrets: {
+    all: ['secrets'] as const,
+    list: (organizationId: string) => [...queryKeys.secrets.all, organizationId, 'list'] as const,
+  },
   webhooks: {
     all: ['webhooks'] as const,
     appPortalAccess: (organizationId: string) =>

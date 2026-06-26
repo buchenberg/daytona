@@ -7,6 +7,7 @@ import { SandboxController } from './sandbox.controller'
 import { OrganizationAuthContextGuard } from '../../organization/guards/organization-auth-context.guard'
 import { SandboxAccessGuard } from '../guards/sandbox-access.guard'
 import { RunnerAuthContextGuard } from '../guards/runner-auth-context.guard'
+import { SandboxSecretsAuthContextGuard } from '../guards/sandbox-secrets-auth-context.guard'
 import { SshGatewayAuthContextGuard } from '../guards/ssh-gateway-auth-context.guard'
 import { ProxyAuthContextGuard } from '../guards/proxy-auth-context.guard'
 import { RunnerCleanupToolAuthContextGuard } from '../guards/runner-cleanup-tool-auth-context.guard'
@@ -530,5 +531,12 @@ describe('[AUTH] SandboxController', () => {
     expectArrayMatch(getResourceAccessGuards(SandboxController, methodName), [SandboxAccessGuard])
     expect(getRequiredOrganizationMemberRole(SandboxController, methodName)).toBeUndefined()
     expect(getRequiredOrganizationResourcePermissions(SandboxController, methodName)).toBeUndefined()
+  })
+
+  it('resolveSandboxSecrets', () => {
+    const methodName = trackMethod('resolveSandboxSecrets')
+    expect(isPublicEndpoint(SandboxController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(SandboxController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(SandboxController, methodName), [SandboxSecretsAuthContextGuard])
   })
 })

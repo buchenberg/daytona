@@ -726,6 +726,12 @@ const docTemplate = `{
                         "description": "Auth token",
                         "name": "token",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Secrets token",
+                        "name": "secretsToken",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1623,6 +1629,10 @@ const docTemplate = `{
                 },
                 "sandboxClass": {
                     "description": "Optional for backward compatibility, but when provided, indicates the class of sandbox to create.",
+                    "type": "string"
+                },
+                "secretsToken": {
+                    "description": "SecretsToken is a runner-only token used solely to resolve plaintext\nsecrets from the API (separate from AuthToken, which lives in the sandbox).",
                     "type": "string"
                 },
                 "skipStart": {

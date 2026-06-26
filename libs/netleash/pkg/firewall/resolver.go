@@ -186,9 +186,18 @@ func (fw *Firewall) allowProxyIP() error {
 	if fw.cfg.ProxyAddr == "" {
 		return nil
 	}
-	host, _, err := net.SplitHostPort(fw.cfg.ProxyAddr)
+	return fw.AllowIP(fw.cfg.ProxyAddr)
+}
+
+// AllowIP adds addr (an "ip" or "ip:port") to the egress allow_ips map of a live
+// or adopted firewall, so cgroup traffic can reach it. It is used to permit the
+// shared secret-injection proxy on firewalls that were attached/adopted before
+// secret injection was enabled — Setup only allows the proxy IP for firewalls
+// built with a ProxyAddr. Non-IPv4 or unparseable addresses are a no-op.
+func (fw *Firewall) AllowIP(addr string) error {
+	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
-		return nil
+		host = addr // tolerate a bare IP with no port
 	}
 	ip := net.ParseIP(host)
 	if ip == nil {
@@ -198,10 +207,13 @@ func (fw *Firewall) allowProxyIP() error {
 	if ip4 == nil {
 		return nil
 	}
+	if fw.maps.AllowedIps == nil {
+		return nil
+	}
 	key := binary.LittleEndian.Uint32(ip4)
 	if err := fw.maps.AllowedIps.Put(key, uint8(1)); err != nil {
-		return fmt.Errorf("allowing proxy IP: %w", err)
+		return fmt.Errorf("allowing IP %s: %w", host, err)
 	}
-	fw.log.Debug("allowed proxy IP", "ip", ip4)
+	fw.log.Debug("allowed IP", "ip", ip4)
 	return nil
 }

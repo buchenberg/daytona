@@ -10,6 +10,7 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryColumn,
   OneToOne,
   Unique,
@@ -26,6 +27,7 @@ import { BuildInfo } from './build-info.entity'
 import { nanoid } from 'nanoid'
 import { SandboxLastActivity } from './sandbox-last-activity.entity'
 import { isApiRecoverableError } from '../constants/errors-for-recovery'
+import { SandboxSecret } from './sandbox-secret.entity'
 
 @Entity()
 @Unique(['organizationId', 'name'])
@@ -51,6 +53,7 @@ import { isApiRecoverableError } from '../constants/errors-for-recovery'
   where: '"recoverable" = true',
 })
 @Index('idx_sandbox_authtoken', ['authToken'])
+@Index('idx_sandbox_secretstoken', ['secretsToken'], { where: '"secretsToken" IS NOT NULL' })
 @Index('sandbox_buildinfosnapshotref_idx', { synchronize: false })
 @Index('sandbox_labels_gin_full_idx', { synchronize: false })
 @Index('idx_sandbox_volumes_gin', { synchronize: false })
@@ -227,11 +230,22 @@ export class Sandbox {
   @Column({ type: 'character varying' })
   authToken = nanoid(32).toLowerCase()
 
+  // Separate, runner-only token used solely to resolve plaintext secrets from
+  // the API (see the sandbox-secrets auth context). New sandboxes get one at
+  // creation; it's passed to the runner and never exposed to users. Nullable so
+  // pre-existing sandboxes don't need a migration backfill — a null token is
+  // generated lazily the next time the sandbox is started.
+  @Column({ type: 'character varying', nullable: true })
+  secretsToken: string | null = nanoid(32).toLowerCase()
+
   @ManyToOne(() => BuildInfo, (buildInfo) => buildInfo.sandboxes, {
     nullable: true,
   })
   @JoinColumn()
   buildInfo?: BuildInfo
+
+  @OneToMany(() => SandboxSecret, (ss) => ss.sandbox)
+  sandboxSecrets?: SandboxSecret[]
 
   @Column({ nullable: true })
   daemonVersion?: string

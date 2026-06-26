@@ -98,6 +98,9 @@ import { OrganizationDto } from '../../organization/dto/organization.dto'
 import { RegionQuotaDto } from '../../organization/dto/region-quota.dto'
 import { ListSandboxesQueryDto } from '../dto/list-sandboxes-query.dto'
 import { ListSandboxesResponseDto } from '../dto/list-sandboxes-response.dto'
+import { SandboxSecretsAuthContextGuard } from '../guards/sandbox-secrets-auth-context.guard'
+import { SandboxSecretsAuthContext } from '../../common/interfaces/sandbox-secrets-auth-context.interface'
+import { IsSandboxSecretsAuthContext } from '../../common/decorators/auth-context.decorator'
 
 @Controller('sandbox')
 @ApiTags('sandbox')
@@ -1619,6 +1622,41 @@ export class SandboxController {
     })
 
     return waitForStarted
+  }
+
+  @Get(':sandboxId/secrets')
+  @ApiOperation({
+    summary: 'Resolve sandbox secrets',
+    operationId: 'resolveSandboxSecrets',
+  })
+  @ApiParam({ name: 'sandboxId', description: 'Sandbox ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Decrypted secret key-value pairs for this sandbox',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          env: { type: 'string', example: 'ANTHROPIC_API_KEY' },
+          placeholder: { type: 'string', example: 'dtn_secret_a7f3b2c1e9d4' },
+          value: { type: 'string', example: 'sk-ant-...' },
+          hosts: { type: 'array', items: { type: 'string' }, example: ['api.anthropic.com'] },
+        },
+      },
+    },
+  })
+  @AuthStrategy(AuthStrategyType.API_KEY)
+  @UseGuards(SandboxSecretsAuthContextGuard)
+  async resolveSandboxSecrets(
+    @IsSandboxSecretsAuthContext() sandboxContext: SandboxSecretsAuthContext,
+    @Param('sandboxId') sandboxId: string,
+  ): Promise<{ env: string; placeholder: string; value: string; hosts: string[] }[]> {
+    if (sandboxContext.sandboxId !== sandboxId) {
+      throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
+    }
+
+    return this.sandboxService.resolveSecrets(sandboxId, sandboxContext.organizationId)
   }
 
   private handleSandboxStateUpdated(event: SandboxStateUpdatedEvent) {

@@ -53,6 +53,10 @@ export interface CreateSandboxDTO {
      * Optional for backward compatibility, but when provided, indicates the class of sandbox to create.
      */
     'sandboxClass'?: string;
+    /**
+     * SecretsToken is a runner-only token used solely to resolve plaintext secrets from the API (separate from AuthToken, which lives in the sandbox).
+     */
+    'secretsToken'?: string;
     'skipStart'?: boolean;
     'snapshot': string;
     'storageQuota'?: number;

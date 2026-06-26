@@ -146,6 +146,10 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
   async findBySandboxAuthToken(authToken: string): Promise<Organization | null> {
     const sandbox = await this.sandboxRepository.findOne({
       where: { authToken },
+      // Cached because this is on the proxy/auth hot path. The entry is invalidated by
+      // SandboxLookupCacheInvalidationService whenever the auth token rotates or the
+      // destroyed/archived state below flips (see sandbox.repository.ts), so the guard
+      // cannot be bypassed by a stale cache hit.
       cache: {
         id: sandboxLookupCacheKeyByAuthToken({ authToken }),
         milliseconds: 10_000,
@@ -153,6 +157,10 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
     })
 
     if (!sandbox) {
+      return null
+    }
+
+    if (sandbox.state === SandboxState.DESTROYED || sandbox.state === SandboxState.ARCHIVED) {
       return null
     }
 

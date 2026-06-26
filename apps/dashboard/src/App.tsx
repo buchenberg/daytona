@@ -333,6 +333,16 @@ const router = createBrowserRouter([
         children: [
           { index: true, element: <DashboardIndexRedirect /> },
           { path: getRouteSubPath(RoutePath.KEYS), lazy: lazyRoutes.Keys },
+          {
+            path: getRouteSubPath(RoutePath.SECRETS),
+            element: (
+              <RequiredPermissionsOrganizationOutlet
+                pageTitle="Secrets"
+                requiredPermissions={['manage:secrets' as OrganizationRolePermissionsEnum]}
+              />
+            ),
+            children: [{ index: true, lazy: lazyRoutes.Secrets }],
+          },
           { path: getRouteSubPath(RoutePath.SANDBOXES), lazy: lazyRoutes.Sandboxes },
           { path: getRouteSubPath(RoutePath.SANDBOX_DETAILS), lazy: lazyRoutes.SandboxDetails },
           { path: getRouteSubPath(RoutePath.SNAPSHOTS), lazy: lazyRoutes.Snapshots },

@@ -30,4 +30,8 @@ export const ORGANIZATION_ROLE_PERMISSIONS_GROUPS: { name: string; permissions: 
         OrganizationRolePermissionsEnum.DELETE_VOLUMES,
       ],
     },
+    {
+      name: 'Secrets',
+      permissions: ['manage:secrets' as OrganizationRolePermissionsEnum],
+    },
   ]

@@ -72,6 +72,9 @@ func (d *DockerClient) UpdateNetworkSettings(ctx context.Context, containerId st
 	if updateNetworkSettingsDto.DomainAllowList != nil {
 		domainAllowList := *updateNetworkSettingsDto.DomainAllowList
 		go d.applyDomainAllowList(context.Background(), info.ID, domainAllowList)
+		// Keep the shared proxy's per-sandbox allow list in sync with the new
+		// domain allow list (no-op when the sandbox uses no secrets).
+		d.updateSandboxSecretDomains(ctx, info.ID, ipAddress, domainAllowList, envSliceToMap(info.Config.Env))
 	}
 
 	return nil

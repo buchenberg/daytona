@@ -20,6 +20,7 @@ import {
   RegionsApi,
   RunnersApi,
   SandboxApi,
+  SecretApi,
   SnapshotsApi,
   ToolboxApi,
   UsersApi,
@@ -43,6 +44,7 @@ export class ApiClient {
   private _auditApi: AuditApi
   private _regionsApi: RegionsApi
   private _runnersApi: RunnersApi
+  private _secretApi: SecretApi
   private _webhooksApi: WebhooksApi
   private _analyticsUsageApi: AnalyticsUsageApi | null
   private _analyticsTelemetryApi: AnalyticsTelemetryApi | null
@@ -93,6 +95,7 @@ export class ApiClient {
     this._auditApi = new AuditApi(this.config, undefined, axiosInstance)
     this._regionsApi = new RegionsApi(this.config, undefined, axiosInstance)
     this._runnersApi = new RunnersApi(this.config, undefined, axiosInstance)
+    this._secretApi = new SecretApi(this.config, undefined, axiosInstance)
     this._webhooksApi = new WebhooksApi(this.config, undefined, axiosInstance)
 
     if (config.analyticsApiUrl) {
@@ -163,6 +166,10 @@ export class ApiClient {
 
   public get runnersApi() {
     return this._runnersApi
+  }
+
+  public get secretApi() {
+    return this._secretApi
   }
 
   public get webhooksApi() {

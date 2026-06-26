@@ -233,6 +233,10 @@ services:
     extraEnv:
       - name: SKIP_KATA_CONVERSION
         value: 'true'
+      - name: NETLEASH_SECRETS_ENABLED
+        value: 'true'
+      - name: NETLEASH_ENABLED
+        value: 'true'
     resources:
       limits:
         memory: 2Gi

@@ -42,6 +42,7 @@ import {
   SearchIcon,
   Server,
   Settings,
+  ShieldCheck,
   TextSearch,
   Users,
 } from 'lucide-react'
@@ -155,6 +156,12 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
         label: 'API Keys',
         path: RoutePath.KEYS,
         preload: lazyRoutes.Keys,
+      },
+      {
+        icon: <ShieldCheck size={16} strokeWidth={1.5} />,
+        label: 'Secrets',
+        path: RoutePath.SECRETS,
+        preload: lazyRoutes.Secrets,
       },
     ]
 

@@ -95,6 +95,11 @@ definitions:
         description: Optional for backward compatibility, but when provided, indicates
           the class of sandbox to create.
         type: string
+      secretsToken:
+        description: |-
+          SecretsToken is a runner-only token used solely to resolve plaintext
+          secrets from the API (separate from AuthToken, which lives in the sandbox).
+        type: string
       skipStart:
         type: boolean
       snapshot:
@@ -935,6 +940,10 @@ paths:
         - description: Auth token
           in: query
           name: token
+          type: string
+        - description: Secrets token
+          in: query
+          name: secretsToken
           type: string
       produces:
         - application/json

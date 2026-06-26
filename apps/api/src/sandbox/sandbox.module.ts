@@ -63,6 +63,10 @@ import { SandboxActivityService } from './services/sandbox-activity.service'
 import { OpensearchModule } from 'nestjs-opensearch'
 import { TypedConfigService } from '../config/typed-config.service'
 import { SandboxSearchAdapterProvider } from './providers/sandbox-search.provider'
+import { SecretModule } from '../secret/secret.module'
+import { SandboxAuthContextGuard } from './guards/sandbox-auth-context.guard'
+import { SandboxSecretsAuthContextGuard } from './guards/sandbox-secrets-auth-context.guard'
+import { SandboxSecret } from './entities/sandbox-secret.entity'
 
 @Module({
   imports: [
@@ -70,6 +74,7 @@ import { SandboxSearchAdapterProvider } from './providers/sandbox-search.provide
     DockerRegistryModule,
     OrganizationModule,
     RegionModule,
+    SecretModule,
     TypeOrmModule.forFeature([
       Sandbox,
       Runner,
@@ -85,6 +90,7 @@ import { SandboxSearchAdapterProvider } from './providers/sandbox-search.provide
       Job,
       SandboxLastActivity,
       SandboxFork,
+      SandboxSecret,
     ]),
     OpensearchModule.forRootAsync({
       inject: [TypedConfigService],
@@ -127,6 +133,8 @@ import { SandboxSearchAdapterProvider } from './providers/sandbox-search.provide
     JobStateHandlerService,
     SandboxActivityService,
     ProxyAuthContextGuard,
+    SandboxAuthContextGuard,
+    SandboxSecretsAuthContextGuard,
     SshGatewayAuthContextGuard,
     RunnerCleanupToolAuthContextGuard,
     SandboxSearchAdapterProvider,
@@ -158,6 +166,8 @@ import { SandboxSearchAdapterProvider } from './providers/sandbox-search.provide
     RunnerAdapterFactory,
     SandboxActivityService,
     ProxyAuthContextGuard,
+    SandboxAuthContextGuard,
+    SandboxSecretsAuthContextGuard,
     SshGatewayAuthContextGuard,
   ],
 })

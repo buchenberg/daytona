@@ -46,6 +46,7 @@ export const lazyRoutes = {
   Runners: createRouteLazy(() => import('@/pages/Runners')),
   SandboxDetails: createRouteLazy(() => import('@/components/sandboxes/SandboxDetails')),
   Sandboxes: createRouteLazy(() => import('@/pages/Sandboxes')),
+  Secrets: createRouteLazy(() => import('@/pages/Secrets')),
   Snapshots: createRouteLazy(() => import('@/pages/Snapshots')),
   Spending: createRouteLazy(() => import('@/pages/Spending')),
   UserOrganizationInvitations: createRouteLazy(() => import('@/pages/UserOrganizationInvitations')),

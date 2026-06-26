@@ -1,0 +1,46 @@
+/*
+ * Copyright 2025 Daytona Platforms Inc.
+ * SPDX-License-Identifier: AGPL-3.0
+ */
+
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
+import { nanoid } from 'nanoid'
+
+@Entity()
+@Index(['organizationId', 'name'], { unique: true })
+export class Secret {
+  @PrimaryGeneratedColumn('uuid')
+  id: string
+
+  @Column()
+  name: string
+
+  @Column({ type: 'text' })
+  encryptedValue: string
+
+  @Column({ nullable: true })
+  description?: string
+
+  @Column({ type: 'character varying' })
+  placeholder: string = 'dtn_secret_' + nanoid(16).toLowerCase()
+
+  @Column({ type: 'uuid' })
+  organizationId: string
+
+  @CreateDateColumn({
+    type: 'timestamp with time zone',
+  })
+  createdAt: Date
+
+  @Column({
+    type: 'text',
+    array: true,
+    default: '{}',
+  })
+  hosts: string[] = []
+
+  @UpdateDateColumn({
+    type: 'timestamp with time zone',
+  })
+  updatedAt: Date
+}

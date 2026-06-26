@@ -49,6 +49,14 @@ type DockerClientConfig struct {
 	InterSandboxNetworkEnabled   bool
 	GpuEnabled                   bool
 	MountKvmToAndroidSandbox     bool
+
+	// Secret injection (netleash shared MITM proxy). When SecretProxyEnabled is
+	// set (and a NetleashManager is present), the runner runs a single proxy that
+	// swaps secret placeholders for real values in sandboxes' outbound requests.
+	SecretProxyEnabled bool
+	SecretProxyPort    int    // fixed port the shared proxy binds on the bridge gateway
+	SecretCADir        string // dir for the proxy's persisted CA (survives restarts)
+	DaytonaApiUrl      string // API base URL the per-sandbox resolver calls
 }
 
 func NewDockerClient(ctx context.Context, config DockerClientConfig) (*DockerClient, error) {
@@ -172,6 +180,10 @@ func NewDockerClient(ctx context.Context, config DockerClientConfig) (*DockerCli
 		gpuAllocator:                 newGpuAllocator(gpuCount),
 		filesystem:                   filesystem,
 		mountKvmToAndroidSandbox:     config.MountKvmToAndroidSandbox,
+		secretProxyEnabled:           config.SecretProxyEnabled && config.NetleashManager != nil,
+		secretProxyPort:              config.SecretProxyPort,
+		secretCADir:                  config.SecretCADir,
+		daytonaApiUrl:                config.DaytonaApiUrl,
 	}, nil
 }
 
@@ -232,4 +244,13 @@ type DockerClient struct {
 	gpuType                      string
 	gpuAllocator                 *gpuAllocator
 	mountKvmToAndroidSandbox     bool
+
+	// Secret injection config (see DockerClientConfig).
+	secretProxyEnabled bool
+	secretProxyPort    int
+	secretCADir        string
+	daytonaApiUrl      string
+	// Set by EnableSecretInjection once the shared proxy is running.
+	secretProxyAddr   string // "<gatewayIP>:<port>"; empty when secret injection is off
+	secretProxyCACert string // host path to the CA bundle mounted into secret-using sandboxes
 }

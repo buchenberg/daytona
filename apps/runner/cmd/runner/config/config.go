@@ -86,6 +86,20 @@ type Config struct {
 	// host's own /sys/fs/bpf. Set empty to disable pinning (e.g. in environments
 	// where bpffs is not persistent across restarts).
 	NetleashPinPath string `envconfig:"NETLEASH_PIN_PATH" default:"/sys/fs/bpf/netleash"`
+	// NetleashSecretsEnabled turns on secret injection: a single shared netleash
+	// MITM proxy that swaps secret placeholders in sandboxes' outbound HTTP(S)
+	// requests for the real values, resolved from the API as each sandbox.
+	// Requires NETLEASH_ENABLED (the proxy is hosted by the netleash service) and
+	// is disabled by default so the TLS-intercepting proxy is opt-in per runner.
+	NetleashSecretsEnabled bool `envconfig:"NETLEASH_SECRETS_ENABLED" default:"false"`
+	// NetleashSecretProxyPort is the fixed port the shared secret proxy binds on
+	// the sandbox bridge gateway. Fixed (not ephemeral) so the HTTP(S)_PROXY value
+	// baked into a sandbox at creation stays valid across runner restarts.
+	NetleashSecretProxyPort int `envconfig:"NETLEASH_SECRET_PROXY_PORT" default:"18080"`
+	// NetleashSecretCADir is where the shared proxy persists its CA (so the CA
+	// mounted into running sandboxes stays valid across a restart) and the
+	// per-sandbox binding records used to re-register bindings after a restart.
+	NetleashSecretCADir string `envconfig:"NETLEASH_SECRET_CA_DIR" default:"/var/lib/netleash"`
 }
 
 var DEFAULT_API_PORT int = 8080

@@ -229,4 +229,17 @@ export class CreateSandboxDto {
   @IsOptional()
   @IsString()
   linkedSandbox?: string
+
+  @ApiPropertyOptional({
+    description: 'Secrets to mount in this sandbox. Each entry maps an env var name to a vault secret name.',
+    type: 'array',
+    items: {
+      type: 'object',
+      additionalProperties: { type: 'string' },
+    },
+    example: [{ ANTHROPIC_API_KEY: 'anthropic-prod' }, { DB_PASSWORD: 'DB_PASSWORD' }],
+  })
+  @IsOptional()
+  @IsArray()
+  secrets?: Record<string, string>[]
 }

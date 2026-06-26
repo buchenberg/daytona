@@ -38,4 +38,7 @@ export enum OrganizationResourcePermission {
 
   // api keys
   MANAGE_API_KEYS = 'manage:api_keys',
+
+  // secrets
+  MANAGE_SECRETS = 'manage:secrets',
 }

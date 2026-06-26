@@ -187,6 +187,7 @@ export class RunnerAdapterV2 implements RunnerAdapter {
       domainAllowList: sandbox.domainAllowList,
       metadata: metadata,
       authToken: sandbox.authToken,
+      secretsToken: sandbox.secretsToken ?? undefined,
       otelEndpoint: otelEndpoint,
       skipStart: skipStart,
       organizationId: sandbox.organizationId,
@@ -213,10 +214,12 @@ export class RunnerAdapterV2 implements RunnerAdapter {
   async startSandbox(
     sandboxId: string,
     authToken: string,
+    secretsToken: string | null,
     metadata?: { [key: string]: string },
   ): Promise<StartSandboxResponse | undefined> {
     await this.jobService.createJob(null, JobType.START_SANDBOX, this.runner.id, ResourceType.SANDBOX, sandboxId, {
       authToken,
+      secretsToken,
       metadata,
     })
 
