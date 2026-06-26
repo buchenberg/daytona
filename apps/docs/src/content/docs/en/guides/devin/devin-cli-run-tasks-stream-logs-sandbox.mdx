@@ -213,6 +213,13 @@ Every phase that talks to Devin uses the same primitive: open a fresh PTY in the
 
 ```ts
 private async attach(command: string, interactive: boolean): Promise<number | undefined> {
+  // Every phase opens a fresh PTY, so reset the per-invocation stream state first: a clean
+  // decoder, and passthrough/launchBuffer back to their pre-marker state so this turn's
+  // launch-line filtering never inherits leftover state from the previous turn.
+  this.decoder = new TextDecoder('utf-8')
+  this.passthrough = false
+  this.launchBuffer = ''
+
   const pty = await this.sandbox.process.createPty({
     id: `devin-pty-${Date.now()}`,
     cols: process.stdout.columns || 120,
@@ -325,16 +332,17 @@ Each prompt is a one-shot, non-interactive Devin invocation. `-p` runs Devin in 
 ```ts
 async processPrompt(prompt: string): Promise<void> {
   const cont = this.resumable ? ' --continue' : ''
-  await this.attach(
+  const exitCode = await this.attach(
     `${DEVIN} -p ${this.shellQuote(prompt)} --permission-mode dangerous${cont}`,
     false,
   )
-  this.resumable = true
+  // Only become resumable after a turn succeeds; a failed first turn creates no session.
+  if (exitCode === 0) this.resumable = true
   process.stdout.write('\n')
 }
 ```
 
-There is no stdin bridge and no raw mode here; the controller forwards Devin's output to your terminal. The turn ends when Devin exits, which resolves `pty.wait()` and lets the readline loop prompt you again. Continuity works because Devin persists each session in the sandbox keyed by the directory it ran in, and every turn runs in the same `WORK_DIR`, so the most recent session from this directory is always the previous turn.
+There is no stdin bridge and no raw mode here; the controller forwards Devin's output to your terminal. The turn ends when Devin exits, which resolves `pty.wait()` and lets the readline loop prompt you again. Note that `resumable` only flips to `true` after a turn exits cleanly (exit code `0`): a failed turn may never create the session on disk, so guarding on the exit code keeps the next turn from passing `--continue` against a session that does not exist. Continuity works because Devin persists each session in the sandbox keyed by the directory it ran in, and every turn runs in the same `WORK_DIR`, so the most recent session from this directory is always the previous turn.
 
 :::note[When does output appear?]
 Devin's `-p` (print) mode runs the whole task and prints its result at the end rather than emitting a token-by-token stream, so the terminal stays quiet while Devin works and then shows the output at once. Devin exposes no public structured-output format to parse for live progress, so the controller forwards exactly what Devin prints, when it prints it. Expect a longer task to sit silently for a bit before its result lands.

@@ -587,6 +587,18 @@ export const getSidebarConfig = (
         },
         {
           type: 'link',
+          href: localizePath(
+            '/docs/guides/kiro/kiro-cli-run-tasks-stream-logs-sandbox',
+            locale
+          ),
+          label: t('sidebarconfig.kiro'),
+          disablePagination: true,
+          attrs: {
+            icon: 'kiro.svg',
+          },
+        },
+        {
+          type: 'link',
           href: localizePath('/docs/guides/openclaw', locale),
           label: t('sidebarconfig.openclaw'),
           disablePagination: true,
