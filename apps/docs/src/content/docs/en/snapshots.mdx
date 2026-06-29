@@ -6,25 +6,28 @@ description: Pre-configured sandbox templates you can use to create sandboxes.
 import { TabItem, Tabs } from '@astrojs/starlight/components'
 import Label from '@components/Label.astro'
 
-Snapshots are reusable sandbox templates built from [Docker](https://www.docker.com/) or [OCI](https://opencontainers.org/) compatible images. Sandboxes can use snapshots to provide a consistent and reproducible environment for your dependencies, settings, and resources.
+Snapshots are reusable sandbox templates that provide a consistent and reproducible environment for your dependencies, settings, and resources.
 
 A snapshot defines the base operating system, language runtimes, system packages, and project-level setup that should exist when a sandbox starts. Instead of repeating bootstrap steps on every sandbox creation, you capture that setup once as a snapshot and reuse it.
 
-You start with default snapshots for common stacks, or create custom snapshots for your own toolchain and constraints. Custom snapshots are useful when your workflow depends on specific package versions, private dependencies, startup scripts, or filesystem layout.
+You start with default snapshots for common stacks, or create custom snapshots for your own toolchain and constraints. Custom snapshots are useful when your workflow depends on specific package versions, private dependencies, startup scripts, or filesystem layout. A snapshot created for one sandbox class cannot create a sandbox of the other class.
 
-- **Snapshot SDKs**: [TypeScript](/docs/en/typescript-sdk/snapshot), [Python](/docs/en/python-sdk/sync/snapshot), [Ruby](/docs/en/ruby-sdk/snapshot), [Go](/docs/en/go-sdk/daytona#type-snapshotservice), [Java](/docs/en/java-sdk/snapshot)
-- **Snapshot API**: [RESTful API](/docs/en/tools/api/#daytona/tag/snapshots) ([OpenAPI spec](/docs/openapi.json)), [Toolbox API](/docs/en/tools/api#daytona-toolbox) ([OpenAPI spec](/docs/toolbox-openapi.json))
-- **Snapshot CLI**: [Mac/Linux/Windows](/docs/en/tools/cli)
+| **Snapshot type**                                                                                                                                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <u>[**Linux Container**](#create-snapshots)</u><br />Used to create <u>[**container sandboxes**](/docs/en/sandboxes#create-sandboxes)</u>.                                                                                         |
+| <u>[**Linux VM**](#linux-vm-snapshots)</u><br />Used to create <u>[**Linux VM sandboxes**](/docs/en/sandboxes#linux-vm-sandboxes)</u>.                                                                                             |
+| <u>[**Windows**](#windows-snapshots)</u><br />Used to create <u>[**Windows sandboxes**](/docs/en/sandboxes#windows-sandboxes)</u>.                                                                                                 |
+| <u>[**From sandbox**](/docs/en/sandboxes#create-snapshot-from-sandbox)</u><br />A snapshot <u>[**captured from an existing sandbox**](/docs/en/sandboxes#create-snapshot-from-sandbox)</u>, inheriting the source sandbox's class. |
 
 ## Create Snapshots
 
-Daytona provides methods to create snapshots. You can create a snapshot from:
+Daytona provides methods to create snapshots.
 
 - [GPU snapshots](#gpu-snapshots) (for [GPU sandboxes](/docs/en/sandboxes#gpu-sandboxes))
+- [VM snapshots](#vm-snapshots) (for [VM sandboxes](/docs/en/sandboxes#vm-sandboxes))
 - [public images](#public-images)
 - [local images](#local-images)
 - [images from private registries](#images-from-private-registries)
-- [declarative builder](#declarative-builder)
 
 1. Navigate to [Daytona Snapshots ↗](https://app.daytona.io/dashboard/snapshots)
 2. Click **Create Snapshot**
@@ -292,6 +295,159 @@ curl https://app.daytona.io/api/snapshots \
 </TabItem>
 </Tabs>
 
+### VM Snapshots
+
+Daytona provides methods to create VM snapshots.
+
+VM snapshots are used to create [VM sandboxes](/docs/en/sandboxes#vm-sandboxes). A VM snapshot is bound to a sandbox class. The class is set when the snapshot is created and determines which sandbox type the snapshot can produce. Daytona resolves the class from the snapshot at sandbox creation time, so you do not pass a class when creating the sandbox. VM snapshots are distinct from container snapshots and cannot be used to create container sandboxes.
+
+- [Linux VM](#linux-vm-snapshots): **`linux-vm`**
+- [Windows](#windows-snapshots): **`windows`**
+
+A VM snapshot can also be [captured from an existing sandbox](/docs/en/sandboxes#create-snapshot-from-sandbox) as either a **cold snapshot** (filesystem only) or a **hot snapshot** (filesystem and memory).
+
+#### Linux VM Snapshots
+
+Daytona provides methods to create Linux VM snapshots.
+
+1. Create a snapshot from a base image
+2. Set the snapshot's sandbox class to **`linux-vm`**
+3. Target the **`us-west-2`** region
+4. Create a snapshot from the base image
+
+<Tabs syncKey="language">
+<TabItem label="Python" icon="seti:python">
+
+```python
+from daytona import Daytona, DaytonaConfig, CreateSnapshotParams, SandboxClass
+
+daytona = Daytona(DaytonaConfig(target="us-west-2"))
+snapshot = daytona.snapshot.create(
+    CreateSnapshotParams(
+        name="my-vm-snapshot",
+        image="ubuntu:22.04",
+        sandbox_class=SandboxClass.LINUX_VM,
+    )
+)
+```
+
+</TabItem>
+<TabItem label="TypeScript" icon="seti:typescript">
+
+```typescript
+import { Daytona, SandboxClass } from "@daytona/sdk";
+
+const daytona = new Daytona({ target: "us-west-2" });
+const snapshot = await daytona.snapshot.create({
+  name: "my-vm-snapshot",
+  image: "ubuntu:22.04",
+  sandboxClass: SandboxClass.LINUX_VM,
+});
+```
+
+</TabItem>
+<TabItem label="Ruby" icon="seti:ruby">
+
+```ruby
+require 'daytona'
+
+config = Daytona::Config.new(target: 'us-west-2')
+daytona = Daytona::Daytona.new(config)
+snapshot = daytona.snapshot.create(
+  Daytona::CreateSnapshotParams.new(
+    name: 'my-vm-snapshot',
+    image: 'ubuntu:22.04',
+    sandbox_class: DaytonaApiClient::SandboxClass::LINUX_VM
+  )
+)
+```
+
+</TabItem>
+<TabItem label="Go" icon="seti:go">
+
+```go
+package main
+
+import (
+	"context"
+
+	"github.com/daytonaio/daytona/libs/sdk-go/pkg/daytona"
+	"github.com/daytonaio/daytona/libs/sdk-go/pkg/types"
+)
+
+func main() {
+	client, _ := daytona.NewClientWithConfig(&types.DaytonaConfig{
+		Target: "us-west-2",
+	})
+	ctx := context.Background()
+
+	sandboxClass := types.SandboxClassLinuxVM
+	snapshot, logCh, _ := client.Snapshot.Create(ctx, &types.CreateSnapshotParams{
+		Name:         "my-vm-snapshot",
+		Image:        "ubuntu:22.04",
+		SandboxClass: &sandboxClass,
+	})
+	for range logCh {
+	}
+	_ = snapshot
+}
+```
+
+</TabItem>
+<TabItem label="Java" icon="seti:java">
+
+```java
+import io.daytona.sdk.Daytona;
+import io.daytona.sdk.DaytonaConfig;
+import io.daytona.api.client.model.SandboxClass;
+import io.daytona.sdk.model.Snapshot;
+
+final class CreateVmSnapshot {
+    public static void main(String[] args) {
+        DaytonaConfig config = new DaytonaConfig.Builder()
+                .apiKey(System.getenv("DAYTONA_API_KEY"))
+                .target("us-west-2")
+                .build();
+
+        try (Daytona daytona = new Daytona(config)) {
+            Snapshot snapshot = daytona.snapshot().create("my-vm-snapshot", "ubuntu:22.04", SandboxClass.LINUX_VM);
+        }
+    }
+}
+```
+
+</TabItem>
+<TabItem label="CLI" icon="seti:shell">
+
+```bash
+daytona snapshot create my-vm-snapshot --image ubuntu:22.04 --sandbox-class linux-vm --region us-west-2
+```
+
+</TabItem>
+<TabItem label="API" icon="seti:json">
+
+```bash
+curl https://app.daytona.io/api/snapshots \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_SECRET_TOKEN' \
+  --data '{
+    "name": "my-vm-snapshot",
+    "imageName": "ubuntu:22.04",
+    "sandboxClass": "linux-vm",
+    "regionId": "us-west-2"
+  }'
+```
+
+</TabItem>
+</Tabs>
+
+#### Windows Snapshots
+
+Daytona provides methods to create Windows VM snapshots.
+
+Windows VM snapshots are used to create [Windows VM sandboxes](/docs/en/sandboxes#windows-sandboxes). They cannot be created from a base image. They are produced only through the [snapshot-from-sandbox](/docs/en/sandboxes#create-snapshot-from-sandbox) flow: start from an existing [Windows sandbox](/docs/en/sandboxes#windows-sandboxes) and capture its current state as a snapshot.
+
 <a id="using-public-images"></a>
 ### Public images
 
@@ -438,7 +594,7 @@ daytona snapshot create my-awesome-snapshot --dockerfile ./Dockerfile
 <a id="using-images-from-private-registries"></a>
 ### Images from private registries
 
-Daytona supports creating snapshots from images from [Docker Hub](#docker-hub), [Google Artifact Registry](#google-artifact-registry), [GitHub Container Registry](#github-container-registry-ghcr), [Amazon ECR](#amazon-elastic-container-registry-ecr) or other private container registries.
+Daytona supports creating snapshots from images from [Docker Hub](#docker-hub), [Google Artifact Registry](#google-artifact-registry), [GitHub Container Registry](#github-container-registry), [Amazon ECR](#amazon-elastic-container-registry) or other private container registries.
 
 1. Navigate to [Daytona Registries ↗](https://app.daytona.io/dashboard/registries)
 2. Click **Add Registry** and select your provider
@@ -565,11 +721,6 @@ Daytona sends a `daytona-<orgId>-pull` session name on every AssumeRole call. Yo
   "sts:RoleSessionName": "daytona-<YOUR_EXTERNAL_ID>-*"
 }
 ```
-
-<a id="using-the-declarative-builder"></a>
-### Declarative builder
-
-[Declarative Builder](/docs/en/declarative-builder) provides a powerful, code-first approach to defining dependencies for Daytona Sandboxes. Instead of importing images from a container registry, you can programmatically define them using the Daytona [SDKs](/docs/en/getting-started#sdks).
 
 ### Resources
 

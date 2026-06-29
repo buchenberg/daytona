@@ -15,9 +15,12 @@ Sandboxes can use [snapshots](/docs/en/snapshots) to capture a fully configured 
 
 Each sandbox has its own network stack with per-sandbox firewall rules. By default, sandboxes follow standard network policies, but you can restrict egress to a specific set of allowed destinations or block all outbound traffic entirely.
 
-- **Sandbox SDKs**: [TypeScript](/docs/en/typescript-sdk/sandbox), [Python](/docs/en/python-sdk/sync/sandbox), [Ruby](/docs/en/ruby-sdk/sandbox), [Go](/docs/en/go-sdk/daytona#type-sandbox), [Java](/docs/en/java-sdk/sandbox)
-- **Sandbox API**: [RESTful API](/docs/en/tools/api/#daytona/tag/sandbox) ([OpenAPI spec](/docs/openapi.json)), [Toolbox API](/docs/en/tools/api#daytona-toolbox) ([OpenAPI spec](/docs/toolbox-openapi.json))
-- **Sandbox CLI**: [Mac/Linux/Windows](/docs/en/tools/cli)
+| **Sandbox types**                                                                                                                   |
+| ----------------------------------------------------------------------------------------------------------------------------------- |
+| <u>[**Linux Container**](#create-sandboxes)</u><br />Default Linux container runtime.                                               |
+| <u>[**Linux VM**](#linux-vm-sandboxes)</u><br />Linux guest in a virtual machine for running Linux-specific tools and workflows.    |
+| <u>[**Windows**](#windows-sandboxes)</u><br />Windows OS runtime in a virtual machine for running Windows applications and tooling. |
+| <u>[**GPU**](#gpu-sandboxes)</u><br />NVIDIA GPU for model inference, fine-tuning, and CUDA-accelerated compute.                    |
 
 ## Create Sandboxes
 
@@ -410,7 +413,204 @@ curl 'https://app.daytona.io/api/sandbox' \
 </TabItem>
 </Tabs>
 
-### Windows Sandboxes
+### VM Sandboxes
+
+Daytona provides methods to create VM sandboxes.
+
+VM sandboxes run in a virtual machine and use the Linux and Windows sandbox classes. VM sandboxes support VM-only capabilities such as [pause/resume](#pause-sandboxes) and [hot/cold snapshots](#create-snapshot-from-sandbox).
+
+- [Linux VM](#linux-vm-sandboxes): **`linux-vm`**
+- [Windows](#windows-sandboxes): **`windows`**
+
+:::note[Current limitation]
+VM sandboxes can currently only be created from existing [snapshots](/docs/en/snapshots). Dynamic builds through the [declarative builder](/docs/en/declarative-builder) are supported for container sandboxes only.
+:::
+
+#### Linux VM Sandboxes
+
+Daytona provides methods to create Linux VM sandboxes.
+
+Linux VM sandboxes run a Linux guest in a virtual machine and provide consistent environments for running Linux-specific tools and workflows.
+
+1. Create a [Linux VM snapshot](/docs/en/snapshots#linux-vm-snapshots)
+2. Create a VM sandbox from the Linux VM snapshot
+
+<Tabs syncKey="language">
+<TabItem label="Python" icon="seti:python">
+
+```python
+from daytona import (
+    Daytona,
+    DaytonaConfig,
+    CreateSnapshotParams,
+    CreateSandboxFromSnapshotParams,
+    SandboxClass,
+)
+
+daytona = Daytona(DaytonaConfig(target="us-west-2"))
+
+# 1. Create a VM snapshot (linux-vm class)
+daytona.snapshot.create(
+    CreateSnapshotParams(
+        name="my-vm-snapshot",
+        image="ubuntu:22.04",
+        sandbox_class=SandboxClass.LINUX_VM,
+    )
+)
+
+# 2. Create a VM sandbox from the snapshot
+sandbox = daytona.create(CreateSandboxFromSnapshotParams(snapshot="my-vm-snapshot"))
+```
+
+</TabItem>
+<TabItem label="TypeScript" icon="seti:typescript">
+
+```typescript
+import { Daytona, SandboxClass } from "@daytona/sdk";
+
+const daytona = new Daytona({ target: "us-west-2" });
+
+// 1. Create a VM snapshot (linux-vm class)
+await daytona.snapshot.create({
+  name: "my-vm-snapshot",
+  image: "ubuntu:22.04",
+  sandboxClass: SandboxClass.LINUX_VM,
+});
+
+// 2. Create a VM sandbox from the snapshot
+const sandbox = await daytona.create({ snapshot: "my-vm-snapshot" });
+```
+
+</TabItem>
+<TabItem label="Ruby" icon="seti:ruby">
+
+```ruby
+require 'daytona'
+
+config = Daytona::Config.new(target: 'us-west-2')
+daytona = Daytona::Daytona.new(config)
+
+# 1. Create a VM snapshot (linux-vm class)
+daytona.snapshot.create(
+  Daytona::CreateSnapshotParams.new(
+    name: 'my-vm-snapshot',
+    image: 'ubuntu:22.04',
+    sandbox_class: DaytonaApiClient::SandboxClass::LINUX_VM
+  )
+)
+
+# 2. Create a VM sandbox from the snapshot
+sandbox = daytona.create(Daytona::CreateSandboxFromSnapshotParams.new(snapshot: 'my-vm-snapshot'))
+```
+
+</TabItem>
+<TabItem label="Go" icon="seti:go">
+
+```go
+package main
+
+import (
+	"context"
+
+	"github.com/daytonaio/daytona/libs/sdk-go/pkg/daytona"
+	"github.com/daytonaio/daytona/libs/sdk-go/pkg/types"
+)
+
+func main() {
+	client, _ := daytona.NewClientWithConfig(&types.DaytonaConfig{
+		Target: "us-west-2",
+	})
+	ctx := context.Background()
+
+	// 1. Create a VM snapshot (linux-vm class)
+	sandboxClass := types.SandboxClassLinuxVM
+	_, logCh, _ := client.Snapshot.Create(ctx, &types.CreateSnapshotParams{
+		Name:         "my-vm-snapshot",
+		Image:        "ubuntu:22.04",
+		SandboxClass: &sandboxClass,
+	})
+	for range logCh {
+	}
+
+	// 2. Create a VM sandbox from the snapshot
+	_, _ = client.Create(ctx, types.SnapshotParams{
+		Snapshot: "my-vm-snapshot",
+	})
+}
+```
+
+</TabItem>
+<TabItem label="Java" icon="seti:java">
+
+```java
+import io.daytona.sdk.Daytona;
+import io.daytona.sdk.DaytonaConfig;
+import io.daytona.sdk.Sandbox;
+import io.daytona.api.client.model.SandboxClass;
+import io.daytona.sdk.model.CreateSandboxFromSnapshotParams;
+
+public class App {
+    public static void main(String[] args) {
+        DaytonaConfig config = new DaytonaConfig.Builder()
+                .apiKey(System.getenv("DAYTONA_API_KEY"))
+                .target("us-west-2")
+                .build();
+
+        try (Daytona daytona = new Daytona(config)) {
+            // 1. Create a VM snapshot (linux-vm class)
+            daytona.snapshot().create("my-vm-snapshot", "ubuntu:22.04", SandboxClass.LINUX_VM);
+
+            // 2. Create a VM sandbox from the snapshot
+            CreateSandboxFromSnapshotParams params = new CreateSandboxFromSnapshotParams();
+            params.setSnapshot("my-vm-snapshot");
+            Sandbox sandbox = daytona.create(params);
+        }
+    }
+}
+```
+
+</TabItem>
+<TabItem label="CLI" icon="seti:shell">
+
+```bash
+# 1. Create a VM snapshot (linux-vm class)
+daytona snapshot create my-vm-snapshot --image ubuntu:22.04 --sandbox-class linux-vm --region us-west-2
+
+# 2. Create a VM sandbox from the snapshot
+daytona create --snapshot my-vm-snapshot --target us-west-2
+```
+
+</TabItem>
+<TabItem label="API" icon="seti:json">
+
+```bash
+# 1. Create a VM snapshot (linux-vm class)
+curl https://app.daytona.io/api/snapshots \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+  --data '{
+    "name": "my-vm-snapshot",
+    "imageName": "ubuntu:22.04",
+    "sandboxClass": "linux-vm",
+    "regionId": "us-west-2"
+  }'
+
+# 2. Create a VM sandbox from the snapshot
+curl 'https://app.daytona.io/api/sandbox' \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+  --data '{
+    "snapshot": "my-vm-snapshot",
+    "target": "us-west-2"
+  }'
+```
+
+</TabItem>
+</Tabs>
+
+#### Windows Sandboxes
 
 Daytona provides methods to create Windows sandboxes.
 
@@ -541,8 +741,6 @@ curl 'https://app.daytona.io/api/sandbox' \
 
 </TabItem>
 </Tabs>
-
-
 
 ### Linked Sandboxes
 
@@ -1354,9 +1552,66 @@ Common use cases for force stop include:
 
 Daytona provides methods to pause sandboxes.
 
-Pausing a sandbox keeps both filesystem state and memory persistence, so sandboxes can resume from in-memory runtime state. Compared to regular stop behavior, pause is useful for workloads with active in-memory context and state continuity.
+Pausing a sandbox preserves filesystem state and memory, and does not consume CPU. To resume a paused sandbox, [start](#start-sandboxes) it again; processes continue from where they were paused.
 
-Daytona supports pause functionality through VM-based runners. Pause is handled through the existing stop action. This means stop behaves as pause and preserves memory state, while force stop performs a full shutdown without preserving memory state.
+Pause is available for VM-based sandbox classes: `linux-vm` and `windows`.
+
+- Use **pause** for workloads that hold active in-memory context across an idle period
+- Use **stop** instead when memory state is not needed
+
+<Tabs syncKey="language">
+<TabItem label="Python" icon="seti:python">
+
+```python
+sandbox.pause()
+```
+
+</TabItem>
+<TabItem label="TypeScript" icon="seti:typescript">
+
+```typescript
+await sandbox.pause()
+```
+
+</TabItem>
+<TabItem label="Ruby" icon="seti:ruby">
+
+```ruby
+sandbox.pause
+```
+
+</TabItem>
+<TabItem label="Go" icon="seti:go">
+
+```go
+sandbox.Pause(ctx)
+```
+
+</TabItem>
+<TabItem label="Java" icon="seti:java">
+
+```java
+sandbox.pause();
+```
+
+</TabItem>
+<TabItem label="CLI" icon="seti:shell">
+
+```bash
+daytona pause [SANDBOX_ID] | [SANDBOX_NAME]
+```
+
+</TabItem>
+<TabItem label="API" icon="seti:json">
+
+```bash
+curl 'https://app.daytona.io/api/sandbox/{sandboxIdOrName}/pause' \
+  --request POST \
+  --header 'Authorization: Bearer YOUR_API_KEY'
+```
+
+</TabItem>
+</Tabs>
 
 ## Archive Sandboxes
 
@@ -1742,47 +1997,69 @@ curl 'https://app.daytona.io/api/sandbox/{sandboxIdOrName}/labels' \
 
 ## Create Snapshot from Sandbox
 
-Daytona provides methods to create [snapshots](/docs/en/snapshots) from sandboxes.
+Daytona provides methods to create a snapshot from an existing sandbox.
 
-A snapshot captures an immutable, point-in-time copy of a sandbox's filesystem and memory that you can use as a base to create new sandboxes, effectively templating a known-good environment for reuse. You can think of it as a checkpoint you can restore from whenever you need a clean, identical starting point.
+A snapshot captures a point-in-time copy of a sandbox that you can use as a base to create new sandboxes, templating a known-good environment for reuse.
 
-[Windows sandboxes](#windows-sandboxes) use the `includeMemory` parameter to control whether the snapshot also captures the sandbox's memory.
+The snapshot inherits the source sandbox's class: a container sandbox produces a [container snapshot](/docs/en/snapshots#create-snapshots) and a VM sandbox produces a [VM snapshot](/docs/en/snapshots#vm-snapshots). The resulting snapshot can only create sandboxes of that same class.
 
-| **Include memory** | **Snapshot contents**     | **Required sandbox state** |
-| ------------------- | ------------------------- | -------------------------- |
-| **`false`** (default)   | Filesystem only           | Stopped                    |
-| **`true`**              | Filesystem and memory     | Started                    |
+Daytona provides the `includeMemory` parameter to select between a cold and a hot snapshot:
+
+- **Cold snapshot** (`includeMemory: false`, default): captures filesystem state only. Available for container and VM sandboxes.
+- **Hot snapshot** (`includeMemory: true`): captures filesystem state and memory state. VM sandboxes only. Running applications are preserved and instantly available on any new sandbox created from the snapshot.
+
+VM sandboxes require a specific state for each snapshot type:
+
+| **Include memory**    | **Snapshot type** | **Snapshot contents** | **Required sandbox state** |
+| --------------------- | ----------------- | --------------------- | -------------------------- |
+| **`false`** (default) | Cold              | Filesystem only       | Stopped                    |
+| **`true`**            | Hot               | Filesystem and memory | Started                    |
 
 <Tabs syncKey="language">
 <TabItem label="Python" icon="seti:python">
 
 ```python
-# Create snapshot from sandbox
+# Cold snapshot (filesystem only, sandbox stopped)
 sandbox._experimental_create_snapshot("my-sandbox-snapshot")
+
+# Hot snapshot (filesystem and memory, sandbox running)
+sandbox._experimental_create_snapshot("my-sandbox-snapshot", include_memory=True)
 ```
 
 </TabItem>
 <TabItem label="TypeScript" icon="seti:typescript">
 
 ```typescript
-// Create snapshot from sandbox
+// Cold snapshot (filesystem only, sandbox stopped)
 await sandbox._experimental_createSnapshot("my-sandbox-snapshot");
+
+// Hot snapshot (filesystem and memory, sandbox running)
+await sandbox._experimental_createSnapshot("my-sandbox-snapshot", 60, true);
 ```
 
 </TabItem>
 <TabItem label="Ruby" icon="seti:ruby">
 
 ```ruby
-# Create snapshot from sandbox
+# Cold snapshot (filesystem only, sandbox stopped)
 sandbox.experimental_create_snapshot(name: "my-sandbox-snapshot")
+
+# Hot snapshot (filesystem and memory, sandbox running)
+sandbox.experimental_create_snapshot(name: "my-sandbox-snapshot", include_memory: true)
 ```
 
 </TabItem>
 <TabItem label="Go" icon="seti:go">
 
 ```go
-// Create snapshot from sandbox
+// Cold snapshot (filesystem only, sandbox stopped)
 err := sandbox.ExperimentalCreateSnapshot(ctx, "my-sandbox-snapshot")
+if err != nil {
+    return err
+}
+
+// Hot snapshot (filesystem and memory, sandbox running)
+err = sandbox.ExperimentalCreateSnapshotWithMemory(ctx, "my-sandbox-snapshot", 60*time.Second)
 if err != nil {
     return err
 }
@@ -1792,14 +2069,18 @@ if err != nil {
 <TabItem label="Java" icon="seti:java">
 
 ```java
-// Create snapshot from sandbox
+// Cold snapshot (filesystem only, sandbox stopped)
 sandbox.experimentalCreateSnapshot("my-sandbox-snapshot");
+
+// Hot snapshot (filesystem and memory, sandbox running)
+sandbox.experimentalCreateSnapshot("my-sandbox-snapshot", 60, true);
 ```
 
 </TabItem>
 <TabItem label="API" icon="seti:json">
 
 ```bash
+# Set "includeMemory": true for a hot snapshot (sandbox must be running)
 curl 'https://app.daytona.io/api/sandbox/{sandboxIdOrName}/snapshot' \
   --request POST \
   --header 'X-Daytona-Organization-ID: YOUR_ORGANIZATION_ID' \
