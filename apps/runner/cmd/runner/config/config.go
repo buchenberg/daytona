@@ -180,10 +180,6 @@ func GetContainerRuntime() string {
 	return config.ContainerRuntime
 }
 
-func GetContainerNetwork() string {
-	return config.ContainerNetwork
-}
-
 func GetEnvironment() string {
 	return config.Environment
 }

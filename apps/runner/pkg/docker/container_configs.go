@@ -285,26 +285,27 @@ func (d *DockerClient) getContainerNetworkingConfig(sandboxDto dto.CreateSandbox
 		}
 	}
 
-	containerNetwork := config.GetContainerNetwork()
-	var networkingConfig *network.NetworkingConfig
-	if containerNetwork != "" {
-		networkingConfig = &network.NetworkingConfig{
-			EndpointsConfig: map[string]*network.EndpointSettings{
-				containerNetwork: {},
-			},
-		}
+	// Collect every named network the container should be wired to at create
+	// time, then wrap the result. Two operator-controlled sources contribute an
+	// endpoint: an explicitly configured network (CONTAINER_NETWORK), and the
+	// runner bridge that is forced on whenever inter-sandbox networking is off.
+	endpoints := make(map[string]*network.EndpointSettings)
+
+	if name := d.containerNetwork; name != "" {
+		endpoints[name] = &network.EndpointSettings{}
 	}
 
 	if !d.interSandboxNetworkEnabled {
-		if networkingConfig == nil {
-			networkingConfig = &network.NetworkingConfig{
-				EndpointsConfig: map[string]*network.EndpointSettings{},
-			}
-		}
-		networkingConfig.EndpointsConfig[RUNNER_BRIDGE_NETWORK_NAME] = &network.EndpointSettings{}
+		endpoints[RUNNER_BRIDGE_NETWORK_NAME] = &network.EndpointSettings{}
 	}
 
-	return networkingConfig
+	// Leave the networking config unset when nothing applies so Docker falls back
+	// to its default bridge, matching the prior behaviour.
+	if len(endpoints) == 0 {
+		return nil
+	}
+
+	return &network.NetworkingConfig{EndpointsConfig: endpoints}
 }
 
 func (d *DockerClient) getAndroidDeviceHostConfig(sandboxDto dto.CreateSandboxDTO, volumeMountPathBinds []string) *container.HostConfig {

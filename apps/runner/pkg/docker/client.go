@@ -46,6 +46,7 @@ type DockerClientConfig struct {
 	BuildCPUCores                int64
 	BuildMemoryGB                int64
 	InitializeDaemonTelemetry    bool
+	ContainerNetwork             string
 	InterSandboxNetworkEnabled   bool
 	GpuEnabled                   bool
 	MountKvmToAndroidSandbox     bool
@@ -173,6 +174,7 @@ func NewDockerClient(ctx context.Context, config DockerClientConfig) (*DockerCli
 		buildCPUCores:                config.BuildCPUCores,
 		buildMemoryGB:                config.BuildMemoryGB,
 		initializeDaemonTelemetry:    config.InitializeDaemonTelemetry,
+		containerNetwork:             config.ContainerNetwork,
 		interSandboxNetworkEnabled:   config.InterSandboxNetworkEnabled,
 		gpuEnabled:                   config.GpuEnabled,
 		gpuCount:                     gpuCount,
@@ -238,6 +240,7 @@ type DockerClient struct {
 	lastVolumeCleanup            time.Time
 	initializeDaemonTelemetry    bool
 	filesystem                   string
+	containerNetwork             string
 	interSandboxNetworkEnabled   bool
 	gpuEnabled                   bool
 	gpuCount                     int

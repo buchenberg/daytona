@@ -15,7 +15,6 @@ import (
 
 	"github.com/daytonaio/daytona/libs/netleash/pkg/manager"
 	"github.com/daytonaio/daytona/libs/netleash/pkg/secrets"
-	"github.com/daytonaio/runner/cmd/runner/config"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 )
@@ -103,7 +102,7 @@ func (d *DockerClient) sandboxNetworkName() string {
 	if !d.interSandboxNetworkEnabled {
 		return RUNNER_BRIDGE_NETWORK_NAME
 	}
-	if n := config.GetContainerNetwork(); n != "" {
+	if n := d.containerNetwork; n != "" {
 		return n
 	}
 	return "bridge"

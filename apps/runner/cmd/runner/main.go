@@ -181,6 +181,7 @@ func run() int {
 		BuildCPUCores:                cfg.BuildCPUCores,
 		BuildMemoryGB:                cfg.BuildMemoryGB,
 		InitializeDaemonTelemetry:    cfg.InitializeDaemonTelemetry,
+		ContainerNetwork:             cfg.ContainerNetwork,
 		InterSandboxNetworkEnabled:   cfg.InterSandboxNetworkEnabled,
 		GpuEnabled:                   cfg.GpuEnabled,
 		MountKvmToAndroidSandbox:     cfg.MountKvmToAndroidSandbox,
