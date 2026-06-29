@@ -136,26 +136,12 @@ func (c *ComputerUse) Start() (*computeruse.Empty, error) {
 }
 
 func (c *ComputerUse) initializeProcesses(homeDir string) {
-	// Get environment variables from Dockerfile or use defaults
-	vncResolution := os.Getenv("VNC_RESOLUTION")
-	if vncResolution == "" {
-		vncResolution = "1024x768"
-	}
-
-	vncPort := os.Getenv("VNC_PORT")
-	if vncPort == "" {
-		vncPort = "5901"
-	}
-
-	noVncPort := os.Getenv("NO_VNC_PORT")
-	if noVncPort == "" {
-		noVncPort = "6080"
-	}
-
-	display := os.Getenv("DISPLAY")
-	if display == "" {
-		display = ":0"
-	}
+	// Environment overrides supplied via the Dockerfile, each with a baked-in
+	// default so the desktop stack still comes up in a bare container.
+	vncResolution := envOr("VNC_RESOLUTION", "1024x768")
+	vncPort := envOr("VNC_PORT", "5901")
+	noVncPort := envOr("NO_VNC_PORT", "6080")
+	display := envOr("DISPLAY", ":0")
 
 	// Get user from environment, fallback to DAYTONA_SANDBOX_USER or default to "root" (just in case, but should not happen)
 	user := os.Getenv("VNC_USER")
@@ -262,31 +248,15 @@ func (c *ComputerUse) initializeProcesses(homeDir string) {
 		LogFile: filepath.Join(c.configDir, "x11vnc.log"),
 		ErrFile: filepath.Join(c.configDir, "x11vnc.err"),
 	}
-	// Determine the best available NoVNC command with fallback options
-	var novncCommand string
-	var novncArgs []string
-
-	// Priority 1: Try launch.sh (modern NoVNC with enhanced features)
-	if _, err := os.Stat("/usr/share/novnc/utils/launch.sh"); err == nil {
-		novncCommand = "/usr/share/novnc/utils/launch.sh"
-		novncArgs = []string{"--vnc", "localhost:" + vncPort, "--listen", noVncPort}
-		log.Infof("Using NoVNC launch.sh (recommended)")
-	} else if _, err := os.Stat("/usr/share/novnc/utils/novnc_proxy"); err == nil {
-		// Priority 2: Try novnc_proxy (legacy NoVNC script)
-		novncCommand = "/usr/share/novnc/utils/novnc_proxy"
-		novncArgs = []string{"--vnc", "localhost:" + vncPort, "--listen", noVncPort}
-		log.Infof("Using NoVNC novnc_proxy (legacy)")
-	} else {
-		// Priority 3: Fallback to direct websockify (always available)
-		novncCommand = "websockify"
-		novncArgs = []string{"--web=/usr/share/novnc/", noVncPort, "localhost:" + vncPort}
-		log.Infof("Using direct websockify (fallback)")
-	}
-
+	// Pick whichever noVNC entrypoint this image actually ships. The two
+	// upstream wrapper scripts share a flag layout; websockify is invoked
+	// directly and takes positional host/port arguments instead, so it can't
+	// share the same arg list.
+	bridgeCmd, bridgeArgs := resolveNoVNCBridge(vncPort, noVncPort)
 	c.processes["novnc"] = &Process{
 		Name:        "novnc",
-		Command:     novncCommand,
-		Args:        novncArgs,
+		Command:     bridgeCmd,
+		Args:        bridgeArgs,
 		User:        user,
 		Priority:    400,
 		AutoRestart: true,
@@ -296,6 +266,35 @@ func (c *ComputerUse) initializeProcesses(homeDir string) {
 		LogFile: filepath.Join(c.configDir, "novnc.log"),
 		ErrFile: filepath.Join(c.configDir, "novnc.err"),
 	}
+}
+
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func resolveNoVNCBridge(vncPort, noVncPort string) (string, []string) {
+	scriptArgs := []string{"--vnc", "localhost:" + vncPort, "--listen", noVncPort}
+
+	preferred := []struct {
+		path string
+		args []string
+	}{
+		{"/usr/share/novnc/utils/launch.sh", scriptArgs},
+		{"/usr/share/novnc/utils/novnc_proxy", scriptArgs},
+	}
+
+	for _, candidate := range preferred {
+		if _, err := os.Stat(candidate.path); err == nil {
+			log.Infof("noVNC bridge: using %s", candidate.path)
+			return candidate.path, candidate.args
+		}
+	}
+
+	log.Infof("noVNC bridge: falling back to websockify")
+	return "websockify", []string{"--web=/usr/share/novnc/", noVncPort, "localhost:" + vncPort}
 }
 
 func waitForSessionBus(address string, timeout time.Duration) error {
