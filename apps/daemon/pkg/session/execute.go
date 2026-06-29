@@ -60,9 +60,9 @@ func (s *SessionService) Execute(sessionId, cmdId, cmd string, async, isCombined
 		return nil, common_errors.NewBadRequestError(fmt.Errorf("failed to write command file: %w", err))
 	}
 
-	inputPipeCommand := `cat /dev/null > "$ip" &`
+	stdinHolder := `: > "$ip" &`
 	if async {
-		inputPipeCommand = `while :; do sleep 3600; done > "$ip" &`
+		stdinHolder = `tail -f /dev/null > "$ip" &`
 	}
 
 	cmdToExec := fmt.Sprintf(cmdWrapperFormat+"\n",
@@ -71,7 +71,7 @@ func (s *SessionService) Execute(sessionId, cmdId, cmd string, async, isCombined
 		command.InputFilePath(session.Dir(s.configDir)), // %q  -> input
 		toOctalEscapes(log.STDOUT_PREFIX),               // %s  -> stdout prefix
 		toOctalEscapes(log.STDERR_PREFIX),               // %s  -> stderr prefix
-		inputPipeCommand,                                // %s  -> stdin behavior
+		stdinHolder,                                     // %s  -> stdin behavior
 		cmdFilePath,                                     // %q  -> command file path
 		exitCodeFilePath,                                // %q
 	)
