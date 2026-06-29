@@ -227,7 +227,7 @@ daytona create --network-block-all
 </Tabs>
 
 :::note
-If `networkBlockAll` is set to `true`, all outbound network access is blocked, regardless of any configured `networkAllowList` or `domainAllowList`.
+These options are mutually exclusive. Set at most one non-empty value among `networkAllowList`, `domainAllowList`, and `networkBlockAll: true`. Empty-string allow lists count as unset and never conflict. Sending a conflicting combination returns a `400` error.
 :::
 
 ## Update network settings while a sandbox is running
@@ -238,8 +238,8 @@ The request must include at least one of `networkBlockAll`, `networkAllowList`, 
 
 - Sending `networkAllowList` as an empty string clears a stored CIDR allow list
 - Sending `domainAllowList` as an empty string clears a stored domain allow list
-- Sending `networkBlockAll: true` blocks all outbound traffic and clears the stored CIDR allow list
-- Sending only `networkBlockAll: false` removes the block-all rule and clears the stored CIDR allow list. If a domain allow list is stored, domain egress restrictions still apply until cleared with `domainAllowList: ''`
+- Sending `networkBlockAll: true` blocks all outbound traffic and clears both the stored CIDR and domain allow lists
+- Sending only `networkBlockAll: false` removes the block-all rule and clears both the stored CIDR and domain allow lists
 
 This operation requires the `WRITE_SANDBOXES` permission. Organizations on Tier 1 or Tier 2 cannot override network policy at the sandbox level, and the API returns an error in that case.
 
@@ -442,7 +442,7 @@ The domain allow list is a comma-separated list of DNS domains. Set your allowed
 
 - **Domains only**: use hostnames such as `example.com` or `api.openai.com`. Do not include protocols, paths, ports, or query strings
 - **Wildcards supported**: prefix a domain with `*.` to allow the base domain and its subdomains, for example `*.daytona.io`
-- **Max 10 entries**: the list cannot contain more than 10 comma-separated items
+- **Max 20 entries**: the list cannot contain more than 20 comma-separated items
 - **Whitespace is ignored**: entries are trimmed, so spaces around commas are ok
 - **Clear on update**: send `domainAllowList` as an empty string when updating network settings to clear a stored domain allow list
 
