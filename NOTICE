@@ -3,3 +3,31 @@ Copyright the various Daytona software authors.
 
 The initial developer of the software is Daytona Platforms, Inc. (https://daytona.io).
 Copyright 2025 Daytona Platforms, Inc. All Rights Reserved.
+
+------------------------------------------------------------------------------
+THIRD-PARTY NOTICES
+------------------------------------------------------------------------------
+
+This product includes the third-party software listed below. Each module's full
+license text is available at its upstream source; this notice provides the
+required attribution.
+
+Mozilla Public License 2.0 (MPL-2.0): weak, file-level copyleft. Used UNMODIFIED.
+Corresponding source for each module is available from its upstream repository.
+Any future local modification to an MPL-2.0-covered file must itself be made
+available under MPL-2.0 (per-file obligation only).
+
+  github.com/hashicorp/go-cleanhttp         v0.5.2    MPL-2.0
+  github.com/hashicorp/go-hclog             v1.6.3    MPL-2.0
+  github.com/hashicorp/go-plugin            v1.6.3    MPL-2.0
+  github.com/hashicorp/go-version           v1.8.0    MPL-2.0
+  github.com/hashicorp/golang-lru/v2        v2.0.7    MPL-2.0
+  github.com/hashicorp/golang-lru/arc/v2    v2.0.5    MPL-2.0
+  github.com/hashicorp/yamux                v0.1.1    MPL-2.0
+  github.com/cyphar/filepath-securejoin     v0.6.1    BSD-3-Clause AND MPL-2.0
+
+Dual-licensed dependency (license election):
+
+  node-forge                                1.4.0     BSD-3-Clause OR GPL-2.0
+    Daytona uses and distributes node-forge under the BSD-3-Clause option.
+    The GPL-2.0 option is not exercised.
