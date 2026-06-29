@@ -60,7 +60,7 @@ func DownloadFile(c *gin.Context) {
 	c.Header("Content-Type", "application/octet-stream")
 	filename := filepath.Base(absPath)
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=utf-8''%s`,
-		toLatin1(filename), encodeRFC5987(filename)))
+		latin1QuotedFilename(filename), encodeRFC5987(filename)))
 	c.Header("Content-Transfer-Encoding", "binary")
 	c.Header("Expires", "0")
 	c.Header("Cache-Control", "must-revalidate")

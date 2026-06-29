@@ -198,7 +198,7 @@ func openDownloadFile(ctx *gin.Context, path string) (*os.File, os.FileInfo, *co
 
 func multipartContentDisposition(formName string, path string) string {
 	return fmt.Sprintf(`form-data; name="%s"; filename="%s"; filename*=utf-8''%s`,
-		formName, toLatin1(path), encodeRFC5987(path))
+		formName, latin1QuotedFilename(path), encodeRFC5987(path))
 }
 
 func classifyPathStatError(path string, err error) (int, string, string) {
@@ -244,22 +244,24 @@ func newFileDownloadErrorResponse(
 	}
 }
 
-// toLatin1 sanitizes s for use in a quoted Content-Disposition filename= parameter.
-// It escapes backslashes and double quotes, strips CR/LF/NUL, replaces C0 control
-// characters (0x01-0x1F), DEL (0x7F), and non-Latin1 (>0xFF) runes with '_'.
-func toLatin1(s string) string {
-	escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\r", "", "\n", "", "\x00", "").Replace(s)
-	var buf []byte
-	for _, r := range escaped {
-		if r > 0xFF {
-			buf = append(buf, '_')
-		} else if r < 0x20 || r == 0x7F {
-			buf = append(buf, '_')
-		} else {
-			buf = append(buf, byte(r))
+// latin1QuotedFilename sanitizes s for use in a quoted Content-Disposition
+// filename= parameter.
+func latin1QuotedFilename(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		if r == '\\' || r == '"' {
+			b.WriteByte('\\')
+			b.WriteByte(byte(r))
+			continue
 		}
+		if r < 0x20 || r == 0x7F || r > 0xFF {
+			b.WriteByte('_')
+			continue
+		}
+		b.WriteByte(byte(r))
 	}
-	return string(buf)
+	return b.String()
 }
 
 // encodeRFC5987 percent-encodes per RFC 5987 attr-char rules.

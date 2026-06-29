@@ -148,71 +148,78 @@ func TestClassifyPathStatError(t *testing.T) {
 	})
 }
 
-func TestToLatin1(t *testing.T) {
-	tests := []struct{ in, want string }{
-		{"hello.txt", "hello.txt"},
-		{"hello\u0000.txt", "hello.txt"},
-		{"hello\x00.txt", "hello.txt"},
-		{"café", "caf\xe9"},
-		{"日本語.txt", "___.txt"},
-		{"hello\tworld.txt", "hello_world.txt"},
-		{"bell\x07.txt", "bell_.txt"},
-		{"del\x7f.txt", "del_.txt"},
-		{"", ""},
-	}
+func TestLatin1QuotedFilename(t *testing.T) {
+	assertLatin1QuotedFilename(t, "report.pdf", "report.pdf")
+	assertLatin1QuotedFilename(t, "nul\x00cr\rlf\n.txt", "nul_cr_lf_.txt")
+	assertLatin1QuotedFilename(t, "smørrebrød.txt", "sm\xf8rrebr\xf8d.txt")
+	assertLatin1QuotedFilename(t, "emoji-🙂.txt", "emoji-_.txt")
+	assertLatin1QuotedFilename(t, "unit\x1f-del\x7f.txt", "unit_-del_.txt")
+	assertLatin1QuotedFilename(t, `a"b\c.txt`, `a\"b\\c.txt`)
+	assertLatin1QuotedFilename(t, "", "")
+}
 
-	for _, tt := range tests {
-		t.Run(tt.in, func(t *testing.T) {
-			if got := toLatin1(tt.in); got != tt.want {
-				t.Errorf("toLatin1(%q) = %q, want %q", tt.in, got, tt.want)
-			}
-		})
+func assertLatin1QuotedFilename(t *testing.T, input string, want string) {
+	t.Helper()
+	if got := latin1QuotedFilename(input); got != want {
+		t.Fatalf("latin1QuotedFilename(%q) = %q, want %q", input, got, want)
 	}
 }
 
-func TestEncodeRFC5987(t *testing.T) {
-	tests := []struct{ in, want string }{
-		{"hello.txt", "hello.txt"},
-		{"hello\x00.txt", "hello%00.txt"},
-		{"café", "caf%C3%A9"},
-		{"日本語", "%E6%97%A5%E6%9C%AC%E8%AA%9E"},
-		{"file (1).txt", "file%20%281%29.txt"},
-		{"a&b+c-d", "a&b+c-d"},
-		{"", ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.in, func(t *testing.T) {
-			if got := encodeRFC5987(tt.in); got != tt.want {
-				t.Errorf("encodeRFC5987(%q) = %q, want %q", tt.in, got, tt.want)
-			}
-		})
-	}
+func TestRFC5987FilenameStarEncoding(t *testing.T) {
+	assertRFC5987Encoding(t, "plain ASCII filename", "report-2026.txt", "report-2026.txt")
+	assertRFC5987Encoding(t, "NUL byte is percent encoded", "nul\x00byte.txt", "nul%00byte.txt")
+	assertRFC5987Encoding(t, "Latin-1 text is encoded as UTF-8", "smørrebrød", "sm%C3%B8rrebr%C3%B8d")
+	assertRFC5987Encoding(t, "non-BMP runes use their UTF-8 bytes", "emoji-🙂", "emoji-%F0%9F%99%82")
+	assertRFC5987Encoding(t, "spaces and parentheses are escaped", "draft copy (final).md", "draft%20copy%20%28final%29.md")
+	assertRFC5987Encoding(t, "attr-char punctuation stays literal", "!#$&+-.^_`|~", "!#$&+-.^_`|~")
+	assertRFC5987Encoding(t, "empty filename", "", "")
 }
 
-func TestMultipartContentDisposition(t *testing.T) {
-	t.Run("ascii path", func(t *testing.T) {
-		got := multipartContentDisposition("file", "hello.txt")
-		want := `form-data; name="file"; filename="hello.txt"; filename*=utf-8''hello.txt`
-		if got != want {
-			t.Errorf("got %q, want %q", got, want)
+func assertRFC5987Encoding(t *testing.T, name string, input string, want string) {
+	t.Helper()
+	t.Run(name, func(t *testing.T) {
+		if got := encodeRFC5987(input); got != want {
+			t.Fatalf("encodeRFC5987(%q) = %q, want %q", input, got, want)
 		}
 	})
+}
 
-	t.Run("unicode path", func(t *testing.T) {
-		got := multipartContentDisposition("file", "日本語.txt")
-		if !strings.Contains(got, `filename="___.txt"`) {
-			t.Errorf("expected latin1 fallback filename, got %q", got)
-		}
-		if !strings.Contains(got, `filename*=utf-8''%E6%97%A5%E6%9C%AC%E8%AA%9E.txt`) {
-			t.Errorf("expected RFC 5987 encoded filename*, got %q", got)
-		}
-	})
+func TestMultipartContentDispositionFilenameVariants(t *testing.T) {
+	assertMultipartContentDisposition(
+		t,
+		"ASCII filename uses matching fallback and extended values",
+		"file",
+		"report-2026.txt",
+		`form-data; name="file"; filename="report-2026.txt"; filename*=utf-8''report-2026.txt`,
+	)
+	assertMultipartContentDisposition(
+		t,
+		"fallback escapes quoted-string characters",
+		"file",
+		`daily "notes"\draft.txt`,
+		`form-data; name="file"; filename="daily \"notes\"\\draft.txt"; filename*=utf-8''daily%20%22notes%22%5Cdraft.txt`,
+	)
+	assertMultipartContentDisposition(
+		t,
+		"fallback replaces unsupported runes while filename star keeps UTF-8",
+		"file",
+		"emoji-🙂.txt",
+		`form-data; name="file"; filename="emoji-_.txt"; filename*=utf-8''emoji-%F0%9F%99%82.txt`,
+	)
+	assertMultipartContentDisposition(
+		t,
+		"control characters are preserved only in filename star",
+		"file",
+		"line\r\nbreak.txt",
+		`form-data; name="file"; filename="line__break.txt"; filename*=utf-8''line%0D%0Abreak.txt`,
+	)
+}
 
-	t.Run("escapes quotes and backslashes", func(t *testing.T) {
-		got := multipartContentDisposition("file", `a"b\c`)
-		if !strings.Contains(got, `filename="a\"b\\c"; filename*=utf-8''a%22b%5Cc`) {
-			t.Errorf("expected escaped filename, got %q", got)
+func assertMultipartContentDisposition(t *testing.T, name string, formName string, path string, want string) {
+	t.Helper()
+	t.Run(name, func(t *testing.T) {
+		if got := multipartContentDisposition(formName, path); got != want {
+			t.Fatalf("multipartContentDisposition(%q, %q) = %q, want %q", formName, path, got, want)
 		}
 	})
 }
