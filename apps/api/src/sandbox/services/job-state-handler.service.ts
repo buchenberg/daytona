@@ -39,6 +39,7 @@ import { SnapshotInitialRunnerReadyEvent } from '../events/snapshot-initial-runn
 @Injectable()
 export class JobStateHandlerService {
   private readonly logger = new Logger(JobStateHandlerService.name)
+  private static readonly RESETTABLE_BACKUP_STATES = new Set<BackupState>([BackupState.COMPLETED, BackupState.ERROR])
 
   constructor(
     private readonly sandboxRepository: SandboxRepository,
@@ -63,6 +64,18 @@ export class JobStateHandlerService {
     } catch {
       return false
     }
+  }
+
+  /**
+   * Clears a sandbox's backup state back to NONE once it has reached a terminal
+   * backup state (COMPLETED or ERROR), so a subsequent backup starts clean.
+   * Mutates updateData in place; no-op for any non-terminal backup state.
+   */
+  private clearResolvedBackupState(sandbox: Sandbox, updateData: Partial<Sandbox>): void {
+    if (!JobStateHandlerService.RESETTABLE_BACKUP_STATES.has(sandbox.backupState)) {
+      return
+    }
+    Object.assign(updateData, Sandbox.getBackupStateUpdate(sandbox, BackupState.NONE))
   }
 
   /**
@@ -154,9 +167,7 @@ export class JobStateHandlerService {
         )
         updateData.state = SandboxState.STARTED
         updateData.errorReason = null
-        if ([BackupState.ERROR, BackupState.COMPLETED].includes(sandbox.backupState)) {
-          Object.assign(updateData, Sandbox.getBackupStateUpdate(sandbox, BackupState.NONE))
-        }
+        this.clearResolvedBackupState(sandbox, updateData)
         const metadata = job.getResultMetadata()
         if (metadata?.daemonVersion && typeof metadata.daemonVersion === 'string') {
           updateData.daemonVersion = metadata.daemonVersion
@@ -199,9 +210,7 @@ export class JobStateHandlerService {
         this.logger.debug(`START_SANDBOX job ${job.id} completed successfully, marking sandbox ${sandboxId} as STARTED`)
         updateData.state = SandboxState.STARTED
         updateData.errorReason = null
-        if ([BackupState.ERROR, BackupState.COMPLETED].includes(sandbox.backupState)) {
-          Object.assign(updateData, Sandbox.getBackupStateUpdate(sandbox, BackupState.NONE))
-        }
+        this.clearResolvedBackupState(sandbox, updateData)
         const metadata = job.getResultMetadata()
         if (metadata?.daemonVersion && typeof metadata.daemonVersion === 'string') {
           updateData.daemonVersion = metadata.daemonVersion
@@ -606,9 +615,7 @@ export class JobStateHandlerService {
         updateData.state = SandboxState.STOPPED
         updateData.errorReason = null
         updateData.recoverable = false
-        if ([BackupState.ERROR, BackupState.COMPLETED].includes(sandbox.backupState)) {
-          Object.assign(updateData, Sandbox.getBackupStateUpdate(sandbox, BackupState.NONE))
-        }
+        this.clearResolvedBackupState(sandbox, updateData)
       } else if (job.status === JobStatus.FAILED) {
         this.logger.error(`RECOVER_SANDBOX job ${job.id} failed for sandbox ${sandboxId}: ${job.errorMessage}`)
         updateData.state = SandboxState.ERROR
