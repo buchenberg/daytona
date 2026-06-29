@@ -5,6 +5,7 @@ description: Isolated runtime environments you can manage programmatically to ru
 
 import { TabItem, Tabs } from '@astrojs/starlight/components'
 import SandboxDiagram from '@components/SandboxDiagram.astro'
+import Collapsible from '@components/Collapsible.astro'
 
 Daytona provides **full composable computers** &mdash; **sandboxes** &mdash; for AI agents. Sandboxes are isolated runtime environments you can manage programmatically to run code. Each sandbox runs in isolation, giving it a dedicated kernel, filesystem, network stack, and allocated vCPU, RAM, and disk. Agents get access to a full composable computer where they can install packages, run servers, compile code, and manage processes.
 
@@ -1878,27 +1879,87 @@ curl 'https://app.daytona.io/api/sandbox/{sandboxIdOrName}' \
 
 A sandbox can have several different states. Each state reflects the status of your sandbox.
 
-- [**Creating**](#create-sandboxes): the sandbox is provisioning and will be ready to use
-- [**Starting**](#start-sandboxes): the sandbox is starting and will be ready to use
-- [**Started**](#start-sandboxes): the sandbox has started and is ready to use
-- [**Stopping**](#stop-sandboxes): the sandbox is stopping and will no longer accept requests
-- [**Stopped**](#stop-sandboxes): the sandbox has stopped and is no longer running
-- [**Deleting**](#delete-sandboxes): the sandbox is deleting and will be removed
-- [**Deleted**](#delete-sandboxes): the sandbox has been deleted and no longer exists
-- [**Archiving**](#archive-sandboxes): the sandbox is archiving and its state will be preserved
-- [**Archived**](#archive-sandboxes): the sandbox has been archived and its state is preserved
-- [**Resizing**](#resize-sandboxes): the sandbox is being resized to a new set of resources
-- [**Error**](#recover-sandboxes): the sandbox is in an error state and needs to be recovered
-- **Restoring**: the sandbox is being restored from archive and will be ready to use shortly
-- **Unknown**: the default sandbox state before it is created
-- **Pulling Snapshot**: the sandbox is pulling a [snapshot](/docs/en/snapshots) to provide a base environment
-- **Building Snapshot**: the sandbox is building a [snapshot](/docs/en/snapshots) to provide a base environment
-- **Build Pending**: the sandbox build is pending and will start shortly
-- **Build Failed**: the sandbox build failed and needs to be retried
+<Collapsible title="Sandbox states">
+
+| **State**         | **Description**                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------- |
+| Creating          | The sandbox is provisioning and will be ready to use.                                       |
+| Pulling Snapshot  | The sandbox is pulling a [**snapshot**](/docs/en/snapshots) to provide a base environment.  |
+| Building Snapshot | The sandbox is building a [**snapshot**](/docs/en/snapshots) to provide a base environment. |
+| Pending Build     | The sandbox build is pending and will start shortly.                                        |
+| Build Failed      | The sandbox build failed and needs to be retried.                                           |
+| Starting          | The sandbox is starting and will be ready to use.                                           |
+| Started           | The sandbox has started and is ready to use.                                                |
+| Stopping          | The sandbox is stopping and will no longer accept requests.                                 |
+| Stopped           | The sandbox has stopped and is no longer running.                                           |
+| Pausing           | The sandbox is pausing while its filesystem and memory state are preserved.                 |
+| Paused            | The sandbox is paused with its filesystem and memory state preserved.                       |
+| Resuming          | The sandbox is resuming from a paused state and will be ready to use.                       |
+| Archiving         | The sandbox is archiving and its state will be preserved.                                   |
+| Archived          | The sandbox has been archived and its state is preserved.                                   |
+| Restoring         | The sandbox is being restored from archive and will be ready to use shortly.                |
+| Resizing          | The sandbox is being resized to a new set of resources.                                     |
+| Snapshotting      | The sandbox is creating a [**snapshot**](/docs/en/snapshots) of its filesystem and memory.  |
+| Forking           | The sandbox is being forked into a new independent sandbox.                                 |
+| Deleting          | The sandbox is deleting and will be removed.                                                |
+| Deleted           | The sandbox has been deleted and no longer exists.                                          |
+| Error             | The sandbox is in an error state and needs to be recovered.                                 |
+| Unknown           | The default sandbox state before it is created.                                             |
+
+</Collapsible>
 
 The diagram demonstrates the states and possible transitions between them.
 
 <SandboxDiagram />
+
+##### State transitions
+
+A sandbox can transition between states in response to various actions. The following table lists the initial state, target state, and trigger for the transition.
+
+<Collapsible title="State transitions">
+
+| **Initial state** | **Target state**  | **Trigger**                                                                       |
+| ----------------- | ----------------- | --------------------------------------------------------------------------------- |
+| Unknown           | Pulling Snapshot  | The base snapshot is being pulled to provide the sandbox environment.             |
+| Unknown           | Building Snapshot | The sandbox uses a declarative image build, which begins building.                |
+| Pending Build     | Building Snapshot | The queued image build starts.                                                    |
+| Building Snapshot | Build Failed      | The image build fails or times out.                                               |
+| Pulling Snapshot  | Creating          | The snapshot is available and the sandbox container is created.                   |
+| Building Snapshot | Creating          | The snapshot finishes building and the sandbox container is created.              |
+| Creating          | Started           | The sandbox container finishes initializing and is running.                       |
+| Stopped           | Starting          | A start is requested and the sandbox boots.                                       |
+| Stopped           | Restoring         | A start is requested and the sandbox is restored from a backup.                   |
+| Archived          | Restoring         | A start is requested and the archived filesystem is restored from object storage. |
+| Restoring         | Started           | The restore completes and the sandbox is running.                                 |
+| Starting          | Started           | The sandbox is running and ready to accept requests.                              |
+| Started           | Stopping          | A stop is requested, or the auto-stop interval is exceeded.                       |
+| Stopping          | Stopped           | The sandbox process exits and its memory state is cleared.                        |
+| Started           | Pausing           | A pause is requested.                                                             |
+| Pausing           | Paused            | The filesystem and memory state are preserved.                                    |
+| Paused            | Resuming          | A start is requested on a paused sandbox.                                         |
+| Paused            | Stopping          | A stop is requested on a paused sandbox.                                          |
+| Resuming          | Started           | The sandbox resumes from memory and is running.                                   |
+| Stopped           | Archiving         | An archive is requested, or the auto-archive interval is exceeded.                |
+| Archiving         | Archived          | The backup completes and the filesystem is moved to object storage.               |
+| Started           | Resizing          | CPU or memory is increased on a running sandbox.                                  |
+| Stopped           | Resizing          | Resources are changed on a stopped sandbox.                                       |
+| Resizing          | Started           | The running sandbox returns to service after resizing.                            |
+| Resizing          | Stopped           | The stopped sandbox completes resizing.                                           |
+| Started           | Snapshotting      | A snapshot of the filesystem and memory is created.                               |
+| Stopped           | Snapshotting      | A snapshot of the filesystem is created.                                          |
+| Snapshotting      | Started           | The snapshot completes and the sandbox returns to service.                        |
+| Snapshotting      | Stopped           | The snapshot completes and the sandbox remains stopped.                           |
+| Started           | Forking           | The sandbox is forked into a new independent sandbox.                             |
+| Forking           | Started           | The fork completes and the sandbox returns to service.                            |
+| Started           | Deleting          | A delete is requested, or the auto-delete interval is exceeded.                   |
+| Stopped           | Deleting          | A delete is requested.                                                            |
+| Archived          | Deleted           | An archived sandbox is deleted directly without being restored.                   |
+| Deleting          | Deleted           | The sandbox is removed and its resources are released.                            |
+| Started           | Error             | An operation fails or times out.                                                  |
+| Error             | Restoring         | A recover is requested for a recoverable error and the sandbox is restored.       |
+| Error             | Archiving         | An errored sandbox with a completed backup is archived to preserve its state.     |
+
+</Collapsible>
 
 ## Multiple runtime support
 
