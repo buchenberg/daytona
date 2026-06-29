@@ -30,6 +30,9 @@ import { OrganizationService } from '../../organization/services/organization.se
 import { CreateOrganizationRegionQuotaDto } from '../../organization/dto/create-organization-region-quota.dto'
 import { UpdateOrganizationRegionQuotaDto } from '../../organization/dto/update-organization-region-quota.dto'
 import { RegionQuotaDto } from '../../organization/dto/region-quota.dto'
+import { OrganizationDto } from '../../organization/dto/organization.dto'
+import { UserService } from '../../user/user.service'
+import { AdminCreateOrganizationDto } from '../dto/create-organization.dto'
 
 @Controller('admin/organizations')
 @ApiTags('admin')
@@ -39,7 +42,49 @@ import { RegionQuotaDto } from '../../organization/dto/region-quota.dto'
 @RequiredSystemRole(SystemRole.ADMIN)
 @UseGuards(AuthenticatedRateLimitGuard)
 export class AdminOrganizationController {
-  constructor(private readonly organizationService: OrganizationService) {}
+  constructor(
+    private readonly organizationService: OrganizationService,
+    private readonly userService: UserService,
+  ) {}
+
+  @Post()
+  @HttpCode(201)
+  @ApiOperation({
+    summary: 'Create organization for user',
+    operationId: 'adminCreateOrganization',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Organization created successfully',
+    type: OrganizationDto,
+  })
+  @Audit({
+    action: AuditAction.CREATE,
+    targetType: AuditTarget.ORGANIZATION,
+    targetIdFromResult: (result: OrganizationDto) => result?.id,
+    requestMetadata: {
+      body: (req: TypedRequest<AdminCreateOrganizationDto>) => ({
+        userId: req.body?.userId,
+        name: req.body?.name,
+        defaultRegionId: req.body?.defaultRegionId,
+      }),
+    },
+  })
+  async create(@Body() createDto: AdminCreateOrganizationDto): Promise<OrganizationDto> {
+    const user = await this.userService.findOne(createDto.userId)
+    if (!user) {
+      throw new NotFoundException(`User with ID ${createDto.userId} not found`)
+    }
+
+    const organization = await this.organizationService.create(
+      { name: createDto.name, defaultRegionId: createDto.defaultRegionId },
+      createDto.userId,
+      false,
+      true,
+    )
+
+    return OrganizationDto.fromOrganization(organization)
+  }
 
   @Post(':organizationId/quota/:regionId')
   @HttpCode(201)

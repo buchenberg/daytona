@@ -8675,6 +8675,32 @@ paths:
       summary: Get all audit logs
       tags:
       - admin
+  /admin/organizations:
+    post:
+      operationId: adminCreateOrganization
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCreateOrganization"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+          description: Organization created successfully
+      security:
+      - bearer: []
+      - oauth2:
+        - openid
+        - profile
+        - email
+      summary: Create organization for user
+      tags:
+      - admin
   /admin/organizations/{organizationId}/quota/{regionId}:
     patch:
       operationId: adminUpdateOrganizationRegionQuota
@@ -15636,6 +15662,29 @@ components:
       - page
       - total
       - totalPages
+      type: object
+    AdminCreateOrganization:
+      example:
+        defaultRegionId: us
+        name: My Organization
+        userId: user_123
+      properties:
+        userId:
+          description: The ID of the user the organization will be created for
+          example: user_123
+          type: string
+        name:
+          description: The name of organization
+          example: My Organization
+          type: string
+        defaultRegionId:
+          description: The ID of the default region for the organization
+          example: us
+          type: string
+      required:
+      - defaultRegionId
+      - name
+      - userId
       type: object
     CreateOrganizationRegionQuota:
       example:
