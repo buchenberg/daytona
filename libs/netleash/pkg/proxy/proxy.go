@@ -3,8 +3,10 @@ package proxy
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -12,6 +14,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Server is a MITM forward proxy that intercepts HTTPS connections,
@@ -214,6 +217,19 @@ func (s *Server) handleConnect(clientConn net.Conn, req *http.Request, binding *
 		return
 	}
 
+	// Resolve the upstream before completing the tunnel. The proxy — not the
+	// client — performs DNS, so a host that doesn't resolve has to be reported as
+	// a failed CONNECT (a non-2xx reply, before "200 Connection Established"). If
+	// we established the tunnel first and only failed afterwards, the client would
+	// see a successful connection and could not turn the failure into a non-zero
+	// exit. Replying 502 to the CONNECT makes curl exit non-zero ("Received HTTP
+	// code 502 from proxy after CONNECT") without exposing any proxy internals.
+	if err := resolveHost(req.Context(), hostname); err != nil {
+		s.log.Debug("proxy: upstream host did not resolve", "host", hostname, "error", err)
+		clientConn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
+		return
+	}
+
 	// Tell the client the tunnel is established.
 	clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
 
@@ -267,8 +283,11 @@ func (s *Server) handleConnect(clientConn net.Conn, req *http.Request, binding *
 		// Forward to the real upstream server.
 		resp, err := http.DefaultTransport.(*http.Transport).RoundTrip(innerReq)
 		if err != nil {
+			// The tunnel is already up (the host resolved before we sent 200), so
+			// the only channel left is the tunnel itself — a clean 502, which never
+			// names the proxy. Resolution failures are caught before the 200 above.
 			s.log.Debug("proxy: upstream request failed", "host", hostname, "error", err)
-			tlsConn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
+			writeUpstreamError(tlsConn, hostname)
 			return
 		}
 
@@ -279,7 +298,8 @@ func (s *Server) handleConnect(clientConn net.Conn, req *http.Request, binding *
 		respBody, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			tlsConn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
+			s.log.Debug("proxy: reading upstream response failed", "host", hostname, "error", err)
+			writeUpstreamError(tlsConn, hostname)
 			return
 		}
 		resp.Proto = "HTTP/1.1"
@@ -328,12 +348,63 @@ func (s *Server) handleHTTP(clientConn net.Conn, req *http.Request, binding *Bin
 
 	upstreamResp, err := http.DefaultTransport.RoundTrip(req)
 	if err != nil {
-		clientConn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
+		s.log.Debug("proxy: upstream request failed", "host", hostname, "error", err)
+		if upstreamResolutionFailed(err) {
+			// The host couldn't be resolved. We can't reproduce curl's own "could
+			// not resolve host" (the proxy resolves, not the client), and a 502 body
+			// would make curl exit 0. Dropping the connection makes curl fail with a
+			// non-zero exit instead, with no proxy details in the error.
+			return
+		}
+		writeUpstreamError(clientConn, hostname)
 		return
 	}
 	defer upstreamResp.Body.Close()
 
 	upstreamResp.Write(clientConn)
+}
+
+// dnsResolveTimeout caps the pre-CONNECT upstream name lookup so a slow or
+// unreachable resolver can't hang tunnel setup.
+const dnsResolveTimeout = 10 * time.Second
+
+// resolveHost looks up hostname through the same resolver the proxy's transport
+// dials with (net.DefaultResolver, which honors the --dns override), so the
+// pre-CONNECT check agrees with what the upstream request would do. An IP
+// literal resolves to itself. It returns the lookup error (a *net.DNSError)
+// when the host cannot be resolved.
+func resolveHost(ctx context.Context, hostname string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, dnsResolveTimeout)
+	defer cancel()
+	_, err := net.DefaultResolver.LookupHost(ctx, hostname)
+	return err
+}
+
+// upstreamResolutionFailed reports whether err (from an upstream RoundTrip) is a
+// DNS name-resolution failure — the host could not be resolved — as opposed to a
+// connection refused, timeout, or other transport error.
+func upstreamResolutionFailed(err error) bool {
+	var dnsErr *net.DNSError
+	return errors.As(err, &dnsErr)
+}
+
+// writeUpstreamError writes a framed HTTP/1.1 502 to the client for an upstream
+// failure that happens after the request is already committed (a CONNECT tunnel
+// that's up, or a plain-HTTP request mid-flight). The body is generic and never
+// names the proxy — the sandboxed client must not learn it is behind a MITM.
+// Resolution failures are handled earlier (a failed CONNECT or a dropped HTTP
+// connection) so the client gets a non-zero exit rather than this 502.
+func writeUpstreamError(w io.Writer, hostname string) {
+	body := fmt.Sprintf("could not reach upstream host: %s\r\n", hostname)
+	fmt.Fprint(w, "HTTP/1.1 502 Bad Gateway\r\n")
+	fmt.Fprint(w, "Content-Type: text/plain; charset=utf-8\r\n")
+	fmt.Fprintf(w, "Content-Length: %d\r\n", len(body))
+	fmt.Fprint(w, "Connection: close\r\n")
+	fmt.Fprint(w, "\r\n")
+	io.WriteString(w, body)
 }
 
 // injectHeaders replaces placeholder values in request headers with real secrets.

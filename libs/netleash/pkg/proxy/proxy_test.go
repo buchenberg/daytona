@@ -423,6 +423,71 @@ func TestServer_CONNECTProxy_SecretInjection(t *testing.T) {
 	}
 }
 
+// An unresolvable host reached over HTTPS (CONNECT) must fail the tunnel, not
+// establish it — so the client gets a transport error (a non-zero curl exit)
+// rather than an empty 200-tunnel. The error must not leak the proxy.
+func TestServer_CONNECTProxy_UnresolvableHost(t *testing.T) {
+	ca, err := GenerateCA()
+	if err != nil {
+		t.Fatalf("GenerateCA failed: %v", err)
+	}
+
+	withTrustedCA(t, ca)
+
+	// Allow the (non-existent) host so we get past the allowlist 403 and exercise
+	// the DNS-resolution failure path. The name has no "netleash" in it so the
+	// "no proxy leak" assertion below is meaningful.
+	const host = "does-not-exist.example.invalid"
+	s := NewServer("127.0.0.1:0", ca, NewInjector(nil), []string{host}, "", quiet)
+	proxyAddr, err := s.Start()
+	if err != nil {
+		t.Fatalf("proxy Start failed: %v", err)
+	}
+	defer s.Close()
+
+	client := proxyClient(proxyAddr, ca)
+
+	_, err = client.Get(fmt.Sprintf("https://%s/whatever", host))
+	if err == nil {
+		t.Fatal("expected CONNECT to fail for an unresolvable host")
+	}
+	// The proxy replied 502 to the CONNECT. Clients surface that differently (curl:
+	// "Received HTTP code 502 from proxy after CONNECT"; Go: "Bad Gateway"), so
+	// accept either spelling — the point is the tunnel failed (non-zero exit).
+	msg := strings.ToLower(err.Error())
+	if !strings.Contains(msg, "502") && !strings.Contains(msg, "bad gateway") {
+		t.Fatalf("expected a 502/Bad Gateway CONNECT failure, got: %v", err)
+	}
+	if strings.Contains(msg, "netleash") {
+		t.Fatalf("error must not mention the proxy, got: %v", err)
+	}
+}
+
+// An unresolvable host reached over plain HTTP must drop the connection rather
+// than return a 502 body (which curl would treat as a successful exit-0
+// response). The client must see a transport error with no proxy details.
+func TestServer_HTTPProxy_UnresolvableHost(t *testing.T) {
+	ca, _ := GenerateCA()
+	const host = "does-not-exist.example.invalid"
+	s := NewServer("127.0.0.1:0", ca, NewInjector(nil), []string{host}, "", quiet)
+	proxyAddr, err := s.Start()
+	if err != nil {
+		t.Fatalf("proxy Start failed: %v", err)
+	}
+	defer s.Close()
+
+	proxyURL, _ := url.Parse("http://" + proxyAddr)
+	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
+
+	_, err = client.Get(fmt.Sprintf("http://%s/whatever", host))
+	if err == nil {
+		t.Fatal("expected the request to fail for an unresolvable host")
+	}
+	if strings.Contains(strings.ToLower(err.Error()), "netleash") {
+		t.Fatalf("error must not mention the proxy, got: %v", err)
+	}
+}
+
 func TestServer_AuthToken_Required(t *testing.T) {
 	ca, _ := GenerateCA()
 	s := NewServer("127.0.0.1:0", ca, NewInjector(nil), []string{"127.0.0.1"}, "", quiet, WithAuthToken("test-token"))
