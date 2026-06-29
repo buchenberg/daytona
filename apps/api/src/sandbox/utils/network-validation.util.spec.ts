@@ -37,9 +37,9 @@ describe('network-validation.util', () => {
       expect(() => validateDomainAllowList('example.com,,,,,,,,,,')).not.toThrow()
     })
 
-    it('rejects more than 10 non-empty domain entries', () => {
-      expect(() => validateDomainAllowList(new Array(11).fill('example.com').join(','))).toThrow(
-        'Domain allow list cannot contain more than 10 domains',
+    it('rejects more than 20 non-empty domain entries', () => {
+      expect(() => validateDomainAllowList(new Array(21).fill('example.com').join(','))).toThrow(
+        'Domain allow list cannot contain more than 20 domains',
       )
     })
 
