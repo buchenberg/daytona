@@ -75,10 +75,28 @@ type Manager struct {
 // entry tracks one active firewall and the configuration it was built from, so
 // repeated Configure calls can detect no-ops and changes.
 type entry struct {
-	domains    []string // normalized + sorted; used to detect changes
+	domains []string // normalized + sorted; used to detect changes
+	target  attachTarget
+	fw      *firewall.Firewall
+	cancel  context.CancelFunc
+}
+
+// attachTarget describes where a workload's egress firewall attaches.
+//
+// Exactly one mode is used per workload, fixed by the container runtime:
+//
+//   - cgroupPath (cgroup mode) — runc/sysbox containers, whose processes run in
+//     this host cgroup, so cgroup_skb eBPF sees their socket traffic.
+//   - iface (TC mode) — VM-isolated runtimes (kata-clh), where the workload runs
+//     inside a guest and its traffic never traverses the host cgroup; it only
+//     crosses the host-side veth, so the filter must attach there instead.
+type attachTarget struct {
 	cgroupPath string
-	fw         *firewall.Firewall
-	cancel     context.CancelFunc
+	iface      string
+	// hostVeth marks iface as the host side of a veth pair, so TC directions are
+	// inverted: the workload's egress arrives as ingress on the host veth (and
+	// vice versa). Maps to firewall.Config.Tap, which performs the same swap.
+	hostVeth bool
 }
 
 // proxyEntry tracks one active secret-injection proxy and the temp CA cert file
@@ -136,6 +154,28 @@ func (m *Manager) pinPathFor(id string) string {
 // hang. The workload ID is the container ID, which maps to exactly one cgroup,
 // so an existing entry is always the same workload and can be updated directly.
 func (m *Manager) Configure(id, cgroupPath string, domains []string) error {
+	return m.configure(id, attachTarget{cgroupPath: cgroupPath}, domains)
+}
+
+// ConfigureInterface is the TC/interface-mode counterpart of Configure for
+// VM-isolated runtimes (kata-clh): the workload runs inside a guest VM, so its
+// traffic never traverses the host cgroup that cgroup_skb filters — only the
+// host-side veth. Attaching there with cgroup mode would be a silent no-op
+// (every domain reachable). iface is the host network interface carrying the
+// workload's traffic (the host side of its veth pair); hostVeth must be true for
+// such an interface so the TC directions are swapped (workload egress arrives as
+// ingress on the host veth). Semantics otherwise match Configure exactly
+// (idempotent; empty domains remove the filter; changes update in place).
+func (m *Manager) ConfigureInterface(id, iface string, hostVeth bool, domains []string) error {
+	if iface == "" && len(normalizeDomains(domains)) > 0 {
+		return fmt.Errorf("netleash: ConfigureInterface for workload %s requires an interface name", id)
+	}
+	return m.configure(id, attachTarget{iface: iface, hostVeth: hostVeth}, domains)
+}
+
+// configure is the shared implementation behind Configure (cgroup mode) and
+// ConfigureInterface (TC mode); see Configure's doc for the idempotency rules.
+func (m *Manager) configure(id string, target attachTarget, domains []string) error {
 	norm := normalizeDomains(domains)
 
 	m.mu.Lock()
@@ -152,7 +192,10 @@ func (m *Manager) Configure(id, cgroupPath string, domains []string) error {
 	}
 
 	// Existing workload → update the allow list in place, preserving the live
-	// connection tracking and learned IPs so open connections don't hang.
+	// connection tracking and learned IPs so open connections don't hang. This is
+	// attach-type agnostic (UpdateDomains only touches the allow-list maps), and a
+	// workload's runtime — hence its attach mode — never changes, so the existing
+	// firewall is always the right one to update.
 	if ok {
 		if equalDomains(existing.domains, norm) {
 			return nil // unchanged
@@ -173,7 +216,11 @@ func (m *Manager) Configure(id, cgroupPath string, domains []string) error {
 	fw := firewall.New(firewall.Config{
 		Domains:          norm,
 		InternalDNSZones: m.internalDNSZones,
-		CgroupPath:       cgroupPath,
+		// Exactly one of CgroupPath / Interface is set (see attachTarget). The empty
+		// one selects the other mode in firewall.Setup.
+		CgroupPath: target.cgroupPath,
+		Interface:  target.iface,
+		Tap:        target.hostVeth,
 		// When the shared secret-injection proxy is enabled, allow its IP through
 		// the egress filter so a domain-restricted workload can still reach the
 		// proxy (the proxy then enforces the same allow list on the workload's
@@ -200,12 +247,12 @@ func (m *Manager) Configure(id, cgroupPath string, domains []string) error {
 	}
 
 	m.entries[id] = &entry{
-		domains:    norm,
-		cgroupPath: cgroupPath,
-		fw:         fw,
-		cancel:     cancel,
+		domains: norm,
+		target:  target,
+		fw:      fw,
+		cancel:  cancel,
 	}
-	m.log.Info("domain allow list applied", "workload", id, "domains", norm)
+	m.log.Info("domain allow list applied", "workload", id, "domains", norm, "interface", target.iface)
 	return nil
 }
 

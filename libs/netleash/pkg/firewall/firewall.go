@@ -187,7 +187,7 @@ func (fw *Firewall) setupCgroup() error {
 	// Pin links + maps to bpffs so the filter survives a restart of this
 	// process (pinned cgroup links stay attached with no userspace owner).
 	if fw.cfg.PinPath != "" {
-		if err := fw.pinCgroup(); err != nil {
+		if err := fw.pinFirewall(); err != nil {
 			fw.Detach() // best-effort: remove any partial pins + detach
 			return fmt.Errorf("pinning firewall: %w", err)
 		}
@@ -420,26 +420,28 @@ func (fw *Firewall) RunProcess(ctx context.Context, args []string) (int, error) 
 	return 0, nil
 }
 
-// Pin pins an already-attached cgroup-mode firewall's links and maps to bpffs
-// at pinPath, so the egress filter survives a restart of this process. Call
-// after a successful Setup; Adopt re-opens the pins in the next process. Pinning
-// after Setup (rather than via Config.PinPath) lets a caller swap allow lists
-// without two firewalls colliding on the same pin path.
+// Pin pins an already-attached firewall's links and maps to bpffs at pinPath, so
+// the egress filter survives a restart of this process. Works for both cgroup
+// and TC/interface mode — pinned bpf_links keep their programs attached with no
+// userspace owner regardless of attach type. Call after a successful Setup;
+// Adopt re-opens the pins in the next process. Pinning after Setup (rather than
+// via Config.PinPath) lets a caller swap allow lists without two firewalls
+// colliding on the same pin path.
 func (fw *Firewall) Pin(pinPath string) error {
-	if fw.cgObjs == nil {
-		return fmt.Errorf("pin requires a cgroup-mode firewall created via Setup")
+	if fw.cgObjs == nil && fw.tcObjs == nil {
+		return fmt.Errorf("pin requires a firewall created via Setup")
 	}
 	fw.cfg.PinPath = pinPath
-	return fw.pinCgroup()
+	return fw.pinFirewall()
 }
 
-// pinCgroup pins the cgroup links and the maps needed for management to bpffs
-// under fw.cfg.PinPath. Pinned cgroup links keep the programs attached to the
-// container's cgroup even with no userspace owner, so the egress filter
-// survives a restart of this process (Adopt re-opens them, zero gap). PinPath
-// must live on a bpffs mount (e.g. /sys/fs/bpf) that persists across the
-// restart — on bare metal this is the host's own bpffs.
-func (fw *Firewall) pinCgroup() error {
+// pinFirewall pins the egress/ingress links and the maps needed for management
+// to bpffs under fw.cfg.PinPath. Pinned links keep the programs attached to the
+// cgroup (cgroup mode) or interface (TC mode) even with no userspace owner, so
+// the egress filter survives a restart of this process (Adopt re-opens them,
+// zero gap). PinPath must live on a bpffs mount (e.g. /sys/fs/bpf) that persists
+// across the restart — on bare metal this is the host's own bpffs.
+func (fw *Firewall) pinFirewall() error {
 	if err := os.MkdirAll(fw.cfg.PinPath, 0o700); err != nil {
 		return fmt.Errorf("creating pin dir %s: %w", fw.cfg.PinPath, err)
 	}
@@ -456,12 +458,12 @@ func (fw *Firewall) pinCgroup() error {
 		}
 		return err
 	}
-	fw.log.Debug("pinned cgroup firewall", "path", fw.cfg.PinPath)
+	fw.log.Debug("pinned firewall", "path", fw.cfg.PinPath)
 	return nil
 }
 
-// pinAll pins the cgroup links and the maps Adopt needs. On the first failure it
-// returns immediately; pinCgroup is responsible for cleaning up partial state.
+// pinAll pins the links and the maps Adopt needs. On the first failure it
+// returns immediately; pinFirewall is responsible for cleaning up partial state.
 func (fw *Firewall) pinAll() error {
 	if err := fw.egressLink.Pin(filepath.Join(fw.cfg.PinPath, pinEgressLink)); err != nil {
 		return fmt.Errorf("pinning egress link: %w", err)
@@ -477,26 +479,29 @@ func (fw *Firewall) pinAll() error {
 	return nil
 }
 
-// pinnableMaps returns the cgroup-mode maps that Adopt needs to re-open, keyed
-// by pin filename. The other maps (reported_ips, inbound_conns) are managed
-// entirely in-kernel and stay alive via the pinned programs, so they need no
-// userspace handle after a restart.
+// pinnableMaps returns the maps that Adopt needs to re-open, keyed by pin
+// filename. It reads from the uniform maps accessor (populated identically in
+// cgroup and TC mode), so the same set is pinned regardless of attach type. The
+// other maps (reported_ips, inbound_conns) are managed entirely in-kernel and
+// stay alive via the pinned programs, so they need no userspace handle after a
+// restart.
 func (fw *Firewall) pinnableMaps() map[string]*ebpf.Map {
 	return map[string]*ebpf.Map{
-		pinAllowedDomains:   fw.cgObjs.AllowedDomains,
-		pinAllowedWildcards: fw.cgObjs.AllowedWildcards,
-		pinAllowedIps:       fw.cgObjs.AllowedIps,
-		pinInternalZones:    fw.cgObjs.InternalDnsZones,
-		pinEvents:           fw.cgObjs.Events,
+		pinAllowedDomains:   fw.maps.AllowedDomains,
+		pinAllowedWildcards: fw.maps.AllowedWildcards,
+		pinAllowedIps:       fw.maps.AllowedIps,
+		pinInternalZones:    fw.maps.InternalDNSZones,
+		pinEvents:           fw.maps.Events,
 	}
 }
 
-// Adopt re-opens a cgroup firewall previously pinned to fw.cfg.PinPath by an
-// earlier process, instead of attaching a fresh one. The pinned links keep the
-// programs attached across the restart (zero gap); Adopt just restores the
-// userspace handles so the event reader and allow-list maps can be managed
-// again. The caller is responsible for verifying the underlying cgroup/workload
-// still exists.
+// Adopt re-opens a firewall previously pinned to fw.cfg.PinPath by an earlier
+// process, instead of attaching a fresh one. It is attach-type agnostic: the
+// pinned links (cgroup or TC) keep the programs attached across the restart
+// (zero gap), and the pinned maps are the same set in both modes, so Adopt just
+// restores the userspace handles so the event reader and allow-list maps can be
+// managed again. The caller is responsible for verifying the underlying
+// cgroup/interface/workload still exists.
 func (fw *Firewall) Adopt() error {
 	if fw.cfg.PinPath == "" {
 		return fmt.Errorf("adopt requires PinPath")
