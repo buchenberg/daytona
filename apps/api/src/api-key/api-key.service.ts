@@ -10,8 +10,10 @@ import { ApiKey } from './api-key.entity'
 import { OrganizationResourcePermission } from '../organization/enums/organization-resource-permission.enum'
 import { RedisLockProvider } from '../sandbox/common/redis-lock.provider'
 import { OnAsyncEvent } from '../common/decorators/on-async-event.decorator'
+import { OnEvent } from '@nestjs/event-emitter'
 import { OrganizationEvents } from '../organization/constants/organization-events.constant'
 import { OrganizationResourcePermissionsUnassignedEvent } from '../organization/events/organization-resource-permissions-unassigned.event'
+import { OrganizationUserRemovedEvent } from '../organization/events/organization-user-removed.event'
 import { InjectRedis } from '@nestjs-modules/ioredis'
 import Redis from 'ioredis'
 import { generateApiKeyHash, generateApiKeyValue } from '../common/utils/api-key'
@@ -172,5 +174,43 @@ export class ApiKeyService {
     })
 
     await Promise.all(apiKeysToRevoke.map((apiKey) => this.deleteWithEntityManager(payload.entityManager, apiKey)))
+  }
+
+  @OnEvent(OrganizationEvents.USER_REMOVED)
+  async handleOrganizationUserRemoved(event: OrganizationUserRemovedEvent): Promise<void> {
+    // Membership is revoked: delete the user's API keys for this organization. The keys are not tied to
+    // the membership row by a foreign key, and removal does not go through the permission-unassignment
+    // path, so without this they keep authenticating and are restored verbatim when the user is re-invited.
+    // Best-effort: a failure here must not surface on the request that revoked membership.
+    let apiKeys: ApiKey[]
+    try {
+      apiKeys = await this.apiKeyRepository.find({
+        where: {
+          organizationId: event.organizationId,
+          userId: event.userId,
+        },
+      })
+    } catch (error) {
+      this.logger.error(
+        `Failed to load API keys to revoke for user ${event.userId} in organization ${event.organizationId}:`,
+        error,
+      )
+      return
+    }
+
+    // Revoke every key independently so one failure does not abort the rest, and log each failure with
+    // the key identity (never the secret) so an unrevoked key is visible to operators.
+    const results = await Promise.allSettled(
+      apiKeys.map((apiKey) => this.deleteWithEntityManager(this.apiKeyRepository.manager, apiKey)),
+    )
+    results.forEach((result, i) => {
+      if (result.status === 'rejected') {
+        this.logger.error(
+          `Failed to revoke API key '${apiKeys[i].name}' (prefix=${apiKeys[i].keyPrefix}) ` +
+            `for user ${event.userId} in organization ${event.organizationId}:`,
+          result.reason,
+        )
+      }
+    })
   }
 }
