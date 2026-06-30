@@ -246,8 +246,8 @@ export function SandboxInfoPanel({
           </TimestampTooltip>
         </InfoRow>
         <InfoRow label="Last event">
-          <TimestampTooltip timestamp={sandbox.updatedAt}>
-            <span>{getRelativeTimeString(sandbox.updatedAt).relativeTimeString}</span>
+          <TimestampTooltip timestamp={sandbox.lastActivityAt ?? sandbox.updatedAt}>
+            <span>{getRelativeTimeString(sandbox.lastActivityAt ?? sandbox.updatedAt).relativeTimeString}</span>
           </TimestampTooltip>
         </InfoRow>
       </InfoSection>
