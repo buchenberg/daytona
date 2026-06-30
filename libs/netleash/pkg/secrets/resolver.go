@@ -80,11 +80,21 @@ func (r *APIResolver) Resolve(ctx context.Context) ([]proxy.SecretConfig, error)
 		if placeholder == "" || value == "" {
 			continue
 		}
+		// The Daytona API documents an empty allowed-hosts list as unrestricted
+		// ("Omit hosts entirely for unrestricted access"). Map it to the match-all
+		// token so the injector substitutes the secret for every host, instead of
+		// the injector's empty-list default of matching no host (which would leave
+		// the placeholder unreplaced everywhere — a secret that silently never
+		// works).
+		hosts := s.GetHosts()
+		if len(hosts) == 0 {
+			hosts = []string{proxy.MatchAllHosts}
+		}
 		secrets = append(secrets, proxy.SecretConfig{
 			Name:        s.GetEnv(),
 			Placeholder: placeholder,
 			Value:       value,
-			Hosts:       s.GetHosts(),
+			Hosts:       hosts,
 		})
 	}
 	return secrets, nil

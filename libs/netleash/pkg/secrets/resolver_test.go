@@ -71,6 +71,42 @@ func TestAPIResolver_SkipsIncompleteEntries(t *testing.T) {
 	}
 }
 
+// A secret with no allowed hosts (field omitted or empty) is unrestricted per
+// the Daytona API contract, so the resolver maps it to the match-all token so
+// the injector substitutes it for every host.
+func TestAPIResolver_EmptyHostsBecomesMatchAll(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"env":"OMITTED","placeholder":"dtn_secret_o","value":"v1"},
+			{"env":"EMPTY","placeholder":"dtn_secret_e","value":"v2","hosts":[]},
+			{"env":"SCOPED","placeholder":"dtn_secret_s","value":"v3","hosts":["api.example.com"]}
+		]`))
+	}))
+	defer srv.Close()
+
+	r := NewAPIResolver(srv.URL, "sb-1", "tok")
+	secrets, err := r.Resolve(context.Background())
+	if err != nil {
+		t.Fatalf("Resolve failed: %v", err)
+	}
+	if len(secrets) != 3 {
+		t.Fatalf("expected 3 secrets, got %d", len(secrets))
+	}
+	for _, s := range secrets {
+		switch s.Name {
+		case "OMITTED", "EMPTY":
+			if len(s.Hosts) != 1 || s.Hosts[0] != "*" {
+				t.Errorf("%s: expected hosts [*], got %v", s.Name, s.Hosts)
+			}
+		case "SCOPED":
+			if len(s.Hosts) != 1 || s.Hosts[0] != "api.example.com" {
+				t.Errorf("SCOPED: expected its explicit host, got %v", s.Hosts)
+			}
+		}
+	}
+}
+
 func TestAPIResolver_EmptyResult(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

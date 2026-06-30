@@ -164,12 +164,33 @@ func TestHostAllowed(t *testing.T) {
 		{"example.com", []string{"EXAMPLE.COM"}, true},
 		{"example.com", nil, false},
 		{"example.com", []string{}, false},
+		// "*" (MatchAllHosts) matches every host; empty still matches nothing.
+		{"example.com", []string{"*"}, true},
+		{"anything.internal", []string{"*"}, true},
+		{"api.openai.com", []string{"other.com", "*"}, true},
 	}
 
 	for _, tt := range tests {
 		got := hostAllowed(tt.host, tt.allowed)
 		if got != tt.want {
 			t.Errorf("hostAllowed(%q, %v) = %v, want %v", tt.host, tt.allowed, got, tt.want)
+		}
+	}
+}
+
+// A secret scoped to "*" is injected for any host, in both headers and body.
+func TestInjector_MatchAllHosts(t *testing.T) {
+	inj := NewInjector([]SecretConfig{{
+		Placeholder: "PH_TOKEN",
+		Value:       "real-secret",
+		Hosts:       []string{MatchAllHosts},
+	}})
+	for _, host := range []string{"api.openai.com", "anything.example.com", "localhost"} {
+		if got := inj.ReplaceString(host, "Bearer PH_TOKEN"); got != "Bearer real-secret" {
+			t.Errorf("ReplaceString(%q): got %q, want injected value", host, got)
+		}
+		if got := inj.ReplaceBody(host, []byte(`{"k":"PH_TOKEN"}`)); string(got) != `{"k":"real-secret"}` {
+			t.Errorf("ReplaceBody(%q): got %q, want injected value", host, got)
 		}
 	}
 }

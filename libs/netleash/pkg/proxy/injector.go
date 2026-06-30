@@ -150,18 +150,31 @@ func GeneratePlaceholder() string {
 	return fmt.Sprintf("%s%s__", placeholderPrefix, hex.EncodeToString(b))
 }
 
+// MatchAllHosts is the wildcard host token that lets a secret be injected for
+// ANY destination host. The Daytona API documents a secret with no allowed
+// hosts as unrestricted ("Omit hosts entirely for unrestricted access"); the
+// runner's APIResolver maps that empty list to this token. An empty list, by
+// contrast, still matches NO host (fail-closed) — so a host list that is empty
+// for any other reason (e.g. a misconfigured CLI secret) is never silently sent
+// everywhere.
+const MatchAllHosts = "*"
+
 // hostAllowed reports whether host matches any entry in allowed. Entries are
-// matched case-insensitively; an entry prefixed with "*." is a wildcard that
-// matches any subdomain of (and the base of) that suffix — e.g. "*.example.com"
-// matches "api.example.com" and "example.com". This mirrors the proxy's domain
-// allow-list matching so a secret's `hosts` accepts the same wildcard syntax the
-// API advertises.
+// matched case-insensitively; the token "*" (MatchAllHosts) matches every host;
+// an entry prefixed with "*." is a wildcard that matches any subdomain of (and
+// the base of) that suffix — e.g. "*.example.com" matches "api.example.com" and
+// "example.com". This mirrors the proxy's domain allow-list matching so a
+// secret's `hosts` accepts the same wildcard syntax the API advertises. An empty
+// allow list matches nothing.
 func hostAllowed(host string, allowed []string) bool {
 	host = strings.ToLower(host)
 	for _, a := range allowed {
 		a = strings.ToLower(strings.TrimSpace(a))
 		if a == "" {
 			continue
+		}
+		if a == MatchAllHosts {
+			return true // unrestricted: inject for every host
 		}
 		if strings.HasPrefix(a, "*.") {
 			suffix := a[1:] // "*.example.com" → ".example.com"
