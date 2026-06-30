@@ -39,8 +39,8 @@
 
         # ──────────────────────────────────────────────
         # Go toolchain
-        # Covers: apps/{cli,daemon,proxy,runner,snapshot-manager,ssh-gateway,otel-collector/exporter}
-        #         libs/{sdk-go,api-client-go,common-go,computer-use,toolbox-api-client-go}
+        # Covers: apps/{daemon,proxy,runner,snapshot-manager,ssh-gateway,otel-collector/exporter}
+        #         libs/{api-client-go,common-go,computer-use,netleash}
         # ──────────────────────────────────────────────
         goPkgs = with pkgs; [
           go_1_25 # pin to 1.25.x — matches go.work (go 1.25.5) and the devcontainer
@@ -120,11 +120,15 @@
         # ──────────────────────────────────────────────
         # Node.js / TypeScript toolchain
         # Covers: apps/{api,dashboard,docs}
-        #         libs/{sdk-typescript,api-client,toolbox-api-client,analytics-api-client,runner-api-client,opencode-plugin}
+        #         libs/{api-client,toolbox-api-client,analytics-api-client,runner-api-client,backoffice-api-client,billing-api-client,opencode-plugin,pi-extension}
         # ──────────────────────────────────────────────
         nodePkgs = [
           pkgs.nodejs_22
           yarnWrapper
+          # JDK runtime for `yarn generate:api-client`: openapi-generator-cli is a
+          # Java app invoked as `java -jar`, used to generate every API client
+          # (TS + the Go api-client). Headless JDK only — no Gradle, no Java SDK.
+          pkgs.jdk21_headless
         ];
 
         nodeShellHook = ''
@@ -133,64 +137,7 @@
           export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
           export COREPACK_HOME="''${COREPACK_HOME:-$HOME/.cache/corepack}"
           mkdir -p "$COREPACK_HOME"
-        '';
-
-        # ──────────────────────────────────────────────
-        # Python toolchain
-        # Covers: libs/{sdk-python,api-client-python,api-client-python-async,toolbox-api-client-python,toolbox-api-client-python-async}
-        #         examples/python, guides/python
-        # ──────────────────────────────────────────────
-        pythonPkgs = with pkgs; [
-          python312 # compatible with requires-python ^3.9
-          poetry
-        ];
-
-        pythonShellHook = ''
-          export POETRY_VIRTUALENVS_IN_PROJECT=true
-
-          # The Poetry dev group provides Python tooling not packaged in nixpkgs
-          # (e.g. pydoc-markdown, used by `npm run docs` in libs/sdk-python). Its
-          # `python` loader imports the editable `daytona` package and all its
-          # runtime deps, so the tool and the SDK must live in one venv — bootstrap
-          # the in-project venv and put it on PATH so those binaries resolve.
-          if [ ! -x "$PWD/.venv/bin/pydoc-markdown" ]; then
-            echo "nix-shell: installing Python dev dependencies (poetry install) ..."
-            poetry install --no-interaction 2>/dev/null \
-              || echo "nix-shell: warning — poetry install failed; run it manually"
-          fi
-          if [ -d "$PWD/.venv/bin" ]; then
-            export PATH="$PWD/.venv/bin:$PATH"
-          fi
-        '';
-
-        # ──────────────────────────────────────────────
-        # Ruby toolchain
-        # Covers: libs/{sdk-ruby,api-client-ruby,toolbox-api-client-ruby}
-        # ──────────────────────────────────────────────
-        rubyPkgs = with pkgs; [
-          ruby_3_4 # matches devcontainer 3.4.5
-        ] ++ darwinDeps;
-
-        rubyShellHook = ''
-          export RUBYLIB="$PWD/libs/sdk-ruby/lib:$PWD/libs/api-client-ruby/lib:$PWD/libs/toolbox-api-client-ruby/lib"
-          export BUNDLE_GEMFILE="$PWD/Gemfile"
-          export BUNDLE_PATH="$PWD/.bundle"
-        '';
-
-        # ──────────────────────────────────────────────
-        # Java toolchain
-        # Covers: libs/{sdk-java,api-client-java,toolbox-api-client-java}
-        #         examples/java
-        # ──────────────────────────────────────────────
-        javaPkgs = [
-          pkgs.jdk21 # matches the devcontainer (java feature 21.0.11, Temurin);
-          # source still targets Java 11 and Gradle 8.10 supports JDK 21. The JDK
-          # major version affects Javadoc → Markdown output for the Java SDK docs.
-          pkgs.gradle
-        ];
-
-        javaShellHook = ''
-          export JAVA_HOME="${pkgs.jdk21.home}"
+          export JAVA_HOME="${pkgs.jdk21_headless.home}"
         '';
 
       in
@@ -200,7 +147,7 @@
           # Full monorepo — every language and tool
           default = pkgs.mkShell {
             name = "daytona";
-            packages = commonPkgs ++ goPkgs ++ nodePkgs ++ pythonPkgs ++ rubyPkgs ++ javaPkgs;
+            packages = commonPkgs ++ goPkgs ++ nodePkgs;
             buildInputs = bpfHeaderInputs ++ computerUseInputs;
             # bpf2go invokes clang with `-target bpf`; the cc-wrapper's hardening
             # flags (e.g. -fzero-call-used-regs) are unsupported for that target.
@@ -208,9 +155,6 @@
             shellHook = ''
               ${goShellHook}
               ${nodeShellHook}
-              ${pythonShellHook}
-              ${rubyShellHook}
-              ${javaShellHook}
             '';
           };
 
@@ -230,27 +174,6 @@
             name = "daytona-node";
             packages = commonPkgs ++ nodePkgs;
             shellHook = nodeShellHook;
-          };
-
-          # Python SDKs and libraries only
-          python = pkgs.mkShell {
-            name = "daytona-python";
-            packages = commonPkgs ++ pythonPkgs;
-            shellHook = pythonShellHook;
-          };
-
-          # Ruby SDKs and libraries only
-          ruby = pkgs.mkShell {
-            name = "daytona-ruby";
-            packages = commonPkgs ++ rubyPkgs;
-            shellHook = rubyShellHook;
-          };
-
-          # Java SDKs and libraries only
-          java = pkgs.mkShell {
-            name = "daytona-java";
-            packages = commonPkgs ++ javaPkgs;
-            shellHook = javaShellHook;
           };
         };
       }

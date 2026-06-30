@@ -37,12 +37,6 @@ jobs:
             build-mode: manual
           - language: javascript-typescript
             build-mode: none
-          - language: python
-            build-mode: none
-          - language: ruby
-            build-mode: none
-          - language: java-kotlin
-            build-mode: none
 
     steps:
       - name: Checkout
@@ -63,11 +57,10 @@ jobs:
 
       - name: Remove out-of-scope Go files before extraction
         if: matrix.language == 'go'
-        # examples/go/* are independent Go modules outside go.work; libs/runner-proto/gen
-        # holds generated protobuf. Both are paths-ignored at result level, but the Go
-        # extractor walks the filesystem before honoring paths-ignore and emits the
-        # "Go files were found but not processed" diagnostic.
-        run: rm -rf examples/go libs/runner-proto/gen
+        # libs/runner-proto/gen holds generated protobuf. It is paths-ignored at
+        # result level, but the Go extractor walks the filesystem before honoring
+        # paths-ignore and emits the "Go files were found but not processed" diagnostic.
+        run: rm -rf libs/runner-proto/gen
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v4.35.5
@@ -79,17 +72,8 @@ jobs:
             paths-ignore:
               - libs/api-client/**
               - libs/api-client-go/**
-              - libs/api-client-java/**
-              - libs/api-client-python/**
-              - libs/api-client-python-async/**
-              - libs/api-client-ruby/**
               - libs/runner-api-client/**
               - libs/toolbox-api-client/**
-              - libs/toolbox-api-client-go/**
-              - libs/toolbox-api-client-java/**
-              - libs/toolbox-api-client-python/**
-              - libs/toolbox-api-client-python-async/**
-              - libs/toolbox-api-client-ruby/**
               - libs/runner-proto/gen/**
               - apps/runner/pkg/api/docs/**
               - apps/daemon/pkg/toolbox/docs/**

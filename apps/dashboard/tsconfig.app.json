@@ -9,8 +9,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@daytona/*": ["../../libs/*"],
-      "@daytona/sdk": ["../../dist/libs/sdk-typescript/esm/index.d.ts"]
+      "@daytona/*": ["../../libs/*"]
     }
   },
   "exclude": [

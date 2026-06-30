@@ -27,7 +27,6 @@ COPY libs/backoffice-api-client/ libs/backoffice-api-client/
 COPY libs/api-client/ libs/api-client/
 COPY libs/analytics-api-client/ libs/analytics-api-client/
 COPY libs/billing-api-client/ libs/billing-api-client/
-COPY libs/sdk-typescript/ libs/sdk-typescript/
 COPY libs/toolbox-api-client/ libs/toolbox-api-client/
 
 ENV NX_DAEMON=false

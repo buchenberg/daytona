@@ -29,7 +29,6 @@ COPY libs/runner-api-client/ libs/runner-api-client/
 COPY libs/api-client/ libs/api-client/
 COPY libs/analytics-api-client/ libs/analytics-api-client/
 COPY libs/toolbox-api-client/ libs/toolbox-api-client/
-COPY libs/sdk-typescript/ libs/sdk-typescript/
 COPY libs/runner-proto/ libs/runner-proto/
 COPY libs/billing-api-client/ libs/billing-api-client/
 

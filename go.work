@@ -1,7 +1,6 @@
 go 1.25.5
 
 use (
-	./apps/cli
 	./apps/daemon
 	./apps/daytona-e2e
 	./apps/otel-collector/exporter
@@ -13,6 +12,4 @@ use (
 	./libs/common-go
 	./libs/computer-use
 	./libs/netleash
-	./libs/sdk-go
-	./libs/toolbox-api-client-go
 )

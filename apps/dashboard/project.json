@@ -10,22 +10,9 @@
         "production": {
           "mode": "production"
         }
-      },
-      "dependsOn": [
-        {
-          "target": "build",
-          "projects": "sdk-typescript"
-        }
-      ]
+      }
     },
-    "serve": {
-      "dependsOn": [
-        {
-          "target": "build",
-          "projects": "sdk-typescript"
-        }
-      ]
-    },
+    "serve": {},
     "storybook": {
       "executor": "nx:run-commands",
       "options": {

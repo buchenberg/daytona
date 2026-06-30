@@ -84,7 +84,6 @@ updates:
   - package-ecosystem: npm
     directories:
       - "/"
-      - "/libs/sdk-typescript"
     schedule:
       interval: weekly
       day: monday
@@ -95,28 +94,10 @@ updates:
     commit-message:
       prefix: "chore(deps)"
 
-  - package-ecosystem: pip
-    directories:
-      - "/libs/sdk-python"
-      - "/libs/api-client-python"
-      - "/libs/api-client-python-async"
-      - "/libs/toolbox-api-client-python"
-      - "/libs/toolbox-api-client-python-async"
-    schedule:
-      interval: weekly
-      day: monday
-    groups:
-      pip-prod:
-        patterns:
-          - "*"
-    commit-message:
-      prefix: "chore(deps)"
-
   # gomod: Go workspace modules (go.work). Without this they get
   # security-only updates and never version updates, so they drift.
   - package-ecosystem: gomod
     directories:
-      - "/apps/cli"
       - "/apps/daemon"
       - "/apps/daytona-e2e"
       - "/apps/otel-collector/exporter"
@@ -127,8 +108,6 @@ updates:
       - "/libs/api-client-go"
       - "/libs/common-go"
       - "/libs/computer-use"
-      - "/libs/sdk-go"
-      - "/libs/toolbox-api-client-go"
     schedule:
       interval: weekly
       day: monday

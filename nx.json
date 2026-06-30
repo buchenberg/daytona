@@ -38,11 +38,6 @@
       { "env": "DEFAULT_PACKAGE_VERSION" },
       { "dependentTasksOutputFiles": "**/*", "transitive": true }
     ],
-    "pythonApiClient": [
-      "apiClient",
-      "{workspaceRoot}/hack/python-client/openapi-templates/**/*",
-      "{workspaceRoot}/hack/python-client/postprocess.sh"
-    ],
     "goApiClient": [
       "apiClient",
       "{workspaceRoot}/hack/go-client/openapi-templates/**/*",

@@ -46,19 +46,6 @@
         }
       }
     },
-    "update-cli-reference": {
-      "executor": "nx:run-commands",
-      "cache": true,
-      "inputs": [
-        "{projectRoot}/tools/**/*",
-        "{workspaceRoot}/dist/apps/cli/**/*"
-      ],
-      "outputs": ["{projectRoot}/src/content/docs/en/cli/**/*"],
-      "options": {
-        "cwd": "{projectRoot}/tools",
-        "command": "node ./update-cli-reference.js"
-      }
-    },
     "update-api-reference": {
       "executor": "nx:run-commands",
       "cache": true,

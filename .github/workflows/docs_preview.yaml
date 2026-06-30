@@ -40,12 +40,7 @@ jobs:
       - uses: ./.github/actions/setup-toolchain
         with:
           install-go: 'false'
-          install-python: 'false'
-          install-ruby: 'false'
-          install-java: 'false'
-          install-poetry: 'false'
           install-swag: 'false'
-          run-poetry-install: 'false'
           run-go-work-sync: 'false'
 
       - name: Compute branch and deployment slugs

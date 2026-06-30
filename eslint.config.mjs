@@ -56,16 +56,6 @@ export default [
     },
   },
   {
-    // The SDK runtime-test fixtures intentionally import from '@daytona/sdk'
-    // (the packed published package) instead of the workspace source — that's
-    // the whole point of the tests. Disable the enforce-module-boundaries
-    // auto-fix that rewrites those imports to relative source paths.
-    files: ['libs/sdk-typescript/runtime-tests/**/*.{ts,tsx,js,jsx,mjs,cjs}'],
-    rules: {
-      '@nx/enforce-module-boundaries': 'off',
-    },
-  },
-  {
     // Backoffice apps are internal admin tools that need access to main API entities
     // Module boundary enforcement is disabled to allow direct entity imports from api app
     // pi-extension consumes '@daytona/sdk' as a published package — statically in the

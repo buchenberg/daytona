@@ -5,11 +5,9 @@
   "private": true,
   "scripts": {
     "postinstall": "is-ci || husky",
-    "format": "nx run-many --target=format --all --parallel=$(getconf _NPROCESSORS_ONLN) && prettier --write \"*.{ts,js,json,yaml}\" \"functions/**/*.js\" && markdownlint-cli2 \"**/*.{mdx,md}\" --fix && yarn format:py",
-    "format:py": "isort libs examples/python guides/python --skip-glob \"**/libs/*api-client-python*/**\" --skip-glob \"**/.venv/**\" && nbqa isort examples/jupyter && black libs examples guides/python --extend-exclude '(^|/)(libs/.*api-client-python.*|\\.venv)(/|$)'",
-    "lint": "yarn lint:ts && yarn lint:py",
+    "format": "nx run-many --target=format --all --parallel=$(getconf _NPROCESSORS_ONLN) && prettier --write \"*.{ts,js,json,yaml}\" \"functions/**/*.js\" && markdownlint-cli2 \"**/*.{mdx,md}\" --fix",
+    "lint": "yarn lint:ts",
     "lint:ts": "eslint \"{apps,libs,test}/**/*.{ts,tsx}\"",
-    "lint:py": "pylint libs examples/python --recursive=y -sn && nbqa pylint examples/jupyter --recursive=y -sn && basedpyright",
     "lint:fix": "eslint \"{apps,libs,test}/**/*.{ts,tsx}\" --fix && nx run api:lint",
     "test": "nx run-many --target=test --all --nxBail=true",
     "test:e2e": "nx run-many --target=test:e2e --all --nxBail=true",
@@ -28,7 +26,6 @@
     "migration:run:post-deploy": "cd apps/api && npx ts-node -P ./tsconfig.json -r tsconfig-paths/register ../../node_modules/typeorm/cli.js migration:run -d ./src/migrations/post-deploy/data-source.ts",
     "migration:revert": "cd apps/api && npx ts-node -P ./tsconfig.json -r tsconfig-paths/register ../../node_modules/typeorm/cli.js migration:revert -d ./src/migrations/data-source.ts",
     "shadcn:add": "TS_NODE_PROJECT=apps/dashboard/tsconfig.app.json npx shadcn@latest add",
-    "docs": "nx run-many --target=docs --all",
     "publish": "nx run-many --target=publish --exclude=sdk-go --all",
     "prepare-release": "nx run-many --target=prepare-release --all",
     "translate:docs": "npx gtx-cli translate --config apps/docs/gt.config.json",
@@ -53,6 +50,7 @@
     "@bufbuild/protobuf": "^2.11.0",
     "@chenglou/pretext": "^0.0.5",
     "@clickhouse/client": "^1.16.0",
+    "@daytona/sdk": "0.192.0",
     "@docsearch/css": "4.6.2",
     "@docsearch/react": "4.6.2",
     "@dotenvx/dotenvx": "^1.25.1",
@@ -362,27 +360,8 @@
     "!(libs/*api-client-go*/**/*)*.go": [
       "gofmt -w"
     ],
-    "!(libs/*api-client-ruby*/**/*)*.rb": [
-      "rubocop -a --fail-level fatal"
-    ],
     "*.{mdx,md}": [
       "markdownlint-cli2 --fix"
-    ],
-    "!(libs/*api-client-python*/**/*|guides/typescript/**/*|libs/sdk-python/tests/**/*)*.py": [
-      "isort",
-      "black --config pyproject.toml",
-      "pylint -sn",
-      "basedpyright"
-    ],
-    "libs/sdk-python/tests/**/*.py": [
-      "isort",
-      "black --config pyproject.toml"
-    ],
-    "*.ipynb": [
-      "nbqa isort",
-      "black --config pyproject.toml",
-      "nbqa pylint -sn",
-      "basedpyright"
     ]
   }
 }

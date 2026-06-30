@@ -28,13 +28,7 @@
         "updateBuildableProjectDepsInPackageJson": true,
         "assets": ["{projectRoot}/README.md", "{projectRoot}/.npmignore"]
       },
-      "dependsOn": [
-        {
-          "target": "build",
-          "projects": ["sdk-typescript"]
-        },
-        "set-version"
-      ]
+      "dependsOn": ["set-version"]
     },
     "set-version": {
       "executor": "nx:run-commands",
@@ -58,13 +52,7 @@
         ],
         "parallel": false
       },
-      "dependsOn": [
-        "build",
-        {
-          "target": "publish",
-          "projects": ["sdk-typescript"]
-        }
-      ]
+      "dependsOn": ["build"]
     }
   },
   "tags": []
