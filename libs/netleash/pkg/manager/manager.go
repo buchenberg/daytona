@@ -192,19 +192,21 @@ func (m *Manager) configure(id string, target attachTarget, domains []string) er
 	}
 
 	// Existing workload → update the allow list in place, preserving the live
-	// connection tracking and learned IPs so open connections don't hang. This is
-	// attach-type agnostic (UpdateDomains only touches the allow-list maps), and a
-	// workload's runtime — hence its attach mode — never changes, so the existing
-	// firewall is always the right one to update.
+	// inbound-connection tracking so open connections (terminal/toolbox) don't
+	// hang. Drop the learned-IP cache only when a domain was removed (or when the
+	// previous set is unknown — an adopted entry after a restart), so the removed
+	// domain's already-resolved IPs stop being reachable. Pure additions keep the
+	// cache so in-flight connections to still-allowed domains aren't disrupted.
 	if ok {
 		if equalDomains(existing.domains, norm) {
 			return nil // unchanged
 		}
-		if err := existing.fw.UpdateDomains(norm); err != nil {
+		clearLearned := len(existing.domains) == 0 || domainsRemoved(existing.domains, norm)
+		if err := existing.fw.UpdateDomains(norm, clearLearned); err != nil {
 			return fmt.Errorf("netleash: updating workload %s: %w", id, err)
 		}
 		existing.domains = norm
-		m.log.Info("domain allow list updated", "workload", id, "domains", norm)
+		m.log.Info("domain allow list updated", "workload", id, "domains", norm, "cleared_learned_ips", clearLearned)
 		return nil
 	}
 
@@ -796,4 +798,20 @@ func equalDomains(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// domainsRemoved reports whether any domain in old is absent from updated, i.e.
+// the change drops at least one previously-allowed domain (as opposed to a pure
+// addition). Used to decide whether the learned-IP cache must be flushed.
+func domainsRemoved(old, updated []string) bool {
+	set := make(map[string]struct{}, len(updated))
+	for _, d := range updated {
+		set[d] = struct{}{}
+	}
+	for _, d := range old {
+		if _, ok := set[d]; !ok {
+			return true
+		}
+	}
+	return false
 }

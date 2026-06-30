@@ -80,23 +80,41 @@ func (fw *Firewall) populateAllowedDomains() error {
 
 // UpdateDomains replaces the allow list in place — clearing allowed_domains and
 // allowed_wildcards and repopulating them from the new list — without detaching
-// or reloading the eBPF programs. Crucially it leaves allowed_ips (learned DNS
-// IPs) and inbound_conns (peer-initiated connection tracking) untouched, so a
-// domain-list change does NOT drop established connections: terminal websockets,
-// pooled toolbox connections, and in-flight outbound flows keep working instead
-// of hanging on silently-dropped reply packets. Because the programs and their
-// bpffs pins are untouched, the change is reflected in the pinned state for free.
+// or reloading the eBPF programs, so the peer-initiated connection tracking
+// (inbound_conns) survives and inbound connections (terminal websockets, pooled
+// toolbox connections) don't hang. Because the programs and their bpffs pins are
+// untouched, the change is reflected in the pinned state for free.
 //
-// The brief window during the clear+repopulate only ever makes the allow list
-// momentarily smaller (a fresh DNS query could be dropped and retried), never
-// more permissive, so it is fail-closed and safe.
-func (fw *Firewall) UpdateDomains(domains []string) error {
+// When clearLearnedIPs is set, the learned-IP cache (allowed_ips) is also
+// dropped. This is required when a domain is *removed*: allowed_ips records no
+// domain association, so the removed domain's already-resolved IPs would
+// otherwise stay reachable by direct IP egress even though the domain is no
+// longer allowed. Clearing rebuilds the cache from fresh DNS — still-allowed
+// domains re-learn their IPs on the next lookup. The caller leaves it false for
+// pure additions, so in-flight connections to still-allowed domains aren't
+// disrupted. inbound_conns is never cleared here, so inbound connections keep
+// working regardless.
+//
+// The clear+repopulate window only ever makes the allow list momentarily smaller
+// (a fresh DNS query could be dropped and retried), never more permissive, so it
+// is fail-closed and safe.
+func (fw *Firewall) UpdateDomains(domains []string, clearLearnedIPs bool) error {
 	fw.cfg.Domains = domains
 	if err := clearDNSKeyMap(fw.maps.AllowedDomains); err != nil {
 		return fmt.Errorf("clearing allowed_domains: %w", err)
 	}
 	if err := clearDNSKeyMap(fw.maps.AllowedWildcards); err != nil {
 		return fmt.Errorf("clearing allowed_wildcards: %w", err)
+	}
+	if clearLearnedIPs {
+		if err := clearU32KeyMap(fw.maps.AllowedIps); err != nil {
+			return fmt.Errorf("clearing allowed_ips: %w", err)
+		}
+		// allowProxyIP re-adds the proxy's IP (a no-op when no proxy is
+		// configured), since it lives in allowed_ips and was just cleared.
+		if err := fw.allowProxyIP(); err != nil {
+			return fmt.Errorf("restoring proxy IP after clearing allowed_ips: %w", err)
+		}
 	}
 	return fw.populateAllowedDomains()
 }
@@ -107,6 +125,28 @@ func (fw *Firewall) UpdateDomains(domains []string) error {
 func clearDNSKeyMap(m *ebpf.Map) error {
 	var keys []firewallDnsNameKey
 	var k firewallDnsNameKey
+	var v uint8
+	it := m.Iterate()
+	for it.Next(&k, &v) {
+		keys = append(keys, k)
+	}
+	if err := it.Err(); err != nil {
+		return err
+	}
+	for i := range keys {
+		if err := m.Delete(&keys[i]); err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
+			return err
+		}
+	}
+	return nil
+}
+
+// clearU32KeyMap deletes every entry from a uint32-keyed hash map (e.g.
+// allowed_ips). Keys are collected before deleting, since deleting during
+// iteration is undefined.
+func clearU32KeyMap(m *ebpf.Map) error {
+	var keys []uint32
+	var k uint32
 	var v uint8
 	it := m.Iterate()
 	for it.Next(&k, &v) {
