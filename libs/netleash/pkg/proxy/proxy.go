@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"crypto/subtle"
 	"crypto/tls"
@@ -38,6 +37,16 @@ type Server struct {
 	wg              sync.WaitGroup
 	log             *slog.Logger
 
+	// Connection limits (NL-REQ-02). idleTimeout reaps stalled/idle connections;
+	// maxConns caps total concurrency; maxConnsPerIP caps a single client so one
+	// tenant can't exhaust the shared proxy. Zero disables the corresponding cap.
+	idleTimeout   time.Duration
+	maxConns      int
+	maxConnsPerIP int
+	sem           chan struct{} // global concurrency cap (nil when maxConns == 0)
+	ipConnMu      sync.Mutex
+	ipConns       map[string]int // per-client-IP active connection counts
+
 	// Active client connections, tracked so teardown can forcibly terminate them
 	// (closing the listener alone leaves established tunnels forwarding/injecting).
 	// Close() drops all of them; CloseClient(ip) drops one workload's — used so a
@@ -54,10 +63,14 @@ type Server struct {
 // allowedClientIP restricts access to a single client IP (empty = no restriction).
 func NewServer(addr string, ca *CA, injector *Injector, allowedDomains []string, allowedClientIP string, opts ...Option) *Server {
 	s := &Server{
-		ca:     ca,
-		static: newBinding("", false, allowedDomains, injector),
-		addr:   addr,
-		conns:  make(map[net.Conn]net.IP),
+		ca:            ca,
+		static:        newBinding("", false, allowedDomains, injector),
+		addr:          addr,
+		conns:         make(map[net.Conn]net.IP),
+		idleTimeout:   defaultIdleTimeout,
+		maxConns:      defaultMaxConns,
+		maxConnsPerIP: defaultMaxConnsPerIP,
+		ipConns:       make(map[string]int),
 	}
 	if allowedClientIP != "" {
 		s.allowedClientIP = net.ParseIP(allowedClientIP)
@@ -67,6 +80,9 @@ func NewServer(addr string, ca *CA, injector *Injector, allowedDomains []string,
 	}
 	if s.log == nil {
 		s.log = slog.Default()
+	}
+	if s.maxConns > 0 {
+		s.sem = make(chan struct{}, s.maxConns)
 	}
 	return s
 }
@@ -88,7 +104,15 @@ func (s *Server) Start() (string, error) {
 			if err != nil {
 				return // listener closed
 			}
-			go s.handleConn(conn)
+			remoteHost, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
+			if !s.acquireConn(remoteHost) {
+				conn.Close() // over a concurrency cap; drop without serving
+				continue
+			}
+			go func() {
+				defer s.releaseConn(remoteHost)
+				s.handleConn(conn)
+			}()
 		}
 	}()
 
@@ -147,6 +171,12 @@ func (s *Server) untrackConn(conn net.Conn) {
 }
 
 func (s *Server) handleConn(conn net.Conn) {
+	// Apply an idle timeout to every read/write (handshake, request parse, tunnel
+	// loop, response streaming) so a stalled or idle connection is reaped instead
+	// of pinning a goroutine + FD forever (NL-REQ-02).
+	if s.idleTimeout > 0 {
+		conn = &idleConn{Conn: conn, idle: s.idleTimeout}
+	}
 	defer conn.Close()
 
 	remoteHost, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
@@ -291,24 +321,19 @@ func (s *Server) handleConnect(clientConn net.Conn, req *http.Request, binding *
 			return
 		}
 
-		// Buffer the response body and force HTTP/1.1 framing.
-		// Upstream may respond via HTTP/2 which lacks Content-Length and
-		// chunked encoding; writing that verbatim leaves the client unable
-		// to detect end-of-body.
-		respBody, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			s.log.Debug("proxy: reading upstream response failed", "host", hostname, "error", err)
-			writeUpstreamError(tlsConn, hostname)
+		// Strip any real secret values back out of the response so the sandbox
+		// only ever sees placeholders, even if the upstream echoes a secret back
+		// (echo/debug routes, header-reflecting redirects, verbose 4xx) — NL-SEC-01.
+		var repls []replacement
+		if binding.injector.HasSecrets() {
+			repls = binding.injector.responseReplacements(hostname)
+		}
+
+		// Stream the (scrubbed) response to the client; see writeResponse.
+		if werr := writeResponse(tlsConn, resp, repls); werr != nil {
+			s.log.Debug("proxy: writing response to client failed", "host", hostname, "error", werr)
 			return
 		}
-		resp.Proto = "HTTP/1.1"
-		resp.ProtoMajor = 1
-		resp.ProtoMinor = 1
-		resp.Body = io.NopCloser(bytes.NewReader(respBody))
-		resp.ContentLength = int64(len(respBody))
-		resp.TransferEncoding = nil
-		resp.Write(tlsConn)
 
 		// If the client or server indicated close, stop.
 		if resp.Close || innerReq.Close {
@@ -328,20 +353,16 @@ func (s *Server) handleHTTP(clientConn net.Conn, req *http.Request, binding *Bin
 		return
 	}
 
-	// Inject secrets into headers.
-	if binding.injector.HasSecrets() {
-		s.injectHeaders(binding, hostname, req)
-	}
-
-	// Inject secrets into body.
-	if req.Body != nil && binding.injector.HasSecrets() {
-		body, err := io.ReadAll(req.Body)
-		req.Body.Close()
-		if err == nil {
-			replaced := binding.injector.ReplaceBody(hostname, body)
-			req.Body = io.NopCloser(strings.NewReader(string(replaced)))
-			req.ContentLength = int64(len(replaced))
-		}
+	// Do NOT inject secrets here: a non-CONNECT request is forwarded to an http://
+	// upstream over cleartext, so the real value would cross the network in the
+	// clear and be visible to anyone on-path (NL-SEC-02). Placeholders are
+	// forwarded untouched (they're opaque and leak nothing); secret injection is
+	// reserved for the TLS-terminated CONNECT path. Surface a warning when a
+	// placeholder actually appears so a misconfiguration (or attempt to exfil a
+	// secret over cleartext) is visible.
+	if marker := binding.injector.Marker(); marker != "" && requestCarries(req, marker) {
+		s.log.Warn("proxy: secret placeholder in a cleartext HTTP request; injection refused (use https)",
+			"host", hostname, "binding", binding.name)
 	}
 
 	req.RequestURI = ""
@@ -359,9 +380,12 @@ func (s *Server) handleHTTP(clientConn net.Conn, req *http.Request, binding *Bin
 		writeUpstreamError(clientConn, hostname)
 		return
 	}
-	defer upstreamResp.Body.Close()
 
-	upstreamResp.Write(clientConn)
+	// No injection happened on this path, so there is no injected secret to scrub
+	// back out; stream the response as-is.
+	if werr := writeResponse(clientConn, upstreamResp, nil); werr != nil {
+		s.log.Debug("proxy: writing response to client failed", "host", hostname, "error", werr)
+	}
 }
 
 // dnsResolveTimeout caps the pre-CONNECT upstream name lookup so a slow or
@@ -405,6 +429,63 @@ func writeUpstreamError(w io.Writer, hostname string) {
 	fmt.Fprint(w, "Connection: close\r\n")
 	fmt.Fprint(w, "\r\n")
 	io.WriteString(w, body)
+}
+
+// writeResponse re-frames resp as HTTP/1.1 and streams it to w, never buffering
+// the whole body (NL-REQ-01). When repls is non-empty the body is streamed
+// through a scrubber that rewrites real secret values back to placeholders
+// (NL-SEC-01); since that changes the body length, such responses are framed
+// with chunked transfer-encoding. The upstream body is always closed.
+func writeResponse(w io.Writer, resp *http.Response, repls []replacement) error {
+	resp.Proto, resp.ProtoMajor, resp.ProtoMinor = "HTTP/1.1", 1, 1
+	upstreamBody := resp.Body
+
+	if len(repls) > 0 {
+		scrubHeader(resp.Header, repls)
+	}
+
+	resp.Header.Del("Transfer-Encoding")
+	switch {
+	case len(repls) > 0:
+		// Scrubbing rewrites the body, so its length is no longer known up front;
+		// stream it chunked. Trailers are scrubbed in place by the reader once the
+		// body reaches EOF (see scrubbingReader.trailer).
+		sr := newScrubbingReader(upstreamBody, repls)
+		sr.trailer = resp.Trailer
+		resp.Body = sr
+		resp.ContentLength = -1
+		resp.TransferEncoding = []string{"chunked"}
+		resp.Header.Del("Content-Length")
+	case resp.ContentLength < 0:
+		// Unknown length (e.g. an HTTP/2 origin) — chunked so the HTTP/1.1 client
+		// can detect end-of-body.
+		resp.TransferEncoding = []string{"chunked"}
+		resp.Header.Del("Content-Length")
+	default:
+		resp.TransferEncoding = nil
+	}
+
+	err := resp.Write(w)
+	// resp.Write closes resp.Body on success; close the original upstream body
+	// directly too (idempotent) so a mid-stream write error can't leak it.
+	upstreamBody.Close()
+	return err
+}
+
+// requestCarries reports whether the request's URL or any header value contains
+// marker — a cheap check for a secret placeholder (used only for a warning).
+func requestCarries(req *http.Request, marker string) bool {
+	if strings.Contains(req.URL.String(), marker) {
+		return true
+	}
+	for _, vals := range req.Header {
+		for _, v := range vals {
+			if strings.Contains(v, marker) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // injectHeaders replaces placeholder values in request headers with real secrets.

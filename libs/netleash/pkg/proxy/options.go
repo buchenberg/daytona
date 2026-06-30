@@ -3,6 +3,7 @@ package proxy
 import (
 	"log/slog"
 	"net"
+	"time"
 )
 
 // Option configures a Server.
@@ -27,4 +28,24 @@ func WithLogger(l *slog.Logger) Option {
 // If empty, no token authentication is enforced.
 func WithAuthToken(token string) Option {
 	return func(s *Server) { s.authToken = token }
+}
+
+// WithIdleTimeout overrides the per-connection idle timeout (NL-REQ-02). A
+// connection with no read or write activity for this long is torn down. Zero
+// disables the timeout.
+func WithIdleTimeout(d time.Duration) Option {
+	return func(s *Server) { s.idleTimeout = d }
+}
+
+// WithMaxConns overrides the cap on total concurrent connections (NL-REQ-02).
+// Zero disables the global cap.
+func WithMaxConns(n int) Option {
+	return func(s *Server) { s.maxConns = n }
+}
+
+// WithMaxConnsPerIP overrides the cap on concurrent connections from a single
+// client IP (NL-REQ-02), preventing one tenant from exhausting the shared
+// proxy. Zero disables the per-IP cap.
+func WithMaxConnsPerIP(n int) Option {
+	return func(s *Server) { s.maxConnsPerIP = n }
 }

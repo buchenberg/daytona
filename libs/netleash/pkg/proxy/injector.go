@@ -141,6 +141,27 @@ func (inj *Injector) HasSecrets() bool {
 	return inj.resolver != nil || len(inj.secrets) > 0
 }
 
+// Marker returns the cheap placeholder pre-check substring, or "" if none is
+// configured. The proxy uses it to detect (and warn about) requests that carry
+// a secret placeholder on a channel where injection won't run (cleartext HTTP).
+func (inj *Injector) Marker() string { return inj.marker }
+
+// responseReplacements returns the value→placeholder pairs for the secrets that
+// may be injected for host, so the proxy can strip real values back out of the
+// upstream response. The sandbox is supposed to only ever see placeholders;
+// this upholds that even when an upstream echoes a secret back (NL-SEC-01).
+func (inj *Injector) responseReplacements(host string) []replacement {
+	h := stripPort(host)
+	var out []replacement
+	for _, s := range inj.snapshot() {
+		if s.Value == "" || s.Placeholder == "" || !hostAllowed(h, s.Hosts) {
+			continue
+		}
+		out = append(out, replacement{value: s.Value, placeholder: s.Placeholder})
+	}
+	return out
+}
+
 const placeholderPrefix = "__LEASH_SECRET_"
 
 // GeneratePlaceholder creates a random placeholder string for a secret.

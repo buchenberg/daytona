@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -213,8 +214,11 @@ func TestServer_HTTPProxy_BlockedHost(t *testing.T) {
 	}
 }
 
-func TestServer_HTTPProxy_SecretInjection(t *testing.T) {
-	// Start a backend that echoes the Authorization header.
+// Plain-HTTP (cleartext) upstreams must NOT get the real secret injected
+// (NL-SEC-02) — the placeholder is forwarded untouched, so the real value never
+// crosses the network in the clear. Secret injection is reserved for the
+// TLS-terminated CONNECT path.
+func TestServer_HTTPProxy_SecretInjectionRefusedOnCleartext(t *testing.T) {
 	var receivedAuth string
 	backend := http.NewServeMux()
 	backend.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
@@ -254,8 +258,8 @@ func TestServer_HTTPProxy_SecretInjection(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	if receivedAuth != "Bearer real-secret-token" {
-		t.Fatalf("expected secret to be injected, got %q", receivedAuth)
+	if receivedAuth != "Bearer PLACEHOLDER_TOKEN" {
+		t.Fatalf("real secret must NOT be injected over cleartext HTTP; backend saw %q", receivedAuth)
 	}
 }
 
@@ -346,6 +350,57 @@ func TestServer_CONNECTProxy_AllowedHost(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 	if string(body) != "secure response" {
 		t.Fatalf("expected 'secure response', got %q", body)
+	}
+}
+
+// A large, unknown-length upstream response must round-trip through the CONNECT
+// tunnel intact. This exercises the streaming reframe (NL-REQ-01): the body is
+// re-framed to chunked and copied straight from the upstream reader rather than
+// buffered whole in RAM, so memory stays bounded regardless of object size.
+func TestServer_CONNECTProxy_StreamsLargeResponse(t *testing.T) {
+	ca, err := GenerateCA()
+	if err != nil {
+		t.Fatalf("GenerateCA failed: %v", err)
+	}
+
+	// Well past the net/http server's response buffer, so the backend replies
+	// with chunked transfer-encoding (no Content-Length) — the unknown-length
+	// path the proxy must re-frame and stream.
+	const size = 8 << 20 // 8 MiB
+	payload := bytes.Repeat([]byte("Z"), size)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/big", func(w http.ResponseWriter, r *http.Request) {
+		w.Write(payload)
+	})
+	backendLn, backendAddr := startHTTPSBackend(t, ca, mux)
+	defer backendLn.Close()
+
+	withTrustedCA(t, ca)
+
+	s := NewServer("127.0.0.1:0", ca, NewInjector(nil), []string{"localhost"}, "", quiet)
+	proxyAddr, err := s.Start()
+	if err != nil {
+		t.Fatalf("proxy Start failed: %v", err)
+	}
+	defer s.Close()
+
+	client := proxyClient(proxyAddr, ca)
+	resp, err := client.Get(fmt.Sprintf("https://%s/big", backendAddr))
+	if err != nil {
+		t.Fatalf("CONNECT proxy request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+	n, err := io.Copy(io.Discard, resp.Body)
+	if err != nil {
+		t.Fatalf("reading streamed body failed: %v", err)
+	}
+	if n != int64(size) {
+		t.Fatalf("expected %d bytes streamed back, got %d", size, n)
 	}
 }
 
@@ -485,6 +540,64 @@ func TestServer_HTTPProxy_UnresolvableHost(t *testing.T) {
 	}
 	if strings.Contains(strings.ToLower(err.Error()), "netleash") {
 		t.Fatalf("error must not mention the proxy, got: %v", err)
+	}
+}
+
+// When an upstream echoes an injected secret back (in headers and/or body), the
+// proxy must scrub the real value back to its placeholder so the sandbox never
+// sees plaintext (NL-SEC-01).
+func TestServer_CONNECTProxy_ResponseScrubbed(t *testing.T) {
+	ca, err := GenerateCA()
+	if err != nil {
+		t.Fatalf("GenerateCA failed: %v", err)
+	}
+
+	const realValue = "real-api-key-xyz-1234567890"
+	mux := http.NewServeMux()
+	mux.HandleFunc("/echo", func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization") // the injected (real) secret
+		w.Header().Set("X-Echo-Auth", auth)   // reflected in a response header
+		w.Write([]byte("you sent: " + auth))  // and in the body
+	})
+	backendLn, backendAddr := startHTTPSBackend(t, ca, mux)
+	defer backendLn.Close()
+
+	withTrustedCA(t, ca)
+
+	injector := NewInjector([]SecretConfig{{
+		Placeholder: "PH_SECRET",
+		Value:       realValue,
+		Hosts:       []string{"localhost"},
+	}})
+	s := NewServer("127.0.0.1:0", ca, injector, []string{"localhost"}, "", quiet)
+	proxyAddr, err := s.Start()
+	if err != nil {
+		t.Fatalf("proxy Start failed: %v", err)
+	}
+	defer s.Close()
+
+	client := proxyClient(proxyAddr, ca)
+	req, _ := http.NewRequest("GET", fmt.Sprintf("https://%s/echo", backendAddr), nil)
+	req.Header.Set("Authorization", "Bearer PH_SECRET")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("CONNECT proxy request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+
+	if strings.Contains(string(body), realValue) {
+		t.Fatalf("response body leaked the real secret: %q", body)
+	}
+	if strings.Contains(resp.Header.Get("X-Echo-Auth"), realValue) {
+		t.Fatalf("response header leaked the real secret: %q", resp.Header.Get("X-Echo-Auth"))
+	}
+	if !strings.Contains(string(body), "PH_SECRET") {
+		t.Fatalf("expected placeholder in scrubbed body, got %q", body)
+	}
+	if !strings.Contains(resp.Header.Get("X-Echo-Auth"), "PH_SECRET") {
+		t.Fatalf("expected placeholder in scrubbed header, got %q", resp.Header.Get("X-Echo-Auth"))
 	}
 }
 
@@ -639,7 +752,12 @@ func TestServer_AuthToken_NotRequired(t *testing.T) {
 	}
 }
 
-func TestServer_CONNECTProxy_BodySecretInjection(t *testing.T) {
+// Request BODY secret injection is intentionally not performed on either path:
+// it was only ever live on the cleartext HTTP path (now refused — NL-SEC-02) and
+// has always been disabled (commented out) on the CONNECT path. So a placeholder
+// in a request body is forwarded untouched. This test locks in that invariant;
+// secure (streaming) request-body injection on the CONNECT path is future work.
+func TestServer_CONNECTProxy_BodyNotInjected(t *testing.T) {
 	ca, err := GenerateCA()
 	if err != nil {
 		t.Fatalf("GenerateCA failed: %v", err)
@@ -681,7 +799,7 @@ func TestServer_CONNECTProxy_BodySecretInjection(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	if receivedBody != `{"key":"real-body-secret"}` {
-		t.Fatalf("expected body secret injected, got %q", receivedBody)
+	if receivedBody != `{"key":"PH_BODY_SECRET"}` {
+		t.Fatalf("request body should be forwarded untouched (no body injection), got %q", receivedBody)
 	}
 }

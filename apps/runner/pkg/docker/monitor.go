@@ -12,6 +12,7 @@ import (
 
 	"github.com/daytonaio/daytona/libs/netleash/pkg/manager"
 	"github.com/daytonaio/runner/pkg/netrules"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
@@ -117,6 +118,10 @@ func (dm *DockerMonitor) monitorEvents() error {
 	// Reconnection established successfully
 	dm.reconcileNetworkRules("filter", "DOCKER-USER")
 	dm.reconcileNetworkRules("mangle", "PREROUTING")
+	// Refresh every running sandbox's anti-spoof guard (forceRefresh) so guards
+	// missed or left stale while the runner was down are re-anchored on the
+	// current veth, and orphans are dropped.
+	dm.reconcileSourceGuards(true)
 
 	for {
 		select {
@@ -154,6 +159,7 @@ func (dm *DockerMonitor) handleContainerEvent(event events.Message) {
 		if err != nil {
 			dm.log.Error("Error assigning network rules", "error", err)
 		}
+		dm.applySourceGuard(shortContainerID, ip, veth)
 	case "stop":
 		// The container's cgroup is torn down on stop, so detach netleash to
 		// free its eBPF resources. A subsequent start re-applies the allow list.
@@ -174,6 +180,9 @@ func (dm *DockerMonitor) handleContainerEvent(event events.Message) {
 		err := dm.netRulesManager.DeleteNetworkRules(shortContainerID)
 		if err != nil {
 			dm.log.Error("Error deleting network rules", "error", err)
+		}
+		if err := dm.netRulesManager.RemoveSourceGuard(shortContainerID); err != nil {
+			dm.log.Error("Error removing source guard", "containerID", shortContainerID, "error", err)
 		}
 		dm.removeNetleash(containerID)
 		if dm.opts.OnDestroyEvent != nil {
@@ -358,6 +367,88 @@ func (dm *DockerMonitor) reconcilerLoop() {
 			dm.reconcileNetworkRules("mangle", "PREROUTING")
 			dm.reconcileChains("filter")
 			dm.reconcileChains("mangle")
+			// Install guards for any running sandbox missing one, and GC guards
+			// whose sandbox is gone. Already-guarded sandboxes are skipped (their
+			// guard is kept current by the "start" event), keeping this cheap.
+			dm.reconcileSourceGuards(false)
 		}
+	}
+}
+
+// reconcileSourceGuards keeps the per-sandbox anti-spoof guards in sync with the
+// set of running containers. When forceRefresh is true every running sandbox's
+// guard is rebuilt on its current veth (used on reconnect, where the runner may
+// have missed start/restart events and a guard could be stale or absent); when
+// false, only sandboxes that have no guard yet get one (the "start" event keeps
+// the rest current, so this stays cheap). In both cases guards whose container
+// is no longer running are removed.
+//
+// A running sandbox with no resolvable host veth cannot be guarded — its source
+// IP is unverified, so the secret proxy must not trust it. That is logged loudly
+// rather than silently leaving a gap.
+func (dm *DockerMonitor) reconcileSourceGuards(forceRefresh bool) {
+	containers, err := dm.apiClient.ContainerList(dm.ctx, container.ListOptions{All: true})
+	if err != nil {
+		dm.log.Error("source guard reconcile: failed to list containers", "error", err)
+		return
+	}
+
+	// Ensure a guard for every running sandbox.
+	for _, c := range containers {
+		if c.State != "running" || len(c.ID) < 12 {
+			continue
+		}
+		shortID := c.ID[:12]
+
+		if !forceRefresh {
+			if has, err := dm.netRulesManager.HasSourceGuard(shortID); err == nil && has {
+				continue // already guarded; the start event keeps it current
+			}
+		}
+
+		ct, err := dm.apiClient.ContainerInspect(dm.ctx, c.ID)
+		if err != nil {
+			dm.log.Error("source guard reconcile: failed to inspect container", "containerID", shortID, "error", err)
+			continue
+		}
+		ip := GetContainerIpAddress(dm.ctx, &ct)
+		veth := resolveHostVeth(dm.log, &ct, ip)
+		dm.applySourceGuard(shortID, ip, veth)
+	}
+
+	// GC guards whose sandbox no longer exists. Each chain's container is
+	// re-checked individually (rather than against a snapshot) so a sandbox that
+	// starts mid-reconcile — its guard just installed by the start event — is not
+	// mistaken for an orphan and torn down.
+	chains, err := dm.netRulesManager.ListAntiSpoofChains()
+	if err != nil {
+		dm.log.Error("source guard reconcile: failed to list anti-spoof chains", "error", err)
+		return
+	}
+	for _, chain := range chains {
+		shortID := strings.TrimPrefix(chain, netrules.AntiSpoofChainPrefix)
+		if shortID == chain {
+			continue // not an anti-spoof chain
+		}
+		if _, err := dm.apiClient.ContainerInspect(dm.ctx, shortID); err == nil {
+			continue // container still exists; keep its guard
+		}
+		if err := dm.netRulesManager.RemoveSourceGuard(shortID); err != nil {
+			dm.log.Error("source guard reconcile: failed to remove orphan guard", "containerID", shortID, "error", err)
+		}
+	}
+}
+
+// applySourceGuard installs a sandbox's anti-spoof source guard, or logs loudly
+// when it can't (no host veth / IP) — in which case the sandbox's source IP is
+// unverified and the shared secret proxy must not trust it for tenant identity.
+func (dm *DockerMonitor) applySourceGuard(shortContainerID, ip, veth string) {
+	if veth == "" || ip == "" {
+		dm.log.Warn("Cannot install anti-spoof source guard (no host veth/IP); sandbox source IP is unverified for secret-proxy identity",
+			"containerID", shortContainerID, "ip", ip, "veth", veth)
+		return
+	}
+	if err := dm.netRulesManager.SetSourceGuard(shortContainerID, ip, veth); err != nil {
+		dm.log.Error("Error installing anti-spoof source guard", "containerID", shortContainerID, "error", err)
 	}
 }
