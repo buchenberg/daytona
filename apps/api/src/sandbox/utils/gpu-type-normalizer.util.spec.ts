@@ -20,6 +20,15 @@ describe('normalizeGpuType', () => {
     })
   })
 
+  describe('H200 variants', () => {
+    it.each([['NVIDIA H200'], ['H200'], ['nvidia h200 nvl'], ['NVIDIA H200 141GB HBM3e']])(
+      'canonicalizes %p to GpuType.H200',
+      (raw) => {
+        expect(normalizeGpuType(raw)).toBe(GpuType.H200)
+      },
+    )
+  })
+
   describe('RTX PRO 6000 variants', () => {
     it.each([
       ['NVIDIA RTX PRO 6000 Blackwell Workstation Edition'],
@@ -33,18 +42,25 @@ describe('normalizeGpuType', () => {
     })
   })
 
-  describe('unsupported GPU strings', () => {
-    it.each([
-      ['NVIDIA L4'],
-      ['NVIDIA A100'],
-      ['NVIDIA GeForce RTX 4090'],
-      ['Tesla T4'],
-      ['some random string'],
-      ['RTX 6000'],
-      ['RTX PRO 5000'],
-    ])('returns null for unsupported GPU %p', (raw) => {
-      expect(normalizeGpuType(raw)).toBeNull()
+  describe('RTX 4090 variants', () => {
+    it.each([['NVIDIA GeForce RTX 4090'], ['RTX 4090'], ['rtx4090']])('canonicalizes %p to GpuType.RTX_4090', (raw) => {
+      expect(normalizeGpuType(raw)).toBe(GpuType.RTX_4090)
     })
+  })
+
+  describe('RTX 5090 variants', () => {
+    it.each([['NVIDIA GeForce RTX 5090'], ['RTX 5090'], ['rtx5090']])('canonicalizes %p to GpuType.RTX_5090', (raw) => {
+      expect(normalizeGpuType(raw)).toBe(GpuType.RTX_5090)
+    })
+  })
+
+  describe('unsupported GPU strings', () => {
+    it.each([['NVIDIA L4'], ['NVIDIA A100'], ['Tesla T4'], ['some random string'], ['RTX 6000'], ['RTX PRO 5000']])(
+      'returns null for unsupported GPU %p',
+      (raw) => {
+        expect(normalizeGpuType(raw)).toBeNull()
+      },
+    )
   })
 
   describe('empty/nullish inputs', () => {
