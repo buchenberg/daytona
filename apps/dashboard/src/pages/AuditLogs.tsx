@@ -4,13 +4,16 @@
  */
 
 import { AuditLogTable } from '@/components/AuditLogTable'
+import { AuditLogDetailSheet } from '@/components/audit-logs/AuditLogDetailSheet'
+import { type AuditFilterRule } from '@/components/audit-logs/auditLogFilterConfig'
+import { buildAuditLogFilterParams, parseAsAuditFilters } from '@/components/audit-logs/auditLogFilterParams'
 import { PageContent, PageFooter, PageHeader, PageIntro, PageLayout } from '@/components/PageLayout'
 import { RefreshSegmentedButton } from '@/components/RefreshSegmentedButton'
-import { DateRangePicker, QuickRangesConfig } from '@/components/ui/date-range-picker'
 import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
 import { useAuditLogsQuery, type AuditLogsQueryParams } from '@/hooks/queries/useAuditLogsQuery'
 import { handleApiError } from '@/lib/error-handling'
-import { PaginatedAuditLogs } from '@daytona/api-client'
+import { AuditLog, PaginatedAuditLogs } from '@daytona/api-client'
+import { parseAsIsoDateTime, parseAsString, useQueryState, useQueryStates } from 'nuqs'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { DateRange } from 'react-day-picker'
 
@@ -20,14 +23,6 @@ const EMPTY_AUDIT_LOGS: PaginatedAuditLogs = {
   page: 1,
   totalPages: 0,
   nextToken: undefined,
-}
-
-const AUDIT_LOG_QUICK_RANGES: QuickRangesConfig = {
-  minutes: [5, 15, 30],
-  hours: [1, 3, 6, 12],
-  days: [1, 2, 7, 30, 90],
-  months: [6],
-  years: [1],
 }
 
 interface AuditLogsPaginationState {
@@ -112,24 +107,52 @@ function useAuditLogsPagination(initialPageSize: number) {
   }
 }
 
+const DATE_RANGE_SEARCH_PARAMS = {
+  from: parseAsIsoDateTime,
+  to: parseAsIsoDateTime,
+}
+
 const AuditLogs: React.FC = () => {
   const [refreshInterval, setRefreshInterval] = useState<number | false>(false)
-  const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined })
+  const [rules, setRules] = useQueryState('filters', parseAsAuditFilters)
+  const [{ from, to }, setDateRangeParams] = useQueryStates(DATE_RANGE_SEARCH_PARAMS)
   const { pagination, currentCursor, resetPagination, setPageSize, setOffsetPage, goNextWithCursor, goPreviousPage } =
     useAuditLogsPagination(DEFAULT_PAGE_SIZE)
   const scrollToTableTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
 
+  const dateRange = useMemo<DateRange>(() => ({ from: from ?? undefined, to: to ?? undefined }), [from, to])
+
+  const filterParams = useMemo<Record<string, string>>(() => {
+    const params = buildAuditLogFilterParams(rules)
+    if (from) {
+      params['createdAt[gte]'] = from.toISOString()
+    }
+    if (to) {
+      params['createdAt[lte]'] = to.toISOString()
+    }
+    return params
+  }, [rules, from, to])
+  const filterParamsKey = useMemo(() => JSON.stringify(filterParams), [filterParams])
+
+  const isInitialFilterRender = React.useRef(true)
+  useEffect(() => {
+    if (isInitialFilterRender.current) {
+      isInitialFilterRender.current = false
+      return
+    }
+    resetPagination()
+  }, [filterParamsKey, resetPagination])
+
   const queryParams = useMemo<AuditLogsQueryParams>(
     () => ({
       page: pagination.pageIndex + 1,
       pageSize: pagination.pageSize,
-      from: dateRange.from,
-      to: dateRange.to,
       cursor: currentCursor,
+      filterParams,
     }),
-    [pagination.pageIndex, pagination.pageSize, dateRange.from, dateRange.to, currentCursor],
+    [pagination.pageIndex, pagination.pageSize, currentCursor, filterParams],
   )
 
   const {
@@ -213,18 +236,66 @@ const AuditLogs: React.FC = () => {
 
   const handleDateRangeChange = useCallback(
     (range: DateRange) => {
-      setDateRange(range)
-      resetPagination()
+      setDateRangeParams({ from: range.from ?? null, to: range.to ?? null })
     },
-    [resetPagination],
+    [setDateRangeParams],
   )
 
-  const hasFilters = Boolean(dateRange.from || dateRange.to)
+  const hasFilters = rules.length > 0 || Boolean(from || to)
+
+  const handleRulesChange = useCallback(
+    (next: AuditFilterRule[]) => {
+      setRules(next.length > 0 ? next : null)
+    },
+    [setRules],
+  )
 
   const handleClearFilters = useCallback(() => {
-    setDateRange({ from: undefined, to: undefined })
-    resetPagination()
-  }, [resetPagination])
+    setRules(null)
+    setDateRangeParams({ from: null, to: null })
+  }, [setRules, setDateRangeParams])
+
+  const [openLogId, setOpenLogId] = useQueryState('auditLogId', parseAsString)
+  const [seedLog, setSeedLog] = useState<AuditLog | null>(null)
+
+  const handleRowClick = useCallback(
+    (log: AuditLog) => {
+      setSeedLog(log)
+      setOpenLogId(log.id)
+    },
+    [setOpenLogId],
+  )
+
+  const selectedLogIndex = useMemo(
+    () => (openLogId ? data.items.findIndex((item) => item.id === openLogId) : -1),
+    [openLogId, data.items],
+  )
+
+  const handleNavigateLog = useCallback(
+    (direction: 'prev' | 'next') => {
+      if (selectedLogIndex < 0) {
+        return
+      }
+      const nextIndex = direction === 'prev' ? selectedLogIndex - 1 : selectedLogIndex + 1
+      const nextLog = data.items[nextIndex]
+      if (nextLog) {
+        setSeedLog(nextLog)
+        setOpenLogId(nextLog.id)
+      }
+    },
+    [selectedLogIndex, data.items, setOpenLogId],
+  )
+
+  const handleApplyFilter = useCallback(
+    (field: string, value: string) => {
+      const rule: AuditFilterRule = { field, operator: 'eq', value: [value] }
+      const existingIndex = rules.findIndex((entry) => entry.field === field)
+      const next =
+        existingIndex >= 0 ? rules.map((entry, index) => (index === existingIndex ? rule : entry)) : [...rules, rule]
+      setRules(next)
+    },
+    [rules, setRules],
+  )
 
   return (
     <PageLayout contained>
@@ -246,30 +317,42 @@ const AuditLogs: React.FC = () => {
               pageIndex: pagination.pageIndex,
               pageSize: pagination.pageSize,
             }}
-            toolbarActions={
-              <>
-                <DateRangePicker
-                  className="max-w-[380px] truncate"
-                  value={dateRange}
-                  onChange={handleDateRangeChange}
-                  quickRangesEnabled
-                  quickRanges={AUDIT_LOG_QUICK_RANGES}
-                  timeSelection
-                  disabled={isLoading}
-                />
-                <RefreshSegmentedButton
-                  value={refreshInterval}
-                  onChange={setRefreshInterval}
-                  onRefresh={refetch}
-                  isRefreshing={isRefetching}
-                  lastUpdatedAt={dataUpdatedAt}
-                />
-              </>
+            rules={rules}
+            onRulesChange={handleRulesChange}
+            dateRange={dateRange}
+            onDateRangeChange={handleDateRangeChange}
+            filtersDisabled={isLoading}
+            onRowClick={handleRowClick}
+            selectedRowId={openLogId}
+            refreshControl={
+              <RefreshSegmentedButton
+                value={refreshInterval}
+                onChange={setRefreshInterval}
+                onRefresh={refetch}
+                isRefreshing={isRefetching}
+                lastUpdatedAt={dataUpdatedAt}
+              />
             }
           />
         </div>
       </PageContent>
       <PageFooter />
+
+      <AuditLogDetailSheet
+        open={Boolean(openLogId)}
+        auditLogId={openLogId}
+        // Not gated on openLogId so the seed stays mounted through the close animation.
+        seedLog={seedLog ?? undefined}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setOpenLogId(null)
+          }
+        }}
+        onApplyFilter={handleApplyFilter}
+        onNavigate={handleNavigateLog}
+        hasPrev={selectedLogIndex > 0}
+        hasNext={selectedLogIndex >= 0 && selectedLogIndex < data.items.length - 1}
+      />
     </PageLayout>
   )
 }

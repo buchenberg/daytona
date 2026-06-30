@@ -272,7 +272,7 @@ export function RefreshSegmentedButton({
         disabled={disabled || isRefreshing}
         onClick={onRefresh}
         aria-label="Refresh now"
-        className={cn('rounded-r-none border-0 px-2.5 shadow-none hover:bg-accent/80', {
+        className={cn('rounded-r-none border-0 px-2.5 shadow-none dark:bg-input/50 hover:bg-accent/80', {
           'opacity-70': isRefreshing,
         })}
       >

@@ -147,7 +147,6 @@ export const OrganizationPicker: React.FC = () => {
           <SidebarMenuButton
             variant="outline"
             disabled={loadingSelectOrganization}
-            className="bg-input/50"
             tooltip={optimisticSelectedOrganization.name}
           >
             <div className="w-4 h-4 flex-shrink-0 rounded-full bg-black text-white flex items-center justify-center text-[10px] font-bold">

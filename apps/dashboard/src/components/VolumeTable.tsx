@@ -13,8 +13,25 @@ import { TimestampTooltip } from '@/components/TimestampTooltip'
 import { Badge, BadgeProps } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { DataTableFacetedFilter, FacetedFilterOption } from '@/components/ui/data-table-faceted-filter'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import {
+  Command,
+  CommandCheckboxItem,
+  CommandGroup,
+  CommandInput,
+  CommandInputButton,
+  CommandList,
+} from '@/components/ui/command'
+import { DataTableFacetedFilter, type FacetedFilterOption } from '@/components/ui/data-table-faceted-filter'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { MiddleTruncate } from '@/components/ui/middle-truncate'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -39,6 +56,7 @@ import {
 } from '@/lib/utils/table'
 import { OrganizationRolePermissionsEnum, VolumeDto, VolumeState } from '@daytona/api-client'
 import {
+  type Column,
   ColumnDef,
   ColumnFiltersState,
   flexRender,
@@ -53,7 +71,7 @@ import {
   SortingState,
   useReactTable,
 } from '@tanstack/react-table'
-import { AlertTriangle, CheckCircle, HardDrive, Loader2, MoreHorizontal, Timer } from 'lucide-react'
+import { CircleDot, HardDrive, ListFilter, Loader2, MoreHorizontal } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useCallback, useMemo, useState } from 'react'
 import { VolumeBulkAction, VolumeBulkActionAlertDialog } from './VolumeTable/BulkActionAlertDialog'
@@ -82,6 +100,66 @@ interface VolumeTableProps {
   onDelete: (volume: VolumeDto) => void
   onBulkDelete: (volumes: VolumeDto[]) => void
   onCreateVolume?: () => void
+}
+
+interface VolumeFilterSubmenuProps {
+  column?: Column<VolumeDto, unknown>
+  options: readonly FacetedFilterOption[]
+  title: string
+}
+
+function VolumeFilterSubmenu({ column, options, title }: VolumeFilterSubmenuProps) {
+  if (!column) {
+    return null
+  }
+
+  const values = (column.getFilterValue() as string[] | undefined) ?? []
+
+  const handleFilterChange = (nextValues: string[]) => {
+    column.setFilterValue(nextValues.length > 0 ? nextValues : undefined)
+  }
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        <CircleDot className="size-4" />
+        {title}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuPortal>
+        <DropdownMenuSubContent className="p-0 w-72">
+          <Command>
+            <CommandInput placeholder={title}>
+              <CommandInputButton
+                className="text-sm text-muted-foreground hover:text-primary px-2"
+                onClick={() => column.setFilterValue(undefined)}
+              >
+                Clear
+              </CommandInputButton>
+            </CommandInput>
+            <CommandList>
+              <CommandGroup>
+                {options.map((option) => (
+                  <CommandCheckboxItem
+                    key={option.value}
+                    checked={values.includes(option.value)}
+                    onSelect={() => {
+                      const nextValues = values.includes(option.value)
+                        ? values.filter((value) => value !== option.value)
+                        : [...values, option.value]
+
+                      handleFilterChange(nextValues)
+                    }}
+                  >
+                    {option.label}
+                  </CommandCheckboxItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </DropdownMenuSubContent>
+      </DropdownMenuPortal>
+    </DropdownMenuSub>
+  )
 }
 
 export function VolumeTable({
@@ -140,6 +218,8 @@ export function VolumeTable({
   })
   const isEmpty = !loading && table.getRowModel().rows.length === 0
   const hasFilters = table.getState().columnFilters.length > 0
+  const stateColumn = table.getColumn('state')
+  const hasStateFilter = ((stateColumn?.getFilterValue() as string[]) || []).length > 0
   const selectedRows = table.getSelectedRowModel().rows
   const hasSelection = selectedRows.length > 0
   const selectedVolumes = selectedRows.map((row) => row.original)
@@ -194,6 +274,10 @@ export function VolumeTable({
     table.toggleAllRowsSelected(false)
   }
 
+  const handleClearColumnFilters = () => {
+    stateColumn?.setFilterValue(undefined)
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex items-center gap-2">
@@ -205,11 +289,38 @@ export function VolumeTable({
             placeholder="Search by Name, ID, or State"
             containerClassName="min-w-0 flex-1 sm:max-w-sm"
           />
-          {table.getColumn('state') && (
-            <DataTableFacetedFilter column={table.getColumn('state')} title="State" options={statuses} />
-          )}
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
+                aria-label="Filter"
+              >
+                <ListFilter className="size-4" />
+                <span className="max-[420px]:hidden">Filter</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-48" align="start">
+              <VolumeFilterSubmenu column={stateColumn} title="State" options={statuses} />
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
+      {hasStateFilter ? (
+        <div className="flex items-start gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+            {stateColumn ? <DataTableFacetedFilter column={stateColumn} title="State" options={statuses} /> : null}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 shrink-0 px-3 text-muted-foreground hover:text-foreground"
+            onClick={handleClearColumnFilters}
+          >
+            Clear
+          </Button>
+        </div>
+      ) : null}
       <TableContainer
         className={cn({
           'min-h-[26rem]': isEmpty,
@@ -358,14 +469,44 @@ const getStateLabel = (state: VolumeState) => {
     .join(' ')
 }
 
+function VolumeStateFilterLabel({ colorClassName, label }: { colorClassName: string; label: string }) {
+  return (
+    <span className="inline-flex min-w-0 items-center gap-2">
+      <span className={cn('size-2 shrink-0 rounded-full', colorClassName)} aria-hidden="true" />
+      <span className="truncate">{label}</span>
+    </span>
+  )
+}
+
+const getStateFilterColorClass = (state: VolumeState) => {
+  switch (state) {
+    case VolumeState.READY:
+      return 'bg-success-foreground'
+    case VolumeState.ERROR:
+      return 'bg-destructive'
+    case VolumeState.CREATING:
+    case VolumeState.PENDING_CREATE:
+    case VolumeState.PENDING_DELETE:
+    case VolumeState.DELETING:
+      return 'bg-warning-foreground'
+    case VolumeState.DELETED:
+    default:
+      return 'bg-muted-foreground'
+  }
+}
+
+const getStateFilterLabel = (state: VolumeState) => {
+  return <VolumeStateFilterLabel colorClassName={getStateFilterColorClass(state)} label={getStateLabel(state)} />
+}
+
 const statuses: FacetedFilterOption[] = [
-  { label: getStateLabel(VolumeState.CREATING), value: VolumeState.CREATING, icon: Timer },
-  { label: getStateLabel(VolumeState.READY), value: VolumeState.READY, icon: CheckCircle },
-  { label: getStateLabel(VolumeState.PENDING_CREATE), value: VolumeState.PENDING_CREATE, icon: Timer },
-  { label: getStateLabel(VolumeState.PENDING_DELETE), value: VolumeState.PENDING_DELETE, icon: Timer },
-  { label: getStateLabel(VolumeState.DELETING), value: VolumeState.DELETING, icon: Timer },
-  { label: getStateLabel(VolumeState.DELETED), value: VolumeState.DELETED, icon: Timer },
-  { label: getStateLabel(VolumeState.ERROR), value: VolumeState.ERROR, icon: AlertTriangle },
+  { label: getStateFilterLabel(VolumeState.CREATING), value: VolumeState.CREATING },
+  { label: getStateFilterLabel(VolumeState.READY), value: VolumeState.READY },
+  { label: getStateFilterLabel(VolumeState.PENDING_CREATE), value: VolumeState.PENDING_CREATE },
+  { label: getStateFilterLabel(VolumeState.PENDING_DELETE), value: VolumeState.PENDING_DELETE },
+  { label: getStateFilterLabel(VolumeState.DELETING), value: VolumeState.DELETING },
+  { label: getStateFilterLabel(VolumeState.DELETED), value: VolumeState.DELETED },
+  { label: getStateFilterLabel(VolumeState.ERROR), value: VolumeState.ERROR },
 ]
 
 const columns: ColumnDef<VolumeDto>[] = [

@@ -3,11 +3,15 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
+import { EllipsisWithTooltip } from '@/components/EllipsisWithTooltip'
 import { PageFooterPortal } from '@/components/PageLayout'
+import { TimestampTooltip } from '@/components/TimestampTooltip'
 import { Pagination } from '@/components/Pagination'
+import { AuditLogTableHeader } from '@/components/audit-logs/AuditLogTableHeader'
+import type { AuditFilterRule } from '@/components/audit-logs/auditLogFilterConfig'
+import { getOutcomeInfo } from '@/components/audit-logs/auditLogOutcome'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
 import {
   Table,
   TableBody,
@@ -19,12 +23,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
 import { cn, getMaskedTokenFromParts, getRelativeTimeString } from '@/lib/utils'
 import { DEFAULT_TABLE_COLUMN, getColumnSizeStyles, getTableSizeStyles } from '@/lib/utils/table'
 import { AuditLog } from '@daytona/api-client'
 import { Column, ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { TextSearch } from 'lucide-react'
 import { type ReactNode } from 'react'
+import { DateRange } from 'react-day-picker'
 
 interface Props {
   data: AuditLog[]
@@ -39,7 +45,14 @@ interface Props {
   onPaginationChange: (pagination: { pageIndex: number; pageSize: number }) => void
   hasFilters?: boolean
   onClearFilters?: () => void
-  toolbarActions?: ReactNode
+  rules: AuditFilterRule[]
+  onRulesChange: (rules: AuditFilterRule[]) => void
+  dateRange: DateRange
+  onDateRangeChange: (range: DateRange) => void
+  filtersDisabled?: boolean
+  refreshControl?: ReactNode
+  onRowClick?: (log: AuditLog) => void
+  selectedRowId?: string | null
 }
 
 export function AuditLogTable({
@@ -52,7 +65,14 @@ export function AuditLogTable({
   totalItems,
   hasFilters = false,
   onClearFilters,
-  toolbarActions,
+  rules,
+  onRulesChange,
+  dateRange,
+  onDateRangeChange,
+  filtersDisabled = false,
+  refreshControl,
+  onRowClick,
+  selectedRowId,
 }: Props) {
   const table = useReactTable({
     columnResizeMode: 'onEnd',
@@ -81,7 +101,16 @@ export function AuditLogTable({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-      <div className="flex items-center justify-between gap-2 empty:hidden">{toolbarActions}</div>
+      <AuditLogTableHeader
+        table={table}
+        rules={rules}
+        onRulesChange={onRulesChange}
+        dateRange={dateRange}
+        onDateRangeChange={onDateRangeChange}
+        onClearFilters={onClearFilters}
+        disabled={filtersDisabled}
+        refreshControl={refreshControl}
+      />
       <TableContainer
         className={cn({
           'min-h-[26rem]': isEmpty,
@@ -118,6 +147,7 @@ export function AuditLogTable({
                     <TableHead
                       key={header.id}
                       header={header}
+                      sticky={isEmpty ? undefined : header.column.getIsPinned()}
                       style={isEmpty ? undefined : getColumnSizeStyles(header.column)}
                     >
                       {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
@@ -132,9 +162,21 @@ export function AuditLogTable({
               <AuditLogTableSkeleton columns={table.getVisibleLeafColumns()} />
             ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} className={cn({ 'opacity-70 transition-opacity': isRefetching })}>
+                <TableRow
+                  key={row.id}
+                  data-selected={selectedRowId === row.id ? true : undefined}
+                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                  className={cn({
+                    'opacity-70 transition-opacity': isRefetching,
+                    'cursor-pointer': onRowClick,
+                  })}
+                >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} style={getColumnSizeStyles(cell.column)}>
+                    <TableCell
+                      key={cell.id}
+                      sticky={cell.column.getIsPinned()}
+                      style={getColumnSizeStyles(cell.column)}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
@@ -157,7 +199,11 @@ function AuditLogTableSkeleton({ columns }: { columns: Column<AuditLog>[] }) {
       {Array.from({ length: DEFAULT_PAGE_SIZE }).map((_, rowIndex) => (
         <TableRow key={rowIndex}>
           {columns.map((column, columnIndex) => (
-            <TableCell key={`${rowIndex}-${column.id}`} style={getColumnSizeStyles(column)}>
+            <TableCell
+              key={`${rowIndex}-${column.id}`}
+              sticky={column.getIsPinned()}
+              style={getColumnSizeStyles(column)}
+            >
               {columnIndex === 0 || columnIndex === 3 || columnIndex === 4 ? (
                 <div className="space-y-1">
                   <Skeleton className="h-4 w-3/4" />
@@ -176,6 +222,7 @@ function AuditLogTableSkeleton({ columns }: { columns: Column<AuditLog>[] }) {
 
 const auditLogColumns: ColumnDef<AuditLog>[] = [
   {
+    id: 'time',
     header: 'Time',
     size: 200,
     cell: ({ row }) => {
@@ -184,14 +231,17 @@ const auditLogColumns: ColumnDef<AuditLog>[] = [
       const relativeTimeString = getRelativeTimeString(row.original.createdAt).relativeTimeString
 
       return (
-        <div className="space-y-1">
-          <div className="font-medium truncate">{relativeTimeString}</div>
-          <div className="text-sm text-muted-foreground truncate">{localeString}</div>
-        </div>
+        <TimestampTooltip timestamp={row.original.createdAt?.toString()}>
+          <div className="space-y-1 cursor-default text-left">
+            <div className="font-medium truncate">{relativeTimeString}</div>
+            <div className="text-sm text-muted-foreground truncate">{localeString}</div>
+          </div>
+        </TimestampTooltip>
       )
     },
   },
   {
+    id: 'user',
     header: 'User',
     size: 240,
     cell: ({ row }) => {
@@ -205,47 +255,26 @@ const auditLogColumns: ColumnDef<AuditLog>[] = [
 
       return (
         <div className="space-y-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="font-medium truncate w-fit max-w-full">{label}</div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{label}</p>
-            </TooltipContent>
-          </Tooltip>
+          <EllipsisWithTooltip className="font-medium">{label}</EllipsisWithTooltip>
           {maskedApiKey && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="text-sm text-muted-foreground truncate w-fit max-w-full">{maskedApiKey}</div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{maskedApiKey}</p>
-              </TooltipContent>
-            </Tooltip>
+            <EllipsisWithTooltip className="text-sm text-muted-foreground">{maskedApiKey}</EllipsisWithTooltip>
           )}
         </div>
       )
     },
   },
   {
+    id: 'action',
     header: 'Action',
     size: 240,
     cell: ({ row }) => {
       const action = row.original.action
 
-      return (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="font-medium truncate w-fit max-w-full">{action}</div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{action}</p>
-          </TooltipContent>
-        </Tooltip>
-      )
+      return <EllipsisWithTooltip className="font-medium">{action}</EllipsisWithTooltip>
     },
   },
   {
+    id: 'target',
     header: 'Target',
     size: 360,
     cell: ({ row }) => {
@@ -258,13 +287,14 @@ const auditLogColumns: ColumnDef<AuditLog>[] = [
 
       return (
         <div className="space-y-1">
-          {targetType && <div className="font-medium truncate">{targetType}</div>}
-          {targetId && <div className="text-sm text-muted-foreground truncate">{targetId}</div>}
+          {targetType && <EllipsisWithTooltip className="font-medium">{targetType}</EllipsisWithTooltip>}
+          {targetId && <EllipsisWithTooltip className="text-sm text-muted-foreground">{targetId}</EllipsisWithTooltip>}
         </div>
       )
     },
   },
   {
+    id: 'outcome',
     header: 'Outcome',
     size: 320,
     cell: ({ row }) => {
@@ -285,8 +315,8 @@ const auditLogColumns: ColumnDef<AuditLog>[] = [
                   {` - ${errorMessage}`}
                 </div>
               </TooltipTrigger>
-              <TooltipContent>
-                <p>{errorMessage}</p>
+              <TooltipContent className="max-h-60 max-w-sm overflow-y-auto">
+                <p className="whitespace-pre-wrap wrap-break-word">{errorMessage}</p>
               </TooltipContent>
             </Tooltip>
           )}
@@ -295,56 +325,3 @@ const auditLogColumns: ColumnDef<AuditLog>[] = [
     },
   },
 ]
-
-type OutcomeCategory = 'informational' | 'success' | 'redirect' | 'client-error' | 'server-error' | 'unknown'
-
-interface OutcomeInfo {
-  label: string
-  colorClass: string
-}
-
-const getOutcomeCategory = (statusCode: number | null | undefined): OutcomeCategory => {
-  if (!statusCode) return 'unknown'
-
-  if (statusCode >= 100 && statusCode < 200) return 'informational'
-  if (statusCode >= 200 && statusCode < 300) return 'success'
-  if (statusCode >= 300 && statusCode < 400) return 'redirect'
-  if (statusCode >= 400 && statusCode < 500) return 'client-error'
-  if (statusCode >= 500 && statusCode < 600) return 'server-error'
-
-  return 'unknown'
-}
-
-const getOutcomeInfo = (statusCode: number | null | undefined): OutcomeInfo => {
-  const category = getOutcomeCategory(statusCode)
-
-  switch (category) {
-    case 'informational':
-      return {
-        label: 'Info',
-        colorClass: 'text-blue-500 dark:text-blue-300',
-      }
-    case 'success':
-      return {
-        label: 'Success',
-        colorClass: 'text-green-600 dark:text-green-400',
-      }
-    case 'redirect':
-      return {
-        label: 'Redirect',
-        colorClass: 'text-blue-600 dark:text-blue-400',
-      }
-    case 'client-error':
-    case 'server-error':
-      return {
-        label: 'Error',
-        colorClass: 'text-red-600 dark:text-red-400',
-      }
-    case 'unknown':
-    default:
-      return {
-        label: 'Unknown',
-        colorClass: 'text-gray-600 dark:text-gray-400',
-      }
-  }
-}

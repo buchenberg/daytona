@@ -119,11 +119,12 @@ export const queryKeys = {
         {
           page: params.page,
           pageSize: params.pageSize,
-          ...(params.from && { from: params.from.toISOString() }),
-          ...(params.to && { to: params.to.toISOString() }),
           ...(params.cursor && { cursor: params.cursor }),
+          ...(params.filterParams && Object.keys(params.filterParams).length > 0 && { filters: params.filterParams }),
         },
       ] as const,
+    log: (organizationId: string, auditLogId: string) =>
+      [...queryKeys.audit.all, organizationId, 'log', auditLogId] as const,
   },
   sandboxes: {
     all: ['sandboxes'] as const,

@@ -7,7 +7,24 @@ import { PageFooterPortal } from '@/components/PageLayout'
 import { Pagination } from '@/components/Pagination'
 import { SearchInput } from '@/components/SearchInput'
 import { Button } from '@/components/ui/button'
-import { DataTableFacetedFilter } from '@/components/ui/data-table-faceted-filter'
+import {
+  Command,
+  CommandCheckboxItem,
+  CommandGroup,
+  CommandInput,
+  CommandInputButton,
+  CommandList,
+} from '@/components/ui/command'
+import { DataTableFacetedFilter, type FacetedFilterOption } from '@/components/ui/data-table-faceted-filter'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -23,6 +40,7 @@ import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
 import { cn } from '@/lib/utils'
 import { DEFAULT_TABLE_COLUMN, getColumnSizeStyles, getTableSizeStyles } from '@/lib/utils/table'
 import {
+  type Column,
   ColumnFiltersState,
   flexRender,
   getCoreRowModel,
@@ -34,8 +52,8 @@ import {
   SortingState,
   useReactTable,
 } from '@tanstack/react-table'
-import { Mail } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { CircleDot, ListFilter, Mail, Tag } from 'lucide-react'
+import { type ReactNode, useCallback, useState } from 'react'
 import { EndpointMessageOut } from 'svix'
 import { columns, eventTypeOptions, statusOptions } from './columns'
 import { EventDetailsSheet } from './EventDetailsSheet'
@@ -46,10 +64,81 @@ interface EndpointEventsTableProps {
   onReplay: (msgId: string) => void
 }
 
+type EndpointEventFacetFilterId = 'eventType' | 'status'
+
+type EndpointEventFacetFilter = {
+  id: EndpointEventFacetFilterId
+  active: boolean
+  filter: ReactNode
+}
+
+interface WebhookFilterSubmenuProps {
+  column?: Column<EndpointMessageOut, unknown>
+  icon: ReactNode
+  onFilterChange: (value: string[] | undefined) => void
+  options: readonly FacetedFilterOption[]
+  title: string
+}
+
+function WebhookFilterSubmenu({ column, icon, onFilterChange, options, title }: WebhookFilterSubmenuProps) {
+  if (!column) {
+    return null
+  }
+
+  const values = (column.getFilterValue() as string[] | undefined) ?? []
+
+  const handleFilterChange = (nextValues: string[]) => {
+    onFilterChange(nextValues.length > 0 ? nextValues : undefined)
+  }
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        {icon}
+        {title}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuPortal>
+        <DropdownMenuSubContent className="p-0 w-72">
+          <Command>
+            <CommandInput placeholder={title}>
+              <CommandInputButton
+                className="text-sm text-muted-foreground hover:text-primary px-2"
+                onClick={() => onFilterChange(undefined)}
+              >
+                Clear
+              </CommandInputButton>
+            </CommandInput>
+            <CommandList>
+              <CommandGroup>
+                {options.map((option) => (
+                  <CommandCheckboxItem
+                    key={option.value}
+                    checked={values.includes(option.value)}
+                    onSelect={() => {
+                      const nextValues = values.includes(option.value)
+                        ? values.filter((value) => value !== option.value)
+                        : [...values, option.value]
+
+                      handleFilterChange(nextValues)
+                    }}
+                  >
+                    {option.label}
+                  </CommandCheckboxItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </DropdownMenuSubContent>
+      </DropdownMenuPortal>
+    </DropdownMenuSub>
+  )
+}
+
 export function EndpointEventsTable({ data, loading, onReplay }: EndpointEventsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
+  const [facetFilterOrder, setFacetFilterOrder] = useState<EndpointEventFacetFilterId[]>([])
   const [selectedEventIndex, setSelectedEventIndex] = useState<number | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const table = useReactTable({
@@ -97,6 +186,15 @@ export function EndpointEventsTable({ data, loading, onReplay }: EndpointEventsT
 
   const isEmpty = !loading && table.getRowModel().rows.length === 0
   const hasFilters = globalFilter.trim().length > 0 || columnFilters.length > 0
+  const eventTypeColumn = table.getColumn('eventType')
+  const statusColumn = table.getColumn('status')
+  const hasEventTypeFilter = ((eventTypeColumn?.getFilterValue() as string[]) || []).length > 0
+  const hasStatusFilter = ((statusColumn?.getFilterValue() as string[]) || []).length > 0
+  const hasColumnFilters = hasEventTypeFilter || hasStatusFilter
+
+  const pushFilter = (filterId: EndpointEventFacetFilterId) => {
+    setFacetFilterOrder((order) => (order.includes(filterId) ? order : [...order, filterId]))
+  }
 
   const handleRowClick = useCallback((index: number) => {
     setSelectedEventIndex(index)
@@ -125,24 +223,113 @@ export function EndpointEventsTable({ data, loading, onReplay }: EndpointEventsT
   const handleClearFilters = () => {
     handleChangeFilter('')
     table.resetColumnFilters()
+    setFacetFilterOrder([])
   }
+
+  const handleClearColumnFilters = () => {
+    table.resetColumnFilters()
+    setFacetFilterOrder([])
+  }
+
+  const facetFilters: EndpointEventFacetFilter[] = [
+    {
+      id: 'eventType',
+      active: hasEventTypeFilter,
+      filter: eventTypeColumn ? (
+        <DataTableFacetedFilter
+          key="eventType"
+          column={eventTypeColumn}
+          title="Event Type"
+          options={eventTypeOptions}
+          onValuesChange={() => pushFilter('eventType')}
+        />
+      ) : null,
+    },
+    {
+      id: 'status',
+      active: hasStatusFilter,
+      filter: statusColumn ? (
+        <DataTableFacetedFilter
+          key="status"
+          column={statusColumn}
+          title="Status"
+          options={statusOptions}
+          onValuesChange={() => pushFilter('status')}
+        />
+      ) : null,
+    },
+  ]
+  const activeFilters = [
+    ...facetFilterOrder.flatMap((filterId) => {
+      const filter = facetFilters.find(({ id }) => id === filterId)
+      return filter?.active ? [filter] : []
+    }),
+    ...facetFilters.filter(({ id, active }) => active && !facetFilterOrder.includes(id)),
+  ]
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <SearchInput
-          debounced
-          value={globalFilter ?? ''}
-          onValueChange={handleChangeFilter}
-          placeholder="Search by Event Type, Message ID, or Status"
-          containerClassName="max-w-sm"
-        />
-        {table.getColumn('eventType') && (
-          <DataTableFacetedFilter column={table.getColumn('eventType')} title="Event Type" options={eventTypeOptions} />
-        )}
-        {table.getColumn('status') && (
-          <DataTableFacetedFilter column={table.getColumn('status')} title="Status" options={statusOptions} />
-        )}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <SearchInput
+              debounced
+              value={globalFilter ?? ''}
+              onValueChange={handleChangeFilter}
+              placeholder="Search by Event Type, Message ID, or Status"
+              containerClassName="min-w-0 flex-1 sm:max-w-sm"
+            />
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
+                  aria-label="Filter"
+                >
+                  <ListFilter className="size-4" />
+                  <span className="max-[420px]:hidden">Filter</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-48" align="start">
+                <WebhookFilterSubmenu
+                  column={eventTypeColumn}
+                  icon={<Tag className="size-4" />}
+                  onFilterChange={(value) => {
+                    eventTypeColumn?.setFilterValue(value)
+                    pushFilter('eventType')
+                  }}
+                  title="Event Type"
+                  options={eventTypeOptions}
+                />
+                <WebhookFilterSubmenu
+                  column={statusColumn}
+                  icon={<CircleDot className="size-4" />}
+                  onFilterChange={(value) => {
+                    statusColumn?.setFilterValue(value)
+                    pushFilter('status')
+                  }}
+                  title="Status"
+                  options={statusOptions}
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        {hasColumnFilters ? (
+          <div className="flex items-start gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+              {activeFilters.map(({ filter }) => filter)}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 shrink-0 px-3 text-muted-foreground hover:text-foreground"
+              onClick={handleClearColumnFilters}
+            >
+              Clear
+            </Button>
+          </div>
+        ) : null}
       </div>
       <TableContainer
         className={cn({ 'min-h-[26rem]': isEmpty })}

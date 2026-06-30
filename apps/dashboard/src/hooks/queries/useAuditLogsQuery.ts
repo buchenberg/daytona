@@ -12,9 +12,10 @@ import { queryKeys } from './queryKeys'
 export interface AuditLogsQueryParams {
   page: number
   pageSize: number
-  from?: Date
-  to?: Date
   cursor?: string
+  // Keyed as `field[operator]` (e.g. `action[in]`); passed via options.params
+  // because the generated client mis-serializes nested filter objects.
+  filterParams?: Record<string, string>
 }
 
 export function useAuditLogsQuery(
@@ -38,9 +39,20 @@ export function useAuditLogsQuery(
         selectedOrganization.id,
         params.page,
         params.pageSize,
-        params.from,
-        params.to,
+        undefined, // from
+        undefined, // to
         params.cursor,
+        undefined, // id
+        undefined, // actorId
+        undefined, // actorEmail
+        undefined, // actorApiKeyPrefix
+        undefined, // actorApiKeySuffix
+        undefined, // action
+        undefined, // targetType
+        undefined, // targetId
+        undefined, // statusCode
+        undefined, // createdAt
+        params.filterParams ? { params: params.filterParams } : undefined,
       )
 
       return response.data

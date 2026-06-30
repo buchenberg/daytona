@@ -340,7 +340,7 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
             <SidebarMenuButton
               tooltip={`Search ${metaKey}+K`}
               variant="outline"
-              className="justify-between bg-input/50"
+              className="justify-between"
               onClick={() => {
                 trackOpened('sidebar_search')
                 commandPaletteActions.setIsOpen(true)

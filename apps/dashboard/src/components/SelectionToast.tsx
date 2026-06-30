@@ -25,14 +25,14 @@ export function SelectionToast({
       initial={{ scale: 0.9, opacity: 0, y: 20, x: '-50%' }}
       animate={{ scale: 1, opacity: 1, y: 0, x: '-50%' }}
       exit={{ scale: 0.9, opacity: 0, y: 20, x: '-50%' }}
-      className={cn('bg-popover  gap-3 max-w-[90vw]', className)}
+      className={cn('bg-popover rounded-xl gap-3 max-w-[90vw]', className)}
     >
-      <div className="bg-background text-foreground border border-border rounded-lg shadow-lg pl-3 pr-1 py-1 flex items-center justify-between gap-4">
+      <div className="bg-background text-foreground border border-border rounded-xl shadow-lg pl-3 pr-1 py-1 flex items-center justify-between gap-4">
         <div className="flex items-center gap-1">
           <div className="text-sm tabular-nums whitespace-nowrap">
             {pluralize(selectedCount, 'item', 'items')} selected
           </div>
-          <Button variant="ghost" size="icon-sm" onClick={onClearSelection}>
+          <Button variant="ghost" size="icon-sm" onClick={onClearSelection} className="p-1 size-7">
             <XIcon className="size-3.5" />
           </Button>
         </div>

@@ -125,7 +125,7 @@
   --accent: oklch(0.9466 0 0);
   --accent-foreground: oklch(0.2044 0 0);
 
-  --border: oklch(0.9219 0 0);
+  --border: oklch(0.9 0 0);
   --input: oklch(0.9219 0 0);
   --ring: oklch(0.1445 0 0);
 
@@ -137,7 +137,7 @@
   --chart-6: oklch(0.7149 0.1258 215.227);
   --chart-7: oklch(0.6559 0.2118 354.314);
 
-  --radius: 0.5rem;
+  --radius: 0.625rem;
 
   --info-background: oklch(0.9708 0.0127 259.945);
   --info: oklch(0.5449 0.2154 262.741);
@@ -179,7 +179,7 @@
 .dark {
   --background: oklch(0.0918 0 0);
   --foreground: oklch(0.9848 0 0);
-  --card: oklch(0.1457 0 0);
+  --card: oklch(0.15 0 0);
   --card-foreground: oklch(0.9848 0 0);
   --popover: oklch(0.1698 0 0);
   --popover-foreground: oklch(0.9848 0 0);
@@ -189,11 +189,11 @@
   --secondary-foreground: oklch(0.9848 0 0);
   --muted: oklch(0.2686 0 0);
   --muted-foreground: oklch(0.683 0 0);
-  --accent: oklch(0.2801 0 0);
+  --accent: oklch(0.3 0 0);
   --accent-foreground: oklch(0.9848 0 0);
 
-  --border: oklch(0.2376 0 0);
-  --input: oklch(0.2905 0 0);
+  --border: oklch(22% 0 0);
+  --input: oklch(0.2505 0 0);
   --ring: oklch(0.8697 0 0);
 
   --info-background: oklch(0.2033 0.0277 261.042);
@@ -303,8 +303,12 @@
 
 .scroll-fade {
   --mask-offset: 20%;
+  /* Base values represent "no fade" so a non-scrollable container shows none.
+     When the content overflows, the scroll-progress keyframes below drive the
+     top/bottom fades; when it doesn't, the timeline is inactive and these base
+     values apply. */
   --scroll-fade-offset-y-top: 0%;
-  --scroll-fade-offset-y-bottom: 100%;
+  --scroll-fade-offset-y-bottom: 0%;
   --scroll-fade-mask: linear-gradient(
     to bottom,
     transparent,
@@ -320,8 +324,10 @@
 
 .scroll-fade-horizontal {
   --mask-offset: 20%;
+  /* See .scroll-fade: base values are "no fade" so a non-scrollable container
+     shows none; keyframes drive the fades when content overflows. */
   --scroll-fade-offset-x-left: 0%;
-  --scroll-fade-offset-x-right: 100%;
+  --scroll-fade-offset-x-right: 0%;
   --scroll-fade-mask: linear-gradient(
     to right,
     transparent,

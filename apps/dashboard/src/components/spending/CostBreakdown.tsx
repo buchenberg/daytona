@@ -5,14 +5,20 @@
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import { subMonths } from 'date-fns'
-import { AlertCircle, BarChart3, RefreshCw } from 'lucide-react'
+import { AlertCircle, BarChart3, ListFilter, RefreshCw } from 'lucide-react'
 import * as React from 'react'
 import { useCallback, useMemo } from 'react'
-import { FacetFilter } from '../ui/facet-filter'
+import { FacetedFilter } from '../ui/faceted-filter'
 import { ResourceUsageChart, UsageChartData } from './ResourceUsageChart'
 
 type CostBreakdownProps = {
@@ -22,6 +28,12 @@ type CostBreakdownProps = {
   isError?: boolean
   onRetry?: () => void
 }
+
+const COST_FILTER_OPTIONS = [
+  { label: 'CPU', value: 'cpu' },
+  { label: 'RAM', value: 'ramGB' },
+  { label: 'Disk', value: 'diskGB' },
+]
 
 export function CostBreakdown({ usageData, showTotal, isLoading, isError, onRetry }: CostBreakdownProps) {
   const [timeRange, setTimeRange] = React.useState(12)
@@ -34,6 +46,20 @@ export function CostBreakdown({ usageData, showTotal, isLoading, isError, onRetr
     },
     [filters],
   )
+
+  const handleToggleFilter = (value: string) => {
+    setFilters((currentFilters) => {
+      const nextFilters = new Set(currentFilters)
+
+      if (nextFilters.has(value)) {
+        nextFilters.delete(value)
+      } else {
+        nextFilters.add(value)
+      }
+
+      return nextFilters
+    })
+  }
 
   const data = useMemo(() => {
     const referenceDate = new Date()
@@ -91,22 +117,46 @@ export function CostBreakdown({ usageData, showTotal, isLoading, isError, onRetr
 
   return (
     <Card>
-      <CardHeader className="flex flex-col sm:flex-row sm:items-center gap-2 space-y-0 border-b p-4">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center gap-4 space-y-0 border-b p-4 flex-wrap ">
         <div className="flex-1">
-          <CardTitle>Monthly Cost Breakdown</CardTitle>
+          <CardTitle className="whitespace-nowrap">Monthly Cost Breakdown</CardTitle>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <FacetFilter
-            title="Filters"
-            className="h-8 pr-1"
-            options={[
-              { label: 'CPU', value: 'cpu' },
-              { label: 'RAM', value: 'ramGB' },
-              { label: 'Disk', value: 'diskGB' },
-            ]}
-            selectedValues={filters}
-            setSelectedValues={setFilters}
-          />
+          {filters.size > 0 ? (
+            <FacetedFilter
+              title="Filter"
+              className="h-8"
+              options={COST_FILTER_OPTIONS}
+              values={filters}
+              onValuesChange={setFilters}
+              maxValues={1}
+            />
+          ) : (
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="h-8 shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
+                  aria-label="Filter"
+                >
+                  <ListFilter className="size-4" />
+                  Filter
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {COST_FILTER_OPTIONS.map((option) => (
+                  <DropdownMenuCheckboxItem
+                    key={option.value}
+                    checked={filters.has(option.value)}
+                    onCheckedChange={() => handleToggleFilter(option.value)}
+                    onSelect={(event) => event.preventDefault()}
+                  >
+                    {option.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Select value={chartType} onValueChange={(value) => setChartType(value as 'bar' | 'area')}>
             <SelectTrigger size="sm" className="w-[80px] rounded-lg" aria-label="Select a chart type">
               <SelectValue placeholder="Bar" />

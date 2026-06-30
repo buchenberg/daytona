@@ -500,7 +500,7 @@ const Wallet = () => {
                 <div className="grid grid-cols-1 gap-10 items-center lg:grid-cols-2">
                   <div className="flex flex-col gap-2">
                     <Label className="text-sm font-medium">Select amount</Label>
-                    <div className="grid grid-cols-1 xxs:grid-cols-4 overflow-hidden rounded-md border border-input">
+                    <div className="grid grid-cols-1 xxs:grid-cols-4 overflow-hidden rounded-md border border-border">
                       {[25, 500, 1000, 2000].map((amount) => (
                         <Button
                           key={amount}

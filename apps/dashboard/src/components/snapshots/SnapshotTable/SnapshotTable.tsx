@@ -8,8 +8,25 @@ import { PageFooterPortal } from '@/components/PageLayout'
 import { SearchInput } from '@/components/SearchInput'
 import { SelectionToast } from '@/components/SelectionToast'
 import { Button } from '@/components/ui/button'
-import type { FacetedFilterOption } from '@/components/ui/data-table-faceted-filter'
-import { FacetFilter } from '@/components/ui/facet-filter'
+import {
+  Command,
+  CommandCheckboxItem,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandInputButton,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { FacetedFilter, type FacetedFilterOption } from '@/components/ui/faceted-filter'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
 import { SnapshotSorting } from '@/hooks/queries/useSnapshotsQuery'
@@ -19,9 +36,9 @@ import { cn } from '@/lib/utils'
 import { DEFAULT_TABLE_COLUMN, getColumnSizeStyles, getTableSizeStyles } from '@/lib/utils/table'
 import { OrganizationRolePermissionsEnum, SnapshotDto, SnapshotState } from '@daytona/api-client'
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
-import { Box } from 'lucide-react'
+import { Box, Globe, ListFilter, Square } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { Pagination } from '../../Pagination'
 import {
   Table,
@@ -43,6 +60,14 @@ import {
   useSnapshotsCommands,
 } from './useSnapshotsCommands'
 import { convertApiSortingToTableSorting, convertTableSortingToApiSorting } from './utils'
+
+type SnapshotFacetFilterId = 'state' | 'region'
+
+type SnapshotFacetFilter = {
+  id: SnapshotFacetFilterId
+  active: boolean
+  filter: ReactNode
+}
 
 interface DataTableProps {
   data: SnapshotDto[]
@@ -71,6 +96,9 @@ interface DataTableProps {
   onSortingChange: (sorting: SnapshotSorting) => void
   stateFilter: Set<string>
   onStateFilterChange: (values: Set<string>) => void
+  regionFilter: Set<string>
+  onRegionFilterChange: (values: Set<string>) => void
+  regionOptions: FacetedFilterOption[]
 }
 
 function SnapshotStateFilterLabel({ colorClassName, label }: { colorClassName: string; label: string }) {
@@ -113,6 +141,100 @@ const SNAPSHOT_STATE_OPTIONS: FacetedFilterOption[] = [
   },
 ]
 
+interface SnapshotStateFilterProps {
+  value: Set<string>
+  onFilterChange: (values: Set<string>) => void
+}
+
+function SnapshotStateFilter({ value, onFilterChange }: SnapshotStateFilterProps) {
+  const values = Array.from(value)
+
+  const handleFilterChange = (nextValues: string[]) => {
+    onFilterChange(new Set(nextValues))
+  }
+
+  return (
+    <Command>
+      <CommandInput placeholder="State">
+        <CommandInputButton
+          className="text-sm text-muted-foreground hover:text-primary px-2"
+          onClick={() => onFilterChange(new Set())}
+        >
+          Clear
+        </CommandInputButton>
+      </CommandInput>
+
+      <CommandList>
+        <CommandGroup>
+          {SNAPSHOT_STATE_OPTIONS.map((option) => (
+            <CommandCheckboxItem
+              key={option.value}
+              checked={value.has(option.value)}
+              onSelect={() => {
+                const nextValues = value.has(option.value)
+                  ? values.filter((selectedValue) => selectedValue !== option.value)
+                  : [...values, option.value]
+
+                handleFilterChange(nextValues)
+              }}
+            >
+              {option.label}
+            </CommandCheckboxItem>
+          ))}
+        </CommandGroup>
+      </CommandList>
+    </Command>
+  )
+}
+
+interface SnapshotRegionFilterProps {
+  value: Set<string>
+  options: FacetedFilterOption[]
+  onFilterChange: (values: Set<string>) => void
+}
+
+function SnapshotRegionFilter({ value, options, onFilterChange }: SnapshotRegionFilterProps) {
+  const values = Array.from(value)
+
+  const handleFilterChange = (nextValues: string[]) => {
+    onFilterChange(new Set(nextValues))
+  }
+
+  return (
+    <Command>
+      <CommandInput placeholder="Region">
+        <CommandInputButton
+          className="text-sm text-muted-foreground hover:text-primary px-2"
+          onClick={() => onFilterChange(new Set())}
+        >
+          Clear
+        </CommandInputButton>
+      </CommandInput>
+
+      <CommandList>
+        <CommandEmpty>No regions found.</CommandEmpty>
+        <CommandGroup>
+          {options.map((option) => (
+            <CommandCheckboxItem
+              key={option.value}
+              checked={value.has(option.value)}
+              onSelect={() => {
+                const nextValues = value.has(option.value)
+                  ? values.filter((selectedValue) => selectedValue !== option.value)
+                  : [...values, option.value]
+
+                handleFilterChange(nextValues)
+              }}
+            >
+              {option.label}
+            </CommandCheckboxItem>
+          ))}
+        </CommandGroup>
+      </CommandList>
+    </Command>
+  )
+}
+
 export function SnapshotTable({
   data,
   loading,
@@ -137,8 +259,12 @@ export function SnapshotTable({
   onSortingChange,
   stateFilter,
   onStateFilterChange,
+  regionFilter,
+  onRegionFilterChange,
+  regionOptions,
 }: DataTableProps) {
   const { authenticatedUserHasPermission } = useSelectedOrganization()
+  const [facetFilterOrder, setFacetFilterOrder] = useState<SnapshotFacetFilterId[]>([])
 
   const writePermitted = useMemo(
     () => authenticatedUserHasPermission(OrganizationRolePermissionsEnum.WRITE_SNAPSHOTS),
@@ -210,15 +336,77 @@ export function SnapshotTable({
   const selectedRows = table.getSelectedRowModel().rows
   const hasSelection = selectedRows.length > 0
   const isEmpty = !loading && table.getRowModel().rows.length === 0
-  const hasFilters = stateFilter.size > 0 || searchValue.trim().length > 0
+  const hasStateFilter = stateFilter.size > 0
+  const hasRegionFilter = regionFilter.size > 0
+  const hasFacetFilters = hasStateFilter || hasRegionFilter
+  const hasFilters = hasFacetFilters || searchValue.trim().length > 0
 
   const [pendingBulkAction, setPendingBulkAction] = useState<SnapshotBulkAction | null>(null)
   const selectedSnapshots = selectedRows.map((row) => row.original)
 
+  const pushFilter = (filterId: SnapshotFacetFilterId) => {
+    setFacetFilterOrder((order) => (order.includes(filterId) ? order : [...order, filterId]))
+  }
+
   const handleClearFilters = () => {
     onSearchChange('')
     onStateFilterChange(new Set())
+    onRegionFilterChange(new Set())
+    setFacetFilterOrder([])
   }
+
+  const handleClearFacetFilters = () => {
+    onStateFilterChange(new Set())
+    onRegionFilterChange(new Set())
+    setFacetFilterOrder([])
+  }
+
+  const facetFilters: SnapshotFacetFilter[] = [
+    {
+      id: 'state',
+      active: hasStateFilter,
+      filter: (
+        <FacetedFilter
+          key="state"
+          title="State"
+          className="h-8"
+          icon={<Square />}
+          options={SNAPSHOT_STATE_OPTIONS}
+          values={stateFilter}
+          onValuesChange={(values) => {
+            onStateFilterChange(values)
+            pushFilter('state')
+          }}
+        />
+      ),
+    },
+    {
+      id: 'region',
+      active: hasRegionFilter,
+      filter: (
+        <FacetedFilter
+          key="region"
+          title="Region"
+          className="h-8"
+          contentClassName="w-64"
+          icon={<Globe />}
+          options={regionOptions}
+          values={regionFilter}
+          onValuesChange={(values) => {
+            onRegionFilterChange(values)
+            pushFilter('region')
+          }}
+        />
+      ),
+    },
+  ]
+  const activeFilters = [
+    ...facetFilterOrder.flatMap((filterId) => {
+      const filter = facetFilters.find(({ id }) => id === filterId)
+      return filter?.active ? [filter] : []
+    }),
+    ...facetFilters.filter(({ id, active }) => active && !facetFilterOrder.includes(id)),
+  ]
 
   const bulkActionCounts = useMemo(() => getSnapshotBulkActionCounts(selectedSnapshots), [selectedSnapshots])
 
@@ -293,15 +481,72 @@ export function SnapshotTable({
             placeholder="Search by Name"
             containerClassName="min-w-0 flex-1 sm:max-w-sm"
           />
-          <FacetFilter
-            title="State"
-            className="h-8"
-            options={SNAPSHOT_STATE_OPTIONS}
-            selectedValues={stateFilter}
-            setSelectedValues={onStateFilterChange}
-          />
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
+                aria-label="Filter"
+              >
+                <ListFilter className="size-4" />
+                <span className="max-[420px]:hidden">Filter</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-48" align="start">
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Square className="size-4" />
+                  State
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent className="p-0 w-64">
+                    <SnapshotStateFilter
+                      value={stateFilter}
+                      onFilterChange={(values) => {
+                        onStateFilterChange(values)
+                        pushFilter('state')
+                      }}
+                    />
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Globe className="size-4" />
+                  Region
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent className="p-0 w-64">
+                    <SnapshotRegionFilter
+                      value={regionFilter}
+                      options={regionOptions}
+                      onFilterChange={(values) => {
+                        onRegionFilterChange(values)
+                        pushFilter('region')
+                      }}
+                    />
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
+      {hasFacetFilters ? (
+        <div className="flex items-start gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            {activeFilters.map(({ filter }) => filter)}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 shrink-0 px-3 text-muted-foreground hover:text-foreground"
+            onClick={handleClearFacetFilters}
+          >
+            Clear
+          </Button>
+        </div>
+      ) : null}
       <TableContainer
         className={cn({
           'min-h-[26rem]': isEmpty,

@@ -8,6 +8,7 @@ import { CreateSnapshotSheet } from '@/components/snapshots/CreateSnapshotSheet'
 import { SnapshotSheet, type SnapshotSheetRef } from '@/components/snapshots/SnapshotSheet'
 import { SnapshotTable } from '@/components/snapshots/SnapshotTable'
 import { Button } from '@/components/ui/button'
+import type { FacetedFilterOption } from '@/components/ui/faceted-filter'
 import {
   Dialog,
   DialogClose,
@@ -57,6 +58,7 @@ const snapshotViewSearchParams = {
   limit: parseAsInteger.withDefault(DEFAULT_PAGE_SIZE),
   search: parseAsString.withDefault(''),
   states: parseAsArrayOf(parseAsString).withDefault([]),
+  regions: parseAsArrayOf(parseAsString).withDefault([]),
   sort: parseAsString.withDefault(DEFAULT_SNAPSHOT_SORTING.field),
   order: parseAsString.withDefault(DEFAULT_SNAPSHOT_SORTING.direction),
 }
@@ -85,6 +87,21 @@ function normalizeSorting(field: string, direction: string): SnapshotSorting {
 
 function getValidatedStates(states: string[]) {
   return states.filter((state): state is SnapshotState => SNAPSHOT_STATES.includes(state as SnapshotState))
+}
+
+function getValidatedRegions(regions: string[]) {
+  const seen = new Set<string>()
+
+  return regions
+    .map((region) => region.trim())
+    .filter((region) => {
+      if (!region || seen.has(region)) {
+        return false
+      }
+
+      seen.add(region)
+      return true
+    })
 }
 
 function isDefaultSorting(sorting: SnapshotSorting) {
@@ -117,6 +134,10 @@ const Snapshots: React.FC = () => {
     [viewParams.order, viewParams.sort],
   )
   const stateFilter = useMemo<Set<string>>(() => new Set(getValidatedStates(viewParams.states)), [viewParams.states])
+  const regionFilter = useMemo<Set<string>>(
+    () => new Set(getValidatedRegions(viewParams.regions)),
+    [viewParams.regions],
+  )
 
   const queryParams = useMemo<SnapshotQueryParams>(
     () => ({
@@ -160,11 +181,36 @@ const Snapshots: React.FC = () => {
 
   const filteredItems = useMemo(() => {
     const items = snapshotsData?.items ?? []
-    if (stateFilter.size === 0) {
-      return items
+    let filteredSnapshots = items
+
+    if (stateFilter.size > 0) {
+      filteredSnapshots = filteredSnapshots.filter((snapshot) => stateFilter.has(snapshot.state))
     }
-    return items.filter((snapshot) => stateFilter.has(snapshot.state))
-  }, [snapshotsData?.items, stateFilter])
+
+    if (regionFilter.size > 0) {
+      filteredSnapshots = filteredSnapshots.filter((snapshot) =>
+        snapshot.regionIds?.some((regionId) => regionFilter.has(regionId)),
+      )
+    }
+
+    return filteredSnapshots
+  }, [regionFilter, snapshotsData?.items, stateFilter])
+
+  const regionOptions = useMemo<FacetedFilterOption[]>(() => {
+    const regionLabelsById = new Map<string, string>()
+
+    for (const snapshot of snapshotsData?.items ?? []) {
+      for (const regionId of snapshot.regionIds ?? []) {
+        if (!regionLabelsById.has(regionId)) {
+          regionLabelsById.set(regionId, getRegionName(regionId) ?? regionId)
+        }
+      }
+    }
+
+    return Array.from(regionLabelsById, ([value, label]) => ({ value, label })).sort((a, b) =>
+      a.label.localeCompare(b.label),
+    )
+  }, [getRegionName, snapshotsData?.items])
 
   useEffect(() => {
     if (snapshotsDataError) {
@@ -263,6 +309,18 @@ const Snapshots: React.FC = () => {
       setViewParams({
         page: null,
         states: states.length > 0 ? states : null,
+      })
+    },
+    [setViewParams],
+  )
+
+  const handleRegionFilterChange = useCallback(
+    (values: Set<string>) => {
+      const regions = getValidatedRegions([...values])
+
+      setViewParams({
+        page: null,
+        regions: regions.length > 0 ? regions : null,
       })
     },
     [setViewParams],
@@ -560,6 +618,9 @@ const Snapshots: React.FC = () => {
           onSortingChange={handleSortingChange}
           stateFilter={stateFilter}
           onStateFilterChange={handleStateFilterChange}
+          regionFilter={regionFilter}
+          onRegionFilterChange={handleRegionFilterChange}
+          regionOptions={regionOptions}
         />
 
         <SnapshotSheet

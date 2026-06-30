@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
+import { DataTableConfigMenu } from '@/components/DataTableConfigMenu'
+import { useAvailableSandboxClassesForOrganization } from '@/hooks/useAvailableSandboxClasses'
+import { cn } from '@/lib/utils'
 import {
   Boxes,
   Calendar,
@@ -19,9 +22,7 @@ import {
   Tag,
   Wrench,
 } from 'lucide-react'
-import { DataTableConfigMenu } from '@/components/DataTableConfigMenu'
-import { useAvailableSandboxClassesForOrganization } from '@/hooks/useAvailableSandboxClasses'
-import { cn } from '@/lib/utils'
+import { useState, type ReactNode } from 'react'
 import { SearchInput } from '../SearchInput'
 import TooltipButton from '../TooltipButton'
 import { Button } from '../ui/button'
@@ -29,6 +30,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuPortal,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -51,6 +53,16 @@ const RESOURCE_FILTERS = [
   { type: 'disk' as const, label: 'Disk', icon: HardDrive },
 ]
 
+const VISIBILITY_FILTER_LABELS = {
+  true: 'Public',
+  false: 'Private',
+}
+
+const RECOVERY_FILTER_LABELS = {
+  true: 'Recoverable',
+  false: 'Not recoverable',
+}
+
 const SANDBOX_TABLE_COLUMN_LABELS: Record<string, string> = {
   actions: 'Actions',
   select: 'Selection',
@@ -68,6 +80,26 @@ const SANDBOX_TABLE_COLUMN_LABELS: Record<string, string> = {
 
 const SANDBOX_TABLE_CONFIG_EXCLUDED_COLUMN_IDS = ['actions', 'select', 'isPublic', 'isRecoverable'] as const
 
+type SandboxFacetFilterId =
+  | 'state'
+  | 'class'
+  | 'snapshot'
+  | 'region'
+  | 'cpu'
+  | 'memory'
+  | 'disk'
+  | 'labels'
+  | 'lastEvent'
+  | 'createdAt'
+  | 'visibility'
+  | 'recovery'
+
+type SandboxFacetFilter = {
+  id: SandboxFacetFilterId
+  active: boolean
+  filter: ReactNode
+}
+
 export function SandboxTableHeader({
   table,
   regionOptions,
@@ -80,6 +112,7 @@ export function SandboxTableHeader({
   isRefreshing = false,
 }: SandboxTableHeaderProps) {
   const availableSandboxClasses = useAvailableSandboxClassesForOrganization()
+  const [facetFilterOrder, setFacetFilterOrder] = useState<SandboxFacetFilterId[]>([])
   const sandboxClassColumn = table.getColumn('sandboxClass')
   const showClassFilter = availableSandboxClasses.length > 1 && Boolean(sandboxClassColumn)
   const hasStateFilter = ((table.getColumn('state')?.getFilterValue() as string[]) || []).length > 0
@@ -91,9 +124,8 @@ export function SandboxTableHeader({
   const hasCreatedAtFilter = ((table.getColumn('createdAt')?.getFilterValue() as Date[]) || []).length > 0
   const hasIsPublicFilter = table.getColumn('isPublic')?.getFilterValue() !== undefined
   const hasIsRecoverableFilter = table.getColumn('isRecoverable')?.getFilterValue() !== undefined
-  const hasResourceFilter = RESOURCE_FILTERS.some(({ type }) => {
-    return Boolean((table.getColumn('resources')?.getFilterValue() as ResourceFilterValue | undefined)?.[type])
-  })
+  const resourceFilterValue = (table.getColumn('resources')?.getFilterValue() as ResourceFilterValue | undefined) ?? {}
+  const hasResourceFilter = RESOURCE_FILTERS.some(({ type }) => Boolean(resourceFilterValue[type]))
 
   const hasActiveFilters =
     hasStateFilter ||
@@ -107,8 +139,181 @@ export function SandboxTableHeader({
     hasIsRecoverableFilter ||
     hasResourceFilter
 
+  const pushFilter = (filterId: SandboxFacetFilterId) => {
+    setFacetFilterOrder((order) => (order.includes(filterId) ? order : [...order, filterId]))
+  }
+
+  const handleClearFilters = () => {
+    table.setColumnFilters((filters) => filters.filter((filter) => filter.id === 'name'))
+    setFacetFilterOrder([])
+  }
+
+  const facetFilters: SandboxFacetFilter[] = [
+    {
+      id: 'state',
+      active: hasStateFilter,
+      filter: (
+        <StateFilterIndicator
+          key="state"
+          value={(table.getColumn('state')?.getFilterValue() as string[]) || []}
+          onFilterChange={(value) => {
+            table.getColumn('state')?.setFilterValue(value)
+            pushFilter('state')
+          }}
+        />
+      ),
+    },
+    {
+      id: 'snapshot',
+      active: hasSnapshotFilter,
+      filter: (
+        <SnapshotFilterIndicator
+          key="snapshot"
+          value={(table.getColumn('snapshot')?.getFilterValue() as string[]) || []}
+          onFilterChange={(value) => {
+            table.getColumn('snapshot')?.setFilterValue(value)
+            pushFilter('snapshot')
+          }}
+          snapshots={snapshots}
+          snapshotsDataIsLoading={snapshotsDataIsLoading}
+          snapshotsDataHasMore={snapshotsDataHasMore}
+          onChangeSnapshotSearchValue={onChangeSnapshotSearchValue}
+        />
+      ),
+    },
+    {
+      id: 'class',
+      active: hasClassFilter,
+      filter: (
+        <SandboxClassFilterIndicator
+          key="class"
+          value={(sandboxClassColumn?.getFilterValue() as string[]) || []}
+          onFilterChange={(value) => {
+            sandboxClassColumn?.setFilterValue(value)
+            pushFilter('class')
+          }}
+        />
+      ),
+    },
+    {
+      id: 'region',
+      active: hasRegionFilter,
+      filter: (
+        <RegionFilterIndicator
+          key="region"
+          value={(table.getColumn('region')?.getFilterValue() as string[]) || []}
+          onFilterChange={(value) => {
+            table.getColumn('region')?.setFilterValue(value)
+            pushFilter('region')
+          }}
+          options={regionOptions}
+          isLoading={regionsDataIsLoading}
+        />
+      ),
+    },
+    ...RESOURCE_FILTERS.map(({ type, icon: Icon }) => ({
+      id: type,
+      active: Boolean(resourceFilterValue[type]),
+      filter: (
+        <ResourceFilterIndicator
+          key={type}
+          value={resourceFilterValue}
+          onFilterChange={(value) => {
+            table.getColumn('resources')?.setFilterValue(value)
+            pushFilter(type)
+          }}
+          resourceType={type}
+          icon={<Icon className="size-4" />}
+        />
+      ),
+    })),
+    {
+      id: 'labels',
+      active: hasLabelsFilter,
+      filter: (
+        <LabelFilterIndicator
+          key="labels"
+          value={(table.getColumn('labels')?.getFilterValue() as string[]) || []}
+          onFilterChange={(value) => {
+            table.getColumn('labels')?.setFilterValue(value)
+            pushFilter('labels')
+          }}
+        />
+      ),
+    },
+    {
+      id: 'lastEvent',
+      active: hasLastEventFilter,
+      filter: (
+        <LastEventFilterIndicator
+          key="lastEvent"
+          value={(table.getColumn('lastEvent')?.getFilterValue() as Date[]) || []}
+          onFilterChange={(value) => {
+            table.getColumn('lastEvent')?.setFilterValue(value)
+            pushFilter('lastEvent')
+          }}
+        />
+      ),
+    },
+    {
+      id: 'createdAt',
+      active: hasCreatedAtFilter,
+      filter: (
+        <CreatedAtFilterIndicator
+          key="createdAt"
+          value={(table.getColumn('createdAt')?.getFilterValue() as Date[]) || []}
+          onFilterChange={(value) => {
+            table.getColumn('createdAt')?.setFilterValue(value)
+            pushFilter('createdAt')
+          }}
+        />
+      ),
+    },
+    {
+      id: 'visibility',
+      active: hasIsPublicFilter,
+      filter: (
+        <BooleanFilterIndicator
+          key="visibility"
+          label="Visibility"
+          valueLabels={VISIBILITY_FILTER_LABELS}
+          icon={<Eye className="size-4" />}
+          value={table.getColumn('isPublic')?.getFilterValue() as boolean | undefined}
+          onFilterChange={(value) => {
+            table.getColumn('isPublic')?.setFilterValue(value)
+            pushFilter('visibility')
+          }}
+        />
+      ),
+    },
+    {
+      id: 'recovery',
+      active: hasIsRecoverableFilter,
+      filter: (
+        <BooleanFilterIndicator
+          key="recovery"
+          label="Recovery"
+          valueLabels={RECOVERY_FILTER_LABELS}
+          icon={<Wrench className="size-4" />}
+          value={table.getColumn('isRecoverable')?.getFilterValue() as boolean | undefined}
+          onFilterChange={(value) => {
+            table.getColumn('isRecoverable')?.setFilterValue(value)
+            pushFilter('recovery')
+          }}
+        />
+      ),
+    },
+  ]
+  const activeFilters = [
+    ...facetFilterOrder.flatMap((filterId) => {
+      const filter = facetFilters.find(({ id }) => id === filterId)
+      return filter?.active ? [filter] : []
+    }),
+    ...facetFilters.filter(({ id, active }) => active && !facetFilterOrder.includes(id)),
+  ]
+
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
         <div className="flex flex-1 items-center gap-2 min-w-0">
           <SearchInput
@@ -121,12 +326,16 @@ export function SandboxTableHeader({
 
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="shrink-0" aria-label="Filter">
+              <Button
+                variant="outline"
+                className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
+                aria-label="Filter"
+              >
                 <ListFilter className="w-4 h-4" />
                 <span className="max-[420px]:hidden">Filter</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-40" align="start">
+            <DropdownMenuContent className="w-48" align="start">
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Square className="w-4 h-4" />
@@ -136,7 +345,10 @@ export function SandboxTableHeader({
                   <DropdownMenuSubContent className="p-0 w-64">
                     <StateFilter
                       value={(table.getColumn('state')?.getFilterValue() as string[]) || []}
-                      onFilterChange={(value) => table.getColumn('state')?.setFilterValue(value)}
+                      onFilterChange={(value) => {
+                        table.getColumn('state')?.setFilterValue(value)
+                        pushFilter('state')
+                      }}
                     />
                   </DropdownMenuSubContent>
                 </DropdownMenuPortal>
@@ -151,12 +363,16 @@ export function SandboxTableHeader({
                     <DropdownMenuSubContent className="p-0 w-64">
                       <SandboxClassFilter
                         value={(sandboxClassColumn?.getFilterValue() as string[]) || []}
-                        onFilterChange={(value) => sandboxClassColumn?.setFilterValue(value)}
+                        onFilterChange={(value) => {
+                          sandboxClassColumn?.setFilterValue(value)
+                          pushFilter('class')
+                        }}
                       />
                     </DropdownMenuSubContent>
                   </DropdownMenuPortal>
                 </DropdownMenuSub>
               )}
+              <DropdownMenuSeparator />
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Camera className="w-4 h-4" />
@@ -166,7 +382,10 @@ export function SandboxTableHeader({
                   <DropdownMenuSubContent className="p-0 w-64">
                     <SnapshotFilter
                       value={(table.getColumn('snapshot')?.getFilterValue() as string[]) || []}
-                      onFilterChange={(value) => table.getColumn('snapshot')?.setFilterValue(value)}
+                      onFilterChange={(value) => {
+                        table.getColumn('snapshot')?.setFilterValue(value)
+                        pushFilter('snapshot')
+                      }}
                       snapshots={snapshots}
                       snapshotsDataIsLoading={snapshotsDataIsLoading}
                       snapshotsDataHasMore={snapshotsDataHasMore}
@@ -184,13 +403,17 @@ export function SandboxTableHeader({
                   <DropdownMenuSubContent className="p-0 w-64">
                     <RegionFilter
                       value={(table.getColumn('region')?.getFilterValue() as string[]) || []}
-                      onFilterChange={(value) => table.getColumn('region')?.setFilterValue(value)}
+                      onFilterChange={(value) => {
+                        table.getColumn('region')?.setFilterValue(value)
+                        pushFilter('region')
+                      }}
                       options={regionOptions}
                       isLoading={regionsDataIsLoading}
                     />
                   </DropdownMenuSubContent>
                 </DropdownMenuPortal>
               </DropdownMenuSub>
+              <DropdownMenuSeparator />
               {RESOURCE_FILTERS.map(({ type, label, icon: Icon }) => (
                 <DropdownMenuSub key={type}>
                   <DropdownMenuSubTrigger>
@@ -201,13 +424,17 @@ export function SandboxTableHeader({
                     <DropdownMenuSubContent className="p-3 w-64">
                       <ResourceFilter
                         value={(table.getColumn('resources')?.getFilterValue() as ResourceFilterValue) || {}}
-                        onFilterChange={(value) => table.getColumn('resources')?.setFilterValue(value)}
+                        onFilterChange={(value) => {
+                          table.getColumn('resources')?.setFilterValue(value)
+                          pushFilter(type)
+                        }}
                         resourceType={type}
                       />
                     </DropdownMenuSubContent>
                   </DropdownMenuPortal>
                 </DropdownMenuSub>
               ))}
+              <DropdownMenuSeparator />
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Tag className="w-4 h-4" />
@@ -217,7 +444,10 @@ export function SandboxTableHeader({
                   <DropdownMenuSubContent className="p-0 w-64">
                     <LabelFilter
                       value={(table.getColumn('labels')?.getFilterValue() as string[]) || []}
-                      onFilterChange={(value) => table.getColumn('labels')?.setFilterValue(value)}
+                      onFilterChange={(value) => {
+                        table.getColumn('labels')?.setFilterValue(value)
+                        pushFilter('labels')
+                      }}
                     />
                   </DropdownMenuSubContent>
                 </DropdownMenuPortal>
@@ -230,7 +460,10 @@ export function SandboxTableHeader({
                 <DropdownMenuPortal>
                   <DropdownMenuSubContent className="p-3 w-92">
                     <LastEventFilter
-                      onFilterChange={(value) => table.getColumn('lastEvent')?.setFilterValue(value)}
+                      onFilterChange={(value) => {
+                        table.getColumn('lastEvent')?.setFilterValue(value)
+                        pushFilter('lastEvent')
+                      }}
                       value={(table.getColumn('lastEvent')?.getFilterValue() as Date[]) || []}
                     />
                   </DropdownMenuSubContent>
@@ -244,22 +477,30 @@ export function SandboxTableHeader({
                 <DropdownMenuPortal>
                   <DropdownMenuSubContent className="p-3 w-92">
                     <CreatedAtFilter
-                      onFilterChange={(value) => table.getColumn('createdAt')?.setFilterValue(value)}
+                      onFilterChange={(value) => {
+                        table.getColumn('createdAt')?.setFilterValue(value)
+                        pushFilter('createdAt')
+                      }}
                       value={(table.getColumn('createdAt')?.getFilterValue() as Date[]) || []}
                     />
                   </DropdownMenuSubContent>
                 </DropdownMenuPortal>
               </DropdownMenuSub>
+              <DropdownMenuSeparator />
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Eye className="w-4 h-4" />
-                  Public
+                  Visibility
                 </DropdownMenuSubTrigger>
                 <DropdownMenuPortal>
-                  <DropdownMenuSubContent className="p-3 w-48">
+                  <DropdownMenuSubContent className="p-2 w-48">
                     <BooleanFilter
-                      label="Public"
-                      onFilterChange={(value) => table.getColumn('isPublic')?.setFilterValue(value)}
+                      label="Visibility"
+                      valueLabels={VISIBILITY_FILTER_LABELS}
+                      onFilterChange={(value) => {
+                        table.getColumn('isPublic')?.setFilterValue(value)
+                        pushFilter('visibility')
+                      }}
                       value={table.getColumn('isPublic')?.getFilterValue() as boolean | undefined}
                     />
                   </DropdownMenuSubContent>
@@ -268,13 +509,17 @@ export function SandboxTableHeader({
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <Wrench className="w-4 h-4" />
-                  Recoverable
+                  Recovery
                 </DropdownMenuSubTrigger>
                 <DropdownMenuPortal>
-                  <DropdownMenuSubContent className="p-3 w-48">
+                  <DropdownMenuSubContent className="p-2 w-48">
                     <BooleanFilter
-                      label="Recoverable"
-                      onFilterChange={(value) => table.getColumn('isRecoverable')?.setFilterValue(value)}
+                      label="Recovery"
+                      valueLabels={RECOVERY_FILTER_LABELS}
+                      onFilterChange={(value) => {
+                        table.getColumn('isRecoverable')?.setFilterValue(value)
+                        pushFilter('recovery')
+                      }}
                       value={table.getColumn('isRecoverable')?.getFilterValue() as boolean | undefined}
                     />
                   </DropdownMenuSubContent>
@@ -305,80 +550,18 @@ export function SandboxTableHeader({
       </div>
 
       {hasActiveFilters ? (
-        <div className="flex h-8 items-center gap-1 overflow-x-auto scrollbar-hide">
-          {hasStateFilter && (
-            <StateFilterIndicator
-              value={(table.getColumn('state')?.getFilterValue() as string[]) || []}
-              onFilterChange={(value) => table.getColumn('state')?.setFilterValue(value)}
-            />
-          )}
-          {hasSnapshotFilter && (
-            <SnapshotFilterIndicator
-              value={(table.getColumn('snapshot')?.getFilterValue() as string[]) || []}
-              onFilterChange={(value) => table.getColumn('snapshot')?.setFilterValue(value)}
-              snapshots={snapshots}
-              snapshotsDataIsLoading={snapshotsDataIsLoading}
-              snapshotsDataHasMore={snapshotsDataHasMore}
-              onChangeSnapshotSearchValue={onChangeSnapshotSearchValue}
-            />
-          )}
-          {hasClassFilter && (
-            <SandboxClassFilterIndicator
-              value={(sandboxClassColumn?.getFilterValue() as string[]) || []}
-              onFilterChange={(value) => sandboxClassColumn?.setFilterValue(value)}
-            />
-          )}
-          {hasRegionFilter && (
-            <RegionFilterIndicator
-              value={(table.getColumn('region')?.getFilterValue() as string[]) || []}
-              onFilterChange={(value) => table.getColumn('region')?.setFilterValue(value)}
-              options={regionOptions}
-              isLoading={regionsDataIsLoading}
-            />
-          )}
-          {RESOURCE_FILTERS.map(({ type }) => {
-            const resourceValue = (table.getColumn('resources')?.getFilterValue() as ResourceFilterValue)?.[type]
-            return resourceValue ? (
-              <ResourceFilterIndicator
-                key={type}
-                value={table.getColumn('resources')?.getFilterValue() as ResourceFilterValue}
-                onFilterChange={(value) => table.getColumn('resources')?.setFilterValue(value)}
-                resourceType={type}
-              />
-            ) : null
-          })}
-          {hasLabelsFilter && (
-            <LabelFilterIndicator
-              value={(table.getColumn('labels')?.getFilterValue() as string[]) || []}
-              onFilterChange={(value) => table.getColumn('labels')?.setFilterValue(value)}
-            />
-          )}
-          {hasLastEventFilter && (
-            <LastEventFilterIndicator
-              value={(table.getColumn('lastEvent')?.getFilterValue() as Date[]) || []}
-              onFilterChange={(value) => table.getColumn('lastEvent')?.setFilterValue(value)}
-            />
-          )}
-          {hasCreatedAtFilter && (
-            <CreatedAtFilterIndicator
-              value={(table.getColumn('createdAt')?.getFilterValue() as Date[]) || []}
-              onFilterChange={(value) => table.getColumn('createdAt')?.setFilterValue(value)}
-            />
-          )}
-          {hasIsPublicFilter && (
-            <BooleanFilterIndicator
-              label="Public"
-              value={table.getColumn('isPublic')?.getFilterValue() as boolean | undefined}
-              onFilterChange={(value) => table.getColumn('isPublic')?.setFilterValue(value)}
-            />
-          )}
-          {hasIsRecoverableFilter && (
-            <BooleanFilterIndicator
-              label="Recoverable"
-              value={table.getColumn('isRecoverable')?.getFilterValue() as boolean | undefined}
-              onFilterChange={(value) => table.getColumn('isRecoverable')?.setFilterValue(value)}
-            />
-          )}
+        <div className="flex items-start gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+            {activeFilters.map(({ filter }) => filter)}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 shrink-0 px-3 text-muted-foreground hover:text-foreground"
+            onClick={handleClearFilters}
+          >
+            Clear
+          </Button>
         </div>
       ) : null}
     </div>

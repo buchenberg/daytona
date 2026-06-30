@@ -7,7 +7,24 @@ import { PageFooterPortal } from '@/components/PageLayout'
 import { Pagination } from '@/components/Pagination'
 import { SearchInput } from '@/components/SearchInput'
 import { Button } from '@/components/ui/button'
-import { DataTableFacetedFilter } from '@/components/ui/data-table-faceted-filter'
+import {
+  Command,
+  CommandCheckboxItem,
+  CommandGroup,
+  CommandInput,
+  CommandInputButton,
+  CommandList,
+} from '@/components/ui/command'
+import { DataTableFacetedFilter, type FacetedFilterOption } from '@/components/ui/data-table-faceted-filter'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -23,6 +40,7 @@ import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
 import { cn } from '@/lib/utils'
 import { DEFAULT_TABLE_COLUMN, getColumnSizeStyles, getTableSizeStyles } from '@/lib/utils/table'
 import {
+  type Column,
   ColumnFiltersState,
   flexRender,
   getCoreRowModel,
@@ -34,11 +52,73 @@ import {
   SortingState,
   useReactTable,
 } from '@tanstack/react-table'
-import { Mail, RefreshCcw } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { ListFilter, Mail, RefreshCcw, Tag } from 'lucide-react'
+import { type ReactNode, useCallback, useState } from 'react'
+import type { MessageOut } from 'svix'
 import { useMessages } from 'svix-react'
 import { columns, eventTypeOptions } from './columns'
 import { MessageDetailsSheet } from './MessageDetailsSheet'
+
+interface WebhookMessageFilterSubmenuProps {
+  column?: Column<MessageOut, unknown>
+  icon: ReactNode
+  options: readonly FacetedFilterOption[]
+  title: string
+}
+
+function WebhookMessageFilterSubmenu({ column, icon, options, title }: WebhookMessageFilterSubmenuProps) {
+  if (!column) {
+    return null
+  }
+
+  const values = (column.getFilterValue() as string[] | undefined) ?? []
+
+  const handleFilterChange = (nextValues: string[]) => {
+    column.setFilterValue(nextValues.length > 0 ? nextValues : undefined)
+  }
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        {icon}
+        {title}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuPortal>
+        <DropdownMenuSubContent className="p-0 w-72">
+          <Command>
+            <CommandInput placeholder={title}>
+              <CommandInputButton
+                className="text-sm text-muted-foreground hover:text-primary px-2"
+                onClick={() => column.setFilterValue(undefined)}
+              >
+                Clear
+              </CommandInputButton>
+            </CommandInput>
+            <CommandList>
+              <CommandGroup>
+                {options.map((option) => (
+                  <CommandCheckboxItem
+                    key={option.value}
+                    checked={values.includes(option.value)}
+                    onSelect={() => {
+                      const nextValues = values.includes(option.value)
+                        ? values.filter((value) => value !== option.value)
+                        : [...values, option.value]
+
+                      handleFilterChange(nextValues)
+                    }}
+                  >
+                    {option.label}
+                  </CommandCheckboxItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </DropdownMenuSubContent>
+      </DropdownMenuPortal>
+    </DropdownMenuSub>
+  )
+}
 
 export function WebhooksMessagesTable() {
   const messages = useMessages()
@@ -86,6 +166,9 @@ export function WebhooksMessagesTable() {
 
   const isEmpty = !messages.loading && table.getRowModel().rows.length === 0
   const hasFilters = globalFilter.trim().length > 0 || columnFilters.length > 0
+  const eventTypeColumn = table.getColumn('eventType')
+  const hasEventTypeFilter = ((eventTypeColumn?.getFilterValue() as string[]) || []).length > 0
+  const hasColumnFilters = hasEventTypeFilter
 
   const handleRowClick = useCallback((index: number) => {
     setSelectedMessageIndex(index)
@@ -116,28 +199,72 @@ export function WebhooksMessagesTable() {
     table.resetColumnFilters()
   }
 
+  const handleClearColumnFilters = () => {
+    table.resetColumnFilters()
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <SearchInput
-          debounced
-          value={globalFilter ?? ''}
-          onValueChange={handleChangeFilter}
-          placeholder="Search by Message ID, Event Type, or Event ID"
-          containerClassName="max-w-sm"
-        />
-        {table.getColumn('eventType') && (
-          <DataTableFacetedFilter column={table.getColumn('eventType')} title="Event Type" options={eventTypeOptions} />
-        )}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => messages.reload()}
-          disabled={messages.loading}
-          className="ml-auto"
-        >
-          <RefreshCcw className="h-4 w-4" />
-        </Button>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="w-full max-w-full sm:w-96 sm:shrink-0">
+            <SearchInput
+              debounced
+              value={globalFilter ?? ''}
+              onValueChange={handleChangeFilter}
+              placeholder="Search by Message ID, Event Type, or Event ID"
+              containerClassName="w-full"
+            />
+          </div>
+          <div className="flex max-w-full shrink-0 flex-wrap items-center gap-4">
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
+                  aria-label="Filter"
+                >
+                  <ListFilter className="size-4" />
+                  <span className="max-[420px]:hidden">Filter</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-48" align="start">
+                <WebhookMessageFilterSubmenu
+                  column={eventTypeColumn}
+                  icon={<Tag className="size-4" />}
+                  title="Event Type"
+                  options={eventTypeOptions}
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => messages.reload()}
+            disabled={messages.loading}
+            className="ml-auto"
+          >
+            <RefreshCcw className="h-4 w-4" />
+          </Button>
+        </div>
+        {hasColumnFilters ? (
+          <div className="flex items-start gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+              {eventTypeColumn ? (
+                <DataTableFacetedFilter column={eventTypeColumn} title="Event Type" options={eventTypeOptions} />
+              ) : null}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 shrink-0 px-3 text-muted-foreground hover:text-foreground"
+              onClick={handleClearColumnFilters}
+            >
+              Clear
+            </Button>
+          </div>
+        ) : null}
       </div>
       <TableContainer
         className={cn('max-h-[550px]', {
