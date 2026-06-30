@@ -7,11 +7,6 @@ on:
         description: 'Branch name to build'
         required: true
         type: string
-      use_oss:
-        description: 'Use OSS repo (daytonaio/daytona) instead of daytonaio/daytona-ai'
-        required: true
-        type: boolean
-        default: false
       from_scratch:
         description: 'Tear down the existing release first (wipes the per-preview db/redis/minio data)'
         required: false
@@ -38,7 +33,7 @@ jobs:
       - name: Checkout target repo
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          repository: ${{ inputs.use_oss && 'daytonaio/daytona' || 'daytonaio/daytona-ai' }}
+          repository: daytonaio/daytona-ai
           ref: ${{ inputs.branch }}
           persist-credentials: false
 
@@ -70,11 +65,6 @@ jobs:
           short_sha=$(git rev-parse --short HEAD)
           echo "branch_slug=$slug" >> "$GITHUB_OUTPUT"
           echo "version_slug=${slug}-${short_sha}" >> "$GITHUB_OUTPUT"
-
-      - name: Rewrite docker image refs in nx.json for OSS
-        if: ${{ inputs.use_oss }}
-        run: |
-          sed -i 's|daytonaio/daytona-|ghcr.io/daytonaio/daytona-|g' nx.json
 
       - name: Log in to the Container registry
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
@@ -151,7 +141,7 @@ jobs:
           BRANCH_SLUG: ${{ needs.build.outputs.branch_slug }}
           VERSION_SLUG: ${{ needs.build.outputs.version_slug }}
           BRANCH_NAME: ${{ inputs.branch }}
-          REPO: ${{ inputs.use_oss && 'daytonaio/daytona' || 'daytonaio/daytona-ai' }}
+          REPO: daytonaio/daytona-ai
         run: |
           # The chart's postgresql + redis deps live in the Bitnami repo;
           # register it so `helm dependency build` can resolve them.

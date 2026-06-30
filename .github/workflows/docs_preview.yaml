@@ -7,11 +7,6 @@ on:
         description: 'Branch name to build'
         required: true
         type: string
-      use_oss:
-        description: 'Use OSS repo (daytonaio/daytona) instead of daytonaio/daytona-ai'
-        required: true
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -33,7 +28,7 @@ jobs:
       - name: Checkout target repo
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          repository: ${{ inputs.use_oss && 'daytonaio/daytona' || 'daytonaio/daytona-ai' }}
+          repository: daytonaio/daytona-ai
           ref: ${{ inputs.branch }}
           persist-credentials: false
 
@@ -60,11 +55,6 @@ jobs:
           short_sha=$(git rev-parse --short HEAD)
           echo "branch_slug=${branch_slug}" >> "$GITHUB_OUTPUT"
           echo "deployment_slug=${branch_slug}-${short_sha}" >> "$GITHUB_OUTPUT"
-
-      - name: Rewrite docker image refs in nx.json for OSS
-        if: ${{ inputs.use_oss }}
-        run: |
-          sed -i 's|daytonaio/daytona-|ghcr.io/daytonaio/daytona-|g' nx.json
 
       - name: Log in to the Container registry
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
@@ -132,7 +122,7 @@ jobs:
       - name: Deploy with Helm
         env:
           BRANCH_NAME: ${{ inputs.branch }}
-          REPO: ${{ inputs.use_oss && 'daytonaio/daytona' || 'daytonaio/daytona-ai' }}
+          REPO: daytonaio/daytona-ai
         run: |
           helm upgrade --install docs-preview-${{ needs.build.outputs.branch_slug }} ./charts/docs-preview \
             --namespace gha-docs \
