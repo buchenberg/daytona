@@ -459,6 +459,7 @@ const configuration = {
     userCacheTtlSeconds: parseInt(process.env.API_KEY_USER_CACHE_TTL_SECONDS || '60', 10),
   },
   runnerHealthTimeout: parseInt(process.env.RUNNER_HEALTH_TIMEOUT_SECONDS || '3', 10),
+  runnerUnresponsiveOnUnhealthySysbox: process.env.RUNNER_UNRESPONSIVE_ON_UNHEALTHY_SYSBOX === 'true',
   warmPool: {
     candidateLimit: parseInt(process.env.WARM_POOL_CANDIDATE_LIMIT || '300', 10),
   },

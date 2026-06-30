@@ -51,6 +51,9 @@ type DockerClientConfig struct {
 	GpuEnabled                   bool
 	MountKvmToAndroidSandbox     bool
 
+	// Sysbox health-probe mode (see sysbox.go).
+	SysboxHealthProbes string
+
 	// Secret injection (netleash shared MITM proxy). When SecretProxyEnabled is
 	// set (and a NetleashManager is present), the runner runs a single proxy that
 	// swaps secret placeholders for real values in sandboxes' outbound requests.
@@ -182,6 +185,7 @@ func NewDockerClient(ctx context.Context, config DockerClientConfig) (*DockerCli
 		gpuAllocator:                 newGpuAllocator(gpuCount),
 		filesystem:                   filesystem,
 		mountKvmToAndroidSandbox:     config.MountKvmToAndroidSandbox,
+		sysboxHealthProbes:           config.SysboxHealthProbes,
 		secretProxyEnabled:           config.SecretProxyEnabled && config.NetleashManager != nil,
 		secretProxyPort:              config.SecretProxyPort,
 		secretCADir:                  config.SecretCADir,
@@ -247,6 +251,9 @@ type DockerClient struct {
 	gpuType                      string
 	gpuAllocator                 *gpuAllocator
 	mountKvmToAndroidSandbox     bool
+
+	// Sysbox health-probe mode (see sysbox.go).
+	sysboxHealthProbes string
 
 	// Secret injection config (see DockerClientConfig).
 	secretProxyEnabled bool

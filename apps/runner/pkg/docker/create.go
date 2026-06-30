@@ -130,8 +130,16 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		}
 		_, daemonVersion, err := d.Start(ctx, sandboxDto.Id, sandboxDto.AuthToken, sandboxDto.SecretsToken, metadata)
 		if err != nil {
-			if strings.Contains(err.Error(), "OCI runtime create failed") {
+			if isOCIRuntimeCreateError(err) {
 				if didTryWithoutSysbox {
+					return "", "", err
+				}
+				// A sysbox daemon outage affects every sandbox on this runner; surface it
+				// so the healthcheck cordons the runner (kata stays a last resort for
+				// container-specific failures). Scoped to sysbox sandboxes on sysbox
+				// runners: a forced-kata sandbox's failure is never a sysbox outage, and
+				// non-sysbox runners have no sockets and get no cordon.
+				if sandboxDto.Metadata["forceKata"] != "true" && d.SysboxProbesEnabled() && !d.sysboxDaemonsHealthy(ctx) {
 					return "", "", err
 				}
 				// Recreate without sysbox
@@ -242,7 +250,7 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		if errdefs.IsConflict(err) {
 			return sandboxDto.Id, "", nil
 		}
-		if !strings.Contains(err.Error(), "OCI runtime create failed") {
+		if !isOCIRuntimeCreateError(err) {
 			return "", "", err
 		}
 	}
@@ -280,8 +288,13 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 
 	runningContainer, daemonVersion, err := d.Start(ctx, sandboxDto.Id, sandboxDto.AuthToken, sandboxDto.SecretsToken, sandboxDto.Metadata)
 	if err != nil {
-		if strings.Contains(err.Error(), "OCI runtime create failed") {
+		if isOCIRuntimeCreateError(err) {
 			if didTryWithoutSysbox {
+				return "", "", err
+			}
+			// A daemon outage hits every sandbox here; surface it so the healthcheck
+			// cordons the runner. Scoped to sysbox sandboxes on sysbox runners (see above).
+			if !forceKata && d.SysboxProbesEnabled() && !d.sysboxDaemonsHealthy(ctx) {
 				return "", "", err
 			}
 			// Recreate without sysbox

@@ -185,6 +185,7 @@ func run() int {
 		InterSandboxNetworkEnabled:   cfg.InterSandboxNetworkEnabled,
 		GpuEnabled:                   cfg.GpuEnabled,
 		MountKvmToAndroidSandbox:     cfg.MountKvmToAndroidSandbox,
+		SysboxHealthProbes:           cfg.SysboxHealthProbes,
 		SecretProxyEnabled:           cfg.NetleashEnabled && cfg.NetleashSecretsEnabled,
 		SecretProxyPort:              cfg.NetleashSecretProxyPort,
 		SecretCADir:                  cfg.NetleashSecretCADir,

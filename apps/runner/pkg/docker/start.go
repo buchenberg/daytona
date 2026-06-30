@@ -84,7 +84,7 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, authToken 
 		}
 	}
 
-	err = d.apiClient.ContainerStart(ctx, containerId, container.StartOptions{})
+	c, err = d.startContainerWithSysboxRecovery(ctx, containerId, c)
 	if err != nil {
 		return nil, "", err
 	}
@@ -159,46 +159,53 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, authToken 
 	return runningContainer, daemonVersion, nil
 }
 
-// convertRuncToKata commits the existing runc container to an image, then
-// recreates it under the same ID with the kata-clh runtime and the kata-specific
-// host config tweaks from create.go. The old runc container is removed and the
-// new container's inspect is returned.
+// convertRuncToKata recreates a runc container under the kata-clh runtime.
 func (d *DockerClient) convertRuncToKata(ctx context.Context, containerId string, original *container.InspectResponse) (*container.InspectResponse, error) {
-	timestamp := time.Now().Unix()
-	imageName := fmt.Sprintf("daytona-runc-to-kata:%s-%d", containerId, timestamp)
-	oldName := fmt.Sprintf("%s-runc-%d", containerId, timestamp)
+	d.logger.InfoContext(ctx, "Converting runc container to kata-clh", "containerId", containerId)
+	return d.recreateContainerUnderSameID(ctx, containerId, "daytona-runc-to-kata", original, func(hc *container.HostConfig) {
+		hc.Privileged = false
+		hc.Runtime = "kata-clh"
+		// Kata VM default size is 1vcpu and 2Gi RAM. Kata adds container resources on
+		// top of its defaults, so subtract them to get the actual requested size.
+		if hc.CPUQuota >= 100000 {
+			hc.CPUQuota -= 100000
+		}
+		kataDefaultMemory := common.GBToBytes(1)
+		if hc.Memory >= kataDefaultMemory {
+			hc.Memory -= kataDefaultMemory
+			hc.MemorySwap -= kataDefaultMemory
+		}
+		hc.CapAdd = []string{"ALL"}
+		hc.SecurityOpt = []string{"seccomp=unconfined", "apparmor=unconfined"}
+	})
+}
 
-	d.logger.InfoContext(ctx, "Converting runc container to kata-clh", "containerId", containerId, "imageName", imageName)
+// recreateContainerUnderSameID commits the stopped container to a throwaway image and
+// recreates it under the same ID, applying mutateHostConfig before create. The original
+// is renamed aside (so a create failure can roll back) then removed, which clears any
+// sysbox-mgr registration tied to it.
+func (d *DockerClient) recreateContainerUnderSameID(ctx context.Context, containerId, imagePrefix string, original *container.InspectResponse, mutateHostConfig func(*container.HostConfig)) (*container.InspectResponse, error) {
+	timestamp := time.Now().Unix()
+	imageName := fmt.Sprintf("%s:%s-%d", imagePrefix, containerId, timestamp)
+	oldName := fmt.Sprintf("%s-old-%d", containerId, timestamp)
 
 	if err := d.commitContainer(ctx, containerId, imageName); err != nil {
-		return nil, fmt.Errorf("failed to commit runc container: %w", err)
+		return nil, fmt.Errorf("failed to commit container: %w", err)
 	}
 
 	if err := d.apiClient.ContainerRename(ctx, containerId, oldName); err != nil {
-		return nil, fmt.Errorf("failed to rename runc container: %w", err)
+		return nil, fmt.Errorf("failed to rename container: %w", err)
 	}
 
 	newContainerConfig := *original.Config
 	newContainerConfig.Image = imageName
 
 	newHostConfig := *original.HostConfig
-	newHostConfig.Privileged = false
-	newHostConfig.Runtime = "kata-clh"
-	// Kata VM default size is 1vcpu and 2Gi RAM.
-	// Kata adds container resources on top of its defaults, so subtract them
-	// to get the actual requested size inside the VM.
-	if newHostConfig.CPUQuota >= 100000 {
-		newHostConfig.CPUQuota -= 100000
+	if mutateHostConfig != nil {
+		mutateHostConfig(&newHostConfig)
 	}
-	kataDefaultMemory := common.GBToBytes(1)
-	if newHostConfig.Memory >= kataDefaultMemory {
-		newHostConfig.Memory -= kataDefaultMemory
-		newHostConfig.MemorySwap -= kataDefaultMemory
-	}
-	newHostConfig.CapAdd = []string{"ALL"}
-	newHostConfig.SecurityOpt = []string{"seccomp=unconfined", "apparmor=unconfined"}
 
-	// No need for a full CreateSandboxDTO here since it's used only for android sandboxes which won't convert to kata either way
+	// No need for a full CreateSandboxDTO here since it's used only for android sandboxes which won't take this path either way
 	networkingConfig := d.getContainerNetworkingConfig(dto.CreateSandboxDTO{Id: containerId})
 
 	if _, err := d.apiClient.ContainerCreate(ctx, &newContainerConfig, &newHostConfig, networkingConfig, &v1.Platform{
@@ -206,20 +213,55 @@ func (d *DockerClient) convertRuncToKata(ctx context.Context, containerId string
 		OS:           "linux",
 	}, containerId); err != nil {
 		if rnErr := d.apiClient.ContainerRename(ctx, oldName, containerId); rnErr != nil {
-			d.logger.ErrorContext(ctx, "Failed to roll back rename after kata create failure", "containerId", containerId, "oldName", oldName, "error", rnErr)
+			d.logger.ErrorContext(ctx, "Failed to roll back rename after recreate failure", "containerId", containerId, "oldName", oldName, "error", rnErr)
 		}
-		return nil, fmt.Errorf("failed to create kata container: %w", err)
+		return nil, fmt.Errorf("failed to recreate container: %w", err)
 	}
 
 	if err := d.apiClient.ContainerRemove(ctx, oldName, container.RemoveOptions{Force: true}); err != nil {
-		d.logger.WarnContext(ctx, "Failed to remove old runc container after kata recreate", "oldName", oldName, "error", err)
+		d.logger.WarnContext(ctx, "Failed to remove old container after recreate", "oldName", oldName, "error", err)
 	}
 
 	newInspect, err := d.ContainerInspect(ctx, containerId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to inspect kata container: %w", err)
+		return nil, fmt.Errorf("failed to inspect recreated container: %w", err)
 	}
 	return newInspect, nil
+}
+
+// startContainerWithSysboxRecovery starts the container, healing a stale sysbox-mgr
+// registration and retrying a one-off runtime failure (sysbox containers only).
+func (d *DockerClient) startContainerWithSysboxRecovery(ctx context.Context, containerId string, c *container.InspectResponse) (*container.InspectResponse, error) {
+	err := d.apiClient.ContainerStart(ctx, containerId, container.StartOptions{})
+	if err == nil {
+		return c, nil
+	}
+	if !isSysboxContainer(c) {
+		return nil, err
+	}
+
+	// Stale registration = the container died without `runc delete`, so mgr still
+	// holds it and the rootfs cleanup never ran; mgr's unregister performs that
+	// missing cleanup, after which a plain start re-registers. Heal only with
+	// healthy daemons (else it's a runner-wide outage, not per-container state).
+	if isRedundantRegistrationError(err) && d.sysboxDaemonsHealthy(ctx) {
+		d.logger.WarnContext(ctx, "Clearing stale sysbox-mgr registration", "containerId", containerId, "error", err)
+		if unregErr := d.unregisterFromSysboxMgr(ctx, c.ID); unregErr != nil {
+			return nil, fmt.Errorf("sysbox registration self-heal failed: %w", unregErr)
+		}
+		err = d.apiClient.ContainerStart(ctx, containerId, container.StartOptions{})
+	}
+
+	// Absorb a one-off blip; a genuine image/config issue fails again and falls through to kata.
+	if isOCIRuntimeCreateError(err) {
+		d.logger.WarnContext(ctx, "Retrying container start after sysbox runtime failure", "containerId", containerId, "error", err)
+		err = d.apiClient.ContainerStart(ctx, containerId, container.StartOptions{})
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func (d *DockerClient) waitForContainerRunning(ctx context.Context, containerId string) (*container.InspectResponse, error) {

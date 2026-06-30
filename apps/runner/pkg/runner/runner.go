@@ -77,24 +77,23 @@ func GetInstance(config *RunnerInstanceConfig) (*Runner, error) {
 }
 
 func (r *Runner) InspectRunnerServices(ctx context.Context) []models.RunnerServiceInfo {
-	runnerServicesInfo := make([]models.RunnerServiceInfo, 0)
+	serviceProbes := r.Docker.ServiceHealthProbes()
 
-	pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
+	runnerServicesInfo := make([]models.RunnerServiceInfo, 0, len(serviceProbes))
+	for _, probe := range serviceProbes {
+		info := models.RunnerServiceInfo{ServiceName: probe.Name, Healthy: true}
 
-	dockerHealth := models.RunnerServiceInfo{
-		ServiceName: "docker",
-		Healthy:     true,
+		// Each probe gets its own timeout so a slow one can't starve the others.
+		probeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		err := probe.Ping(probeCtx)
+		cancel()
+		if err != nil {
+			r.Logger.WarnContext(ctx, "Service health check failed", "service", probe.Name, "error", err)
+			info.Healthy = false
+			info.Err = err
+		}
+		runnerServicesInfo = append(runnerServicesInfo, info)
 	}
-
-	err := r.Docker.Ping(pingCtx)
-	if err != nil {
-		r.Logger.WarnContext(ctx, "Failed to ping Docker daemon", "error", err)
-		dockerHealth.Healthy = false
-		dockerHealth.Err = err
-	}
-
-	runnerServicesInfo = append(runnerServicesInfo, dockerHealth)
 
 	return runnerServicesInfo
 }

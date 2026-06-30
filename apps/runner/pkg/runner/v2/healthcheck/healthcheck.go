@@ -18,8 +18,6 @@ import (
 	"github.com/daytonaio/runner/pkg/docker"
 )
 
-const dockerPingTimeout = 3 * time.Second
-
 const metricsCollectTimeout = 5 * time.Second
 
 type HealthcheckServiceConfig struct {
@@ -119,23 +117,26 @@ func (s *Service) sendHealthcheck(ctx context.Context) error {
 	healthcheck.SetProxyUrl(proxyUrl)
 	healthcheck.SetApiUrl(apiUrl)
 
-	dockerHealth := apiclient.RunnerServiceHealth{
-		ServiceName: "docker",
-		Healthy:     true,
+	serviceProbes := s.docker.ServiceHealthProbes()
+
+	serviceHealth := make([]apiclient.RunnerServiceHealth, 0, len(serviceProbes))
+	for _, probe := range serviceProbes {
+		health := apiclient.RunnerServiceHealth{ServiceName: probe.Name, Healthy: true}
+
+		// Each probe gets its own timeout so a slow one can't starve the others.
+		probeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		err := probe.Ping(probeCtx)
+		cancel()
+		if err != nil {
+			s.log.WarnContext(ctx, "Service health check failed", "service", probe.Name, "error", err)
+			errStr := err.Error()
+			health.Healthy = false
+			health.ErrorReason = &errStr
+		}
+		serviceHealth = append(serviceHealth, health)
 	}
 
-	pingCtx, pingCancel := context.WithTimeout(ctx, dockerPingTimeout)
-	err := s.docker.Ping(pingCtx)
-	pingCancel()
-	if err != nil {
-		s.log.WarnContext(ctx, "Failed to ping Docker daemon", "error", err)
-
-		errStr := err.Error()
-		dockerHealth.Healthy = false
-		dockerHealth.ErrorReason = &errStr
-	}
-
-	healthcheck.SetServiceHealth([]apiclient.RunnerServiceHealth{dockerHealth})
+	healthcheck.SetServiceHealth(serviceHealth)
 
 	// Collect metrics
 	metricsCtx, metricsCancel := context.WithTimeout(ctx, metricsCollectTimeout)

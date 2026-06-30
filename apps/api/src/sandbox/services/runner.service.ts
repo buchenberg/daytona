@@ -53,6 +53,8 @@ import { SandboxRepository } from '../repositories/sandbox.repository'
 import { SnapshotRepository } from '../repositories/snapshot.repository'
 import { RunnerServiceInfo } from '../common/runner-service-info'
 
+const SYSBOX_SERVICE_NAMES = ['sysbox-mgr', 'sysbox-fs']
+
 @Injectable()
 export class RunnerService {
   private readonly logger = new Logger(RunnerService.name)
@@ -494,7 +496,13 @@ export class RunnerService {
         .map((s) => `"${s.serviceName}"${s.errorReason ? ` (${s.errorReason})` : ''}`)
         .join(', ')
       this.logger.warn(`Runner ${runnerId} services reported unhealthy: ${unhealthySummary}`)
-      if (process.env.RUNNER_UNHEALTHY_ON_SERVICE_UNHEALTHY === 'true') {
+
+      // Sysbox outages don't affect running sandboxes in most ways, so by default they don't make the runner unresponsive
+      const relevantServices = this.configService.get('runnerUnresponsiveOnUnhealthySysbox')
+        ? unhealthyServices
+        : unhealthyServices.filter((s) => !SYSBOX_SERVICE_NAMES.includes(s.serviceName))
+
+      if (relevantServices.length > 0 && process.env.RUNNER_UNHEALTHY_ON_SERVICE_UNHEALTHY === 'true') {
         updateData.state = RunnerState.UNRESPONSIVE
       }
     }

@@ -100,6 +100,9 @@ type Config struct {
 	// mounted into running sandboxes stays valid across a restart) and the
 	// per-sandbox binding records used to re-register bindings after a restart.
 	NetleashSecretCADir string `envconfig:"NETLEASH_SECRET_CA_DIR" default:"/var/lib/netleash"`
+	// SysboxHealthProbes controls sysbox daemon health probing:
+	// ""=auto (probe only on sysbox runners), "true"/"false" force.
+	SysboxHealthProbes string `envconfig:"SYSBOX_HEALTH_PROBES" validate:"omitempty,oneof=true false"`
 }
 
 var DEFAULT_API_PORT int = 8080
