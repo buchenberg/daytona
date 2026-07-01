@@ -225,10 +225,20 @@ export class SandboxService {
           throw new ForbiddenException(
             `Region ${region.id} is not available to the organization for class ${sandboxClass}`,
           )
-        } else {
-          // region is not public, respond as if the region was not found
-          throw new NotFoundException('Region not found')
         }
+
+        // Region is DEDICATED/CUSTOM. Normally we info-hide with NotFoundException so orgs
+        // without access cannot probe for the region's existence. If however the org has
+        // any other region_quota row in this region, they already know it exists — return
+        // the clearer class-specific ForbiddenException instead of a misleading "not found".
+        const hasAnyQuotaInRegion = await this.organizationService.hasAnyRegionQuota(organization.id, region.id)
+        if (hasAnyQuotaInRegion) {
+          throw new ForbiddenException(
+            `Region ${region.id} is not available to the organization for class ${sandboxClass}`,
+          )
+        }
+
+        throw new NotFoundException('Region not found')
       }
     }
 
@@ -957,6 +967,16 @@ export class SandboxService {
       const regionQuota = region.enforceQuotas
         ? await this.organizationService.getRegionQuota(organization.id, region.id, SandboxClass.CONTAINER)
         : null
+
+      if (region.enforceQuotas && !regionQuota) {
+        const hasAnyQuotaInRegion = await this.organizationService.hasAnyRegionQuota(organization.id, region.id)
+        if (hasAnyQuotaInRegion) {
+          throw new ForbiddenException(
+            `Declarative builds are not available to your organization in region ${region.id}.`,
+          )
+        }
+      }
+
       const gpuTypePreferences = resolveGpuTypePreferences(gpu, createSandboxDto.gpuType, regionQuota?.allowedGpuTypes)
 
       const { pendingCpuIncremented, pendingMemoryIncremented, pendingDiskIncremented, pendingGpuIncremented } =
@@ -1052,10 +1072,6 @@ export class SandboxService {
 
       if (resolvedVolumes !== undefined) {
         sandbox.volumes = resolvedVolumes
-      }
-
-      if (sandbox.sandboxClass !== SandboxClass.CONTAINER) {
-        throw new BadRequestError('Declarative builds are only supported for container-class sandboxes')
       }
 
       const buildInfoSnapshotRef = generateBuildSnapshotRef(

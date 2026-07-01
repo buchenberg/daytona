@@ -359,6 +359,17 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
     return new RegionQuotaDto(regionQuota)
   }
 
+  /**
+   * Checks whether the organization has ANY region_quota row in the given region,
+   * across any sandbox class. Used to distinguish "org has no access to this region"
+   * from "org has access to this region but not for the requested sandbox class".
+   */
+  async hasAnyRegionQuota(organizationId: string, regionId: string): Promise<boolean> {
+    return this.regionQuotaRepository.exists({
+      where: { organizationId, regionId },
+    })
+  }
+
   async getRegionQuotaBySandboxId(sandboxId: string): Promise<RegionQuotaDto | null> {
     const sandbox = await this.sandboxRepository.findOne({
       where: { id: sandboxId },
