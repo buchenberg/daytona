@@ -13,6 +13,7 @@ import { BackupState } from '../../enums/backup-state.enum'
 import { getStateChangeLockKey } from '../../utils/lock-key.util'
 import { LockCode, RedisLockProvider } from '../../common/redis-lock.provider'
 import { SandboxConflictError } from '../../errors/sandbox-conflict.error'
+import { GpuType } from '../../enums/gpu-type.enum'
 
 export const SYNC_AGAIN = 'sync-again'
 export const DONT_SYNC_AGAIN = 'dont-sync-again'
@@ -41,6 +42,7 @@ export abstract class SandboxAction {
     backupState?: BackupState,
     recoverable?: boolean,
     prevRunnerId?: string | null | undefined,
+    gpuType?: GpuType | null,
   ) {
     //  check if the lock code is still valid
     const lockKey = getStateChangeLockKey(sandbox.id)
@@ -107,6 +109,10 @@ export abstract class SandboxAction {
 
     if (recoverable !== undefined) {
       updateData.recoverable = recoverable
+    }
+
+    if (gpuType !== undefined) {
+      updateData.gpuType = gpuType
     }
 
     await this.sandboxRepository.update(sandbox.id, { updateData, entity: sandbox })

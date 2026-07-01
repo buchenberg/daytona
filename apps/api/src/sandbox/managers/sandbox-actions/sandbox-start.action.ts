@@ -37,6 +37,11 @@ import Redis from 'ioredis'
 import { WithSpan } from '../../../common/decorators/otel.decorator'
 import { SandboxActivityService } from '../../services/sandbox-activity.service'
 import { getRunnerSandboxClass, isRegistryBasedSandboxClass } from '../../utils/sandbox-class.util'
+import {
+  resolveGpuTypeSelector,
+  runnerMatchesGpuTypeSelector,
+  resolvePinnedGpuType,
+} from '../../utils/gpu-type-selector.util'
 
 // How long the spillover hint persists so a re-assignment lands on the fallback region.
 const FORCE_SPILLOVER_TTL_SECONDS = 1 * 60
@@ -230,6 +235,13 @@ export class SandboxStartAction extends SandboxAction {
       ? await this.getBuildInfoOverloadedRunnerIds(snapshotRef, sandbox.cpu)
       : []
 
+    // GPU type to enforce during runner selection. When the sandbox already has a
+    // concrete `gpuType` (snapshot-based, or a previously pinned build), that wins.
+    // Otherwise fall back to the requested preference list so declarative GPU builds
+    // that fell back to PENDING_BUILD still land on a runner of the requested type
+    // instead of any available GPU runner.
+    const gpuTypeSelector = resolveGpuTypeSelector(sandbox)
+
     // Try to assign an available runner with the snapshot already available
     try {
       const runner = await this.runnerService.getRandomAvailableRunner({
@@ -237,7 +249,7 @@ export class SandboxStartAction extends SandboxAction {
         sandboxClass: sandbox.sandboxClass,
         snapshotRef: snapshotRef,
         gpu: sandbox.gpu,
-        gpuType: sandbox.gpuType ?? null,
+        gpuType: gpuTypeSelector,
         ...(buildInfoOverloadedRunnerIds.length > 0 && { excludedRunnerIds: buildInfoOverloadedRunnerIds }),
         ...(isBuild &&
           declarativeBuildScoreThreshold !== undefined && {
@@ -245,7 +257,18 @@ export class SandboxStartAction extends SandboxAction {
           }),
       })
       if (runner) {
-        await this.updateSandboxState(sandbox, SandboxState.UNKNOWN, lockCode, runner.id)
+        await this.updateSandboxState(
+          sandbox,
+          SandboxState.UNKNOWN,
+          lockCode,
+          runner.id,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          resolvePinnedGpuType(sandbox, runner.gpuType),
+        )
         return SYNC_AGAIN
       }
     } catch {
@@ -272,7 +295,7 @@ export class SandboxStartAction extends SandboxAction {
         if (runner.gpu === null || runner.gpu < sandbox.gpu) {
           continue
         }
-        if (sandbox.gpuType && runner.gpuType !== sandbox.gpuType) {
+        if (!runnerMatchesGpuTypeSelector(runner.gpuType, gpuTypeSelector)) {
           continue
         }
       } else if (runner.gpu !== null && runner.gpu > 0) {
@@ -294,7 +317,18 @@ export class SandboxStartAction extends SandboxAction {
 
       if (declarativeBuildScoreThreshold === undefined || runner.availabilityScore >= declarativeBuildScoreThreshold) {
         if (snapshotRunner.state === targetState) {
-          await this.updateSandboxState(sandbox, targetSandboxState, lockCode, runner.id)
+          await this.updateSandboxState(
+            sandbox,
+            targetSandboxState,
+            lockCode,
+            runner.id,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            resolvePinnedGpuType(sandbox, runner.gpuType),
+          )
           return SYNC_AGAIN
         }
       }
@@ -321,7 +355,7 @@ export class SandboxStartAction extends SandboxAction {
         regions: [effectiveRegion],
         sandboxClass: sandbox.sandboxClass,
         gpu: sandbox.gpu,
-        gpuType: sandbox.gpuType ?? null,
+        gpuType: gpuTypeSelector,
         excludedRunnerIds: excludedRunnerIds,
         ...(isBuild &&
           declarativeBuildScoreThreshold !== undefined && {
@@ -351,12 +385,34 @@ export class SandboxStartAction extends SandboxAction {
       )
 
       this.pollBuildStatus(sandbox.buildInfo, runner).catch(this.logger.error)
-      await this.updateSandboxState(sandbox, SandboxState.BUILDING_SNAPSHOT, lockCode, runner.id)
+      await this.updateSandboxState(
+        sandbox,
+        SandboxState.BUILDING_SNAPSHOT,
+        lockCode,
+        runner.id,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        resolvePinnedGpuType(sandbox, runner.gpuType),
+      )
     } else {
       const snapshot = await this.snapshotService.getSnapshotByName(sandbox.snapshot, sandbox.organizationId)
       await this.runnerService.createSnapshotRunnerEntry(runner.id, snapshot.ref, SnapshotRunnerState.PULLING_SNAPSHOT)
       this.pullSnapshotToRunner(snapshot, runner)
-      await this.updateSandboxState(sandbox, SandboxState.PULLING_SNAPSHOT, lockCode, runner.id)
+      await this.updateSandboxState(
+        sandbox,
+        SandboxState.PULLING_SNAPSHOT,
+        lockCode,
+        runner.id,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        resolvePinnedGpuType(sandbox, runner.gpuType),
+      )
     }
 
     return SYNC_AGAIN

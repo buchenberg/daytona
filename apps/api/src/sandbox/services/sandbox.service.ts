@@ -1014,6 +1014,10 @@ export class SandboxService {
       sandbox.gpu = gpu
       sandbox.mem = mem
       sandbox.disk = disk
+      // Retain the resolved GPU type preferences so the asynchronous build/start
+      // runner assignment honors the requested GPU type even when create-time
+      // placement falls back to PENDING_BUILD (where `gpuType` is not yet pinned).
+      sandbox.gpuTypePreferences = gpu > 0 ? (gpuTypePreferences ?? null) : null
       sandbox.public = createSandboxDto.public || false
 
       this.validateNetworkSettingsCompatibility(

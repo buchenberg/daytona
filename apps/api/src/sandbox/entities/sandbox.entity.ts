@@ -184,6 +184,18 @@ export class Sandbox {
   })
   gpuType?: GpuType | null
 
+  // Ordered GPU type preferences requested at create time. Retained so the
+  // asynchronous build/start runner assignment can honor the requested GPU
+  // type even when create-time placement fell back to PENDING_BUILD (at which
+  // point `gpuType` is not yet pinned to a concrete runner).
+  @Column({
+    type: 'text',
+    array: true,
+    nullable: true,
+    name: 'gpu_type_preferences',
+  })
+  gpuTypePreferences?: GpuType[] | null
+
   @Column({ type: 'int', default: 4 })
   mem = 4
 
