@@ -8,6 +8,8 @@ require (
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-plugin v1.6.3
 	github.com/kbinani/screenshot v0.0.0-20250118074034-a3924b7bbc8c
+	github.com/robotn/xgb v0.10.0
+	github.com/robotn/xgbutil v0.10.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
 )
@@ -32,8 +34,6 @@ require (
 	github.com/otiai10/mint v1.6.3 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/robotn/xgb v0.10.0 // indirect
-	github.com/robotn/xgbutil v0.10.0 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/shirou/gopsutil/v4 v4.25.12 // indirect
 	github.com/tailscale/win v0.0.0-20250213223159-5992cb43ca35 // indirect
