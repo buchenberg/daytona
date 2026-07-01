@@ -239,6 +239,9 @@ export function resolveEffectiveRegion(
   resources: Resources,
 ) {
   if (resources.gpu > 0) {
+    if (META_ORGS.has(organizationId) && baseRegionId === 'us') {
+      return META_DEDICATED_REGION
+    }
     return baseRegionId
   }
 
