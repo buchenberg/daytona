@@ -21,7 +21,6 @@ import { SnapshotState } from '../enums/snapshot-state.enum'
 import { SandboxClass } from '../enums/sandbox-class.enum'
 import { GpuType } from '../enums/gpu-type.enum'
 import { CreateSnapshotDto } from '../dto/create-snapshot.dto'
-import { BuildInfo } from '../entities/build-info.entity'
 import { generateBuildInfoHash as generateBuildSnapshotRef } from '../entities/build-info.entity'
 import { Cron, CronExpression } from '@nestjs/schedule'
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter'
@@ -65,6 +64,7 @@ import {
 import { GPU_REGION } from '../constants/dedicated-regions.constant'
 import { getRunnerSandboxClass } from '../utils/sandbox-class.util'
 import { resolveGpuTypePreferences } from '../utils/gpu-type-preferences.util'
+import { BuildInfoService } from './build-info.service'
 
 const IMAGE_NAME_REGEX = /^[a-zA-Z0-9_.\-:]+(\/[a-zA-Z0-9_.\-:]+)*(@sha256:[a-f0-9]{64})?$/
 
@@ -75,8 +75,6 @@ export class SnapshotService {
   constructor(
     private readonly sandboxRepository: SandboxRepository,
     private readonly snapshotRepository: SnapshotRepository,
-    @InjectRepository(BuildInfo)
-    private readonly buildInfoRepository: Repository<BuildInfo>,
     @InjectRepository(SnapshotRunner)
     private readonly snapshotRunnerRepository: Repository<SnapshotRunner>,
     @InjectRepository(Region)
@@ -91,6 +89,7 @@ export class SnapshotService {
     private readonly dockerRegistryService: DockerRegistryService,
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: TypedConfigService,
+    private readonly buildInfoService: BuildInfoService,
   ) {}
 
   private validateImageName(name: string): string | null {
@@ -385,25 +384,7 @@ export class SnapshotService {
         createSnapshotDto.buildInfo.contextHashes,
       )
 
-      // Check if buildInfo with the same snapshotRef already exists
-      const existingBuildInfo = await this.buildInfoRepository.findOne({
-        where: { snapshotRef: buildSnapshotRef },
-      })
-
-      if (existingBuildInfo) {
-        snapshot.buildInfo = existingBuildInfo
-        // Update lastUsed once per minute at most
-        if (await this.redisLockProvider.lock(`build-info:${existingBuildInfo.snapshotRef}:update`, 60)) {
-          existingBuildInfo.lastUsedAt = new Date()
-          await this.buildInfoRepository.save(existingBuildInfo)
-        }
-      } else {
-        const buildInfoEntity = this.buildInfoRepository.create({
-          ...createSnapshotDto.buildInfo,
-        })
-        await this.buildInfoRepository.save(buildInfoEntity)
-        snapshot.buildInfo = buildInfoEntity
-      }
+      snapshot.buildInfo = await this.buildInfoService.getOrCreate(buildSnapshotRef, createSnapshotDto.buildInfo)
 
       const internalRegistry = await this.dockerRegistryService.getAvailableInternalRegistry(region.id)
       if (!internalRegistry) {

@@ -14,7 +14,6 @@ import { Sandbox } from '../entities/sandbox.entity'
 import { SandboxState } from '../enums/sandbox-state.enum'
 import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
 import { Runner } from '../entities/runner.entity'
-import { BuildInfo } from '../entities/build-info.entity'
 import { SshAccess } from '../entities/ssh-access.entity'
 import { SandboxFork } from '../entities/sandbox-fork.entity'
 import { RunnerService } from './runner.service'
@@ -34,6 +33,7 @@ import { SandboxSearchAdapter } from '../interfaces/sandbox-search.interface'
 import { BadRequestError } from '../../exceptions/bad-request.exception'
 import { SecretService } from '../../secret/services/secret.service'
 import { SandboxSecret } from '../entities/sandbox-secret.entity'
+import { BuildInfoService } from './build-info.service'
 
 type SandboxFixture = Partial<Sandbox>
 
@@ -79,7 +79,6 @@ describe('SandboxService.updateNetworkSettings', () => {
       sandboxRepository as unknown as SandboxRepository,
       undefined as unknown as SnapshotRepository,
       undefined as unknown as Repository<Runner>,
-      undefined as unknown as Repository<BuildInfo>,
       undefined as unknown as Repository<SshAccess>,
       runnerService as unknown as RunnerService,
       undefined as unknown as VolumeService,
@@ -100,6 +99,7 @@ describe('SandboxService.updateNetworkSettings', () => {
       undefined as unknown as SandboxSearchAdapter,
       undefined as unknown as SecretService,
       undefined as unknown as Repository<SandboxSecret>,
+      undefined as unknown as BuildInfoService,
     )
   }
 

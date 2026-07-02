@@ -20,6 +20,7 @@ import { ToolboxController } from './controllers/toolbox.deprecated.controller'
 import { Snapshot } from './entities/snapshot.entity'
 import { SnapshotController } from './controllers/snapshot.controller'
 import { SnapshotService } from './services/snapshot.service'
+import { BuildInfoService } from './services/build-info.service'
 import { SnapshotManager } from './managers/snapshot.manager'
 import { SnapshotRunner } from './entities/snapshot-runner.entity'
 import { DockerRegistry } from '../docker-registry/entities/docker-registry.entity'
@@ -116,6 +117,7 @@ import { SandboxSecret } from './entities/sandbox-secret.entity'
     RunnerService,
     ToolboxService,
     SnapshotService,
+    BuildInfoService,
     ProxyCacheInvalidationService,
     SandboxLookupCacheInvalidationService,
     SnapshotManager,

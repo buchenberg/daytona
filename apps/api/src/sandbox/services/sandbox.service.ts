@@ -46,7 +46,6 @@ import { Organization } from '../../organization/entities/organization.entity'
 import { SandboxEvents } from '../constants/sandbox-events.constants'
 import { isApiRecoverableError } from '../constants/errors-for-recovery'
 import { SandboxStateUpdatedEvent } from '../events/sandbox-state-updated.event'
-import { BuildInfo } from '../entities/build-info.entity'
 import { generateBuildInfoHash as generateBuildSnapshotRef } from '../entities/build-info.entity'
 import { SandboxBackupCreatedEvent } from '../events/sandbox-backup-created.event'
 import { SandboxDestroyedEvent } from '../events/sandbox-destroyed.event'
@@ -102,6 +101,7 @@ import { PortPreviewUrlDto, SignedPortPreviewUrlDto } from '../dto/port-preview-
 import { RegionService } from '../../region/services/region.service'
 import { DefaultRegionRequiredException } from '../../organization/exceptions/DefaultRegionRequiredException'
 import { SnapshotService } from './snapshot.service'
+import { BuildInfoService } from './build-info.service'
 import { DockerRegistryService } from '../../docker-registry/services/docker-registry.service'
 import { DockerRegistry } from '../../docker-registry/entities/docker-registry.entity'
 import { RegionType } from '../../region/enums/region-type.enum'
@@ -145,8 +145,6 @@ export class SandboxService {
     private readonly snapshotRepository: SnapshotRepository,
     @InjectRepository(Runner)
     private readonly runnerRepository: Repository<Runner>,
-    @InjectRepository(BuildInfo)
-    private readonly buildInfoRepository: Repository<BuildInfo>,
     @InjectRepository(SshAccess)
     private readonly sshAccessRepository: Repository<SshAccess>,
     private readonly runnerService: RunnerService,
@@ -171,6 +169,7 @@ export class SandboxService {
     private readonly secretService: SecretService,
     @InjectRepository(SandboxSecret)
     private readonly sandboxSecretRepository: Repository<SandboxSecret>,
+    private readonly buildInfoService: BuildInfoService,
   ) {}
 
   protected getLockKey(id: string): string {
@@ -1136,23 +1135,7 @@ export class SandboxService {
         sandbox.state = SandboxState.PENDING_BUILD
       }
 
-      // Check if buildInfo with the same snapshotRef already exists
-      const existingBuildInfo = await this.buildInfoRepository.findOne({
-        where: { snapshotRef: buildInfoSnapshotRef },
-      })
-
-      if (existingBuildInfo) {
-        sandbox.buildInfo = existingBuildInfo
-        if (await this.redisLockProvider.lock(`build-info:${existingBuildInfo.snapshotRef}:update`, 60)) {
-          await this.buildInfoRepository.update(sandbox.buildInfo.snapshotRef, { lastUsedAt: new Date() })
-        }
-      } else {
-        const buildInfoEntity = this.buildInfoRepository.create({
-          ...createSandboxDto.buildInfo,
-        })
-        await this.buildInfoRepository.save(buildInfoEntity)
-        sandbox.buildInfo = buildInfoEntity
-      }
+      sandbox.buildInfo = await this.buildInfoService.getOrCreate(buildInfoSnapshotRef, createSandboxDto.buildInfo)
 
       sandbox.pending = true
 
