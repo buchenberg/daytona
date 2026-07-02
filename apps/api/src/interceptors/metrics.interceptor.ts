@@ -304,6 +304,13 @@ export class MetricsInterceptor implements NestInterceptor, OnApplicationShutdow
             break
         }
         break
+      case 'GET':
+        switch (request.route.path) {
+          case '/api/sandbox/paginated':
+            this.captureListSandboxesPaginated(props, request.query)
+            break
+        }
+        break
     }
 
     if (!request.route.path.startsWith('/api/toolbox/:sandboxId/toolbox')) {
@@ -565,6 +572,14 @@ export class MetricsInterceptor implements NestInterceptor, OnApplicationShutdow
   private captureDeleteSandbox(props: CommonCaptureProps, sandboxId: string) {
     this.capture('api_sandbox_deleted', props, 'api_sandbox_deletion_failed', {
       sandbox_id: sandboxId,
+    })
+  }
+
+  private captureListSandboxesPaginated(props: CommonCaptureProps, query: any) {
+    this.capture('api_sandbox_paginated_listed', props, 'api_sandbox_paginated_list_failed', {
+      page_request: query?.page ? Number(query.page) : undefined,
+      limit_request: query?.limit ? Number(query.limit) : undefined,
+      filter_labels_set: !!query?.labels,
     })
   }
 
