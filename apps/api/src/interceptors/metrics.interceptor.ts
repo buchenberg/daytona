@@ -576,6 +576,10 @@ export class MetricsInterceptor implements NestInterceptor, OnApplicationShutdow
   }
 
   private captureListSandboxesPaginated(props: CommonCaptureProps, query: any) {
+    if (!this.configService.get('posthog.trackDeprecatedListEndpoint')) {
+      return
+    }
+
     this.capture('api_sandbox_paginated_listed', props, 'api_sandbox_paginated_list_failed', {
       page_request: query?.page ? Number(query.page) : undefined,
       limit_request: query?.limit ? Number(query.limit) : undefined,

@@ -50,6 +50,7 @@ const configuration = {
     apiKey: process.env.POSTHOG_API_KEY,
     host: process.env.POSTHOG_HOST,
     environment: process.env.POSTHOG_ENVIRONMENT,
+    trackDeprecatedListEndpoint: process.env.POSTHOG_TRACK_DEPRECATED_LIST_ENDPOINT !== 'false',
   },
   oidc: {
     clientId: process.env.OIDC_CLIENT_ID || process.env.OID_CLIENT_ID,
