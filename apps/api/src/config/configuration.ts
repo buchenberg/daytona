@@ -91,6 +91,10 @@ const configuration = {
   },
   ecr: {
     brokerRoleArn: process.env.ECR_BROKER_ROLE_ARN,
+    // Authenticate anonymous public.ecr.aws pulls with the API's own AWS
+    // identity to lift ECR Public's low unauthenticated rate limit. Enabled
+    // unless explicitly turned off.
+    publicDefaultAuthEnabled: process.env.ECR_PUBLIC_DEFAULT_AUTH_ENABLED !== 'false',
   },
   s3: {
     endpoint: process.env.S3_ENDPOINT,

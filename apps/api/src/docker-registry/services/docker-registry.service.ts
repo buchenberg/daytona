@@ -16,7 +16,11 @@ import {
   IDockerRegistryProvider,
 } from './../../docker-registry/providers/docker-registry.provider.interface'
 import { RegistryType } from './../../docker-registry/enums/registry-type.enum'
-import { parseDockerImage, checkDockerfileHasRegistryPrefix } from '../../common/utils/docker-image.util'
+import {
+  parseDockerImage,
+  checkDockerfileHasRegistryPrefix,
+  extractDockerfileFromImages,
+} from '../../common/utils/docker-image.util'
 import axios from 'axios'
 import { OnAsyncEvent } from '../../common/decorators/on-async-event.decorator'
 import { RegionEvents } from '../../region/constants/region-events.constant'
@@ -72,22 +76,30 @@ export class DockerRegistryService {
     private readonly ecrCredentials: EcrCredentialsService,
   ) {}
 
-  // used only for ECR, swap the stored role ARN for a fresh AWS:<token> pair (Redis-cached)
+  // used only for ECR (private + public), swap the stored role ARN for a fresh AWS:<token> pair (Redis-cached)
   private async resolveCredentials(registry: DockerRegistry): Promise<DockerRegistry> {
-    // not ECR, or pre-org row (internal/transient) — nothing to resolve
-    if (!this.ecrCredentials.isEcrUrl(registry.url) || !registry.organizationId) {
+    // pre-org row (internal/transient), or empty username / legacy basic-auth
+    // (e.g. "AWS" + pre-baked token) — nothing to resolve
+    if (!registry.organizationId || !isIamRoleArn(registry.username)) {
       return registry
     }
-    // empty username or legacy basic-auth (e.g. "AWS" + pre-baked token) — pass through
-    if (!isIamRoleArn(registry.username)) {
-      return registry
+    if (this.ecrCredentials.isEcrUrl(registry.url)) {
+      const { username, password } = await this.ecrCredentials.resolveEcrCredentials(
+        registry.url,
+        registry.username,
+        registry.organizationId,
+      )
+      return { ...registry, username, password }
     }
-    const { username, password } = await this.ecrCredentials.resolveEcrCredentials(
-      registry.url,
-      registry.username,
-      registry.organizationId,
-    )
-    return { ...registry, username, password }
+    if (this.ecrCredentials.isPublicEcrUrl(registry.url)) {
+      const { username, password } = await this.ecrCredentials.resolvePublicEcrCredentials(
+        registry.username,
+        registry.organizationId,
+      )
+      return { ...registry, username, password }
+    }
+    // not an ECR URL — nothing to resolve
+    return registry
   }
 
   async create(
@@ -257,6 +269,53 @@ export class DockerRegistryService {
         project: '',
       },
     })
+  }
+
+  /**
+   * Builds an authenticated public.ecr.aws registry config using the API's own
+   * AWS identity. This lifts ECR Public's low anonymous pull rate limit, the
+   * same way getDefaultDockerHubRegistry does for Docker Hub — except no DB row
+   * is needed since any valid AWS identity can mint a public ECR token.
+   *
+   * Returns null when disabled or when credentials can't be resolved, so
+   * callers transparently fall back to anonymous (unauthenticated) pulls.
+   */
+  async getDefaultPublicEcrRegistry(): Promise<DockerRegistry | null> {
+    if (!this.ecrCredentials.isPublicDefaultAuthEnabled) {
+      return null
+    }
+    try {
+      const { username, password } = await this.ecrCredentials.resolvePublicEcrCredentials()
+      const registry = new DockerRegistry()
+      registry.id = 'default-public-ecr'
+      registry.name = 'Default Public ECR'
+      registry.url = 'public.ecr.aws'
+      registry.username = username
+      registry.password = password
+      registry.project = ''
+      registry.isDefault = false
+      registry.registryType = RegistryType.INTERNAL
+      return registry
+    } catch (err) {
+      this.logger.warn(
+        `Failed to resolve default public ECR credentials, falling back to anonymous pull: ${err instanceof Error ? err.message : String(err)}`,
+      )
+      return null
+    }
+  }
+
+  /**
+   * Returns the platform-wide default source registry to use for an image when
+   * no org-configured registry matches: authenticated public ECR for
+   * public.ecr.aws images, otherwise the shared Docker Hub credentials. Both
+   * exist solely to avoid registry rate limiting on otherwise-anonymous pulls.
+   */
+  async getDefaultSourceRegistryForImage(imageName: string): Promise<DockerRegistry | null> {
+    const parsedImage = parseDockerImage(imageName)
+    if (parsedImage.registry && this.ecrCredentials.isPublicEcrUrl(parsedImage.registry)) {
+      return this.getDefaultPublicEcrRegistry()
+    }
+    return this.getDefaultDockerHubRegistry()
   }
 
   /**
@@ -560,6 +619,14 @@ export class DockerRegistryService {
       const registry = await this.findSourceRegistryBySnapshotImageName(imageName, regionId, organizationId)
       if (registry) {
         return registry
+      }
+      // No org-configured match. For public.ecr.aws, authenticate with the
+      // platform's AWS identity to dodge ECR Public's anonymous rate limit.
+      if (this.ecrCredentials.isPublicEcrUrl(parsedImage.registry)) {
+        const publicEcrRegistry = await this.getDefaultPublicEcrRegistry()
+        if (publicEcrRegistry) {
+          return publicEcrRegistry
+        }
       }
       // Not found in database, create temporary registry config for public access
       return this.createTemporaryRegistryConfig(parsedImage.registry)
@@ -874,7 +941,32 @@ export class DockerRegistryService {
       }
     }
 
+    // Add default public ECR creds if the Dockerfile pulls from public.ecr.aws
+    // and the user hasn't configured their own public ECR registry. Authenticated
+    // public ECR pulls avoid the low anonymous rate limit (429 Too Many Requests).
+    const userHasPublicEcrCreds = sourceRegistries.some((registry) => this.ecrCredentials.isPublicEcrUrl(registry.url))
+
+    if (!userHasPublicEcrCreds && this.dockerfileReferencesPublicEcr(dockerfileContent)) {
+      const defaultPublicEcrRegistry = await this.getDefaultPublicEcrRegistry()
+      if (defaultPublicEcrRegistry) {
+        sourceRegistries.push(defaultPublicEcrRegistry)
+      }
+    }
+
     return sourceRegistries
+  }
+
+  // Whether any FROM line in the Dockerfile references a public.ecr.aws image.
+  private dockerfileReferencesPublicEcr(dockerfileContent: string): boolean {
+    return extractDockerfileFromImages(dockerfileContent).some((image) => {
+      try {
+        const parsed = parseDockerImage(image)
+        return !!parsed.registry && this.ecrCredentials.isPublicEcrUrl(parsed.registry)
+      } catch {
+        // Unparseable FROM (e.g. a build-stage alias) — not a public ECR image.
+        return false
+      }
+    })
   }
 
   @OnAsyncEvent({

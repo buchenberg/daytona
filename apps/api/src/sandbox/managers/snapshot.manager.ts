@@ -1774,7 +1774,8 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
             snapshot.organizationId,
           )) ?? undefined
         if (!sourceRegistry) {
-          sourceRegistry = (await this.dockerRegistryService.getDefaultDockerHubRegistry()) ?? undefined
+          sourceRegistry =
+            (await this.dockerRegistryService.getDefaultSourceRegistryForImage(snapshot.imageName)) ?? undefined
         }
         const destinationRegistry =
           (await this.dockerRegistryService.getAvailableInternalRegistry(regionForRegistry)) ?? undefined

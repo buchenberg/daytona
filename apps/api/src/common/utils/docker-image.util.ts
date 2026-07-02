@@ -120,6 +120,41 @@ export function parseDockerImage(imageName: string): DockerImage {
 }
 
 /**
+ * Extracts the image reference from every FROM statement in a Dockerfile.
+ *
+ * Note: aliases referencing earlier build stages (e.g. `FROM builder`) are
+ * returned too, so callers should treat the results as candidate image names.
+ *
+ * @param dockerfileContent - The full Dockerfile content as a string
+ * @returns The list of FROM image references in order of appearance
+ */
+export function extractDockerfileFromImages(dockerfileContent: string): string[] {
+  const lines = dockerfileContent.split('\n')
+
+  // Regex to match FROM statements
+  const fromRegex = /^\s*FROM\s+(?:--[a-z-]+=[^\s]+\s+)*([^\s]+)(?:\s+AS\s+[^\s]+)?/i
+
+  const images: string[] = []
+  for (const line of lines) {
+    // Remove inline comments (everything after #)
+    const lineWithoutComment = line.split('#')[0]
+    const trimmedLine = lineWithoutComment.trim()
+
+    // Skip empty lines and comment-only lines
+    if (!trimmedLine) {
+      continue
+    }
+
+    const match = fromRegex.exec(trimmedLine)
+    if (match && match[1]) {
+      images.push(match[1].trim())
+    }
+  }
+
+  return images
+}
+
+/**
  * Checks if the Dockerfile content contains any FROM images that may require registry credentials.
  * This includes:
  * - Private registry images (e.g., 'myregistry.com/image', 'registry:5000/image')
@@ -135,32 +170,7 @@ export function parseDockerImage(imageName: string): DockerImage {
  * - FROM registry:5000/test/image -> true (private registry)
  */
 export function checkDockerfileHasRegistryPrefix(dockerfileContent: string): boolean {
-  const lines = dockerfileContent.split('\n')
-
-  // Regex to match FROM statements
-  const fromRegex = /^\s*FROM\s+(?:--[a-z-]+=[^\s]+\s+)*([^\s]+)(?:\s+AS\s+[^\s]+)?/i
-
-  for (const line of lines) {
-    // Remove inline comments (everything after #)
-    const lineWithoutComment = line.split('#')[0]
-    const trimmedLine = lineWithoutComment.trim()
-
-    // Skip empty lines and comment-only lines
-    if (!trimmedLine) {
-      continue
-    }
-
-    const match = fromRegex.exec(trimmedLine)
-    if (match && match[1]) {
-      const imageName = match[1].trim()
-
-      // Check if image has a path component (contains '/')
-      // This covers both private registries and private Docker Hub images (namespace/image)
-      if (imageName.includes('/')) {
-        return true
-      }
-    }
-  }
-
-  return false
+  // Check if image has a path component (contains '/')
+  // This covers both private registries and private Docker Hub images (namespace/image)
+  return extractDockerfileFromImages(dockerfileContent).some((imageName) => imageName.includes('/'))
 }
