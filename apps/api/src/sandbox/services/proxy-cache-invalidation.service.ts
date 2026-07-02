@@ -19,6 +19,7 @@ export class ProxyCacheInvalidationService implements OnModuleInit, OnModuleDest
   private static readonly RUNNER_INFO_CACHE_PREFIX = 'proxy:sandbox-runner-info:'
   private proxyEuRedis: Redis | null = null
   private static readonly PUBLIC_CACHE_PREFIX = 'proxy:sandbox-public:'
+  private static readonly API_PUBLIC_CACHE_PREFIX = 'preview:public:'
 
   constructor(
     @InjectRedis() private readonly redis: Redis,
@@ -77,11 +78,37 @@ export class ProxyCacheInvalidationService implements OnModuleInit, OnModuleDest
   }
 
   private async invalidatePublicCache(sandboxId: string): Promise<void> {
+    // Evict the API-side decision cache BEFORE the proxy-side cache.
+    // The proxy only re-queries the API on a cache miss, and a miss can only
+    // occur after the proxy key is gone. Deleting the API key first guarantees
+    // any such re-query does a fresh lookup (now private) instead of reading a
+    // stale 'public' decision and re-poisoning the proxy's longer-lived cache.
     try {
-      await this.redis.del(`${ProxyCacheInvalidationService.PUBLIC_CACHE_PREFIX}${sandboxId}`)
-      this.logger.debug(`Invalidated sandbox public cache for ${sandboxId}`)
+      await this.redis.del(`${ProxyCacheInvalidationService.API_PUBLIC_CACHE_PREFIX}${sandboxId}`)
+      this.logger.debug(`Invalidated API public-status cache for ${sandboxId}`)
     } catch (error) {
-      this.logger.warn(`Failed to invalidate public cache for sandbox ${sandboxId}: ${error.message}`)
+      // If the API-side entry is still present, evicting the proxy key now would let the next proxy
+      // miss re-read the stale 'public' decision and re-prime the proxy for a fresh TTL — worse than
+      // leaving the existing proxy entry to expire. Skip proxy eviction; do not throw (the visibility
+      // change must still succeed). The entry self-expires at its TTL.
+      this.logger.warn(
+        `Failed to invalidate API public-status cache for sandbox ${sandboxId}; skipping proxy eviction to avoid re-priming: ${error.message}`,
+      )
+      return
+    }
+
+    // The proxy-side cache is per-region: each proxy writes it to its own Redis, so the EU proxy
+    // holds its copy in proxyEuRedis, not this.redis. Evict from every region (mirrors
+    // invalidateRunnerCache) or a public→private change stays stale at the EU proxy until TTL.
+    const proxyKey = `${ProxyCacheInvalidationService.PUBLIC_CACHE_PREFIX}${sandboxId}`
+    const results = await Promise.allSettled([
+      this.deleteKey(this.redis, proxyKey, 'default'),
+      ...(this.proxyEuRedis ? [this.deleteKey(this.proxyEuRedis, proxyKey, 'EU')] : []),
+    ])
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        this.logger.warn(`Failed to invalidate public cache for sandbox ${sandboxId}: ${result.reason?.message}`)
+      }
     }
   }
 }
