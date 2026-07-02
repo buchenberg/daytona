@@ -500,11 +500,8 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
               return
             }
 
-            const runners = await this.runnerService.findAvailableRunners({
-              regions: [region],
-              gpu: snapshot.gpu,
-              gpuType: snapshot.gpuType ?? null,
-              sandboxClass: getRunnerSandboxClass(snapshot.sandboxClass),
+            const runners = await this.runnerRepository.find({
+              where: this.eligibleRunnerWhere(snapshot, [region]),
             })
             if (!runners.length) {
               return
@@ -756,6 +753,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     return {
       state: RunnerState.READY,
       unschedulable: Not(true),
+      draining: Not(true),
       region: In(regionIds),
       gpu: snapshot.gpu > 0 ? MoreThanOrEqual(snapshot.gpu) : Or(IsNull(), Equal(0)),
       gpuType: snapshot.gpuType ? snapshot.gpuType : Or(IsNull(), Not(In(Object.values(GpuType)))),
