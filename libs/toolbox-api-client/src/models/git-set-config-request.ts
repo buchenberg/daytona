@@ -14,20 +14,16 @@
 
 
 
-export interface GitCloneRequest {
-    'branch'?: string;
-    'commit_id'?: string;
+export interface GitSetConfigRequest {
+    'key': string;
     /**
-     * Depth creates a shallow clone truncated to the given number of commits.
+     * Path is the repository path, required when scope is \"local\".
      */
-    'depth'?: number;
+    'path'?: string;
     /**
-     * Skip TLS certificate verification for this clone. Defaults to false (verify). Set to true ONLY for trusted internal Git servers with self-signed or private-CA certs; credentials, if supplied, will be transmitted over an unverified TLS connection and are exposed to any MITM on the route.
+     * Scope is one of global (default), local or system.
      */
-    'insecure_skip_tls'?: boolean;
-    'password'?: string;
-    'path': string;
-    'url': string;
-    'username'?: string;
+    'scope'?: string;
+    'value': string;
 }
 

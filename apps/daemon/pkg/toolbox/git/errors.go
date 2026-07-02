@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	common_errors "github.com/daytonaio/common-go/pkg/errors"
+	"github.com/daytonaio/daemon/pkg/git"
 	"github.com/gin-gonic/gin"
 	go_git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -15,6 +16,10 @@ import (
 )
 
 func classifyGitError(err error) error {
+	if errors.Is(err, git.ErrInvalidArgument) {
+		return common_errors.NewBadRequestError(err)
+	}
+
 	if errors.Is(err, transport.ErrAuthenticationRequired) ||
 		errors.Is(err, transport.ErrInvalidAuthMethod) {
 		return common_errors.NewUnauthorizedError(err)
@@ -40,6 +45,7 @@ func classifyGitError(err error) error {
 		errors.Is(err, go_git.ErrUnstagedChanges) ||
 		errors.Is(err, go_git.ErrRepositoryAlreadyExists) ||
 		errors.Is(err, go_git.ErrBranchExists) ||
+		errors.Is(err, go_git.ErrRemoteExists) ||
 		errors.Is(err, go_git.ErrFastForwardMergeNotPossible) {
 		return common_errors.NewConflictError(err)
 	}

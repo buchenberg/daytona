@@ -14,20 +14,15 @@
 
 
 
-export interface GitCloneRequest {
-    'branch'?: string;
-    'commit_id'?: string;
+export interface GitInitRequest {
     /**
-     * Depth creates a shallow clone truncated to the given number of commits.
+     * Bare creates a repository without a working tree.
      */
-    'depth'?: number;
+    'bare'?: boolean;
     /**
-     * Skip TLS certificate verification for this clone. Defaults to false (verify). Set to true ONLY for trusted internal Git servers with self-signed or private-CA certs; credentials, if supplied, will be transmitted over an unverified TLS connection and are exposed to any MITM on the route.
+     * InitialBranch sets the name of the initial branch.
      */
-    'insecure_skip_tls'?: boolean;
-    'password'?: string;
+    'initial_branch'?: string;
     'path': string;
-    'url': string;
-    'username'?: string;
 }
 

@@ -14,11 +14,10 @@
 
 
 
-export interface ListBranchResponse {
-    'branches': Array<string>;
+export interface GitConfigResponse {
     /**
-     * Current is the name of the checked out branch (empty when HEAD is detached).
+     * Value is the config value, null when the key is not set.
      */
-    'current'?: string;
+    'value'?: string;
 }
 

@@ -13,12 +13,11 @@
  */
 
 
+// May contain unused imports in some cases
+// @ts-ignore
+import type { GitRemote } from './git-remote';
 
-export interface ListBranchResponse {
-    'branches': Array<string>;
-    /**
-     * Current is the name of the checked out branch (empty when HEAD is detached).
-     */
-    'current'?: string;
+export interface ListRemotesResponse {
+    'remotes': Array<GitRemote>;
 }
 

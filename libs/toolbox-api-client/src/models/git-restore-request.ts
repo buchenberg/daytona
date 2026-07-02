@@ -14,20 +14,20 @@
 
 
 
-export interface GitCloneRequest {
-    'branch'?: string;
-    'commit_id'?: string;
-    /**
-     * Depth creates a shallow clone truncated to the given number of commits.
-     */
-    'depth'?: number;
-    /**
-     * Skip TLS certificate verification for this clone. Defaults to false (verify). Set to true ONLY for trusted internal Git servers with self-signed or private-CA certs; credentials, if supplied, will be transmitted over an unverified TLS connection and are exposed to any MITM on the route.
-     */
-    'insecure_skip_tls'?: boolean;
-    'password'?: string;
+export interface GitRestoreRequest {
+    'files': Array<string>;
     'path': string;
-    'url': string;
-    'username'?: string;
+    /**
+     * Source restores file contents from the given revision instead of the index.
+     */
+    'source'?: string;
+    /**
+     * Staged restores the staging index for the given files.
+     */
+    'staged'?: boolean;
+    /**
+     * Worktree restores the working tree for the given files.
+     */
+    'worktree'?: boolean;
 }
 
