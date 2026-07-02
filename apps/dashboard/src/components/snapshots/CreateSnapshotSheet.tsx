@@ -17,6 +17,7 @@ import {
   SheetDescription,
   SheetFooter,
   SheetHeader,
+  SheetSectionTitle,
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
@@ -320,7 +321,7 @@ export const CreateSnapshotSheet = ({
             )}
 
             <div className="flex flex-col gap-2">
-              <Label className="text-sm font-medium">Resources</Label>
+              <SheetSectionTitle>Resources</SheetSectionTitle>
               <div className="flex flex-col gap-2">
                 <form.Field name="cpu">
                   {(field) => (

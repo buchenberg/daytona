@@ -8,7 +8,7 @@ import { TimestampTooltip } from '@/components/TimestampTooltip'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetSectionTitle, SheetTitle } from '@/components/ui/sheet'
 import { getRelativeTimeString } from '@/lib/utils'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { MessageOut } from 'svix'
@@ -66,7 +66,7 @@ export function MessageDetailsSheet({
 
         <div className="flex-1 min-h-0 overflow-auto">
           <div className="flex flex-col px-5 py-4 gap-3">
-            <span className="text-base font-medium">Overview</span>
+            <SheetSectionTitle>Overview</SheetSectionTitle>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Message ID</span>
               <div className="flex items-center gap-1 group/copy-button">
@@ -127,7 +127,7 @@ export function MessageDetailsSheet({
 
           <div className="flex flex-col px-5 py-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-base font-medium">Payload</span>
+              <SheetSectionTitle>Payload</SheetSectionTitle>
               {hasPayload && <CopyButton value={payload} size="icon-xs" tooltipText="Copy Payload" />}
             </div>
             {hasPayload ? (

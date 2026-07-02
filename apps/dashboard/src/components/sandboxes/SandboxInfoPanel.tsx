@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty'
+import { SheetSubsectionTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getGpuTypeLabel } from '@/lib/gpu-types'
 import { cn, formatDuration, getRelativeTimeString } from '@/lib/utils'
@@ -30,7 +31,7 @@ export function InfoSection({
 }) {
   return (
     <div className={cn('px-5 py-4 border-b border-border last:border-b-0', className)}>
-      {title && <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">{title}</div>}
+      {title && <SheetSubsectionTitle className="mb-2">{title}</SheetSubsectionTitle>}
       {children}
     </div>
   )
@@ -172,7 +173,7 @@ export function SandboxInfoPanel({
       {showSshSection && (
         <div className="px-5 py-3 border-b border-border">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">SSH Access</span>
+            <SheetSubsectionTitle>SSH Access</SheetSubsectionTitle>
             <ButtonGroup>
               {onCreateSshAccess && (
                 <Button
@@ -225,7 +226,7 @@ export function SandboxInfoPanel({
       {showRecordingsSection && (
         <div className="px-5 py-3 border-b border-border">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">Recordings</span>
+            <SheetSubsectionTitle>Recordings</SheetSubsectionTitle>
             <Button
               variant="link"
               className="h-auto px-0 py-0 text-sm"

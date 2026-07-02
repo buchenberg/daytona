@@ -12,7 +12,7 @@ import { ButtonGroup } from '@/components/ui/button-group'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetSubsectionTitle, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { getSnapshotQueryErrorStatus, useSnapshotQuery } from '@/hooks/queries/useSnapshotsQuery'
@@ -55,7 +55,7 @@ function InfoSection({
 }) {
   return (
     <div className={cn('px-5 py-4 border-b border-border last:border-b-0', className)}>
-      {title && <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">{title}</div>}
+      {title && <SheetSubsectionTitle className="mb-2">{title}</SheetSubsectionTitle>}
       {children}
     </div>
   )

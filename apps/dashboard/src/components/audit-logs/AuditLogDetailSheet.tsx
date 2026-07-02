@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetSectionTitle, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuditLogQuery } from '@/hooks/queries/useAuditLogQuery'
 import { getMaskedTokenFromParts, getRelativeTimeString } from '@/lib/utils'
@@ -121,7 +121,7 @@ function AuditLogDetailContent({
   return (
     <ScrollArea fade="mask" className="min-h-0 flex-1">
       <div className="flex flex-col gap-4 px-5 py-4">
-        <span className="text-base font-medium">Overview</span>
+        <SheetSectionTitle>Overview</SheetSectionTitle>
 
         <DetailRow label="Audit Log ID">
           <span className="truncate font-mono text-sm">{log.id}</span>
@@ -212,7 +212,7 @@ function AuditLogDetailContent({
           <Separator />
           <div className="flex flex-col px-5 py-4">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <span className="text-base font-medium">Metadata</span>
+              <SheetSectionTitle>Metadata</SheetSectionTitle>
               <CopyButton value={metadataJson} size="icon-xs" tooltipText="Copy metadata" />
             </div>
             <pre className="overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted/80 p-3 font-mono text-sm">

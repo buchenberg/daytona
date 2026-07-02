@@ -5,9 +5,35 @@
 @custom-variant dark (&:is(.dark *));
 @custom-variant aria-invalid (&[aria-invalid="true"]);
 
+@font-face {
+  font-family: 'ABC Repro';
+  src:
+    url('/fonts/ABC-Repro/ABCRepro-Regular.woff2') format('woff2'),
+    url('/fonts/ABC-Repro/ABCRepro-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'EK Modena Mono';
+  src:
+    url('/fonts/EK-Modena-Mono/EKModenaMono-Regular.woff2') format('woff2'),
+    url('/fonts/EK-Modena-Mono/EKModenaMono-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme inline {
   --breakpoint-xxs: 360px;
   --breakpoint-xs: 480px;
+
+  --font-sans:
+    'ABC Repro', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'Noto Color Emoji';
+
+  --font-mono: 'EK Modena Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   --text-3\.5xl: 2rem;
   --text-3\.5xl--line-height: 2.375rem;
@@ -241,9 +267,19 @@
   body {
     margin: 0;
     min-height: 100vh;
+    font-feature-settings: 'ss01', 'ss02', 'ss05', 'ss07';
+    text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     @apply bg-background text-foreground;
+  }
+
+  code,
+  pre,
+  kbd,
+  samp,
+  .font-mono {
+    font-feature-settings: normal;
   }
 
   button:not(:disabled),

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetSectionTitle, SheetTitle } from '@/components/ui/sheet'
 import { getRelativeTimeString } from '@/lib/utils'
 import { ChevronDown, ChevronUp, RefreshCw, X } from 'lucide-react'
 import { useCallback, useState } from 'react'
@@ -79,7 +79,7 @@ export function EventDetailsSheet({
         <Separator />
         <ScrollArea fade="mask" className="flex-1 min-h-0">
           <div className="flex flex-col px-5 py-4 gap-3">
-            <span className="text-base font-medium">Overview</span>
+            <SheetSectionTitle>Overview</SheetSectionTitle>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Message ID</span>
               <div className="flex items-center gap-1 group/copy-button">
@@ -162,7 +162,7 @@ export function EventDetailsSheet({
 
           <div className="flex flex-col px-5 py-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-base font-medium">Payload</span>
+              <SheetSectionTitle>Payload</SheetSectionTitle>
               {hasPayload && <CopyButton value={payload} size="icon-xs" tooltipText="Copy Payload" />}
             </div>
             {hasPayload ? (

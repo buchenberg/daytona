@@ -125,6 +125,22 @@ function SheetDescription({ className, ...props }: React.ComponentProps<typeof S
   )
 }
 
+function SheetSectionTitle({ className, ...props }: React.ComponentProps<'div'>) {
+  return (
+    <div data-slot="sheet-section-title" className={cn('font-mono text-base text-foreground', className)} {...props} />
+  )
+}
+
+function SheetSubsectionTitle({ className, ...props }: React.ComponentProps<'div'>) {
+  return (
+    <div
+      data-slot="sheet-subsection-title"
+      className={cn('font-mono text-xs uppercase text-muted-foreground', className)}
+      {...props}
+    />
+  )
+}
+
 function SheetCloseButton() {
   return (
     <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
@@ -574,6 +590,8 @@ export {
   SheetHeader,
   SheetOverlay,
   SheetPortal,
+  SheetSectionTitle,
+  SheetSubsectionTitle,
   SheetTitle,
   SheetTrigger,
 }

@@ -16,6 +16,7 @@ import {
   SheetDescription,
   SheetFooter,
   SheetHeader,
+  SheetSectionTitle,
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
@@ -612,7 +613,7 @@ export const CreateSandboxSheet = ({
                       }}
                     </form.Field>
                     <div className="flex flex-col gap-2">
-                      <Label className="text-sm font-medium">Resources</Label>
+                      <SheetSectionTitle>Resources</SheetSectionTitle>
                       <div className="flex flex-col gap-2">
                         <form.Field name="cpu">
                           {(field) => {
@@ -866,7 +867,7 @@ export const CreateSandboxSheet = ({
               </form.Field>
             )}
             <div className="flex flex-col gap-2">
-              <Label className="text-sm font-medium">Lifecycle</Label>
+              <SheetSectionTitle>Lifecycle</SheetSectionTitle>
               <div className="flex flex-col gap-2">
                 <form.Field name="autoStopInterval">
                   {(field) => (
@@ -1148,7 +1149,7 @@ export const CreateSandboxSheet = ({
             </form.Field>
 
             <div className="flex flex-col gap-4">
-              <Label className="text-sm font-medium">Network</Label>
+              <SheetSectionTitle>Network</SheetSectionTitle>
               <form.Field name="public">
                 {(field) => (
                   <div className="flex items-start gap-2">
