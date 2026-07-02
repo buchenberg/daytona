@@ -41,8 +41,17 @@ func (manager *NetRulesManager) SetNetworkRules(name string, sourceIp string, ve
 		}
 	}
 
-	// Add a final rule to block all other traffic
-	if err := manager.ipt.AppendUnique("filter", chainName, "-j", "DROP", "-p", "all"); err != nil {
+	// Reject (not DROP) all other traffic so blocked connections fail fast
+	// inside the sandbox instead of hanging in SYN retransmits until the stack
+	// times out. TCP gets a RST so blocked connects surface as "connection
+	// refused", which clients handle gracefully; everything else gets an ICMP
+	// port-unreachable. The reject responses are safe to emit because the
+	// per-sandbox source guard (SetSourceGuard) already prevents source-IP
+	// spoofing, so they cannot be reflected at a forged address.
+	if err := manager.ipt.AppendUnique("filter", chainName, "-p", "tcp", "-j", "REJECT", "--reject-with", "tcp-reset"); err != nil {
+		return err
+	}
+	if err := manager.ipt.AppendUnique("filter", chainName, "-j", "REJECT", "--reject-with", "icmp-port-unreachable"); err != nil {
 		return err
 	}
 
