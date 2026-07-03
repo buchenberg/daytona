@@ -35,7 +35,7 @@ func InitTracer(ctx context.Context, config Config, exporterFilters ...ExporterF
 		otlptracehttp.WithEndpointURL(config.Endpoint + "/v1/traces"),
 		otlptracehttp.WithHeaders(config.Headers),
 	}
-	if config.TLSConfig != nil {
+	if config.useTLSClient() {
 		traceOpts = append(traceOpts, otlptracehttp.WithTLSClientConfig(config.TLSConfig))
 	}
 	traceExporter, err := otlptracehttp.New(ctx, traceOpts...)

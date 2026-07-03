@@ -45,6 +45,7 @@ import (
 	"github.com/daytonaio/daemon/pkg/toolbox/process/pty"
 	"github.com/daytonaio/daemon/pkg/toolbox/process/session"
 	"github.com/daytonaio/daemon/pkg/toolbox/proxy"
+	"github.com/daytonaio/daemon/pkg/toolbox/system"
 	sloggin "github.com/samber/slog-gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	otellog "go.opentelemetry.io/otel/sdk/log"
@@ -112,9 +113,10 @@ type server struct {
 }
 
 type Telemetry struct {
-	TracerProvider *sdktrace.TracerProvider
-	MeterProvider  *metric.MeterProvider
-	LoggerProvider *otellog.LoggerProvider
+	TracerProvider     *sdktrace.TracerProvider
+	MeterProvider      *metric.MeterProvider
+	LoggerProvider     *otellog.LoggerProvider
+	SystemMetricsStore *telemetry.SystemMetricsStore
 }
 
 func (s *server) Start() error {
@@ -372,6 +374,21 @@ func (s *server) Start() error {
 	{
 		portController.GET("", portDetector.GetPorts)
 		portController.GET("/:port/in-use", portDetector.IsPortInUse)
+	}
+
+	// Collect sandbox resource metrics unconditionally (even without an OTLP endpoint) so the
+	// /system/metrics endpoint always has data. When an OTLP endpoint is later configured,
+	// initTelemetry swaps this no-op MeterProvider for an exporting one that reuses this store.
+	s.telemetry.SystemMetricsStore = telemetry.NewSystemMetricsStore()
+	if mp, err := telemetry.InitSandboxMetricsCache("daytona.sandbox", s.telemetry.SystemMetricsStore); err != nil {
+		s.logger.Error("Failed to start sandbox metrics collection", "error", err)
+	} else {
+		s.telemetry.MeterProvider = mp
+	}
+
+	systemController := r.Group("/system")
+	{
+		systemController.GET("/metrics", system.NewMetricsHandler(s.telemetry.SystemMetricsStore).GetSystemMetrics)
 	}
 
 	proxyController := noTelemetryRouter.Group("/proxy")

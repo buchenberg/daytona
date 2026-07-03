@@ -26,11 +26,8 @@ func (s *server) initTelemetry(ctx context.Context, serviceName, entrypointLogFi
 		}
 	}
 
-	if s.telemetry.MeterProvider != nil {
-		if err := s.telemetry.MeterProvider.Shutdown(ctx); err != nil {
-			return fmt.Errorf("failed to shutdown existing telemetry meter provider: %w", err)
-		}
-	}
+	// Do NOT shut down the MeterProvider here: it keeps the metrics cache collecting until
+	// InitMetrics produces a replacement (retired on success below), so a failed init can't orphan it.
 
 	if s.telemetry.TracerProvider != nil {
 		if err := s.telemetry.TracerProvider.Shutdown(ctx); err != nil {
@@ -131,8 +128,13 @@ func (s *server) initTelemetry(ctx context.Context, serviceName, entrypointLogFi
 		}
 	}()
 
-	// Initialize OpenTelemetry metrics
-	mp, err := telemetry.InitMetrics(ctx, config, "daytona.sandbox")
+	// Initialize OpenTelemetry metrics. Reuse the always-on store started at boot so the
+	// /system/metrics endpoint and OTLP export share one collection; the CPU delta state in
+	// the store survives this MeterProvider swap.
+	if s.telemetry.SystemMetricsStore == nil {
+		s.telemetry.SystemMetricsStore = telemetry.NewSystemMetricsStore()
+	}
+	mp, err := telemetry.InitMetrics(ctx, config, "daytona.sandbox", s.telemetry.SystemMetricsStore)
 	if err != nil {
 		if shutDownErr := lp.Shutdown(telemetryContext); shutDownErr != nil {
 			s.logger.ErrorContext(ctx, "Failed to shutdown logger after metrics initialization failure", "shutdownErr", shutDownErr)
@@ -152,9 +154,15 @@ func (s *server) initTelemetry(ctx context.Context, serviceName, entrypointLogFi
 		return fmt.Errorf("failed to initialize tracer: %w", err)
 	}
 
+	previousMeterProvider := s.telemetry.MeterProvider
+
 	s.telemetry.TracerProvider = tp
 	s.telemetry.MeterProvider = mp
 	s.telemetry.LoggerProvider = lp
+
+	if previousMeterProvider != nil {
+		telemetry.ShutdownMeter(s.logger, previousMeterProvider)
+	}
 
 	s.logger.InfoContext(ctx, "Telemetry initialized successfully")
 	return nil

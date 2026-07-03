@@ -40,7 +40,7 @@ func InitLogger(ctx context.Context, logger *slog.Logger, config Config) (*slog.
 		otlploghttp.WithEndpointURL(config.Endpoint + "/v1/logs"),
 		otlploghttp.WithHeaders(config.Headers),
 	}
-	if config.TLSConfig != nil {
+	if config.useTLSClient() {
 		logOpts = append(logOpts, otlploghttp.WithTLSClientConfig(config.TLSConfig))
 	}
 	exporter, err := otlploghttp.New(ctx, logOpts...)

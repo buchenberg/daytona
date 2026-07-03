@@ -24,8 +24,11 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 )
 
-// InitMetrics initializes OpenTelemetry Metrics with an OTLP HTTP exporter.
-func InitMetrics(ctx context.Context, config Config, meterName string) (*sdk_metric.MeterProvider, error) {
+// InitMetrics initializes OpenTelemetry Metrics with an OTLP HTTP exporter, folding each
+// collection into store for the local metrics endpoint. Also starts host + Go runtime
+// instrumentation (OTLP-only). The export interval defaults to 60s and is overridable via
+// OTEL_METRIC_EXPORT_INTERVAL (do not pass WithInterval, which would disable that override).
+func InitMetrics(ctx context.Context, config Config, meterName string, store *SystemMetricsStore) (*sdk_metric.MeterProvider, error) {
 	// Resource describing this service
 	res, err := resource.New(ctx,
 		resource.WithAttributes(config.Attributes()...),
@@ -39,7 +42,7 @@ func InitMetrics(ctx context.Context, config Config, meterName string) (*sdk_met
 		otlpmetrichttp.WithEndpointURL(config.Endpoint + "/v1/metrics"),
 		otlpmetrichttp.WithHeaders(config.Headers),
 	}
-	if config.TLSConfig != nil {
+	if config.useTLSClient() {
 		metricOpts = append(metricOpts, otlpmetrichttp.WithTLSClientConfig(config.TLSConfig))
 	}
 	exporter, err := otlpmetrichttp.New(ctx, metricOpts...)
@@ -47,8 +50,7 @@ func InitMetrics(ctx context.Context, config Config, meterName string) (*sdk_met
 		return nil, err
 	}
 
-	// Periodic reader to push metrics on an interval
-	reader := sdk_metric.NewPeriodicReader(exporter)
+	reader := sdk_metric.NewPeriodicReader(newAsyncExporter(exporter))
 
 	// MeterProvider with resource and reader
 	mp := sdk_metric.NewMeterProvider(
@@ -74,20 +76,7 @@ func InitMetrics(ctx context.Context, config Config, meterName string) (*sdk_met
 			"available_gb", float64(diskStats.Available)/1073741824.0)
 	}
 
-	// Register container limits metrics
-	if err := registerLimitsMetrics(meterName, mp, limits); err != nil {
-		slog.Warn("Failed to register container limits metrics", "error", err)
-	}
-
-	// Register container usage metrics
-	if err := registerUsageMetrics(meterName, mp, limits); err != nil {
-		slog.Warn("Failed to register container usage metrics", "error", err)
-	}
-
-	// Register disk usage metrics
-	if err := registerDiskUsageMetrics(meterName, mp); err != nil {
-		slog.Warn("Failed to register disk usage metrics", "error", err)
-	}
+	registerSandboxMetrics(meterName, mp, limits, store)
 
 	// Start runtime metrics collection
 	if err := otel_runtime.Start(otel_runtime.WithMinimumReadMemStatsInterval(time.Second)); err != nil {
@@ -110,6 +99,34 @@ func ShutdownMeter(logger *slog.Logger, mp *sdk_metric.MeterProvider) {
 
 	if err := mp.Shutdown(ctx); err != nil {
 		logger.Error("Error shutting down meter provider", "error", err)
+	}
+}
+
+// InitSandboxMetricsCache starts sandbox resource-metrics collection into store WITHOUT an
+// OTLP endpoint: a single PeriodicReader drives the observable callbacks (which refresh the
+// store) via a no-op exporter, so the local /system/metrics endpoint has data even when
+// telemetry export is not configured. It deliberately skips host/runtime instrumentation and
+// the global provider (OTLP-only concerns). The export/sampling interval is overridable via
+// OTEL_METRIC_EXPORT_INTERVAL. Non-blocking: the reader collects on its own goroutine.
+func InitSandboxMetricsCache(meterName string, store *SystemMetricsStore) (*sdk_metric.MeterProvider, error) {
+	reader := sdk_metric.NewPeriodicReader(noopMetricExporter{})
+	mp := sdk_metric.NewMeterProvider(sdk_metric.WithReader(reader))
+	registerSandboxMetrics(meterName, mp, getContainerLimits(), store)
+	return mp, nil
+}
+
+// registerSandboxMetrics registers the sandbox limit/usage/disk observable gauges on mp with
+// callbacks that fold each collection into store. Shared by InitMetrics (OTLP) and
+// InitSandboxMetricsCache (no-op) so both transports observe a single collection.
+func registerSandboxMetrics(meterName string, mp *sdk_metric.MeterProvider, limits *ResourceLimits, store *SystemMetricsStore) {
+	if err := registerLimitsMetrics(meterName, mp, limits); err != nil {
+		slog.Warn("Failed to register container limits metrics", "error", err)
+	}
+	if err := registerUsageMetrics(meterName, mp, limits, store); err != nil {
+		slog.Warn("Failed to register container usage metrics", "error", err)
+	}
+	if err := registerDiskUsageMetrics(meterName, mp, store); err != nil {
+		slog.Warn("Failed to register disk usage metrics", "error", err)
 	}
 }
 
@@ -228,6 +245,75 @@ func getDiskStats(path string) (*DiskStats, error) {
 	}, nil
 }
 
+// readCgroupMemUsageBytes reads current memory usage in bytes from the cgroup
+// (v2 memory.current / v1 memory.usage_in_bytes).
+func readCgroupMemUsageBytes(cgroupV2 bool) (uint64, error) {
+	if cgroupV2 {
+		return readUint64FromFile("/sys/fs/cgroup/memory.current")
+	}
+	return readUint64FromFile("/sys/fs/cgroup/memory/memory.usage_in_bytes")
+}
+
+// readCgroupMemCacheBytes reads the page-cache size in bytes from the cgroup
+// (v2 memory.stat "file" / v1 memory.stat "cache").
+func readCgroupMemCacheBytes(cgroupV2 bool) (uint64, error) {
+	var statPath, key string
+	if cgroupV2 {
+		statPath = "/sys/fs/cgroup/memory.stat"
+		key = "file"
+	} else {
+		statPath = "/sys/fs/cgroup/memory/memory.stat"
+		key = "cache"
+	}
+	data, err := os.ReadFile(statPath)
+	if err != nil {
+		return 0, err
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, key+" ") {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				return strconv.ParseUint(parts[1], 10, 64)
+			}
+		}
+	}
+	return 0, fmt.Errorf("%s not found in %s", key, statPath)
+}
+
+// readCgroupCPUUsageNanos reads cumulative CPU usage in nanoseconds from the
+// cgroup (v2 cpu.stat usage_usec*1000 / v1 cpuacct.usage).
+func readCgroupCPUUsageNanos(cgroupV2 bool) (uint64, error) {
+	if !cgroupV2 {
+		return readUint64FromFile("/sys/fs/cgroup/cpu/cpuacct.usage")
+	}
+
+	data, err := os.ReadFile("/sys/fs/cgroup/cpu.stat")
+	if err != nil {
+		return 0, err
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "usage_usec") {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				usec, err := strconv.ParseUint(parts[1], 10, 64)
+				if err != nil {
+					return 0, err
+				}
+				return usec * 1000, nil // microseconds → nanoseconds
+			}
+		}
+	}
+	return 0, fmt.Errorf("usage_usec not found in cpu.stat")
+}
+
+// cpuUsagePercent converts a cgroup CPU-time delta (nanoseconds) over a wall-clock
+// window (nanoseconds) into a percentage of the container's CPU limit, so a fully
+// busy N-core container with an N-core limit reads ~100%. Callers must guard
+// against wallDeltaNanos <= 0 and cpuLimit <= 0.
+func cpuUsagePercent(cpuDeltaNanos uint64, wallDeltaNanos int64, cpuLimit float64) float64 {
+	return (float64(cpuDeltaNanos) / float64(wallDeltaNanos)) / cpuLimit * 100.0
+}
+
 // registerLimitsMetrics registers gauges for resource limits
 func registerLimitsMetrics(name string, mp *sdk_metric.MeterProvider, limits *ResourceLimits) error {
 	meter := mp.Meter(fmt.Sprintf("%s-limits", name))
@@ -271,7 +357,7 @@ func registerLimitsMetrics(name string, mp *sdk_metric.MeterProvider, limits *Re
 }
 
 // registerUsageMetrics registers gauges for resource usage
-func registerUsageMetrics(name string, mp *sdk_metric.MeterProvider, limits *ResourceLimits) error {
+func registerUsageMetrics(name string, mp *sdk_metric.MeterProvider, limits *ResourceLimits, store *SystemMetricsStore) error {
 	meter := mp.Meter(fmt.Sprintf("%s-usage", name))
 
 	// CPU Usage Percentage (relative to container limit)
@@ -304,63 +390,26 @@ func registerUsageMetrics(name string, mp *sdk_metric.MeterProvider, limits *Res
 		return err
 	}
 
-	var lastCPUUsage uint64
-	var lastTimestamp time.Time
-
 	_, err = meter.RegisterCallback(
 		func(ctx context.Context, observer metric.Observer) error {
-			// Read current memory usage
-			var memUsage uint64
-			if limits.cgroupV2 {
-				memUsage, _ = readUint64FromFile("/sys/fs/cgroup/memory.current")
-			} else {
-				memUsage, _ = readUint64FromFile("/sys/fs/cgroup/memory/memory.usage_in_bytes")
-			}
+			memUsage, _ := readCgroupMemUsageBytes(limits.cgroupV2)
+			// memCache is folded into the store for the /system/metrics endpoint but is
+			// intentionally not emitted as an OTEL gauge for now.
+			memCache, _ := readCgroupMemCacheBytes(limits.cgroupV2)
+			cpuUsage, _ := readCgroupCPUUsageNanos(limits.cgroupV2)
+
+			cpuPct, cpuValid, memPct := store.recordUsage(cpuUsage, memUsage, memCache, time.Now(), limits)
 
 			if memUsage > 0 {
 				observer.ObserveInt64(memUsageGauge, int64(memUsage))
-
-				// Calculate memory utilization percentage
 				if limits.MemoryLimit > 0 {
-					memUtilPercent := float64(memUsage) / float64(limits.MemoryLimit) * 100.0
-					observer.ObserveFloat64(memUtilGauge, memUtilPercent)
+					observer.ObserveFloat64(memUtilGauge, memPct)
 				}
 			}
-
-			// Read current CPU usage
-			var cpuUsage uint64
-			if limits.cgroupV2 {
-				// For cgroup v2, read usage_usec from cpu.stat
-				if data, err := os.ReadFile("/sys/fs/cgroup/cpu.stat"); err == nil {
-					lines := strings.Split(string(data), "\n")
-					for _, line := range lines {
-						if strings.HasPrefix(line, "usage_usec") {
-							parts := strings.Fields(line)
-							if len(parts) >= 2 {
-								usec, _ := strconv.ParseUint(parts[1], 10, 64)
-								cpuUsage = usec * 1000 // Convert to nanoseconds
-								break
-							}
-						}
-					}
-				}
-			} else {
-				cpuUsage, _ = readUint64FromFile("/sys/fs/cgroup/cpu/cpuacct.usage")
+			// Skip the cold-start reading (no prior sample) so we don't emit a spurious 0%.
+			if cpuValid {
+				observer.ObserveFloat64(cpuUtilGauge, cpuPct)
 			}
-
-			// Calculate CPU utilization
-			now := time.Now()
-			if !lastTimestamp.IsZero() && cpuUsage > lastCPUUsage && limits.CPULimit > 0 {
-				timeDelta := now.Sub(lastTimestamp).Nanoseconds()
-				cpuDelta := cpuUsage - lastCPUUsage
-
-				// CPU usage as percentage of allocated CPUs
-				cpuUsagePercent := (float64(cpuDelta) / float64(timeDelta)) / limits.CPULimit * 100.0
-				observer.ObserveFloat64(cpuUtilGauge, cpuUsagePercent)
-			}
-
-			lastCPUUsage = cpuUsage
-			lastTimestamp = now
 
 			return nil
 		},
@@ -373,7 +422,7 @@ func registerUsageMetrics(name string, mp *sdk_metric.MeterProvider, limits *Res
 }
 
 // registerDiskUsageMetrics registers gauges for filesystem/disk usage metrics
-func registerDiskUsageMetrics(name string, mp *sdk_metric.MeterProvider) error {
+func registerDiskUsageMetrics(name string, mp *sdk_metric.MeterProvider, store *SystemMetricsStore) error {
 	meter := mp.Meter(fmt.Sprintf("%s-disk", name))
 
 	// Disk usage in bytes
@@ -425,6 +474,8 @@ func registerDiskUsageMetrics(name string, mp *sdk_metric.MeterProvider) error {
 				slog.Warn("Failed to get disk stats", "error", err)
 				return nil // Don't fail the entire callback
 			}
+
+			store.recordDisk(diskStats.Used, diskStats.Total, diskStats.Available)
 
 			// Create attributes for the filesystem
 			attrs := metric.WithAttributes(

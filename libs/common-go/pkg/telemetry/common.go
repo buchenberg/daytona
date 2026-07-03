@@ -6,6 +6,7 @@ package telemetry
 import (
 	"crypto/tls"
 	"os"
+	"strings"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -20,6 +21,12 @@ type Config struct {
 	Environment    string
 	ExtraLabels    map[string]string
 	TLSConfig      *tls.Config
+}
+
+// useTLSClient gates TLS on scheme: the OTLP HTTP exporter fails to construct if given a TLS
+// client config for an insecure http:// endpoint, so TLS is applied only for https://.
+func (c Config) useTLSClient() bool {
+	return c.TLSConfig != nil && strings.HasPrefix(c.Endpoint, "https://")
 }
 
 func (c Config) Attributes() []attribute.KeyValue {
