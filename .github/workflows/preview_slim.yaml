@@ -1,5 +1,16 @@
 name: 'Preview Slim'
 
+# Preview lifecycle:
+#   - A maintainer adds the `preview` label to a PR  -> build + deploy a preview env.
+#   - A maintainer comments `/preview` on a labeled PR -> rebuild + redeploy the PR head.
+#     Pushes alone never redeploy; every deploy is an explicit maintainer action.
+#   - The `preview` label is removed                  -> helm uninstall + deactivate the GitHub environment.
+#   - The PR is closed or merged                      -> same teardown.
+#   - workflow_dispatch remains as a manual escape hatch for non-PR branches
+#     (those previews are NOT auto-torn-down; clean up with `helm uninstall` yourself).
+# Each preview is tracked as a GitHub environment named `preview-<branch_slug>`, so the
+# PR shows deployment status and a "View deployment" button pointing at the API URL.
+
 on:
   workflow_dispatch:
     inputs:
@@ -12,9 +23,20 @@ on:
         required: false
         type: boolean
         default: false
+  pull_request:
+    types: [labeled, unlabeled, closed]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
+
+concurrency:
+  # Serialize runs per PR (or per branch for manual dispatch) so a teardown never
+  # races an in-flight deploy. Don't cancel in-progress runs: killing helm
+  # mid-upgrade leaves the release in a pending-* state that blocks the next deploy.
+  group: preview-${{ github.event.pull_request.number || github.event.issue.number || inputs.branch }}
+  cancel-in-progress: false
 
 env:
   NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN }}
@@ -22,19 +44,79 @@ env:
 jobs:
   build:
     name: Build api/proxy/runner
+    # Deploy path: manual dispatch, the `preview` label being added, or a maintainer
+    # commenting `/preview` on a PR that carries the label. Pushes never deploy.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'pull_request' &&
+        github.event.action == 'labeled' &&
+        github.event.label.name == 'preview' &&
+        github.event.pull_request.state == 'open' &&
+        github.event.pull_request.head.repo.full_name == github.repository
+      ) ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        github.event.issue.state == 'open' &&
+        contains(github.event.issue.labels.*.name, 'preview') &&
+        (github.event.comment.body == '/preview' || startsWith(github.event.comment.body, '/preview ')) &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+      )
     runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: read
       packages: write
+      issues: write # react to the /preview comment
     outputs:
+      branch: ${{ steps.ref.outputs.branch }}
       branch_slug: ${{ steps.slug.outputs.branch_slug }}
       version_slug: ${{ steps.slug.outputs.version_slug }}
     steps:
+      - name: Acknowledge /preview comment
+        if: ${{ github.event_name == 'issue_comment' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" -f content=rocket --silent || true
+
+      - name: Resolve build ref
+        id: ref
+        # The issue_comment payload carries no PR head, so resolve it via the API.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          INPUT_BRANCH: ${{ inputs.branch }}
+        run: |
+          case "$EVENT_NAME" in
+            issue_comment)
+              pr_json=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${ISSUE_NUMBER}")
+              head_repo=$(jq -r '.head.repo.full_name' <<<"$pr_json")
+              if [ "$head_repo" != "$GITHUB_REPOSITORY" ]; then
+                echo "Refusing to deploy a fork PR head ($head_repo)" >&2
+                exit 1
+              fi
+              echo "ref=$(jq -r '.head.sha' <<<"$pr_json")" >> "$GITHUB_OUTPUT"
+              echo "branch=$(jq -r '.head.ref' <<<"$pr_json")" >> "$GITHUB_OUTPUT"
+              ;;
+            pull_request)
+              echo "ref=$PR_HEAD_SHA" >> "$GITHUB_OUTPUT"
+              echo "branch=$PR_HEAD_REF" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "ref=$INPUT_BRANCH" >> "$GITHUB_OUTPUT"
+              echo "branch=$INPUT_BRANCH" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
       - name: Checkout target repo
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: daytonaio/daytona-ai
-          ref: ${{ inputs.branch }}
+          ref: ${{ steps.ref.outputs.ref }}
           persist-credentials: false
 
       - uses: ./.github/actions/setup-toolchain
@@ -51,7 +133,7 @@ jobs:
       - name: Compute branch and version slugs
         id: slug
         env:
-          BRANCH: ${{ inputs.branch }}
+          BRANCH: ${{ steps.ref.outputs.branch }}
         run: |
           # branch_slug — stable across redeploys of the same branch.
           # Used as the helm release name + ingress hostname prefix.
@@ -105,6 +187,11 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    # Registers the run as a GitHub deployment: the PR gets a deployments panel
+    # with status and a "View deployment" button pointing at the API URL.
+    environment:
+      name: preview-${{ needs.build.outputs.branch_slug }}
+      url: https://${{ needs.build.outputs.branch_slug }}.api.p.stage.daytona.work
     env:
       AWS_REGION: us-east-1
       EKS_CLUSTER: stage-eks
@@ -140,7 +227,7 @@ jobs:
         env:
           BRANCH_SLUG: ${{ needs.build.outputs.branch_slug }}
           VERSION_SLUG: ${{ needs.build.outputs.version_slug }}
-          BRANCH_NAME: ${{ inputs.branch }}
+          BRANCH_NAME: ${{ needs.build.outputs.branch }}
           REPO: daytonaio/daytona-ai
         run: |
           # The chart's postgresql + redis deps live in the Bitnami repo;
@@ -159,10 +246,6 @@ jobs:
             --timeout 10m \
             --debug
 
-      # - name: Clean up old releases
-      #   run: |
-      #     helm list --namespace preview --date --reverse -q | tail -n +11 | xargs -r -I {} helm uninstall {} --namespace preview
-
       - name: Print preview URLs
         env:
           BRANCH_SLUG: ${{ needs.build.outputs.branch_slug }}
@@ -172,3 +255,78 @@ jobs:
           # SSH gateway is exposed on the tailnet (Tailscale LoadBalancer) — resolve its
           # MagicDNS name from the service once the operator has provisioned it:
           echo "SSH:   ssh <ssh-token>@${BRANCH_SLUG}-ssh-gateway -p 2222   (Tailscale MagicDNS; see 'kubectl get svc ${BRANCH_SLUG}-ssh-gateway -n preview')"
+
+  teardown:
+    name: Uninstall preview
+    # Teardown path: the PR is closed/merged while carrying the `preview` label,
+    # or the label is removed. `--ignore-not-found` makes this idempotent.
+    if: >-
+      github.event_name == 'pull_request' &&
+      (
+        (github.event.action == 'closed' && contains(github.event.pull_request.labels.*.name, 'preview')) ||
+        (github.event.action == 'unlabeled' && github.event.label.name == 'preview')
+      )
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      id-token: write
+      contents: read
+      deployments: write
+    env:
+      AWS_REGION: us-east-1
+      EKS_CLUSTER: stage-eks
+    steps:
+      - name: Compute branch slug
+        id: slug
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          # Must stay identical to the slug logic in the build job.
+          slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-+//; s/-+$//' | cut -c1-20 | sed -E 's/-+$//')
+          if [ -z "$slug" ]; then
+            echo "Branch name '$BRANCH' produced an empty slug" >&2
+            exit 1
+          fi
+          echo "branch_slug=$slug" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+        with:
+          version: v4.2.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@acca2b1b2070338fb9fd1ca27ecee81d687e58e5 # v6.1.2
+        with:
+          role-to-assume: arn:aws:iam::762233752006:role/stage/stage-gha-daytona-ai
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$AWS_REGION"
+
+      - name: Uninstall Helm release
+        env:
+          BRANCH_SLUG: ${{ steps.slug.outputs.branch_slug }}
+        run: |
+          # Wipes per-preview postgres/redis/minio data (emptyDir volumes are deleted with the pods).
+          helm uninstall "$BRANCH_SLUG" --namespace preview --ignore-not-found --wait
+
+      - name: Deactivate and remove GitHub deployments
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH_SLUG: ${{ steps.slug.outputs.branch_slug }}
+        run: |
+          env_name="preview-${BRANCH_SLUG}"
+          for id in $(gh api --paginate "repos/${GITHUB_REPOSITORY}/deployments?environment=${env_name}" --jq '.[].id'); do
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/deployments/${id}/statuses" -f state=inactive --silent
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/deployments/${id}" --silent
+          done
+
+      - name: Delete GitHub environment
+        # GITHUB_TOKEN cannot delete environments (needs repo-admin). Without
+        # PREVIEW_CLEANUP_TOKEN this step 403s harmlessly and the empty
+        # environment entry lingers in Settings -> Environments; it is reused
+        # on the next deploy of the same branch.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.PREVIEW_CLEANUP_TOKEN || secrets.GITHUB_TOKEN }}
+          BRANCH_SLUG: ${{ steps.slug.outputs.branch_slug }}
+        run: gh api -X DELETE "repos/${GITHUB_REPOSITORY}/environments/preview-${BRANCH_SLUG}"
