@@ -40,6 +40,9 @@ export class ApiKey {
   })
   permissions: OrganizationResourcePermission[]
 
+  @Column({ nullable: true })
+  createdByKeyHash?: string
+
   @Column()
   createdAt: Date
 

@@ -34,7 +34,10 @@ describe('[AUTH] ApiKeyController', () => {
   it('getApiKeys', () => {
     const methodName = trackMethod('getApiKeys')
     expect(isPublicEndpoint(ApiKeyController, methodName)).toBe(false)
-    expectArrayMatch(getAllowedAuthStrategies(ApiKeyController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAllowedAuthStrategies(ApiKeyController, methodName), [
+      AuthStrategyType.JWT,
+      AuthStrategyType.API_KEY,
+    ])
     expectArrayMatch(getAuthContextGuards(ApiKeyController, methodName), [OrganizationAuthContextGuard])
     expect(getRequiredOrganizationMemberRole(ApiKeyController, methodName)).toBeUndefined()
     expect(getRequiredOrganizationResourcePermissions(ApiKeyController, methodName)).toBeUndefined()
@@ -61,7 +64,10 @@ describe('[AUTH] ApiKeyController', () => {
   it('deleteApiKey', () => {
     const methodName = trackMethod('deleteApiKey')
     expect(isPublicEndpoint(ApiKeyController, methodName)).toBe(false)
-    expectArrayMatch(getAllowedAuthStrategies(ApiKeyController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAllowedAuthStrategies(ApiKeyController, methodName), [
+      AuthStrategyType.JWT,
+      AuthStrategyType.API_KEY,
+    ])
     expectArrayMatch(getAuthContextGuards(ApiKeyController, methodName), [OrganizationAuthContextGuard])
     expect(getRequiredOrganizationMemberRole(ApiKeyController, methodName)).toBeUndefined()
     expect(getRequiredOrganizationResourcePermissions(ApiKeyController, methodName)).toBeUndefined()

@@ -97,7 +97,7 @@ export class ApiKeyController {
   ): Promise<ApiKeyResponseDto> {
     const manageApiKeysEnabled = await this.isManageApiKeysEnabled(authContext)
 
-    this.validateApiKeyCreator(authContext, manageApiKeysEnabled)
+    this.validateApiKeyManager(authContext, manageApiKeysEnabled)
     this.validateRequestedApiKeyPermissions(authContext, createApiKeyDto.permissions, manageApiKeysEnabled)
 
     const { apiKey, value } = await this.apiKeyService.createApiKey(
@@ -106,6 +106,9 @@ export class ApiKeyController {
       createApiKeyDto.name,
       createApiKeyDto.permissions,
       createApiKeyDto.expiresAt,
+      undefined,
+      // Track the manager key that minted this key so it can later delete the keys it created.
+      authContext.apiKey?.keyHash,
     )
 
     return ApiKeyResponseDto.fromApiKey(apiKey, value)
@@ -122,11 +125,17 @@ export class ApiKeyController {
     type: [ApiKeyListDto],
   })
   @ApiResponse({ status: 500, description: 'Error fetching API keys.' })
+  @AuthStrategy([AuthStrategyType.JWT, AuthStrategyType.API_KEY])
   @UseGuards(OrganizationAuthContextGuard)
   async getApiKeys(@IsOrganizationAuthContext() authContext: OrganizationAuthContext): Promise<ApiKeyListDto[]> {
     let apiKeys: ApiKey[] = []
 
-    if (authContext.organizationUser.role === OrganizationMemberRole.OWNER) {
+    if (authContext.apiKey) {
+      // A manager key can only see the keys it created, never the rest of the organization's keys.
+      const manageApiKeysEnabled = await this.isManageApiKeysEnabled(authContext)
+      this.validateApiKeyManager(authContext, manageApiKeysEnabled)
+      apiKeys = await this.apiKeyService.getApiKeysCreatedBy(authContext.organizationId, authContext.apiKey.keyHash)
+    } else if (authContext.organizationUser.role === OrganizationMemberRole.OWNER) {
       apiKeys = await this.apiKeyService.getApiKeys(authContext.organizationId)
     } else {
       apiKeys = await this.apiKeyService.getApiKeys(authContext.organizationId, authContext.userId)
@@ -182,6 +191,7 @@ export class ApiKeyController {
   })
   @ApiResponse({ status: 204, description: 'API key deleted successfully.' })
   @HttpCode(204)
+  @AuthStrategy([AuthStrategyType.JWT, AuthStrategyType.API_KEY])
   @Audit({
     action: AuditAction.DELETE,
     targetType: AuditTarget.API_KEY,
@@ -189,6 +199,21 @@ export class ApiKeyController {
   })
   @UseGuards(OrganizationAuthContextGuard)
   async deleteApiKey(@IsOrganizationAuthContext() authContext: OrganizationAuthContext, @Param('name') name: string) {
+    // When authenticated with an API key, only manager keys may delete, and only keys they created.
+    if (authContext.apiKey) {
+      const manageApiKeysEnabled = await this.isManageApiKeysEnabled(authContext)
+      this.validateApiKeyManager(authContext, manageApiKeysEnabled)
+
+      const targetApiKey = await this.apiKeyService.getApiKeyByName(
+        authContext.organizationId,
+        authContext.userId,
+        name,
+      )
+      if (targetApiKey.createdByKeyHash !== authContext.apiKey.keyHash) {
+        throw new ForbiddenException('This API key can only delete API keys it created')
+      }
+    }
+
     await this.apiKeyService.deleteApiKey(authContext.organizationId, authContext.userId, name)
   }
 
@@ -325,11 +350,11 @@ export class ApiKeyController {
 
   /**
    * When the request itself is authenticated with an API key (rather than an interactive JWT
-   * session), creating API keys is only allowed if the manage:api_keys feature flag is enabled and
-   * the calling key carries the dedicated MANAGE_API_KEYS permission. This prevents a leaked key
-   * from silently minting persistent keys.
+   * session), managing API keys (creating or deleting them) is only allowed if the manage:api_keys
+   * feature flag is enabled and the calling key carries the dedicated MANAGE_API_KEYS permission.
+   * This prevents a leaked key from silently minting or revoking persistent keys.
    */
-  private validateApiKeyCreator(authContext: OrganizationAuthContext, manageApiKeysEnabled: boolean): void {
+  private validateApiKeyManager(authContext: OrganizationAuthContext, manageApiKeysEnabled: boolean): void {
     if (!authContext.apiKey) {
       return
     }

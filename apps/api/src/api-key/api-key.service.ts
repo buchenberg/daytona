@@ -44,6 +44,7 @@ export class ApiKeyService {
     permissions: OrganizationResourcePermission[],
     expiresAt?: Date,
     apiKeyValue?: string,
+    createdByKeyHash?: string,
   ): Promise<{ apiKey: ApiKey; value: string }> {
     const existingKey = await this.apiKeyRepository.findOne({ where: { organizationId, userId, name } })
     if (existingKey) {
@@ -60,6 +61,7 @@ export class ApiKeyService {
       keyPrefix: this.getApiKeyPrefix(value),
       keySuffix: this.getApiKeySuffix(value),
       permissions,
+      createdByKeyHash,
       createdAt: new Date(),
       expiresAt,
     })
@@ -70,6 +72,21 @@ export class ApiKeyService {
   async getApiKeys(organizationId: string, userId?: string): Promise<ApiKey[]> {
     const apiKeys = await this.apiKeyRepository.find({
       where: { organizationId, userId },
+      order: {
+        lastUsedAt: {
+          direction: 'DESC',
+          nulls: 'LAST',
+        },
+        createdAt: 'DESC',
+      },
+    })
+
+    return apiKeys
+  }
+
+  async getApiKeysCreatedBy(organizationId: string, createdByKeyHash: string): Promise<ApiKey[]> {
+    const apiKeys = await this.apiKeyRepository.find({
+      where: { organizationId, createdByKeyHash },
       order: {
         lastUsedAt: {
           direction: 'DESC',
