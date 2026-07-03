@@ -611,6 +611,7 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
     return {
       endpoint: otelConfig.endpoint,
       headers: Object.keys(decryptedHeaders).length > 0 ? decryptedHeaders : undefined,
+      organizationId: organization.id,
     }
   }
 

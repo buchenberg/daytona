@@ -15,6 +15,7 @@ import (
 	"github.com/daytonaio/otel-collector/exporter/internal/config"
 	"go.opentelemetry.io/collector/client"
 	"go.opentelemetry.io/collector/consumer/consumererror"
+	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/plog/plogotlp"
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -24,6 +25,10 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
 )
+
+// organizationIdAttributeKey is the resource attribute that sandboxes report their
+// organization ID under (set by the daemon telemetry initialization).
+const organizationIdAttributeKey = "daytona_organization_id"
 
 type IExporter[T any] interface {
 	push(context.Context, T) error
@@ -39,9 +44,10 @@ type Exporter[T any] struct {
 	logger   *zap.Logger
 	route    string
 
-	httpClients map[string]*http.Client //lint:ignore U1000 Used in private methods consumed by the built collector
-	mu          sync.RWMutex            //lint:ignore U1000 Used in private methods consumed by the built collector
-	_getBody    func(T) ([]byte, error)
+	httpClients    map[string]*http.Client //lint:ignore U1000 Used in private methods consumed by the built collector
+	mu             sync.RWMutex            //lint:ignore U1000 Used in private methods consumed by the built collector
+	_getBody       func(T) ([]byte, error)
+	_overrideOrgId func(T, string)
 }
 
 type exporterConfig struct {
@@ -60,6 +66,12 @@ func newMetricExporter(cfg exporterConfig) IExporter[pmetric.Metrics] {
 			req := pmetricotlp.NewExportRequestFromMetrics(md)
 			return req.MarshalProto()
 		},
+		_overrideOrgId: func(md pmetric.Metrics, organizationId string) {
+			resourceMetrics := md.ResourceMetrics()
+			for i := 0; i < resourceMetrics.Len(); i++ {
+				overrideOrganizationIdAttribute(resourceMetrics.At(i).Resource().Attributes(), organizationId)
+			}
+		},
 	}
 }
 
@@ -73,6 +85,12 @@ func newLogsExporter(cfg exporterConfig) IExporter[plog.Logs] {
 			req := plogotlp.NewExportRequestFromLogs(ld)
 			return req.MarshalProto()
 		},
+		_overrideOrgId: func(ld plog.Logs, organizationId string) {
+			resourceLogs := ld.ResourceLogs()
+			for i := 0; i < resourceLogs.Len(); i++ {
+				overrideOrganizationIdAttribute(resourceLogs.At(i).Resource().Attributes(), organizationId)
+			}
+		},
 	}
 }
 
@@ -85,6 +103,12 @@ func newTracesExporter(cfg exporterConfig) IExporter[ptrace.Traces] {
 		_getBody: func(td ptrace.Traces) ([]byte, error) {
 			req := ptraceotlp.NewExportRequestFromTraces(td)
 			return req.MarshalProto()
+		},
+		_overrideOrgId: func(td ptrace.Traces, organizationId string) {
+			resourceSpans := td.ResourceSpans()
+			for i := 0; i < resourceSpans.Len(); i++ {
+				overrideOrganizationIdAttribute(resourceSpans.At(i).Resource().Attributes(), organizationId)
+			}
 		},
 	}
 }
@@ -102,6 +126,8 @@ func (e *Exporter[T]) push(ctx context.Context, data T) error {
 			e.logger.Debug("No endpoint configuration found for sandbox token, dropping data")
 			return nil
 		}
+
+		e.overrideOrganizationId(data, endpointConfig)
 
 		e.logger.Debug("Exporting data via sandbox token",
 			zap.String("endpoint", endpointConfig.Endpoint),
@@ -126,11 +152,34 @@ func (e *Exporter[T]) push(ctx context.Context, data T) error {
 		return nil
 	}
 
+	e.overrideOrganizationId(data, endpointConfig)
+
 	e.logger.Debug("Exporting data via organization ID",
 		zap.String("organizationId", orgId),
 		zap.String("endpoint", endpointConfig.Endpoint),
 	)
 	return e.exportViaHTTP(ctx, data, endpointConfig)
+}
+
+// overrideOrganizationId rewrites the organization ID resource attribute on the data so it
+// matches the organization the config was resolved for. Sandboxes created in the warm pool
+// initialize telemetry with the warm pool organization ID baked into their resource
+// attributes, which stays stale after the sandbox is assigned to a real organization.
+//
+//lint:ignore U1000 Used in private methods consumed by the built collector
+func (e *Exporter[T]) overrideOrganizationId(data T, cfg *apiclient.OtelConfig) {
+	if e._overrideOrgId == nil || cfg.OrganizationId == nil || *cfg.OrganizationId == "" {
+		return
+	}
+	e._overrideOrgId(data, *cfg.OrganizationId)
+}
+
+// overrideOrganizationIdAttribute replaces the organization ID resource attribute if it is
+// present with a different value. Attributes without the label are left untouched.
+func overrideOrganizationIdAttribute(attributes pcommon.Map, organizationId string) {
+	if value, ok := attributes.Get(organizationIdAttributeKey); ok && value.Str() != organizationId {
+		attributes.PutStr(organizationIdAttributeKey, organizationId)
+	}
 }
 
 //lint:ignore U1000 Used by the built collector

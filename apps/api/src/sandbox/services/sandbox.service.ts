@@ -36,7 +36,7 @@ import { Cron, CronExpression } from '@nestjs/schedule'
 import { BackupState } from '../enums/backup-state.enum'
 import { Snapshot } from '../entities/snapshot.entity'
 import { SnapshotState } from '../enums/snapshot-state.enum'
-import { SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION } from '../constants/sandbox.constants'
+import { OTEL_CONFIG_CACHE_KEY_PREFIX, SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION } from '../constants/sandbox.constants'
 import { SandboxWarmPoolService } from './sandbox-warm-pool.service'
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter'
 import { WarmPoolEvents } from '../constants/warmpool-events.constants'
@@ -917,6 +917,15 @@ export class SandboxService {
       organizationId: organization.id,
       name: warmPoolSandbox.name,
       previousOrganizationId: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+    })
+
+    // The otel collector caches the resolved OTEL config by sandbox auth token. Drop the entry
+    // cached while the sandbox was in the warm pool so the config for the new organization is
+    // refetched immediately instead of after the cache TTL expires.
+    this.redis.del(`${OTEL_CONFIG_CACHE_KEY_PREFIX}${warmPoolSandbox.authToken}`).catch((error) => {
+      this.logger.warn(
+        `Failed to invalidate otel config cache for sandbox ${warmPoolSandbox.id}: ${error instanceof Error ? error.message : String(error)}`,
+      )
     })
 
     // Treat this as a newly started sandbox

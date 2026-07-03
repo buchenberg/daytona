@@ -51,8 +51,9 @@ func (r *Resolver) GetOrganizationOtelConfig(ctx context.Context, authToken stri
 
 	if otelConfig != nil {
 		config = &apiclient.OtelConfig{
-			Endpoint: otelConfig.Endpoint,
-			Headers:  otelConfig.Headers,
+			Endpoint:       otelConfig.Endpoint,
+			Headers:        otelConfig.Headers,
+			OrganizationId: otelConfig.OrganizationId,
 		}
 	}
 
@@ -88,8 +89,9 @@ func (r *Resolver) GetOrganizationOtelConfigByOrgId(ctx context.Context, orgId s
 
 	if otelConfig != nil {
 		config = &apiclient.OtelConfig{
-			Endpoint: otelConfig.Endpoint,
-			Headers:  otelConfig.Headers,
+			Endpoint:       otelConfig.Endpoint,
+			Headers:        otelConfig.Headers,
+			OrganizationId: otelConfig.OrganizationId,
 		}
 	}
 

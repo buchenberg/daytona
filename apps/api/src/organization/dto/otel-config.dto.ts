@@ -22,4 +22,10 @@ export class OtelConfigDto {
     additionalProperties: { type: 'string' },
   })
   headers?: Record<string, string>
+
+  @ApiProperty({
+    description: 'Organization ID the config belongs to',
+    required: false,
+  })
+  organizationId?: string
 }
