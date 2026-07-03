@@ -5,6 +5,124 @@
 
 import { SandboxClass } from '../sandbox/enums/sandbox-class.enum'
 
+export interface DefaultOrganizationQuota {
+  sandboxClass: SandboxClass
+  totalCpuQuota: number
+  totalMemoryQuota: number
+  totalDiskQuota: number
+  maxCpuPerSandbox: number
+  maxMemoryPerSandbox: number
+  maxDiskPerSandbox: number
+  snapshotQuota: number
+  maxSnapshotSize: number
+  volumeQuota: number
+  maxConcurrentSnapshotProcessing: number
+}
+
+// Accepts both DEFAULT_ORG_QUOTA_CONTAINER_* and the legacy DEFAULT_ORG_QUOTA_* (without the class segment) env var names
+const defaultContainerOrganizationQuota: DefaultOrganizationQuota = {
+  sandboxClass: SandboxClass.CONTAINER,
+  totalCpuQuota: parseInt(
+    process.env.DEFAULT_ORG_QUOTA_CONTAINER_TOTAL_CPU_QUOTA || process.env.DEFAULT_ORG_QUOTA_TOTAL_CPU_QUOTA || '10',
+    10,
+  ),
+  totalMemoryQuota: parseInt(
+    process.env.DEFAULT_ORG_QUOTA_CONTAINER_TOTAL_MEMORY_QUOTA ||
+      process.env.DEFAULT_ORG_QUOTA_TOTAL_MEMORY_QUOTA ||
+      '10',
+    10,
+  ),
+  totalDiskQuota: parseInt(
+    process.env.DEFAULT_ORG_QUOTA_CONTAINER_TOTAL_DISK_QUOTA || process.env.DEFAULT_ORG_QUOTA_TOTAL_DISK_QUOTA || '30',
+    10,
+  ),
+  maxCpuPerSandbox: parseInt(
+    process.env.DEFAULT_ORG_QUOTA_CONTAINER_MAX_CPU_PER_SANDBOX ||
+      process.env.DEFAULT_ORG_QUOTA_MAX_CPU_PER_SANDBOX ||
+      '4',
+    10,
+  ),
+  maxMemoryPerSandbox: parseInt(
+    process.env.DEFAULT_ORG_QUOTA_CONTAINER_MAX_MEMORY_PER_SANDBOX ||
+      process.env.DEFAULT_ORG_QUOTA_MAX_MEMORY_PER_SANDBOX ||
+      '8',
+    10,
+  ),
+  maxDiskPerSandbox: parseInt(
+    process.env.DEFAULT_ORG_QUOTA_CONTAINER_MAX_DISK_PER_SANDBOX ||
+      process.env.DEFAULT_ORG_QUOTA_MAX_DISK_PER_SANDBOX ||
+      '10',
+    10,
+  ),
+  snapshotQuota: parseInt(
+    process.env.DEFAULT_ORG_QUOTA_CONTAINER_SNAPSHOT_QUOTA || process.env.DEFAULT_ORG_QUOTA_SNAPSHOT_QUOTA || '30',
+    10,
+  ),
+  maxSnapshotSize: parseInt(
+    process.env.DEFAULT_ORG_QUOTA_CONTAINER_MAX_SNAPSHOT_SIZE ||
+      process.env.DEFAULT_ORG_QUOTA_MAX_SNAPSHOT_SIZE ||
+      '20',
+    10,
+  ),
+  volumeQuota: parseInt(
+    process.env.DEFAULT_ORG_QUOTA_CONTAINER_VOLUME_QUOTA || process.env.DEFAULT_ORG_QUOTA_VOLUME_QUOTA || '100',
+    10,
+  ),
+  maxConcurrentSnapshotProcessing: parseInt(
+    process.env.DEFAULT_ORG_QUOTA_CONTAINER_MAX_CONCURRENT_SNAPSHOT_PROCESSING ||
+      process.env.DEFAULT_ORG_QUOTA_MAX_CONCURRENT_SNAPSHOT_PROCESSING ||
+      '10',
+    10,
+  ),
+}
+
+const defaultWindowsOrganizationQuota: DefaultOrganizationQuota = {
+  sandboxClass: SandboxClass.WINDOWS,
+  totalCpuQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_WINDOWS_TOTAL_CPU_QUOTA || '2', 10),
+  totalMemoryQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_WINDOWS_TOTAL_MEMORY_QUOTA || '8', 10),
+  totalDiskQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_WINDOWS_TOTAL_DISK_QUOTA || '30', 10),
+  maxCpuPerSandbox: parseInt(process.env.DEFAULT_ORG_QUOTA_WINDOWS_MAX_CPU_PER_SANDBOX || '4', 10),
+  maxMemoryPerSandbox: parseInt(process.env.DEFAULT_ORG_QUOTA_WINDOWS_MAX_MEMORY_PER_SANDBOX || '32', 10),
+  maxDiskPerSandbox: parseInt(process.env.DEFAULT_ORG_QUOTA_WINDOWS_MAX_DISK_PER_SANDBOX || '50', 10),
+  snapshotQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_WINDOWS_SNAPSHOT_QUOTA || '30', 10),
+  maxSnapshotSize: parseInt(process.env.DEFAULT_ORG_QUOTA_WINDOWS_MAX_SNAPSHOT_SIZE || '20', 10),
+  volumeQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_WINDOWS_VOLUME_QUOTA || '100', 10),
+  maxConcurrentSnapshotProcessing: parseInt(
+    process.env.DEFAULT_ORG_QUOTA_WINDOWS_MAX_CONCURRENT_SNAPSHOT_PROCESSING || '10',
+    10,
+  ),
+}
+
+const defaultLinuxVmOrganizationQuota: DefaultOrganizationQuota = {
+  sandboxClass: SandboxClass.LINUX_VM,
+  totalCpuQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_LINUX_VM_TOTAL_CPU_QUOTA || '2', 10),
+  totalMemoryQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_LINUX_VM_TOTAL_MEMORY_QUOTA || '8', 10),
+  totalDiskQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_LINUX_VM_TOTAL_DISK_QUOTA || '30', 10),
+  maxCpuPerSandbox: parseInt(process.env.DEFAULT_ORG_QUOTA_LINUX_VM_MAX_CPU_PER_SANDBOX || '4', 10),
+  maxMemoryPerSandbox: parseInt(process.env.DEFAULT_ORG_QUOTA_LINUX_VM_MAX_MEMORY_PER_SANDBOX || '32', 10),
+  maxDiskPerSandbox: parseInt(process.env.DEFAULT_ORG_QUOTA_LINUX_VM_MAX_DISK_PER_SANDBOX || '50', 10),
+  snapshotQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_LINUX_VM_SNAPSHOT_QUOTA || '30', 10),
+  maxSnapshotSize: parseInt(process.env.DEFAULT_ORG_QUOTA_LINUX_VM_MAX_SNAPSHOT_SIZE || '20', 10),
+  volumeQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_LINUX_VM_VOLUME_QUOTA || '100', 10),
+  maxConcurrentSnapshotProcessing: parseInt(
+    process.env.DEFAULT_ORG_QUOTA_LINUX_VM_MAX_CONCURRENT_SNAPSHOT_PROCESSING || '10',
+    10,
+  ),
+}
+
+const defaultSandboxClass = (process.env.DEFAULT_SANDBOX_CLASS || SandboxClass.CONTAINER) as SandboxClass
+
+// Sandbox classes for which every organization gets default region quotas
+const defaultQuotaSandboxClasses = (process.env.DEFAULT_QUOTA_SANDBOX_CLASSES || defaultSandboxClass)
+  .split(',')
+  .map((sandboxClass) => sandboxClass.trim()) as SandboxClass[]
+
+const defaultOrganizationQuotas = [
+  defaultContainerOrganizationQuota,
+  defaultWindowsOrganizationQuota,
+  defaultLinuxVmOrganizationQuota,
+]
+
 const configuration = {
   production: process.env.NODE_ENV === 'production',
   version: process.env.VERSION || '0.0.0-dev',
@@ -73,7 +191,9 @@ const configuration = {
     from: process.env.SMTP_EMAIL_FROM || 'noreply@mail.daytona.io',
   },
   defaultSnapshot: process.env.DEFAULT_SNAPSHOT,
-  defaultSandboxClass: (process.env.DEFAULT_SANDBOX_CLASS || SandboxClass.CONTAINER) as SandboxClass,
+  defaultSandboxClass,
+  // Sandbox classes for which every organization gets default region quotas
+  defaultQuotaSandboxClasses,
   dashboardUrl: process.env.DASHBOARD_URL,
   // Default to empty string - dashboard will then hit '/api'
   dashboardBaseApiUrl: process.env.DASHBOARD_BASE_API_URL || '',
@@ -309,21 +429,12 @@ const configuration = {
       enabled: process.env.LOG_REQUESTS_ENABLED === 'true',
     },
   },
-  defaultOrganizationQuota: {
-    totalCpuQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_TOTAL_CPU_QUOTA || '10', 10),
-    totalMemoryQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_TOTAL_MEMORY_QUOTA || '10', 10),
-    totalDiskQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_TOTAL_DISK_QUOTA || '30', 10),
-    maxCpuPerSandbox: parseInt(process.env.DEFAULT_ORG_QUOTA_MAX_CPU_PER_SANDBOX || '4', 10),
-    maxMemoryPerSandbox: parseInt(process.env.DEFAULT_ORG_QUOTA_MAX_MEMORY_PER_SANDBOX || '8', 10),
-    maxDiskPerSandbox: parseInt(process.env.DEFAULT_ORG_QUOTA_MAX_DISK_PER_SANDBOX || '10', 10),
-    snapshotQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_SNAPSHOT_QUOTA || '30', 10),
-    maxSnapshotSize: parseInt(process.env.DEFAULT_ORG_QUOTA_MAX_SNAPSHOT_SIZE || '20', 10),
-    volumeQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_VOLUME_QUOTA || '100', 10),
-    maxConcurrentSnapshotProcessing: parseInt(
-      process.env.DEFAULT_ORG_QUOTA_MAX_CONCURRENT_SNAPSHOT_PROCESSING || '10',
-      10,
-    ),
-  },
+  // Default quotas per sandbox class; organizations get region quotas for the classes listed in defaultQuotaSandboxClasses
+  defaultOrganizationQuotas,
+  // Kept under the original key; the quota of the default sandbox class (falls back to the container quota)
+  defaultOrganizationQuota:
+    defaultOrganizationQuotas.find((quota) => quota.sandboxClass === defaultSandboxClass) ??
+    defaultContainerOrganizationQuota,
   defaultRegion: {
     id: process.env.DEFAULT_REGION_ID || 'us',
     name: process.env.DEFAULT_REGION_NAME || 'us',

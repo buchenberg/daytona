@@ -498,10 +498,12 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
         totalMemoryQuota: this.defaultOrganizationQuota.totalMemoryQuota,
         totalDiskQuota: this.defaultOrganizationQuota.totalDiskQuota,
       })
+      const newRegionQuotas = [regionQuota, ...this.buildAdditionalClassRegionQuotas(organization.id, defaultRegionId)]
+
       if (organization.regionQuotas) {
-        organization.regionQuotas = [...organization.regionQuotas, regionQuota]
+        organization.regionQuotas = [...organization.regionQuotas, ...newRegionQuotas]
       } else {
-        organization.regionQuotas = [regionQuota]
+        organization.regionQuotas = newRegionQuotas
       }
     }
 
@@ -623,6 +625,31 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
       .getMany()
   }
 
+  // Default region quotas for the sandbox classes beyond the default one (whose quota the callers already create)
+  private buildAdditionalClassRegionQuotas(organizationId: string, defaultRegionId: string): RegionQuota[] {
+    const defaultSandboxClass = this.configService.getOrThrow('defaultSandboxClass')
+    const quotaSandboxClasses = this.configService.getOrThrow('defaultQuotaSandboxClasses')
+
+    return this.configService
+      .getOrThrow('defaultOrganizationQuotas')
+      .filter((quota) => quota.sandboxClass !== defaultSandboxClass && quotaSandboxClasses.includes(quota.sandboxClass))
+      .map(
+        (quota) =>
+          new RegionQuota({
+            organizationId,
+            // windows sandboxes are only available in the us region for now
+            regionId: quota.sandboxClass === SandboxClass.WINDOWS ? 'us' : defaultRegionId,
+            sandboxClass: quota.sandboxClass,
+            totalCpuQuota: quota.totalCpuQuota,
+            totalMemoryQuota: quota.totalMemoryQuota,
+            totalDiskQuota: quota.totalDiskQuota,
+            maxCpuPerSandbox: quota.maxCpuPerSandbox,
+            maxMemoryPerSandbox: quota.maxMemoryPerSandbox,
+            maxDiskPerSandbox: quota.maxDiskPerSandbox,
+          }),
+      )
+  }
+
   private async createWithEntityManager(
     entityManager: EntityManager,
     createOrganizationDto: CreateOrganizationInternalDto,
@@ -695,7 +722,10 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
           totalMemoryQuota: quota.totalMemoryQuota,
           totalDiskQuota: quota.totalDiskQuota,
         })
-        organization.regionQuotas = [regionQuota]
+        organization.regionQuotas = [
+          regionQuota,
+          ...this.buildAdditionalClassRegionQuotas(organization.id, createOrganizationDto.defaultRegionId),
+        ]
       }
     }
 
