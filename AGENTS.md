@@ -67,7 +67,6 @@ All Go modules are coordinated via `go.work` at the repo root.
 |---|---|---|
 | `apps/api` | NestJS backend API | `npx nx build api` (Webpack) |
 | `apps/dashboard` | React SPA dashboard | `npx nx build dashboard` (Vite) |
-| `apps/docs` | Astro documentation site | `npx nx build docs` |
 | `apps/backoffice-api` | Backoffice NestJS API | `npx nx build backoffice-api` |
 | `apps/backoffice-dashboard` | Backoffice dashboard | `npx nx build backoffice-dashboard` |
 | `libs/api-client` | TypeScript API client | `npx nx build api-client` |

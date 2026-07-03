@@ -68,7 +68,6 @@ Runnable applications and services for the Daytona platform. Each directory is a
 - [`cli`](apps/cli): Go command-line interface access to core features for interacting with sandboxes
 - [`daemon`](apps/daemon): code execution agent that runs inside each sandbox
 - [`dashboard`](apps/dashboard): web user interface for visual sandbox management
-- [`docs`](apps/docs): documentation content; website published to [daytona.io/docs](https://www.daytona.io/docs/)
 - [`otel-collector`](apps/otel-collector): trace and metric collection for Daytona SDK operations
 - [`proxy`](apps/proxy): reverse proxy for custom routing and preview URLs
 - [`runner`](apps/runner): compute nodes that power Daytona's compute plane and run sandboxes

@@ -36,7 +36,6 @@ jobs:
           - daytona-snapshot-manager
           - daytona-ssh-gateway
           - daytona-otel-collector
-          - daytona-docs
           - daytona-backoffice-api
 
     steps:

@@ -251,10 +251,6 @@
     "generate:api-client": {
       "cache": true
     },
-    "docs": {
-      "cache": true,
-      "inputs": ["default", { "dependentTasksOutputFiles": "**/*", "transitive": true }]
-    },
     "tidy": {
       "cache": true,
       "inputs": ["default"],

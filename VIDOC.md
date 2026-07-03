@@ -61,7 +61,6 @@ Client and non-production:
   binary embeds an Auth0 client secret via build-time ldflags (tracked issue #360). Config at
   `~/.config/daytona/config.json`, 0644, plaintext keys.
 - `apps/daytona-e2e` — Go end-to-end tests. Non-production.
-- `apps/docs` — Astro documentation site. Low security relevance.
 
 ## Trust boundaries and data paths
 

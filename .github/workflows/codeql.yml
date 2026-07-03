@@ -83,7 +83,6 @@ jobs:
               - apps/api/src/sandbox/utils/resources.ts
               - apps/dashboard/public/mockServiceWorker.js
               - apps/dashboard/src/vendor/**
-              - apps/docs/**
               - guides/**
               - examples/**
               - hack/**

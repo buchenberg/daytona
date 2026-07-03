@@ -19,7 +19,6 @@
     "no-empty-links": false,
   },
   "ignores": [
-    "**/node_modules/**",
-    "**/apps/docs/**"
+    "**/node_modules/**"
   ],
 }

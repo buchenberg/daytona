@@ -77,10 +77,6 @@ jobs:
             "version": "0.0.0"
           }' > apps/dashboard/package.json
           echo '{
-            "name": "docs",
-            "version": "0.0.0"
-          }' > apps/docs/package.json
-          echo '{
             "name": "runner",
             "version": "0.0.0"
           }' > apps/runner/package.json

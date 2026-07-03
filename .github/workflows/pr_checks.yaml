@@ -38,36 +38,6 @@ jobs:
           GONOSUMDB=github.com/daytonaio/daytona go work sync
           git diff --exit-code -- 'go.work*' '*/go.mod' '*/go.sum' || (echo "Go workspace files are not up to date! Please run 'go work sync' and commit the changes." && exit 1)
 
-  # TODO: The CLI moved to https://github.com/daytona/clients. Re-enable this job
-  # once the CLI reference docs are fetched/generated from the clients repo instead
-  # of the (now removed) local apps/cli. Disabled for now.
-  # cli-docs:
-  #   if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
-  #   name: CLI docs
-  #   runs-on: blacksmith-4vcpu-ubuntu-2404
-  #   steps:
-  #     - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-  #       with:
-  #         persist-credentials: false
-  #     - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-  #       with:
-  #         node-version: 22
-  #     - run: corepack enable
-  #     - name: Get yarn cache directory
-  #       id: yarn-cache
-  #       run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
-  #     - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-  #       with:
-  #         path: ${{ steps.yarn-cache.outputs.dir }}
-  #         key: yarn-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('yarn.lock') }}
-  #         restore-keys: yarn-${{ runner.os }}-${{ runner.arch }}-
-  #     - run: yarn install --immutable
-  #     - name: Check CLI reference docs are up to date
-  #       run: |
-  #         cd apps/docs
-  #         node tools/update-cli-reference.js --local
-  #         git diff --exit-code -- src/content/docs/en/tools/cli.mdx || (echo "CLI reference docs on the docs site are out of sync! Please run 'cd apps/docs && node tools/update-cli-reference.js --local' and commit the changes." && exit 1)
-
   golangci:
     if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
     name: Go lint

@@ -78,7 +78,6 @@ examples/**/*.png
 **/.venv
 **/poetry.lock
 !/poetry.lock
-.astro
 .github/instructions/nx.instructions.md
 
 go.work.sum
