@@ -118,6 +118,9 @@ func (d *DockerClient) getContainerCreateConfig(sandboxDto dto.CreateSandboxDTO,
 		}
 		labels["daytona.volume_mount_paths"] = strings.Join(volumeMountPaths, ",")
 	}
+	if sandboxDto.RegionId != nil && *sandboxDto.RegionId != "" {
+		labels["daytona.region_id"] = *sandboxDto.RegionId
+	}
 	if sandboxDto.Metadata != nil {
 		if orgID, ok := sandboxDto.Metadata["organizationId"]; ok && orgID != "" {
 			labels["daytona.organization_id"] = orgID
