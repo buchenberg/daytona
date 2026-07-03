@@ -5,8 +5,6 @@
 
 import { PageContent, PageHeader, PageIntro, PageLayout } from '@/components/PageLayout'
 import { AggregatedUsageChart, ResourceUsageBreakdown, UsageSummary } from '@/components/spending/AggregatedUsageChart'
-import { CostBreakdown } from '@/components/spending/CostBreakdown'
-import { UsageChartData } from '@/components/spending/ResourceUsageChart'
 import { SandboxUsageTable } from '@/components/spending/SandboxUsageTable'
 import { UsageTimelineChart } from '@/components/spending/UsageTimelineChart'
 import { Button } from '@/components/ui/button'
@@ -16,14 +14,11 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { Separator } from '@/components/ui/separator'
 import { useAggregatedUsage, useSandboxesUsage, useUsageChart } from '@/hooks/queries/useAnalyticsUsage'
 import { useOrganizationUsageOverviewQuery } from '@/hooks/queries/useOrganizationUsageOverviewQuery'
-import { useOrganizationUsageQuery } from '@/hooks/queries/useOrganizationUsageQuery'
-import { usePastOrganizationUsageQuery } from '@/hooks/queries/usePastOrganizationUsageQuery'
 import { useConfig } from '@/hooks/useConfig'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
-import { BillableMetricCode, OrganizationUsage } from '@daytona/billing-api-client/src/models'
 import { addDays, differenceInCalendarDays, subDays } from 'date-fns'
 import { AlertCircle, BarChart3, RefreshCw } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { DateRange } from 'react-day-picker'
 
 const analyticsQuickRanges: QuickRangesConfig = {
@@ -95,42 +90,6 @@ const Spending = () => {
       setSelectedChartRegion(regionUsage[0].regionId)
     }
   }, [usageOverview?.regionUsage, selectedOrganization?.defaultRegionId])
-
-  const {
-    data: currentOrganizationUsage,
-    isLoading: currentUsageLoading,
-    isError: currentUsageError,
-    refetch: refetchCurrentUsage,
-  } = useOrganizationUsageQuery({
-    organizationId: selectedOrganization?.id ?? '',
-    enabled: !!selectedOrganization,
-  })
-
-  const {
-    data: pastOrganizationUsage,
-    isLoading: pastUsageLoading,
-    isError: pastUsageError,
-    refetch: refetchPastUsage,
-  } = usePastOrganizationUsageQuery({
-    organizationId: selectedOrganization?.id ?? '',
-    enabled: !!selectedOrganization,
-  })
-
-  const sortedPastUsage = useMemo(
-    () =>
-      [...(pastOrganizationUsage ?? [])].sort(
-        (a, b) => new Date(a.from ?? '').getTime() - new Date(b.from ?? '').getTime(),
-      ),
-    [pastOrganizationUsage],
-  )
-
-  const usageChartData = useMemo(
-    () =>
-      [...sortedPastUsage, ...(currentOrganizationUsage ? [currentOrganizationUsage] : [])]
-        .map(convertUsageToChartData)
-        .filter((entry): entry is UsageChartData => entry !== null),
-    [sortedPastUsage, currentOrganizationUsage],
-  )
 
   return (
     <PageLayout>
@@ -244,57 +203,9 @@ const Spending = () => {
             )}
           </Card>
         )}
-
-        <CostBreakdown
-          usageData={usageChartData}
-          showTotal
-          isLoading={currentUsageLoading || pastUsageLoading}
-          isError={currentUsageError || pastUsageError}
-          onRetry={() => {
-            if (currentUsageError) refetchCurrentUsage()
-            if (pastUsageError) refetchPastUsage()
-          }}
-        />
       </PageContent>
     </PageLayout>
   )
-}
-
-function convertUsageToChartData(usage: OrganizationUsage): UsageChartData | null {
-  let ramGB = 0
-  let cpu = 0
-  let diskGB = 0
-  // let gpu = 0
-
-  for (const charge of usage.usageCharges ?? []) {
-    switch (charge.billableMetric) {
-      case BillableMetricCode.RAM_USAGE_BILLABLE_METRIC_CODE:
-        ramGB += Number(charge.amountCents) / 100
-        break
-      case BillableMetricCode.CPU_USAGE_BILLABLE_METRIC_CODE:
-        cpu += Number(charge.amountCents) / 100
-        break
-      case BillableMetricCode.DISK_USAGE_BILLABLE_METRIC_CODE:
-        diskGB += Number(charge.amountCents) / 100
-        break
-      // case BillableMetricCode.GPU_USAGE_BILLABLE_METRIC_CODE:
-      //   gpu += Number(charge.amountCents) / 100
-      //   break
-    }
-  }
-
-  const from = usage.from ? new Date(usage.from) : null
-  if (!from || Number.isNaN(from.getTime())) {
-    return null
-  }
-
-  return {
-    date: from.toISOString(),
-    diskGB,
-    ramGB,
-    cpu,
-    // gpu,
-  }
 }
 
 export default Spending

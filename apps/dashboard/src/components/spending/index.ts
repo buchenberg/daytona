@@ -5,5 +5,3 @@
 
 export * from './AggregatedUsageChart'
 export * from './SandboxUsageTable'
-export * from './CostBreakdown'
-export * from './ResourceUsageChart'
