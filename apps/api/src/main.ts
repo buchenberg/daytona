@@ -79,6 +79,8 @@ async function bootstrap() {
       transform: true,
     }),
   )
+  app.useBodyParser('json', { limit: '1mb' })
+  app.useBodyParser('urlencoded', { extended: true, limit: '1mb' })
 
   // Runtime flags for migrations for run and revert migrations
   if (process.argv.length > 2) {
