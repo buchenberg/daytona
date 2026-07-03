@@ -61,7 +61,7 @@ export class SecretController {
     @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
     @Body() createSecretDto: CreateSecretDto,
   ): Promise<SecretDto> {
-    const secret = await this.secretService.create(createSecretDto, authContext.organizationId)
+    const secret = await this.secretService.create(createSecretDto, authContext.organization)
     return SecretDto.fromSecret(secret)
   }
 

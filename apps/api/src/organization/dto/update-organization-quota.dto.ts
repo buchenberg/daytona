@@ -26,6 +26,9 @@ export class UpdateOrganizationQuotaDto {
   volumeQuota?: number
 
   @ApiProperty({ nullable: true })
+  secretQuota?: number
+
+  @ApiProperty({ nullable: true })
   authenticatedRateLimit?: number
 
   @ApiProperty({ nullable: true })

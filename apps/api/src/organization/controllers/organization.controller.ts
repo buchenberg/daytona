@@ -371,6 +371,7 @@ export class OrganizationController {
         snapshotQuota: req.body?.snapshotQuota,
         maxSnapshotSize: req.body?.maxSnapshotSize,
         volumeQuota: req.body?.volumeQuota,
+        secretQuota: req.body?.secretQuota,
       }),
     },
   })

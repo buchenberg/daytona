@@ -52,6 +52,11 @@ const Secrets: React.FC = () => {
       <PageContent size="full" className="overflow-hidden">
         <PageIntro
           title="Secrets"
+          desc={
+            secretsQuery.data && selectedOrganization
+              ? `${secretsQuery.data.length}/${selectedOrganization.secretQuota} secrets used`
+              : undefined
+          }
           actions={
             managePermitted ? (
               <CreateSecretSheet organizationId={selectedOrganization?.id} ref={createSecretSheetRef} />

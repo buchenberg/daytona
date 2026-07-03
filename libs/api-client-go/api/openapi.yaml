@@ -10143,25 +10143,26 @@ components:
       type: object
     Organization:
       example:
-        sandboxCreateRateLimit: 7.061401241503109
-        sandboxLifecycleRateLimitTtlSeconds: 4.145608029883936
+        secretQuota: 5.637376656633329
+        sandboxCreateRateLimit: 9.301444243932576
+        sandboxLifecycleRateLimitTtlSeconds: 7.386281948385884
         createdAt: 2000-01-23T04:56:07.000+00:00
         sandboxLimitedNetworkEgress: true
         suspendedUntil: 2000-01-23T04:56:07.000+00:00
-        snapshotDeactivationTimeoutMinutes: 5.637376656633329
+        snapshotDeactivationTimeoutMinutes: 2.3021358869347655
         otelConfig: ""
-        authenticatedRateLimitTtlSeconds: 3.616076749251911
+        authenticatedRateLimitTtlSeconds: 2.027123023002322
         id: id
         experimentalConfig: "{}"
         updatedAt: 2000-01-23T04:56:07.000+00:00
         defaultRegionId: defaultRegionId
-        sandboxCreateRateLimitTtlSeconds: 2.027123023002322
+        sandboxCreateRateLimitTtlSeconds: 4.145608029883936
         suspensionReason: suspensionReason
-        sandboxLifecycleRateLimit: 9.301444243932576
+        sandboxLifecycleRateLimit: 3.616076749251911
         suspendedAt: 2000-01-23T04:56:07.000+00:00
         personal: true
         suspensionCleanupGracePeriodHours: 0.8008281904610115
-        authenticatedRateLimit: 2.3021358869347655
+        authenticatedRateLimit: 7.061401241503109
         suspended: true
         maxCpuPerSandbox: 6.027456183070403
         maxDiskPerSandbox: 5.962133916683182
@@ -10214,6 +10215,9 @@ components:
           type: number
         maxDiskPerSandbox:
           description: Max disk per sandbox
+          type: number
+        secretQuota:
+          description: Maximum number of secrets
           type: number
         snapshotDeactivationTimeoutMinutes:
           default: 20160
@@ -10275,6 +10279,7 @@ components:
       - sandboxLifecycleRateLimit
       - sandboxLifecycleRateLimitTtlSeconds
       - sandboxLimitedNetworkEgress
+      - secretQuota
       - snapshotDeactivationTimeoutMinutes
       - suspended
       - suspendedAt
@@ -10477,20 +10482,21 @@ components:
       type: object
     UpdateOrganizationQuota:
       example:
-        sandboxCreateRateLimitTtlSeconds: 4.145608029883936
-        sandboxLifecycleRateLimit: 3.616076749251911
+        sandboxCreateRateLimitTtlSeconds: 7.386281948385884
+        sandboxLifecycleRateLimit: 2.027123023002322
         volumeQuota: 2.3021358869347655
         maxSnapshotSize: 5.637376656633329
-        authenticatedRateLimit: 7.061401241503109
-        sandboxCreateRateLimit: 9.301444243932576
+        authenticatedRateLimit: 9.301444243932576
+        secretQuota: 7.061401241503109
+        sandboxCreateRateLimit: 3.616076749251911
         snapshotQuota: 5.962133916683182
-        sandboxLifecycleRateLimitTtlSeconds: 7.386281948385884
+        sandboxLifecycleRateLimitTtlSeconds: 1.2315135367772556
         maxCpuPerSandbox: 0.8008281904610115
         maxDiskPerSandbox: 1.4658129805029452
-        maxConcurrentSnapshotProcessing: 1.0246457001441578
-        snapshotDeactivationTimeoutMinutes: 1.2315135367772556
+        maxConcurrentSnapshotProcessing: 1.4894159098541704
+        snapshotDeactivationTimeoutMinutes: 1.0246457001441578
         maxMemoryPerSandbox: 6.027456183070403
-        authenticatedRateLimitTtlSeconds: 2.027123023002322
+        authenticatedRateLimitTtlSeconds: 4.145608029883936
       properties:
         maxCpuPerSandbox:
           nullable: true
@@ -10508,6 +10514,9 @@ components:
           nullable: true
           type: number
         volumeQuota:
+          nullable: true
+          type: number
+        secretQuota:
           nullable: true
           type: number
         authenticatedRateLimit:
@@ -10549,6 +10558,7 @@ components:
       - sandboxCreateRateLimitTtlSeconds
       - sandboxLifecycleRateLimit
       - sandboxLifecycleRateLimitTtlSeconds
+      - secretQuota
       - snapshotDeactivationTimeoutMinutes
       - snapshotQuota
       - volumeQuota

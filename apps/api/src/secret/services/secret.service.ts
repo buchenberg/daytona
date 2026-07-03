@@ -10,6 +10,8 @@ import { Secret } from '../entities/secret.entity'
 import { CreateSecretDto } from '../dto/create-secret.dto'
 import { UpdateSecretDto } from '../dto/update-secret.dto'
 import { EncryptionService } from '../../encryption/encryption.service'
+import { BadRequestError } from '../../exceptions/bad-request.exception'
+import { Organization } from '../../organization/entities/organization.entity'
 
 @Injectable()
 export class SecretService {
@@ -21,13 +23,21 @@ export class SecretService {
     private readonly encryptionService: EncryptionService,
   ) {}
 
-  async create(createDto: CreateSecretDto, organizationId: string): Promise<Secret> {
+  async create(createDto: CreateSecretDto, organization: Organization): Promise<Secret> {
     const existing = await this.secretRepository.findOne({
-      where: { organizationId, name: createDto.name },
+      where: { organizationId: organization.id, name: createDto.name },
     })
 
     if (existing) {
       throw new ConflictException(`Secret with name '${createDto.name}' already exists`)
+    }
+
+    const secretCount = await this.secretRepository.count({
+      where: { organizationId: organization.id },
+    })
+
+    if (secretCount >= organization.secretQuota) {
+      throw new BadRequestError(`Secret quota exceeded. Maximum allowed: ${organization.secretQuota}`)
     }
 
     const encryptedValue = await this.encryptionService.encrypt(createDto.value)
@@ -37,7 +47,7 @@ export class SecretService {
       encryptedValue,
       description: createDto.description,
       hosts: createDto.hosts ?? [],
-      organizationId,
+      organizationId: organization.id,
     })
 
     try {
