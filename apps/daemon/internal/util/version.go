@@ -39,18 +39,17 @@ func ExtractSdkVersionFromHeader(header http.Header) string {
 // It looks for the X-Daytona-SDK-Version~<version> subprotocol in the Sec-WebSocket-Protocol header.
 // Returns an empty string if no SDK version subprotocol is found.
 func ExtractSdkVersionSubprotocol(header http.Header) string {
-	subprotocols := header.Get("Sec-WebSocket-Protocol")
-	if subprotocols == "" {
-		return ""
-	}
-
 	const prefix = "X-Daytona-SDK-Version~"
-	// split comma-separated protocols
-	for _, subprotocol := range strings.Split(subprotocols, ",") {
-		subprotocol = strings.TrimSpace(subprotocol)
-		if strings.HasPrefix(subprotocol, prefix) {
-			// Return the full subprotocol string
-			return subprotocol
+
+	// A client (or intermediary) may split the subprotocol list across multiple
+	// Sec-WebSocket-Protocol header lines, so scan every value rather than only
+	// the first that header.Get would return (matches extractPtyEnvsSubprotocol).
+	for _, headerValue := range header.Values("Sec-WebSocket-Protocol") {
+		for _, subprotocol := range strings.Split(headerValue, ",") {
+			subprotocol = strings.TrimSpace(subprotocol)
+			if strings.HasPrefix(subprotocol, prefix) {
+				return subprotocol
+			}
 		}
 	}
 

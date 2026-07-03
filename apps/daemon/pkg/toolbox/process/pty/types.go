@@ -19,7 +19,19 @@ import (
 const (
 	writeWait = 10 * time.Second
 	readLimit = 64 * 1024
+	// readDrainTimeout bounds how long the exit path waits for ptyReadLoop to
+	// finish queuing output before closing, so a lingering child that keeps the
+	// PTY open cannot stall teardown indefinitely.
+	readDrainTimeout = 5 * time.Second
 )
+
+// ptyExitInfo carries the terminal frames a client writer emits once the PTY has
+// exited: the optional "exited" control message, then the WebSocket close frame.
+type ptyExitInfo struct {
+	exitJSON    []byte
+	closeCode   int
+	closeReason string
+}
 
 // PTYController handles PTY-related HTTP endpoints
 type PTYController struct {
@@ -40,6 +52,15 @@ type wsClient struct {
 	done      chan struct{} // closed when the client is shutting down
 	closeOnce sync.Once
 	writeMu   sync.Mutex // serializes all writes to conn
+
+	// supportsExitControl is set when the client advertised the exit-control
+	// capability token; only such clients receive the "exited" control message.
+	supportsExitControl bool
+
+	// exit hands this client's writer the terminal frames on PTY exit. The writer
+	// drains any buffered output first, so queued tail output is delivered before
+	// the "exited" message and close frame (fixes the exit/close truncation race).
+	exit chan *ptyExitInfo
 }
 
 // PTYSession represents a single PTY session with multi-client support
@@ -59,6 +80,11 @@ type PTYSession struct {
 
 	// funnel of all client inputs -> single PTY writer (preserves ordering)
 	inCh chan []byte
+
+	// readLoopDone is closed when ptyReadLoop returns, i.e. all PTY output has been
+	// read and queued to clients. The exit path waits on it before closing so the
+	// tail is flushed first.
+	readLoopDone chan struct{}
 
 	// guards general session fields (info/cmd/ptmx)
 	mu sync.Mutex

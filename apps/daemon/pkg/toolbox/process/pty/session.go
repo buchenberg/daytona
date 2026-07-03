@@ -5,17 +5,60 @@ package pty
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 
 	"github.com/creack/pty"
 	"github.com/daytonaio/daemon/pkg/childreap"
 	"github.com/daytonaio/daemon/pkg/common"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/shirou/gopsutil/v4/process"
 )
+
+// createAndStartSession creates a PTYSession, adds it to the manager, and starts it if not lazy.
+// On start failure it removes the session from the manager and returns the error.
+func createAndStartSession(id, cwd string, envs map[string]string, cols, rows uint16, lazyStart bool, logger *slog.Logger) (*PTYSession, error) {
+	if envs == nil {
+		envs = make(map[string]string, 1)
+	}
+	if envs["TERM"] == "" {
+		envs["TERM"] = "xterm-256color"
+	}
+
+	session := &PTYSession{
+		info: PTYSessionInfo{
+			ID:        id,
+			Cwd:       cwd,
+			Envs:      envs,
+			Cols:      cols,
+			Rows:      rows,
+			CreatedAt: time.Now(),
+			Active:    false,
+			LazyStart: lazyStart,
+		},
+		clients: cmap.New[*wsClient](),
+		logger:  logger.With(slog.String("sessionId", id)),
+	}
+
+	if !ptyManager.AddIfAbsent(session) {
+		return nil, fmt.Errorf("PTY session with ID '%s' already exists", id)
+	}
+
+	if !lazyStart {
+		if err := session.start(); err != nil {
+			ptyManager.Delete(id)
+			return nil, err
+		}
+	}
+
+	return session, nil
+}
 
 // Info returns the current session information
 func (s *PTYSession) Info() PTYSessionInfo {
@@ -73,6 +116,8 @@ func (s *PTYSession) start() error {
 
 	s.logger.Debug("Started PTY session", "sessionId", s.info.ID, "pid", s.cmd.Process.Pid)
 
+	s.readLoopDone = make(chan struct{})
+
 	// 1) PTY -> clients broadcaster
 	go s.ptyReadLoop()
 
@@ -84,24 +129,14 @@ func (s *PTYSession) start() error {
 	// to *os.File slaves — no Go-level I/O goroutines to drain.
 	go func() {
 		exitCode, err := childreap.Reap(s.cmd)
+		// Reason is paren-free and shared by the "exited" control message and the
+		// close frame (via exitCloseFrame) so both channels report identical text.
 		var exitReason string
-
-		switch {
-		case err != nil:
+		if err != nil {
 			exitCode = 1
-			exitReason = " (process error)"
-		case exitCode == 0:
-			exitReason = " (clean exit)"
-		case exitCode == 137:
-			exitReason = " (SIGKILL)"
-		case exitCode == 130:
-			exitReason = " (SIGINT - Ctrl+C)"
-		case exitCode == 143:
-			exitReason = " (SIGTERM)"
-		case exitCode > 128:
-			exitReason = fmt.Sprintf(" (signal %d)", exitCode-128)
-		default:
-			exitReason = " (non-zero exit)"
+			exitReason = "process error"
+		} else {
+			exitReason = exitReasonText(exitCode)
 		}
 
 		s.mu.Lock()
@@ -109,8 +144,28 @@ func (s *PTYSession) start() error {
 		sessionID := s.info.ID
 		s.mu.Unlock()
 
-		// Close WebSocket connections with exit code and reason
-		s.closeClientsWithExitCode(exitCode, exitReason)
+		// Build the "exited" control message delivered (before the close frame) to
+		// clients that advertised the exit-control capability. Clients that did not
+		// opt in (incl. older SDKs) still learn the exit via the universal close
+		// frame, so this message can never break them.
+		exitMsg := map[string]interface{}{
+			"type":     "control",
+			"status":   "exited",
+			"exitCode": exitCode,
+		}
+		// Only attach exitReason for a non-zero (failed) exit; exitCloseFrame omits
+		// it for code 0 as well, so both channels stay consistent.
+		if exitCode != 0 && exitReason != "" {
+			exitMsg["exitReason"] = exitReason
+		}
+		var exitJSON []byte
+		if data, err := json.Marshal(exitMsg); err == nil {
+			exitJSON = data
+		}
+
+		// Flush each client's queued output, then send the "exited" message and the
+		// transport-level close frame — draining first so the tail is never dropped.
+		s.gracefulCloseClientsWithExitCode(exitCode, exitReason, exitJSON)
 
 		// Remove session from manager - process has exited and won't be reused
 		ptyManager.Delete(sessionID)
@@ -165,7 +220,7 @@ func (s *PTYSession) kill() {
 	s.mu.Unlock()
 
 	// Close WebSocket connections with kill exit code - 137 = 128 + 9 (SIGKILL)
-	s.closeClientsWithExitCode(137, " (SIGKILL)")
+	s.closeClientsWithExitCode(137)
 
 	// Remove session from manager - manually killed
 	ptyManager.Delete(sessionID)
@@ -195,6 +250,7 @@ func killProcessTree(pid int) {
 
 // ptyReadLoop reads from PTY and broadcasts to all clients
 func (s *PTYSession) ptyReadLoop() {
+	defer close(s.readLoopDone)
 	buf := make([]byte, 32*1024)
 	for {
 		n, err := s.ptmx.Read(buf)

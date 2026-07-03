@@ -8,17 +8,45 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/daytonaio/daemon/internal/util"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	cmap "github.com/orcaman/concurrent-map/v2"
 )
 
 // NewPTYController creates a new PTY controller
 func NewPTYController(logger *slog.Logger, workDir string) *PTYController {
 	return &PTYController{logger: logger.With(slog.String("component", "PTY_controller")), workDir: workDir}
+}
+
+// sendWSError sends a control error message over the WebSocket and closes it.
+func sendWSError(ws *websocket.Conn, message string) {
+	errorMsg := map[string]interface{}{
+		"type":   "control",
+		"status": "error",
+		"error":  message,
+	}
+	if errorJSON, err := json.Marshal(errorMsg); err == nil {
+		// Bound the write so a dead/unresponsive client cannot block this
+		// synchronous request goroutine (gorilla defaults to no write deadline).
+		_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
+		_ = ws.WriteMessage(websocket.TextMessage, errorJSON)
+	}
+	// Send a Close frame so clients observe a clean close (1011) instead of an
+	// abnormal 1006, and can surface the reason. A WS close frame caps the reason
+	// at 123 bytes (125-byte control payload minus the 2-byte code), so truncate.
+	closeReason := message
+	if len(closeReason) > 123 {
+		closeReason = closeReason[:123]
+	}
+	_ = ws.WriteControl(
+		websocket.CloseMessage,
+		websocket.FormatCloseMessage(websocket.CloseInternalServerErr, closeReason),
+		time.Now().Add(writeWait),
+	)
+	_ = ws.Close()
 }
 
 // CreatePTYSession godoc
@@ -56,12 +84,6 @@ func (p *PTYController) CreatePTYSession(c *gin.Context) {
 	if req.Cwd == "" {
 		req.Cwd = p.workDir
 	}
-	if req.Envs == nil {
-		req.Envs = make(map[string]string, 1)
-	}
-	if req.Envs["TERM"] == "" {
-		req.Envs["TERM"] = "xterm-256color"
-	}
 	if req.Cols == nil {
 		req.Cols = util.Pointer(uint16(80))
 	}
@@ -78,33 +100,10 @@ func (p *PTYController) CreatePTYSession(c *gin.Context) {
 		return
 	}
 
-	session := &PTYSession{
-		info: PTYSessionInfo{
-			ID:        req.ID,
-			Cwd:       req.Cwd,
-			Envs:      req.Envs,
-			Cols:      *req.Cols,
-			Rows:      *req.Rows,
-			CreatedAt: time.Now(),
-			Active:    false,
-			LazyStart: req.LazyStart,
-		},
-		clients: cmap.New[*wsClient](),
-		logger:  p.logger.With(slog.String("sessionId", req.ID)),
-	}
-
-	// Add to manager first to prevent race conditions
-	ptyManager.Add(session)
-
-	// Start PTY immediately if not lazy start (default behavior)
-	if !req.LazyStart {
-		if err := session.start(); err != nil {
-			// If start fails, remove from manager
-			ptyManager.Delete(req.ID)
-			p.logger.Error("failed to start PTY at create", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to start PTY session"})
-			return
-		}
+	if _, err := createAndStartSession(req.ID, req.Cwd, req.Envs, *req.Cols, *req.Rows, req.LazyStart, p.logger); err != nil {
+		p.logger.Error("failed to start PTY at create", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to start PTY session"})
+		return
 	}
 
 	c.JSON(http.StatusCreated, PTYCreateResponse{SessionID: req.ID})
@@ -203,21 +202,12 @@ func (p *PTYController) ConnectPTYSession(c *gin.Context) {
 	session, err := ptyManager.VerifyPTYSessionReady(id)
 	if err != nil {
 		p.logger.Debug("failed to connect to PTY session", "sessionId", id, "error", err)
-		// Send error control message
-		errorMsg := map[string]interface{}{
-			"type":   "control",
-			"status": "error",
-			"error":  "Failed to connect to PTY session: " + err.Error(),
-		}
-		if errorJSON, err := json.Marshal(errorMsg); err == nil {
-			_ = ws.WriteMessage(websocket.TextMessage, errorJSON)
-		}
-		_ = ws.Close()
+		sendWSError(ws, "Failed to connect to PTY session: "+err.Error())
 		return
 	}
 
 	// Attach to session - this will send the control message internally
-	session.attachWebSocket(ws)
+	session.attachWebSocket(ws, clientSupportsExitControl(c.Request.Header))
 }
 
 // ResizePTYSession godoc
@@ -270,4 +260,78 @@ func (p *PTYController) ResizePTYSession(c *gin.Context) {
 	// Return updated session info
 	updatedInfo := session.Info()
 	c.JSON(http.StatusOK, updatedInfo)
+}
+
+// CreateAndConnectPTYSession creates a new PTY session and immediately upgrades to a
+// WebSocket in a single round-trip. It is intentionally NOT exposed via swagger: it is
+// a WebSocket-upgrade (HTTP 101) endpoint that generated REST clients cannot consume
+// correctly (they treat 101 as an error and block draining the upgraded connection).
+// The hand-written SDKs implement it directly over native WebSocket libraries.
+func (p *PTYController) CreateAndConnectPTYSession(c *gin.Context) {
+	id := c.Query("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "session ID is required (query param 'id')"})
+		return
+	}
+
+	// Check if session with this ID already exists
+	if _, exists := ptyManager.Get(id); exists {
+		c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("PTY session with ID '%s' already exists", id)})
+		return
+	}
+
+	// Parse optional params with defaults
+	cwd := c.DefaultQuery("cwd", p.workDir)
+	cols, ok := parseUint16Query(c, "cols", 80)
+	if !ok {
+		return
+	}
+	rows, ok := parseUint16Query(c, "rows", 24)
+	if !ok {
+		return
+	}
+
+	if cols > 1000 || rows > 1000 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cols and rows must be less than 1000"})
+		return
+	}
+
+	// Envs arrive as a WebSocket subprotocol token (kept out of the URL).
+	envs, err := extractPtyEnvsSubprotocol(c.Request.Header)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid envs subprotocol: " + err.Error()})
+		return
+	}
+	// Upgrade to WebSocket FIRST (before creating session)
+	ws, err := util.UpgradeToWebSocket(c.Writer, c.Request)
+	if err != nil {
+		p.logger.Error("ws upgrade failed", "error", err)
+		return
+	}
+
+	session, err := createAndStartSession(id, cwd, envs, cols, rows, false, p.logger)
+	if err != nil {
+		p.logger.Error("failed to start PTY session", "error", err)
+		sendWSError(ws, "Failed to start PTY session: "+err.Error())
+		return
+	}
+
+	// Attach WS client — sends "connected" control message and blocks on reader
+	session.attachWebSocket(ws, clientSupportsExitControl(c.Request.Header))
+}
+
+// parseUint16Query parses a uint16 query parameter, falling back to defaultVal
+// when absent. On malformed input it writes a 400 response and returns ok=false
+// so the caller aborts rather than silently substituting the default.
+func parseUint16Query(c *gin.Context, key string, defaultVal uint16) (uint16, bool) {
+	str := c.Query(key)
+	if str == "" {
+		return defaultVal, true
+	}
+	val, err := strconv.ParseUint(str, 10, 16)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%s must be an integer between 0 and 65535", key)})
+		return 0, false
+	}
+	return uint16(val), true
 }

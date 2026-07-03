@@ -13,12 +13,14 @@ import (
 )
 
 // attachWebSocket connects a new WebSocket client to the PTY session
-func (s *PTYSession) attachWebSocket(ws *websocket.Conn) {
+func (s *PTYSession) attachWebSocket(ws *websocket.Conn, supportsExitControl bool) {
 	cl := &wsClient{
-		id:   uuid.NewString(),
-		conn: ws,
-		send: make(chan []byte, 256), // if full, drop slow client
-		done: make(chan struct{}),
+		id:                  uuid.NewString(),
+		conn:                ws,
+		send:                make(chan []byte, 256), // if full, drop slow client
+		done:                make(chan struct{}),
+		exit:                make(chan *ptyExitInfo, 1),
+		supportsExitControl: supportsExitControl,
 	}
 
 	// Register client FIRST so it can receive PTY output via broadcast
@@ -58,16 +60,50 @@ func (s *PTYSession) clientWriter(cl *wsClient) {
 			return
 		case <-cl.done:
 			return
+		case ex := <-cl.exit:
+			s.flushAndClose(cl, ex)
+			return
 		case b := <-cl.send:
-			cl.writeMu.Lock()
-			_ = cl.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			err := cl.conn.WriteMessage(websocket.BinaryMessage, b)
-			cl.writeMu.Unlock()
-			if err != nil {
+			if !s.writeBinary(cl, b) {
 				return
 			}
 		}
 	}
+}
+
+// writeBinary writes a single PTY output frame to the client. Returns false on error.
+func (s *PTYSession) writeBinary(cl *wsClient, b []byte) bool {
+	cl.writeMu.Lock()
+	_ = cl.conn.SetWriteDeadline(time.Now().Add(writeWait))
+	err := cl.conn.WriteMessage(websocket.BinaryMessage, b)
+	cl.writeMu.Unlock()
+	return err == nil
+}
+
+// flushAndClose drains any still-buffered PTY output, then emits the "exited"
+// control message (for opted-in clients) followed by the close frame. Draining
+// first guarantees the tail output reaches the client before the terminal frames,
+// fixing the race where a fast exit closed the socket while output was still queued.
+func (s *PTYSession) flushAndClose(cl *wsClient, ex *ptyExitInfo) {
+drain:
+	for {
+		select {
+		case b := <-cl.send:
+			if !s.writeBinary(cl, b) {
+				cl.close()
+				return
+			}
+		default:
+			break drain
+		}
+	}
+	if ex != nil {
+		if cl.supportsExitControl && ex.exitJSON != nil {
+			_ = cl.writeMessage(websocket.TextMessage, ex.exitJSON)
+		}
+		_ = cl.writeMessage(websocket.CloseMessage, websocket.FormatCloseMessage(ex.closeCode, ex.closeReason))
+	}
+	cl.close()
 }
 
 // clientReader reads input from a WebSocket client and sends to PTY
@@ -116,56 +152,90 @@ func (s *PTYSession) broadcast(b []byte) {
 	s.clientsMu.RUnlock()
 }
 
-// closeClientsWithExitCode closes all WebSocket connections with structured exit data
-func (s *PTYSession) closeClientsWithExitCode(exitCode int, exitReason string) {
-	var wsCloseCode int
-	var exitReasonStr *string
+// exitReasonText returns the human-readable, paren-free reason for a PTY exit
+// code (empty for a clean exit). It is the single source of truth shared by the
+// "exited" control message and the close frame so both report identical strings.
+func exitReasonText(exitCode int) string {
+	switch {
+	case exitCode == 0:
+		return ""
+	case exitCode == 130:
+		return "Ctrl+C"
+	case exitCode == 137:
+		return "SIGKILL"
+	case exitCode == 143:
+		return "SIGTERM"
+	case exitCode > 128:
+		return fmt.Sprintf("signal %d", exitCode-128)
+	default:
+		return "non-zero exit"
+	}
+}
 
-	// Map PTY exit codes to WebSocket close codes
-	if exitCode == 0 {
-		wsCloseCode = websocket.CloseNormalClosure
-		exitReasonStr = nil // undefined for clean exit
-	} else {
+// exitCloseFrame maps a PTY exit code and its (paren-free) reason to the WebSocket
+// close code and the JSON close-frame payload (structured {exitCode, exitReason?});
+// exitReason is omitted for a clean (code 0) exit.
+func exitCloseFrame(exitCode int, reason string) (int, string) {
+	wsCloseCode := websocket.CloseNormalClosure
+	var exitReasonStr *string
+	if exitCode != 0 {
 		wsCloseCode = websocket.CloseInternalServerErr
-		// Set human-readable reason for non-zero exits
-		switch {
-		case exitCode == 130:
-			reason := "Ctrl+C"
-			exitReasonStr = &reason
-		case exitCode == 137:
-			reason := "SIGKILL"
-			exitReasonStr = &reason
-		case exitCode == 143:
-			reason := "SIGTERM"
-			exitReasonStr = &reason
-		case exitCode > 128:
-			sigNum := exitCode - 128
-			reason := fmt.Sprintf("signal %d", sigNum)
-			exitReasonStr = &reason
-		default:
-			reason := "non-zero exit"
-			exitReasonStr = &reason
+		if reason != "" {
+			r := reason
+			exitReasonStr = &r
 		}
 	}
 
-	// Create structured close data as JSON
 	type CloseData struct {
 		ExitCode   int     `json:"exitCode"`
 		ExitReason *string `json:"exitReason,omitempty"`
 	}
+	closeJSON, _ := json.Marshal(CloseData{ExitCode: exitCode, ExitReason: exitReasonStr})
+	return wsCloseCode, string(closeJSON)
+}
 
-	closeData := CloseData{
-		ExitCode:   exitCode,
-		ExitReason: exitReasonStr,
+// gracefulCloseClientsWithExitCode is the normal (process-exit) close path. It waits
+// for all PTY output to be queued, then hands each client's writer the terminal
+// frames (the optional "exited" control message in exitJSON, then the close frame)
+// so buffered output is flushed before them. A nil exitJSON sends only the close
+// frame.
+func (s *PTYSession) gracefulCloseClientsWithExitCode(exitCode int, reason string, exitJSON []byte) {
+	// Wait until ptyReadLoop has read and queued all output, bounded so a lingering
+	// child holding the PTY open cannot stall teardown indefinitely.
+	if s.readLoopDone != nil {
+		select {
+		case <-s.readLoopDone:
+		case <-time.After(readDrainTimeout):
+		}
 	}
 
-	closeJSON, _ := json.Marshal(closeData)
+	closeCode, closeReason := exitCloseFrame(exitCode, reason)
+	ex := &ptyExitInfo{exitJSON: exitJSON, closeCode: closeCode, closeReason: closeReason}
 
 	s.clientsMu.Lock()
 	for id, cl := range s.clients.Items() {
-		_ = cl.writeMessage(websocket.CloseMessage, websocket.FormatCloseMessage(
-			wsCloseCode, string(closeJSON),
-		))
+		select {
+		case cl.exit <- ex:
+			// writer drains queued output, emits terminal frames, and closes.
+		default:
+			// No writer consuming (already gone) — close directly as a fallback.
+			_ = cl.writeMessage(websocket.CloseMessage, websocket.FormatCloseMessage(closeCode, closeReason))
+			cl.close()
+		}
+		s.clients.Remove(id)
+	}
+	s.clientsMu.Unlock()
+}
+
+// closeClientsWithExitCode force-closes all WebSocket connections with the structured
+// close frame. Used by the kill path, where truncating any still-queued output is
+// acceptable because the session is being torn down forcefully.
+func (s *PTYSession) closeClientsWithExitCode(exitCode int) {
+	wsCloseCode, closeJSON := exitCloseFrame(exitCode, exitReasonText(exitCode))
+
+	s.clientsMu.Lock()
+	for id, cl := range s.clients.Items() {
+		_ = cl.writeMessage(websocket.CloseMessage, websocket.FormatCloseMessage(wsCloseCode, closeJSON))
 		cl.close()
 		s.clients.Remove(id)
 	}
