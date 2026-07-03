@@ -77,9 +77,15 @@ export class DockerRegistryController {
     @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
     @Body() createDockerRegistryDto: CreateDockerRegistryDto,
   ): Promise<DockerRegistryDto> {
+    // Map request input explicitly rather than spreading the DTO, so a client cannot mass-assign
+    // server-owned columns (id, isDefault, region, registryType) that the DTO does not declare.
     const dockerRegistry = await this.dockerRegistryService.create(
       {
-        ...createDockerRegistryDto,
+        name: createDockerRegistryDto.name,
+        url: createDockerRegistryDto.url,
+        username: createDockerRegistryDto.username,
+        password: createDockerRegistryDto.password,
+        project: createDockerRegistryDto.project,
         registryType: RegistryType.ORGANIZATION,
       },
       authContext.organizationId,
