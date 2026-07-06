@@ -3,12 +3,14 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, HttpCode } from '@nestjs/common'
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, HttpCode, Query } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiOAuth2, ApiHeader, ApiParam, ApiBearerAuth } from '@nestjs/swagger'
 import { SecretService } from '../services/secret.service'
 import { CreateSecretDto } from '../dto/create-secret.dto'
 import { UpdateSecretDto } from '../dto/update-secret.dto'
 import { SecretDto } from '../dto/secret.dto'
+import { ListSecretsQueryDto } from '../dto/list-secrets-query.dto'
+import { ListSecretsResponseDto } from '../dto/list-secrets-response.dto'
 import { AuthStrategy } from '../../auth/decorators/auth-strategy.decorator'
 import { AuthStrategyType } from '../../auth/enums/auth-strategy-type.enum'
 import { CustomHeaders } from '../../common/constants/header.constants'
@@ -69,6 +71,9 @@ export class SecretController {
   @ApiOperation({
     summary: 'List secrets',
     operationId: 'listSecrets',
+    deprecated: true,
+    description:
+      'This endpoint is deprecated and fails for organizations with more than 1500 secrets. Use `listSecretsPaginated` instead.',
   })
   @ApiResponse({
     status: 200,
@@ -79,6 +84,38 @@ export class SecretController {
   async findAll(@IsOrganizationAuthContext() authContext: OrganizationAuthContext): Promise<SecretDto[]> {
     const secrets = await this.secretService.findAll(authContext.organizationId)
     return secrets.map(SecretDto.fromSecret)
+  }
+
+  @Get('paginated')
+  @ApiOperation({
+    summary: 'List secrets with pagination',
+    operationId: 'listSecretsPaginated',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of secrets (metadata only, values are not returned)',
+    type: ListSecretsResponseDto,
+  })
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.MANAGE_SECRETS])
+  async findAllPaginated(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Query() queryParams: ListSecretsQueryDto,
+  ): Promise<ListSecretsResponseDto> {
+    const { cursor, limit, name, sort, order } = queryParams
+
+    const result = await this.secretService.findAllPaginated(
+      authContext.organizationId,
+      cursor,
+      limit,
+      { name },
+      { field: sort, direction: order },
+    )
+
+    return {
+      items: result.items.map(SecretDto.fromSecret),
+      total: result.total,
+      nextCursor: result.nextCursor,
+    }
   }
 
   @Get(':secretId')

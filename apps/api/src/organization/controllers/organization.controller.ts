@@ -372,6 +372,7 @@ export class OrganizationController {
         maxSnapshotSize: req.body?.maxSnapshotSize,
         volumeQuota: req.body?.volumeQuota,
         secretQuota: req.body?.secretQuota,
+        maxSecretsPerSandbox: req.body?.maxSecretsPerSandbox,
       }),
     },
   })

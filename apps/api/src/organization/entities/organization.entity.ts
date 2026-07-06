@@ -84,10 +84,17 @@ export class Organization {
 
   @Column({
     type: 'int',
-    default: 200,
+    default: 10000,
     name: 'secret_quota',
   })
   secretQuota: number
+
+  @Column({
+    type: 'int',
+    default: 64,
+    name: 'max_secrets_per_sandbox',
+  })
+  maxSecretsPerSandbox: number
 
   @Column({
     type: 'int',

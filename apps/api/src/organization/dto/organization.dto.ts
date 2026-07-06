@@ -85,6 +85,11 @@ export class OrganizationDto {
   secretQuota: number
 
   @ApiProperty({
+    description: 'Maximum number of secrets that can be mounted to a single sandbox',
+  })
+  maxSecretsPerSandbox: number
+
+  @ApiProperty({
     description: 'Time in minutes before an unused snapshot is deactivated',
     default: 20160,
   })
@@ -193,6 +198,7 @@ export class OrganizationDto {
       maxMemoryPerSandbox: organization.maxMemoryPerSandbox,
       maxDiskPerSandbox: organization.maxDiskPerSandbox,
       secretQuota: organization.secretQuota,
+      maxSecretsPerSandbox: organization.maxSecretsPerSandbox,
       snapshotDeactivationTimeoutMinutes: organization.snapshotDeactivationTimeoutMinutes,
       sandboxLimitedNetworkEgress: organization.sandboxLimitedNetworkEgress,
       defaultRegionId: organization.defaultRegionId,

@@ -6,6 +6,7 @@
 import { SnapshotQueryParams } from './useSnapshotsQuery'
 import type { AuditLogsQueryParams } from './useAuditLogsQuery'
 import type { SandboxQueryParams } from './useSandboxesQuery'
+import type { SecretQueryParams } from './useSecretsQuery'
 
 export const queryKeys = {
   config: {
@@ -17,7 +18,19 @@ export const queryKeys = {
   },
   secrets: {
     all: ['secrets'] as const,
-    list: (organizationId: string) => [...queryKeys.secrets.all, organizationId, 'list'] as const,
+    list: (organizationId: string, params?: SecretQueryParams) => {
+      const base = [...queryKeys.secrets.all, organizationId, 'list'] as const
+      if (!params) return base
+      return [
+        ...base,
+        {
+          cursor: params.cursor,
+          limit: params.limit,
+          ...(params.filters && { filters: params.filters }),
+          ...(params.sorting && { sorting: params.sorting }),
+        },
+      ] as const
+    },
   },
   webhooks: {
     all: ['webhooks'] as const,

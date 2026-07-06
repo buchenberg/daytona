@@ -3,27 +3,29 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
+import { DEFAULT_SECRET_SORTING, SecretSorting } from '@/hooks/queries/useSecretsQuery'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import { cn, getRelativeTimeString } from '@/lib/utils'
 import { DEFAULT_TABLE_COLUMN, getColumnSizeStyles, getTableSizeStyles } from '@/lib/utils/table'
-import { OrganizationRolePermissionsEnum, Secret } from '@daytona/api-client'
+import {
+  ListSecretsPaginatedOrderEnum,
+  ListSecretsPaginatedSortEnum,
+  OrganizationRolePermissionsEnum,
+  Secret,
+} from '@daytona/api-client'
 import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
   Table as ReactTable,
   RowData,
   SortingState,
   useReactTable,
 } from '@tanstack/react-table'
 import { MoreHorizontal, ShieldCheck } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { CursorPagination } from './CursorPagination'
 import { PageFooterPortal } from './PageLayout'
-import { Pagination } from './Pagination'
 import { SearchInput } from './SearchInput'
 import { TimestampTooltip } from './TimestampTooltip'
 import { Button } from './ui/button'
@@ -62,14 +64,84 @@ const getMeta = (table: ReactTable<Secret>) => {
   return table.options.meta?.secret as SecretTableMeta
 }
 
+const convertApiSortingToTableSorting = (sorting: SecretSorting): SortingState => {
+  let id: string
+  switch (sorting.field) {
+    case ListSecretsPaginatedSortEnum.NAME:
+      id = 'name'
+      break
+    case ListSecretsPaginatedSortEnum.UPDATED_AT:
+      id = 'updatedAt'
+      break
+    case ListSecretsPaginatedSortEnum.CREATED_AT:
+    default:
+      id = 'createdAt'
+      break
+  }
+
+  return [{ id, desc: sorting.direction === ListSecretsPaginatedOrderEnum.DESC }]
+}
+
+const convertTableSortingToApiSorting = (sorting: SortingState): SecretSorting => {
+  if (!sorting.length) {
+    return DEFAULT_SECRET_SORTING
+  }
+
+  const sort = sorting[0]
+  let field: ListSecretsPaginatedSortEnum
+
+  switch (sort.id) {
+    case 'name':
+      field = ListSecretsPaginatedSortEnum.NAME
+      break
+    case 'updatedAt':
+      field = ListSecretsPaginatedSortEnum.UPDATED_AT
+      break
+    case 'createdAt':
+    default:
+      field = ListSecretsPaginatedSortEnum.CREATED_AT
+      break
+  }
+
+  return {
+    field,
+    direction: sort.desc ? ListSecretsPaginatedOrderEnum.DESC : ListSecretsPaginatedOrderEnum.ASC,
+  }
+}
+
 interface SecretTableProps {
   data: Secret[]
   loading: boolean
   onEdit: (secret: Secret) => void
   onDelete: (secret: Secret) => void
+  pageSize: number
+  onPageSizeChange: (pageSize: number) => void
+  hasNextPage: boolean
+  hasPreviousPage: boolean
+  onNextPage: () => void
+  onPreviousPage: () => void
+  searchValue: string
+  onSearchChange: (value: string) => void
+  sorting: SecretSorting
+  onSortingChange: (sorting: SecretSorting) => void
 }
 
-export function SecretTable({ data, loading, onEdit, onDelete }: SecretTableProps) {
+export function SecretTable({
+  data,
+  loading,
+  onEdit,
+  onDelete,
+  pageSize,
+  onPageSizeChange,
+  hasNextPage,
+  hasPreviousPage,
+  onNextPage,
+  onPreviousPage,
+  searchValue,
+  onSearchChange,
+  sorting,
+  onSortingChange,
+}: SecretTableProps) {
   const { authenticatedUserHasPermission } = useSelectedOrganization()
 
   const managePermitted = useMemo(
@@ -77,8 +149,8 @@ export function SecretTable({ data, loading, onEdit, onDelete }: SecretTableProp
     [authenticatedUserHasPermission],
   )
 
-  const [sorting, setSorting] = useState<SortingState>([])
-  const [globalFilter, setGlobalFilter] = useState('')
+  const tableSorting = useMemo(() => convertApiSortingToTableSorting(sorting), [sorting])
+
   const table = useReactTable({
     columnResizeMode: 'onEnd',
     data,
@@ -88,52 +160,33 @@ export function SecretTable({ data, loading, onEdit, onDelete }: SecretTableProp
     },
     defaultColumn: DEFAULT_TABLE_COLUMN,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
-    getSortedRowModel: getSortedRowModel(),
-    onGlobalFilterChange: setGlobalFilter,
-    globalFilterFn: (row, _columnId, filterValue) => {
-      const secret = row.original
-      const searchValue = String(filterValue).toLowerCase()
-
-      return (
-        secret.name.toLowerCase().includes(searchValue) ||
-        (secret.description?.toLowerCase().includes(searchValue) ?? false) ||
-        (secret.hosts ?? []).some((host) => host.toLowerCase().includes(searchValue))
-      )
+    manualSorting: true,
+    onSortingChange: (updater) => {
+      const newTableSorting = typeof updater === 'function' ? updater(table.getState().sorting) : updater
+      onSortingChange(convertTableSortingToApiSorting(newTableSorting))
     },
     state: {
-      globalFilter,
-      sorting,
+      sorting: tableSorting,
     },
     initialState: {
       columnPinning: {
         left: ['name'],
         right: ['actions'],
       },
-      pagination: {
-        pageSize: DEFAULT_PAGE_SIZE,
-      },
     },
   })
 
   const isEmpty = !loading && table.getRowModel().rows.length === 0
-  const hasSearch = globalFilter.trim().length > 0
-
-  const handleChangeFilter = (value: string) => {
-    setGlobalFilter(value)
-    table.setPageIndex(0)
-  }
+  const hasSearch = searchValue.trim().length > 0
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex items-center gap-2">
         <SearchInput
           debounced
-          value={globalFilter}
-          onValueChange={handleChangeFilter}
-          placeholder="Search by Name, Description, or Host"
+          value={searchValue}
+          onValueChange={onSearchChange}
+          placeholder="Search by Name"
           containerClassName="min-w-0 flex-1 sm:max-w-sm"
         />
       </div>
@@ -158,7 +211,7 @@ export function SecretTable({ data, loading, onEdit, onDelete }: SecretTableProp
               }
               action={
                 hasSearch ? (
-                  <Button variant="outline" onClick={() => handleChangeFilter('')}>
+                  <Button variant="outline" onClick={() => onSearchChange('')}>
                     Clear filters
                   </Button>
                 ) : null
@@ -187,7 +240,7 @@ export function SecretTable({ data, loading, onEdit, onDelete }: SecretTableProp
           <TableBody>
             {loading ? (
               <>
-                {Array.from({ length: DEFAULT_PAGE_SIZE }).map((_, i) => (
+                {Array.from({ length: pageSize }).map((_, i) => (
                   <TableRow key={i}>
                     {table.getVisibleLeafColumns().map((column) => (
                       <TableCell key={column.id} sticky={column.getIsPinned()} style={getColumnSizeStyles(column)}>
@@ -216,7 +269,14 @@ export function SecretTable({ data, loading, onEdit, onDelete }: SecretTableProp
         </Table>
       </TableContainer>
       <PageFooterPortal>
-        <Pagination table={table} entityName="Secrets" />
+        <CursorPagination
+          pageSize={pageSize}
+          onPageSizeChange={onPageSizeChange}
+          hasNextPage={hasNextPage}
+          hasPreviousPage={hasPreviousPage}
+          onNextPage={onNextPage}
+          onPreviousPage={onPreviousPage}
+        />
       </PageFooterPortal>
     </div>
   )
@@ -232,6 +292,7 @@ const columns: ColumnDef<Secret>[] = [
     accessorKey: 'description',
     header: 'Description',
     size: 250,
+    enableSorting: false,
     cell: ({ row }) => {
       const description = row.original.description
       return description ? (
@@ -245,6 +306,7 @@ const columns: ColumnDef<Secret>[] = [
     accessorKey: 'hosts',
     header: 'Allowed Hosts',
     size: 220,
+    enableSorting: false,
     cell: ({ row }) => {
       const hosts = row.original.hosts
       return hosts?.length ? (
@@ -286,6 +348,7 @@ const columns: ColumnDef<Secret>[] = [
     size: 48,
     minSize: 48,
     maxSize: 48,
+    enableSorting: false,
     cell: ({ row, table }) => {
       const { onEdit, onDelete, managePermitted } = getMeta(table)
 

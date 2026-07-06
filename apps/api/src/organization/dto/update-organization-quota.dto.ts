@@ -28,6 +28,9 @@ export class UpdateOrganizationQuotaDto {
   @ApiProperty({ nullable: true })
   secretQuota?: number
 
+  @ApiProperty({ nullable: true, description: 'Maximum number of secrets that can be mounted to a single sandbox' })
+  maxSecretsPerSandbox?: number
+
   @ApiProperty({ nullable: true })
   authenticatedRateLimit?: number
 

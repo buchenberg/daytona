@@ -607,7 +607,7 @@ export class SandboxService {
       // Resolve volume names to UUIDs before runner assignment, so invalid references fail fast
       const resolvedVolumes = await this.resolveVolumes(organization.id, createSandboxDto.volumes)
 
-      const resolvedSecretMounts = await this.validateSecrets(createSandboxDto.secrets, organization.id)
+      const resolvedSecretMounts = await this.validateSecrets(createSandboxDto.secrets, organization)
 
       // GPU sandboxes are always ephemeral: they get exclusive ownership of a
       // runner for their lifetime and are auto-deleted on first stop. Skip the
@@ -1017,7 +1017,7 @@ export class SandboxService {
       // Resolve volume names to UUIDs, failing fast on invalid references
       const resolvedVolumes = await this.resolveVolumes(organization.id, createSandboxDto.volumes)
 
-      const resolvedSecretMounts = await this.validateSecrets(createSandboxDto.secrets, organization.id)
+      const resolvedSecretMounts = await this.validateSecrets(createSandboxDto.secrets, organization)
 
       const sandbox = new Sandbox({ region: region.id, name: createSandboxDto.name })
 
@@ -1990,10 +1990,16 @@ export class SandboxService {
 
   private async validateSecrets(
     secrets: Record<string, string>[] | undefined,
-    organizationId: string,
+    organization: Organization,
   ): Promise<{ envVar: string; secretId: string; placeholder: string }[]> {
     if (!secrets?.length) {
       return []
+    }
+
+    if (secrets.length > organization.maxSecretsPerSandbox) {
+      throw new BadRequestError(
+        `Too many secrets mounted to the sandbox. Maximum allowed per sandbox: ${organization.maxSecretsPerSandbox}`,
+      )
     }
 
     const mounts: { envVar: string; vaultName: string }[] = []
@@ -2022,7 +2028,7 @@ export class SandboxService {
     }
 
     const vaultNames = [...new Set(mounts.map((m) => m.vaultName))]
-    const foundSecrets = await this.secretService.findByNames(vaultNames, organizationId)
+    const foundSecrets = await this.secretService.findByNames(vaultNames, organization.id)
     const nameToSecret = new Map(foundSecrets.map((s) => [s.name, s]))
 
     const missing = vaultNames.filter((n) => !nameToSecret.has(n))
