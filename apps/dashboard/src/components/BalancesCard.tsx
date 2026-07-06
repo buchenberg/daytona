@@ -18,9 +18,9 @@ import { toast } from 'sonner'
 
 const PAGE_SIZE = 5
 
-// "Prepaid credits" balances created on these days (UTC) hold a mix of free and
+// "Prepaid Commit" balances created on these days (UTC) hold a mix of free and
 // paid credits, so neither the credit nor the commit label is accurate.
-const MIXED_CREDIT_NAME = 'Prepaid credits'
+const MIXED_CREDIT_NAME = 'Prepaid Commit'
 const MIXED_CREDIT_DATES = ['2026-05-15', '2026-05-18']
 
 interface BalancesCardProps {
