@@ -350,11 +350,13 @@ const columns: ColumnDef<ApiKeyList>[] = [
       return (
         <div className="flex justify-end">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Open menu" disabled={isLoading}>
-                {isLoading ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal />}
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="Open menu" disabled={isLoading}>
+                  {isLoading ? <Loader2 className="size-4 animate-spin" /> : <MoreHorizontal />}
+                </Button>
+              }
+            />
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 variant="destructive"

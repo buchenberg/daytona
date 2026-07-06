@@ -7,8 +7,9 @@ import { useCommandPaletteActions } from '@/components/CommandPalette'
 import { CopyButton } from '@/components/CopyButton'
 import { PageFooterPortal } from '@/components/PageLayout'
 import { Pagination } from '@/components/Pagination'
+import { ResponsiveButton } from '@/components/ResponsiveButton'
 import { SearchInput } from '@/components/SearchInput'
-import { SelectionToast } from '@/components/SelectionToast'
+import { SelectionToast, SelectionToastContainer } from '@/components/SelectionToast'
 import { TimestampTooltip } from '@/components/TimestampTooltip'
 import { Badge, BadgeProps } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -290,16 +291,17 @@ export function VolumeTable({
             containerClassName="min-w-0 flex-1 sm:max-w-sm"
           />
           <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
-                aria-label="Filter"
-              >
-                <ListFilter className="size-4" />
-                <span className="max-[420px]:hidden">Filter</span>
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <ResponsiveButton
+                  icon={<ListFilter className="size-4" />}
+                  variant="outline"
+                  className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
+                >
+                  Filter
+                </ResponsiveButton>
+              }
+            />
             <DropdownMenuContent className="w-48" align="start">
               <VolumeFilterSubmenu column={stateColumn} title="State" options={statuses} />
             </DropdownMenuContent>
@@ -425,16 +427,17 @@ export function VolumeTable({
       <PageFooterPortal>
         <Pagination table={table} selectionEnabled={deletePermitted} entityName="Volumes" />
       </PageFooterPortal>
-      <AnimatePresence>
-        {hasSelection && (
-          <SelectionToast
-            className="absolute bottom-[120px] sm:bottom-20 left-1/2 -translate-x-1/2 z-50"
-            selectedCount={selectedRows.length}
-            onClearSelection={() => table.resetRowSelection()}
-            onActionClick={() => setIsOpen(true)}
-          />
-        )}
-      </AnimatePresence>
+      <SelectionToastContainer>
+        <AnimatePresence>
+          {hasSelection && (
+            <SelectionToast
+              selectedCount={selectedRows.length}
+              onClearSelection={() => table.resetRowSelection()}
+              onActionClick={() => setIsOpen(true)}
+            />
+          )}
+        </AnimatePresence>
+      </SelectionToastContainer>
       <VolumeBulkActionAlertDialog
         action={pendingBulkAction}
         count={pendingBulkAction === VolumeBulkAction.Delete ? bulkActionCounts.deletable : 0}
@@ -520,9 +523,8 @@ const columns: ColumnDef<VolumeDto>[] = [
       return (
         <div className="flex justify-center">
           <Checkbox
-            checked={
-              table.getIsAllPageRowsSelected() ? true : table.getIsSomePageRowsSelected() ? 'indeterminate' : false
-            }
+            checked={table.getIsAllPageRowsSelected()}
+            indeterminate={!table.getIsAllPageRowsSelected() && table.getIsSomePageRowsSelected()}
             onCheckedChange={(value) => {
               for (const row of table.getRowModel().rows) {
                 const isProcessing = processingVolumeAction[row.original.id]
@@ -613,7 +615,7 @@ const columns: ColumnDef<VolumeDto>[] = [
       if (state === VolumeState.ERROR && !!volume.errorReason) {
         return (
           <Tooltip>
-            <TooltipTrigger asChild>{badge}</TooltipTrigger>
+            <TooltipTrigger render={badge} />
             <TooltipContent>
               <p className="max-w-[300px]">{volume.errorReason}</p>
             </TooltipContent>
@@ -668,11 +670,13 @@ const columns: ColumnDef<VolumeDto>[] = [
       return (
         <div className="flex justify-end">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Open menu">
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="Open menu">
+                  <MoreHorizontal />
+                </Button>
+              }
+            />
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 variant="destructive"

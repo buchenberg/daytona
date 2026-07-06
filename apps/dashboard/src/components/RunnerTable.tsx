@@ -410,11 +410,14 @@ const runnerColumns: ColumnDef<Runner>[] = [
       return (
         <div className="flex justify-end">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="icon-sm" aria-label="Open menu" disabled={isLoading}>
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              onClick={(e) => e.stopPropagation()}
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="Open menu" disabled={isLoading}>
+                  <MoreHorizontal />
+                </Button>
+              }
+            />
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 onClick={(e) => {

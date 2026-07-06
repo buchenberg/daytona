@@ -43,11 +43,13 @@ export const DeleteOrganizationRoleDialog: React.FC<DeleteOrganizationRoleDialog
           <DialogDescription>Are you sure you want to delete this role?</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="secondary" disabled={loading}>
-              Cancel
-            </Button>
-          </DialogClose>
+          <DialogClose
+            render={
+              <Button type="button" variant="secondary" disabled={loading}>
+                Cancel
+              </Button>
+            }
+          />
           {loading ? (
             <Button type="button" variant="default" disabled>
               Deleting...

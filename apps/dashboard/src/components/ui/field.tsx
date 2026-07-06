@@ -8,7 +8,8 @@
 import { cva, type VariantProps } from 'class-variance-authority'
 import { useMemo } from 'react'
 
-import { Slot } from '@radix-ui/react-slot'
+import { mergeProps } from '@base-ui/react/merge-props'
+import { useRender } from '@base-ui/react/use-render'
 
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
@@ -131,20 +132,22 @@ function FieldTitle({ className, ...props }: React.ComponentProps<'div'>) {
   )
 }
 
-function FieldDescription({ className, asChild = false, ...props }: React.ComponentProps<'p'> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot : 'p'
-  return (
-    <Comp
-      data-slot="field-description"
-      className={cn(
-        'text-muted-foreground text-sm leading-normal font-normal group-has-[[data-orientation=horizontal]]/field:text-balance',
-        'last:mt-0 nth-last-2:-mt-1 [[data-variant=legend]+&]:-mt-1.5',
-        '[&>a:hover]:text-primary [&>a]:underline [&>a]:underline-offset-4',
-        className,
-      )}
-      {...props}
-    />
-  )
+function FieldDescription({ className, render, ...props }: useRender.ComponentProps<'p'>) {
+  const defaultProps = {
+    'data-slot': 'field-description',
+    className: cn(
+      'text-muted-foreground text-sm leading-normal font-normal group-has-[[data-orientation=horizontal]]/field:text-balance',
+      'last:mt-0 nth-last-2:-mt-1 [[data-variant=legend]+&]:-mt-1.5',
+      '[&>a:hover]:text-primary [&>a]:underline [&>a]:underline-offset-4',
+      className,
+    ),
+  }
+
+  return useRender({
+    render,
+    defaultTagName: 'p',
+    props: mergeProps<'p'>(defaultProps, props),
+  })
 }
 
 function FieldSeparator({

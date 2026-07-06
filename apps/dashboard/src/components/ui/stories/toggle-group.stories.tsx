@@ -17,7 +17,7 @@ type Story = StoryObj<typeof ToggleGroup>
 
 export const Default: Story = {
   render: () => (
-    <ToggleGroup type="single" defaultValue="center">
+    <ToggleGroup defaultValue={['center']}>
       <ToggleGroupItem value="left" aria-label="Align left">
         <AlignLeftIcon className="size-4" />
       </ToggleGroupItem>
@@ -33,7 +33,7 @@ export const Default: Story = {
 
 export const Outline: Story = {
   render: () => (
-    <ToggleGroup type="multiple" variant="outline">
+    <ToggleGroup multiple variant="outline">
       <ToggleGroupItem value="bold">Bold</ToggleGroupItem>
       <ToggleGroupItem value="italic">Italic</ToggleGroupItem>
       <ToggleGroupItem value="underline">Underline</ToggleGroupItem>

@@ -260,15 +260,17 @@ function SchedulingScore({ value }: { value?: number }) {
           <div className="flex items-center gap-1.5">
             <span className="text-sm font-medium tracking-tight text-foreground">Scheduling Score</span>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex size-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                  aria-label="Scheduling score information"
-                >
-                  <CircleHelp className="size-3.5" />
-                </button>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    className="inline-flex size-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                    aria-label="Scheduling score information"
+                  >
+                    <CircleHelp className="size-3.5" />
+                  </button>
+                }
+              />
               <TooltipContent className="max-w-[260px]">
                 Higher is better. Daytona uses this score to choose runners for new sandboxes based on health and
                 remaining capacity.

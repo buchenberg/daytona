@@ -376,8 +376,9 @@ export function CommandPalette({ className, overlay }: CommandPaletteProps) {
     <CommandDialog
       open={isOpen}
       onOpenChange={setIsOpen}
+      initialFocus={inputRef}
       className={cn(
-        'sm:max-w-xl w-full top-[calc(50%-250px)] translate-y-0 data-[state=closed]:!slide-out-to-top-4 data-[state=open]:!slide-in-from-top-4',
+        'sm:max-w-xl w-full top-[calc(50%-250px)] translate-y-0 data-closed:!slide-out-to-top-4 data-open:!slide-in-from-top-4',
         'bg-transparent border-none shadow-none p-0 overflow-visible',
         className,
       )}

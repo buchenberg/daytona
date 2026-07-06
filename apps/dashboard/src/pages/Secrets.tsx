@@ -78,6 +78,9 @@ const Secrets: React.FC = () => {
 
   const pageSize = normalizePageSize(viewParams.limit)
   const searchQuery = viewParams.search
+  // searchQuery is URL state and may be untrimmed (e.g. ?search=%20%20); this is
+  // the single predicate for both the query filter and the quota counter below
+  const searchFilter = searchQuery.trim()
   const sorting = useMemo<SecretSorting>(
     () => normalizeSorting(viewParams.sort, viewParams.order),
     [viewParams.order, viewParams.sort],
@@ -88,9 +91,9 @@ const Secrets: React.FC = () => {
       cursor,
       limit: pageSize,
       sorting,
-      filters: searchQuery.trim() ? { name: searchQuery.trim() } : undefined,
+      filters: searchFilter ? { name: searchFilter } : undefined,
     }),
-    [cursor, pageSize, sorting, searchQuery],
+    [cursor, pageSize, sorting, searchFilter],
   )
 
   const secretsQuery = useSecretsQuery(selectedOrganization?.id, queryParams)
@@ -189,7 +192,7 @@ const Secrets: React.FC = () => {
         <PageIntro
           title="Secrets"
           desc={
-            secretsQuery.data && selectedOrganization && !searchQuery.trim()
+            secretsQuery.data && selectedOrganization?.secretQuota != null && !searchFilter
               ? `${secretsQuery.data.total}/${selectedOrganization.secretQuota} secrets used`
               : undefined
           }

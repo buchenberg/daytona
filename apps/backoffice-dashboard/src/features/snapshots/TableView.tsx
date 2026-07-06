@@ -183,24 +183,26 @@ export const TableView = ({
       title: 'Actions',
       width: '100px',
       render: (snapshot) => (
-        <TooltipProvider delayDuration={300}>
+        <TooltipProvider delay={300}>
           <div className="flex gap-1">
             {onEdit && canWrite && (
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onEdit(snapshot)
-                    }}
-                    disabled={snapshot.state === SnapshotState.REMOVING}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onEdit(snapshot)
+                      }}
+                      disabled={snapshot.state === SnapshotState.REMOVING}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  }
+                />
                 <TooltipContent>
                   <p>Edit snapshot</p>
                 </TooltipContent>
@@ -208,20 +210,22 @@ export const TableView = ({
             )}
             {onPropagate && canWrite && (
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onPropagate(snapshot)
-                    }}
-                    disabled={snapshot.state === SnapshotState.REMOVING || snapshot.state === SnapshotState.PENDING}
-                  >
-                    <Share2 className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onPropagate(snapshot)
+                      }}
+                      disabled={snapshot.state === SnapshotState.REMOVING || snapshot.state === SnapshotState.PENDING}
+                    >
+                      <Share2 className="h-4 w-4" />
+                    </Button>
+                  }
+                />
                 <TooltipContent>
                   <p>Propagate to runners</p>
                 </TooltipContent>
@@ -229,20 +233,22 @@ export const TableView = ({
             )}
             {onAddToWarmPool && canWrite && (
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onAddToWarmPool(snapshot)
-                    }}
-                    disabled={snapshot.state === SnapshotState.REMOVING || snapshot.state === SnapshotState.PENDING}
-                  >
-                    <Database className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onAddToWarmPool(snapshot)
+                      }}
+                      disabled={snapshot.state === SnapshotState.REMOVING || snapshot.state === SnapshotState.PENDING}
+                    >
+                      <Database className="h-4 w-4" />
+                    </Button>
+                  }
+                />
                 <TooltipContent>
                   <p>Add to warm pool</p>
                 </TooltipContent>

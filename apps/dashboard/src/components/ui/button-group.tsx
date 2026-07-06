@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Slot } from '@radix-ui/react-slot'
+import { mergeProps } from '@base-ui/react/merge-props'
+import { useRender } from '@base-ui/react/use-render'
 import { cva, type VariantProps } from 'class-variance-authority'
 import * as React from 'react'
 
@@ -43,24 +44,19 @@ function ButtonGroup({
   )
 }
 
-function ButtonGroupText({
-  className,
-  asChild = false,
-  ...props
-}: React.ComponentProps<'div'> & {
-  asChild?: boolean
-}) {
-  const Comp = asChild ? Slot : 'div'
+function ButtonGroupText({ className, render, ...props }: useRender.ComponentProps<'div'>) {
+  const defaultProps = {
+    className: cn(
+      "bg-muted gap-2 rounded-lg border px-2.5 text-sm font-medium [&_svg:not([class*='size-'])]:size-4 flex items-center [&_svg]:pointer-events-none",
+      className,
+    ),
+  }
 
-  return (
-    <Comp
-      className={cn(
-        "bg-muted gap-2 rounded-lg border px-2.5 text-sm font-medium [&_svg:not([class*='size-'])]:size-4 flex items-center [&_svg]:pointer-events-none",
-        className,
-      )}
-      {...props}
-    />
-  )
+  return useRender({
+    render,
+    defaultTagName: 'div',
+    props: mergeProps<'div'>(defaultProps, props),
+  })
 }
 
 function ButtonGroupSeparator({

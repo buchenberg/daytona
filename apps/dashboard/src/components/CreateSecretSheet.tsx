@@ -118,12 +118,14 @@ export const CreateSecretSheet: React.FC<CreateSecretSheetProps> = ({ className,
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button variant="default" size="sm" className={className}>
-          <Plus className="w-4 h-4" />
-          Create Secret
-        </Button>
-      </SheetTrigger>
+      <SheetTrigger
+        render={
+          <Button variant="default" size="sm" className={className}>
+            <Plus className="w-4 h-4" />
+            Create Secret
+          </Button>
+        }
+      />
 
       <SheetContent className="w-dvw sm:w-[500px] p-0 flex flex-col gap-0">
         <SheetHeader className="border-b border-border p-4 px-5 items-center flex text-left flex-row">

@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Slot } from '@radix-ui/react-slot'
+import { mergeProps } from '@base-ui/react/merge-props'
+import { useRender } from '@base-ui/react/use-render'
 import { cva, type VariantProps } from 'class-variance-authority'
-import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
@@ -40,27 +40,21 @@ const buttonVariants = cva(
   },
 )
 
-function Button({
-  className,
-  variant = 'default',
-  size = 'default',
-  asChild = false,
-  ...props
-}: React.ComponentProps<'button'> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
-  }) {
-  const Comp = asChild ? Slot : 'button'
+type ButtonProps = useRender.ComponentProps<'button'> & VariantProps<typeof buttonVariants>
 
-  return (
-    <Comp
-      data-slot="button"
-      data-variant={variant}
-      data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
-  )
+function Button({ className, variant = 'default', size = 'default', render, ...props }: ButtonProps) {
+  const defaultProps = {
+    'data-slot': 'button',
+    'data-variant': variant,
+    'data-size': size,
+    className: cn(buttonVariants({ variant, size, className })),
+  }
+
+  return useRender({
+    render,
+    defaultTagName: 'button',
+    props: mergeProps<'button'>(defaultProps, props),
+  })
 }
 
-export { Button, buttonVariants }
+export { Button, buttonVariants, type ButtonProps }

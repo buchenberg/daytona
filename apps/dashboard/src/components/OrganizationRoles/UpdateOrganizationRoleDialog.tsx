@@ -170,11 +170,13 @@ export const UpdateOrganizationRoleDialog: React.FC<UpdateOrganizationRoleDialog
           </div>
         </form>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="secondary" disabled={loading}>
-              Cancel
-            </Button>
-          </DialogClose>
+          <DialogClose
+            render={
+              <Button type="button" variant="secondary" disabled={loading}>
+                Cancel
+              </Button>
+            }
+          />
           {loading ? (
             <Button type="button" variant="default" disabled>
               Saving...

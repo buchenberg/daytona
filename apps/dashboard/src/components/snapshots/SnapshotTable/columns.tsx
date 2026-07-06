@@ -87,7 +87,8 @@ const columns: ColumnDef<SnapshotDto>[] = [
       return (
         <div className="flex justify-center">
           <Checkbox
-            checked={allSelected || (partiallySelected && 'indeterminate')}
+            checked={allSelected}
+            indeterminate={partiallySelected}
             onCheckedChange={() => {
               if (table)
                 table.getRowModel().rows.forEach((row) => {
@@ -218,14 +219,16 @@ const columns: ColumnDef<SnapshotDto>[] = [
 
       return (
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex items-center gap-1.5">
-              <span className="truncate max-w-[150px]">{firstRegion}</span>
-              <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5">
-                +{remainingCount}
-              </Badge>
-            </div>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <div className="flex items-center gap-1.5">
+                <span className="truncate max-w-[150px]">{firstRegion}</span>
+                <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5">
+                  +{remainingCount}
+                </Badge>
+              </div>
+            }
+          />
           <TooltipContent>
             <div className="flex flex-col gap-1">
               {regionNames.map((name, idx) => (
@@ -359,11 +362,13 @@ const columns: ColumnDef<SnapshotDto>[] = [
       return (
         <div className="flex justify-end">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Open menu">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="Open menu">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              }
+            />
             <DropdownMenuContent align="end">
               {showActivate && (
                 <DropdownMenuItem onClick={() => onActivate(row.original)} disabled={loadingSnapshots[row.original.id]}>

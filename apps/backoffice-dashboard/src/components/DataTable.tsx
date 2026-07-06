@@ -112,7 +112,7 @@ export function DataTable<T>({
                     checked={allSelected}
                     onCheckedChange={handleSelectAll}
                     aria-label="Select all"
-                    className={someSelected ? 'data-[state=checked]:bg-primary/50' : ''}
+                    className={someSelected ? 'data-checked:bg-primary/50' : ''}
                   />
                 </TableHead>
               )}

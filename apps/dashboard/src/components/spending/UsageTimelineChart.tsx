@@ -261,9 +261,8 @@ export function UsageTimelineChart({
             </Select>
           )}
           <ToggleGroup
-            type="single"
-            value={mode}
-            onValueChange={(value) => {
+            value={[mode]}
+            onValueChange={([value]) => {
               if (value) setMode(value as ChartMode)
             }}
             variant="outline"

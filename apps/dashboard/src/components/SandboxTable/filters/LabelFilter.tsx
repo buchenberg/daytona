@@ -100,20 +100,24 @@ export function LabelFilter({ value, onFilterChange }: LabelFilterProps) {
               <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-sm">
                 <div className="flex-1 flex items-center gap-1 text-sm min-w-0">
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="truncate flex-shrink-0 max-w-[50%] rounded-sm bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-200 px-1 cursor-default">
-                        {pair.key}
-                      </div>
-                    </TooltipTrigger>
+                    <TooltipTrigger
+                      render={
+                        <div className="truncate flex-shrink-0 max-w-[50%] rounded-sm bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-200 px-1 cursor-default">
+                          {pair.key}
+                        </div>
+                      }
+                    />
                     <TooltipContent>
                       <p className="max-w-[300px] break-words">{pair.key}</p>
                     </TooltipContent>
                   </Tooltip>
 
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="truncate flex-1 text-muted-foreground cursor-default">{pair.value}</span>
-                    </TooltipTrigger>
+                    <TooltipTrigger
+                      render={
+                        <span className="truncate flex-1 text-muted-foreground cursor-default">{pair.value}</span>
+                      }
+                    />
                     <TooltipContent>
                       <p className="max-w-[300px] break-words">{pair.value}</p>
                     </TooltipContent>

@@ -114,11 +114,13 @@ export const SetDefaultRegionDialog: React.FC<SetDefaultRegionDialogProps> = ({ 
           </form>
         )}
         <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="secondary" disabled={setDefaultRegionMutation.isPending}>
-              Cancel
-            </Button>
-          </DialogClose>
+          <DialogClose
+            render={
+              <Button type="button" variant="secondary" disabled={setDefaultRegionMutation.isPending}>
+                Cancel
+              </Button>
+            }
+          />
           <Button
             type="submit"
             form={formId}

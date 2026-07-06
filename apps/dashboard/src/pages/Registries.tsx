@@ -7,6 +7,7 @@ import { useRegisterCommands, type CommandConfig } from '@/components/CommandPal
 import { PageContent, PageFooter, PageHeader, PageIntro, PageLayout } from '@/components/PageLayout'
 import { RegistryTable } from '@/components/RegistryTable'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import {
   Dialog,
   DialogClose,
@@ -128,11 +129,13 @@ const Registries: React.FC = () => {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="secondary">
-                  Cancel
-                </Button>
-              </DialogClose>
+              <DialogClose
+                render={
+                  <Button type="button" variant="secondary">
+                    Cancel
+                  </Button>
+                }
+              />
               <Button
                 variant="destructive"
                 onClick={() => {
@@ -142,7 +145,8 @@ const Registries: React.FC = () => {
                 }}
                 disabled={deleteInProgress}
               >
-                {deleteInProgress ? 'Deleting...' : 'Delete'}
+                {deleteInProgress && <Spinner />}
+                Delete
               </Button>
             </DialogFooter>
           </DialogContent>

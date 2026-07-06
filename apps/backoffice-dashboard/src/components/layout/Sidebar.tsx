@@ -71,12 +71,16 @@ export function Sidebar() {
                 const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + '/')
                 return (
                   <SidebarMenuItem key={item.name}>
-                    <SidebarMenuButton asChild isActive={isActive} className="text-sm">
-                      <Link to={item.href}>
-                        <item.icon size={16} strokeWidth={1.5} />
-                        <span>{item.name}</span>
-                      </Link>
-                    </SidebarMenuButton>
+                    <SidebarMenuButton
+                      isActive={isActive}
+                      className="text-sm"
+                      render={
+                        <Link to={item.href}>
+                          <item.icon size={16} strokeWidth={1.5} />
+                          <span>{item.name}</span>
+                        </Link>
+                      }
+                    />
                   </SidebarMenuItem>
                 )
               })}

@@ -26,9 +26,7 @@ type Story = StoryObj<typeof Drawer>
 export const Default: Story = {
   render: () => (
     <Drawer>
-      <DrawerTrigger asChild>
-        <Button variant="outline">Open Drawer</Button>
-      </DrawerTrigger>
+      <DrawerTrigger render={<Button variant="outline">Open Drawer</Button>} />
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>Drawer Title</DrawerTitle>

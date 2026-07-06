@@ -150,9 +150,7 @@ export const CreateApiKeySheet: React.FC<CreateApiKeySheetProps> = ({
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <CreateResourceButton resource="API Key" className={className} />
-      </SheetTrigger>
+      <SheetTrigger render={<CreateResourceButton resource="API Key" className={className} />} />
 
       <SheetContent className="w-dvw sm:w-[500px] p-0 flex flex-col gap-0">
         <SheetHeader className="border-b border-border p-4 px-5 items-center flex text-left flex-row">
@@ -284,7 +282,7 @@ export const CreateApiKeySheet: React.FC<CreateApiKeySheetProps> = ({
                                   </Label>
 
                                   <ToggleGroup
-                                    type="multiple"
+                                    multiple
                                     variant="outline"
                                     size="sm"
                                     spacing={0}
@@ -316,7 +314,7 @@ export const CreateApiKeySheet: React.FC<CreateApiKeySheetProps> = ({
                                             aria-label="Implicit read access"
                                             className="min-w-[64px]"
                                             disabled
-                                            data-state="on"
+                                            data-pressed=""
                                           >
                                             Read*
                                           </ToggleGroupItem>

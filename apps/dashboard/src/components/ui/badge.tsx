@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Slot } from '@radix-ui/react-slot'
+import { mergeProps } from '@base-ui/react/merge-props'
+import { useRender } from '@base-ui/react/use-render'
 import { cva, type VariantProps } from 'class-variance-authority'
-import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
@@ -31,14 +31,19 @@ const badgeVariants = cva(
   },
 )
 
-export interface BadgeProps extends React.ComponentProps<'div'>, VariantProps<typeof badgeVariants> {
-  asChild?: boolean
-}
+export type BadgeProps = useRender.ComponentProps<'div'> & VariantProps<typeof badgeVariants>
 
-function Badge({ className, variant, asChild = false, ...props }: BadgeProps) {
-  const Comp = asChild ? Slot : 'div'
+function Badge({ className, variant, render, ...props }: BadgeProps) {
+  const defaultProps = {
+    'data-slot': 'badge',
+    className: cn(badgeVariants({ variant }), className),
+  }
 
-  return <Comp data-slot="badge" className={cn(badgeVariants({ variant }), className)} {...props} />
+  return useRender({
+    render,
+    defaultTagName: 'div',
+    props: mergeProps<'div'>(defaultProps, props),
+  })
 }
 
 export { Badge, badgeVariants }

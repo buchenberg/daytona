@@ -127,9 +127,7 @@ export const CreateRunnerSheet: React.FC<CreateRunnerSheetProps> = ({ regions, r
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <CreateResourceButton resource="Runner" />
-      </SheetTrigger>
+      <SheetTrigger render={<CreateResourceButton resource="Runner" />} />
 
       <SheetContent className="w-dvw sm:w-[500px] p-0 flex flex-col gap-0">
         <SheetHeader className="border-b border-border p-4 px-5 items-center flex text-left flex-row">

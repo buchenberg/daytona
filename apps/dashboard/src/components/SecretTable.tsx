@@ -25,6 +25,7 @@ import {
 import { MoreHorizontal, ShieldCheck } from 'lucide-react'
 import { useMemo } from 'react'
 import { CursorPagination } from './CursorPagination'
+import { EllipsisWithTooltip } from './EllipsisWithTooltip'
 import { PageFooterPortal } from './PageLayout'
 import { SearchInput } from './SearchInput'
 import { TimestampTooltip } from './TimestampTooltip'
@@ -287,6 +288,7 @@ const columns: ColumnDef<Secret>[] = [
     accessorKey: 'name',
     header: 'Name',
     size: 200,
+    cell: ({ row }) => <EllipsisWithTooltip className="font-medium">{row.original.name}</EllipsisWithTooltip>,
   },
   {
     accessorKey: 'description',
@@ -296,7 +298,7 @@ const columns: ColumnDef<Secret>[] = [
     cell: ({ row }) => {
       const description = row.original.description
       return description ? (
-        <span className="truncate">{description}</span>
+        <EllipsisWithTooltip>{description}</EllipsisWithTooltip>
       ) : (
         <span className="text-muted-foreground">—</span>
       )
@@ -310,7 +312,7 @@ const columns: ColumnDef<Secret>[] = [
     cell: ({ row }) => {
       const hosts = row.original.hosts
       return hosts?.length ? (
-        <span className="truncate">{hosts.join(', ')}</span>
+        <EllipsisWithTooltip>{hosts.join(', ')}</EllipsisWithTooltip>
       ) : (
         <span className="text-muted-foreground">—</span>
       )
@@ -359,11 +361,13 @@ const columns: ColumnDef<Secret>[] = [
       return (
         <div className="flex justify-end">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Open menu">
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="Open menu">
+                  <MoreHorizontal />
+                </Button>
+              }
+            />
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onEdit(row.original)}>Edit</DropdownMenuItem>
               <DropdownMenuSeparator />

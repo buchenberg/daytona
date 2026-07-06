@@ -58,11 +58,13 @@ function UploadDemo({
             description="Drag and drop, paste, or browse from your device."
           />
           <div className="mt-2">
-            <FileUploadTrigger asChild>
-              <Button variant="outline" size="sm">
-                Browse files
-              </Button>
-            </FileUploadTrigger>
+            <FileUploadTrigger
+              render={
+                <Button variant="outline" size="sm">
+                  Browse files
+                </Button>
+              }
+            />
           </div>
         </FileUploadDropzone>
 

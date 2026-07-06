@@ -18,9 +18,7 @@ type Story = StoryObj<typeof Tooltip>
 export const Default: Story = {
   render: () => (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="outline">Hover me</Button>
-      </TooltipTrigger>
+      <TooltipTrigger render={<Button variant="outline">Hover me</Button>} />
       <TooltipContent>
         <p>Tooltip content</p>
       </TooltipContent>

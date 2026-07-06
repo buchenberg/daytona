@@ -261,17 +261,24 @@ export const UpsertRegistrySheet = ({
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       {trigger === undefined ? (
-        <SheetTrigger asChild>
-          {isEditMode ? (
-            <Button variant="default" size="sm" disabled={disabled} className={className} title="Edit Registry">
-              Edit Registry
-            </Button>
-          ) : (
-            <CreateResourceButton resource="Registry" disabled={disabled} className={className} title="Create Registry">
-              Registry
-            </CreateResourceButton>
-          )}
-        </SheetTrigger>
+        <SheetTrigger
+          render={
+            isEditMode ? (
+              <Button variant="default" size="sm" disabled={disabled} className={className} title="Edit Registry">
+                Edit Registry
+              </Button>
+            ) : (
+              <CreateResourceButton
+                resource="Registry"
+                disabled={disabled}
+                className={className}
+                title="Create Registry"
+              >
+                Registry
+              </CreateResourceButton>
+            )
+          }
+        />
       ) : (
         trigger
       )}

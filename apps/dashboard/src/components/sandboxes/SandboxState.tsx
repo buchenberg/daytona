@@ -210,10 +210,8 @@ export function SandboxState({ state, errorReason, recoverable, animate = false 
     }
 
     return (
-      <Tooltip delayDuration={100}>
-        <TooltipTrigger asChild>
-          <div className="inline-flex">{errorContent}</div>
-        </TooltipTrigger>
+      <Tooltip delay={100}>
+        <TooltipTrigger render={<div className="inline-flex">{errorContent}</div>} />
         <TooltipContent>
           <p className="max-w-[300px]">{errorReason}</p>
         </TooltipContent>

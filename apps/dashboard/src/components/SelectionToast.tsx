@@ -9,6 +9,19 @@ import { cn, pluralize } from '@/lib/utils'
 import { CommandIcon, XIcon } from 'lucide-react'
 import { motion } from 'motion/react'
 
+export function SelectionToastContainer({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={cn(
+        'md:absolute md:-translate-x-1/2 md:left-1/2 fixed w-screen pointer-events-none flex left-0 justify-center items-center *:pointer-events-auto bottom-[120px] sm:bottom-20 z-50',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
 export function SelectionToast({
   className,
   selectedCount,
@@ -22,10 +35,10 @@ export function SelectionToast({
 }) {
   return (
     <motion.div
-      initial={{ scale: 0.9, opacity: 0, y: 20, x: '-50%' }}
-      animate={{ scale: 1, opacity: 1, y: 0, x: '-50%' }}
-      exit={{ scale: 0.9, opacity: 0, y: 20, x: '-50%' }}
-      className={cn('bg-popover rounded-xl gap-3 max-w-[90vw]', className)}
+      initial={{ scale: 0.9, opacity: 0, y: 20 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      exit={{ scale: 0.9, opacity: 0, y: 20 }}
+      className={cn('bg-popover rounded-xl gap-3', className)}
     >
       <div className="bg-background text-foreground border border-border rounded-xl shadow-lg pl-3 pr-1 py-1 flex items-center justify-between gap-4">
         <div className="flex items-center gap-1">

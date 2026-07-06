@@ -5,7 +5,7 @@
 
 'use client'
 
-import * as ScrollAreaPrimitive from '@radix-ui/react-scroll-area'
+import { ScrollArea as ScrollAreaPrimitive } from '@base-ui/react/scroll-area'
 import { RefObject, useCallback, useEffect, useRef } from 'react'
 import { useResizeObserver } from 'usehooks-ts'
 
@@ -84,7 +84,7 @@ function ScrollArea({
       style={
         {
           '--fade-offset': fadeOffset !== undefined ? `${fadeOffset}px` : '30px',
-          ...props.style,
+          ...(props.style as React.CSSProperties),
         } as React.CSSProperties
       }
       className={cn(
@@ -110,7 +110,7 @@ function ScrollArea({
         }}
         data-slot="scroll-area-viewport"
         className={cn(
-          'focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1 [&>div]:!block',
+          'focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1',
           {
             '!overflow-y-hidden': !vertical,
             '[mask-image:linear-gradient(to_bottom,transparent,black_min(var(--offset-y-top)*1px,var(--fade-offset)),black_calc(100%-min(var(--offset-y-bottom)*1px,var(--fade-offset))),transparent)]':
@@ -128,11 +128,11 @@ function ScrollArea({
           },
         )}
       >
-        {children}
+        <ScrollAreaPrimitive.Content data-slot="scroll-area-content">{children}</ScrollAreaPrimitive.Content>
       </ScrollAreaPrimitive.Viewport>
       {vertical && <ScrollBar />}
       {horizontal && <ScrollBar orientation="horizontal" />}
-      <ScrollAreaPrimitive.Corner />
+      <ScrollAreaPrimitive.Corner data-slot="scroll-area-corner" />
     </ScrollAreaPrimitive.Root>
   )
 }
@@ -141,13 +141,13 @@ function ScrollBar({
   className,
   orientation = 'vertical',
   ...props
-}: React.ComponentProps<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>) {
+}: React.ComponentProps<typeof ScrollAreaPrimitive.Scrollbar>) {
   return (
-    <ScrollAreaPrimitive.ScrollAreaScrollbar
+    <ScrollAreaPrimitive.Scrollbar
       data-slot="scroll-area-scrollbar"
       orientation={orientation}
       className={cn(
-        'flex touch-none p-px transition-colors select-none',
+        'flex touch-none p-px select-none opacity-0 transition-opacity duration-150 data-hovering:opacity-100 data-scrolling:opacity-100',
         {
           'h-full w-2.5 border-l border-l-transparent': orientation === 'vertical',
           'h-2.5 flex-col border-t border-t-transparent': orientation === 'horizontal',
@@ -156,11 +156,8 @@ function ScrollBar({
       )}
       {...props}
     >
-      <ScrollAreaPrimitive.ScrollAreaThumb
-        data-slot="scroll-area-thumb"
-        className="bg-border relative flex-1 rounded-full"
-      />
-    </ScrollAreaPrimitive.ScrollAreaScrollbar>
+      <ScrollAreaPrimitive.Thumb data-slot="scroll-area-thumb" className="bg-border relative flex-1 rounded-full" />
+    </ScrollAreaPrimitive.Scrollbar>
   )
 }
 

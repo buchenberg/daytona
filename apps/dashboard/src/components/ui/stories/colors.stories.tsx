@@ -30,23 +30,25 @@ function ColorSwatch({ variable, label }: { variable: string; label: string }) {
       >
         <div style={{ position: 'absolute', top: 4, right: 4, zIndex: 10 }}>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                style={{
-                  padding: 2,
-                  borderRadius: 4,
-                  backgroundColor: 'rgba(255,255,255,0.8)',
-                  border: '1px solid #e5e5e5',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <MoreVertical className="size-3.5" />
-              </button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <button
+                  style={{
+                    padding: 2,
+                    borderRadius: 4,
+                    backgroundColor: 'rgba(255,255,255,0.8)',
+                    border: '1px solid #e5e5e5',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <MoreVertical className="size-3.5" />
+                </button>
+              }
+            />
             <DropdownMenuContent align="end" className="min-w-[140px]">
               <DropdownMenuItem onClick={() => copyToClipboard(tokenValue, 'value')}>
                 {copied === 'value' ? <Check className="size-3.5" /> : null}

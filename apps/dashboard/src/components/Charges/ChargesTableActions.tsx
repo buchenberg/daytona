@@ -16,18 +16,23 @@ export function ChargesTableActions({ charge }: ChargesTableActionsProps) {
   return (
     <div className="flex items-center justify-center">
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="Open menu">
-            <MoreHorizontalIcon className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
+        <DropdownMenuTrigger
+          render={
+            <Button variant="ghost" size="icon-sm" aria-label="Open menu">
+              <MoreHorizontalIcon className="h-4 w-4" />
+            </Button>
+          }
+        />
         <DropdownMenuContent align="end">
-          <DropdownMenuItem className="cursor-pointer" asChild>
-            <a href={charge.receiptUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLinkIcon className="mr-2 h-4 w-4" />
-              View receipt
-            </a>
-          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="cursor-pointer"
+            render={
+              <a href={charge.receiptUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLinkIcon className="mr-2 h-4 w-4" />
+                View receipt
+              </a>
+            }
+          />
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

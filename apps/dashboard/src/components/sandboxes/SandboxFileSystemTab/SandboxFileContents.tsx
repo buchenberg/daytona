@@ -432,20 +432,22 @@ export function SandboxFileContents({
           <span>{getNodeMetaLine(selectedNode)}</span>
           <div className="ml-auto flex items-center gap-1">
             {showWrapToggle ? (
-              <Tooltip delayDuration={0}>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex">
-                    <Toggle
-                      size="sm"
-                      variant="outline"
-                      pressed={isWrapEnabled}
-                      onPressedChange={setIsWrapEnabled}
-                      aria-label="Toggle wrapped lines"
-                    >
-                      <TextWrapIcon className="size-4" />
-                    </Toggle>
-                  </span>
-                </TooltipTrigger>
+              <Tooltip delay={0}>
+                <TooltipTrigger
+                  render={
+                    <span className="inline-flex">
+                      <Toggle
+                        size="sm"
+                        variant="outline"
+                        pressed={isWrapEnabled}
+                        onPressedChange={setIsWrapEnabled}
+                        aria-label="Toggle wrapped lines"
+                      >
+                        <TextWrapIcon className="size-4" />
+                      </Toggle>
+                    </span>
+                  }
+                />
                 <TooltipContent>
                   <div>{isWrapEnabled ? 'Disable wrapped lines' : 'Enable wrapped lines'}</div>
                 </TooltipContent>
@@ -480,11 +482,18 @@ export function SandboxFileContents({
                 </TooltipButton>
               ) : null}
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon-sm" className="text-muted-foreground" aria-label="More actions">
-                    <EllipsisIcon className="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      className="text-muted-foreground"
+                      aria-label="More actions"
+                    >
+                      <EllipsisIcon className="size-4" />
+                    </Button>
+                  }
+                />
                 <DropdownMenuContent
                   align="end"
                   side="bottom"
@@ -492,7 +501,7 @@ export function SandboxFileContents({
                     'w-44': selectedNode.isDir,
                     'w-48': !selectedNode.isDir,
                   })}
-                  onCloseAutoFocus={(event) => event.preventDefault()}
+                  finalFocus={false}
                 >
                   <DropdownMenuItem onClick={onRefresh} disabled={isContentsRefreshing}>
                     Refresh
@@ -508,7 +517,7 @@ export function SandboxFileContents({
                     </DropdownMenuItem>
                   ) : null}
                   {canCreateFolderInSelectedDirectory ? (
-                    <DropdownMenuItem onSelect={() => onStartCreateFolder(selectedNode.path)}>
+                    <DropdownMenuItem onClick={() => onStartCreateFolder(selectedNode.path)}>
                       Create Folder
                     </DropdownMenuItem>
                   ) : null}

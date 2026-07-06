@@ -320,11 +320,13 @@ const regionColumns: ColumnDef<Region>[] = [
       return (
         <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Open menu" disabled={isLoading}>
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="Open menu" disabled={isLoading}>
+                  <MoreHorizontal />
+                </Button>
+              }
+            />
             <DropdownMenuContent align="end">
               {writePermitted && (
                 <DropdownMenuItem onClick={() => onUpdate(row.original)} disabled={isLoading}>

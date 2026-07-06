@@ -45,11 +45,13 @@ export const DeclineOrganizationInvitationDialog: React.FC<DeclineOrganizationIn
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="secondary" disabled={loading}>
-              Cancel
-            </Button>
-          </DialogClose>
+          <DialogClose
+            render={
+              <Button type="button" variant="secondary" disabled={loading}>
+                Cancel
+              </Button>
+            }
+          />
           {loading ? (
             <Button type="button" variant="default" disabled>
               Declining...

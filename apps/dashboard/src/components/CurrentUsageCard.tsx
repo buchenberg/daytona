@@ -118,7 +118,7 @@ export function CurrentUsageCard({ organizationTier }: { organizationTier?: { ti
                       size="xs"
                       aria-label="Select region"
                       className={cn(
-                        'w-auto max-w-40 gap-x-2 border-transparent bg-transparent px-2 lowercase hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent focus-visible:border-transparent',
+                        'w-auto max-w-40 gap-x-2 border-transparent bg-transparent px-2 lowercase hover:bg-accent hover:text-accent-foreground data-popup-open:bg-accent focus-visible:border-transparent',
                         {
                           'pointer-events-none select-none disabled:opacity-100 [&>svg]:hidden':
                             regionsForSelectedClass.length === 1,
@@ -356,19 +356,19 @@ function UsageScopeAlertRow({
       {alerts.map((alert) => (
         <Badge
           key={alert.key}
-          asChild
           variant={alert.severity === 'destructive' ? 'destructive' : 'warning'}
           className="h-6 shrink-0 cursor-pointer gap-1 px-2 py-0 font-normal"
-        >
-          <button type="button" onClick={() => onSelect(alert)}>
-            <span className="font-medium">
-              {getSandboxClassLabel(alert.sandboxClass)} - {getRegionName(alert.regionId) ?? alert.regionId}
-            </span>
-            <span className="opacity-70">
-              {alert.resourceLabel} {Math.round(alert.percentage)}%
-            </span>
-          </button>
-        </Badge>
+          render={
+            <button type="button" onClick={() => onSelect(alert)}>
+              <span className="font-medium">
+                {getSandboxClassLabel(alert.sandboxClass)} - {getRegionName(alert.regionId) ?? alert.regionId}
+              </span>
+              <span className="opacity-70">
+                {alert.resourceLabel} {Math.round(alert.percentage)}%
+              </span>
+            </button>
+          }
+        />
       ))}
     </div>
   )

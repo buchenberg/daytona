@@ -243,30 +243,32 @@ export function DateRangePicker({
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            'flex w-full justify-between bg-transparent text-left font-normal hover:bg-accent dark:bg-input/50 dark:hover:bg-accent',
-            { 'text-muted-foreground': !internalRange?.from },
-            className,
-            { 'opacity-50 cursor-not-allowed': disabled },
-          )}
-          disabled={disabled}
-        >
-          <div className="flex items-center gap-2">
-            <CalendarIcon className="h-4 w-4" />
-            {internalRange?.from ? formatRange(internalRange) : <span>Select date range</span>}
-          </div>
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="outline"
+            className={cn(
+              'flex w-full justify-between bg-transparent text-left font-normal hover:bg-accent dark:bg-input/50 dark:hover:bg-accent',
+              { 'text-muted-foreground': !internalRange?.from },
+              className,
+              { 'opacity-50 cursor-not-allowed': disabled },
+            )}
+            disabled={disabled}
+          >
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="h-4 w-4" />
+              {internalRange?.from ? formatRange(internalRange) : <span>Select date range</span>}
+            </div>
+          </Button>
+        }
+      />
       <PopoverContent className="w-auto p-0" align={contentAlign}>
         <div className="flex">
           {/* Quick ranges panel */}
           {quickRangesEnabled && (
             <div className="w-64 p-2 py-4 border-r">
               <div className="text-sm font-medium mb-3 text-center">Quick ranges</div>
-              <ScrollArea type="auto" fade="mask" fadeOffset={18} className="h-[min(400px,calc(100vh-12rem))]">
+              <ScrollArea fade="mask" fadeOffset={18} className="h-[min(400px,calc(100vh-12rem))]">
                 <div className="pr-3">
                   <button
                     className={cn('w-full text-left px-3 py-2 text-sm rounded-md', {

@@ -5,8 +5,9 @@
 
 import { useCommandPaletteActions } from '@/components/CommandPalette'
 import { PageFooterPortal } from '@/components/PageLayout'
+import { ResponsiveButton } from '@/components/ResponsiveButton'
 import { SearchInput } from '@/components/SearchInput'
-import { SelectionToast } from '@/components/SelectionToast'
+import { SelectionToast, SelectionToastContainer } from '@/components/SelectionToast'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -482,16 +483,17 @@ export function SnapshotTable({
             containerClassName="min-w-0 flex-1 sm:max-w-sm"
           />
           <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
-                aria-label="Filter"
-              >
-                <ListFilter className="size-4" />
-                <span className="max-[420px]:hidden">Filter</span>
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <ResponsiveButton
+                  icon={<ListFilter className="size-4" />}
+                  variant="outline"
+                  className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
+                >
+                  Filter
+                </ResponsiveButton>
+              }
+            />
             <DropdownMenuContent className="w-48" align="start">
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
@@ -662,16 +664,17 @@ export function SnapshotTable({
       <PageFooterPortal>
         <Pagination table={table} selectionEnabled={deletePermitted} entityName="Snapshots" totalItems={totalItems} />
       </PageFooterPortal>
-      <AnimatePresence>
-        {hasSelection && (
-          <SelectionToast
-            className="absolute bottom-[120px] sm:bottom-20 left-1/2 -translate-x-1/2 z-50"
-            selectedCount={selectedRows.length}
-            onClearSelection={() => table.resetRowSelection()}
-            onActionClick={handleOpenCommandPalette}
-          />
-        )}
-      </AnimatePresence>
+      <SelectionToastContainer>
+        <AnimatePresence>
+          {hasSelection && (
+            <SelectionToast
+              selectedCount={selectedRows.length}
+              onClearSelection={() => table.resetRowSelection()}
+              onActionClick={handleOpenCommandPalette}
+            />
+          )}
+        </AnimatePresence>
+      </SelectionToastContainer>
 
       <SnapshotBulkActionAlertDialog
         action={pendingBulkAction}

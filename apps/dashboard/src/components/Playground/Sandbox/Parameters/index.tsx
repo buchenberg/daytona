@@ -53,7 +53,6 @@ const SandboxParameters = ({ className }: { className?: string }) => {
         <p className="text-sm text-muted-foreground mt-1">Manage resources, lifecycle policies, and file systems.</p>
       </div>
       <Accordion
-        type="multiple"
         value={openedParametersSections}
         onValueChange={(sections) => setOpenedParametersSections(sections as SandboxParametersSections[])}
       >

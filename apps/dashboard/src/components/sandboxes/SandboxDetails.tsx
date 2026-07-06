@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { RoutePath } from '@/enums/RoutePath'
@@ -295,7 +296,8 @@ export default function SandboxDetails() {
             <AlertDialogFooter>
               <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
               <AlertDialogAction variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
-                {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+                {deleteMutation.isPending && <Spinner />}
+                Delete
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

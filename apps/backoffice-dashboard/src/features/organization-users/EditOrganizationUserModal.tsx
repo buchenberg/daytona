@@ -115,7 +115,7 @@ export const EditOrganizationUserModal = ({
               <SelectTrigger>
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
-              <SelectContent align="start" className="w-(--radix-select-trigger-width)">
+              <SelectContent align="start">
                 <SelectItem value={OrganizationMemberRole.OWNER}>Owner</SelectItem>
                 <SelectItem value={OrganizationMemberRole.MEMBER}>Member</SelectItem>
               </SelectContent>

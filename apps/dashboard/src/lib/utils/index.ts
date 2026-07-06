@@ -3,11 +3,19 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
+import type { BaseUIEvent } from '@base-ui/react'
 import { clsx, type ClassValue } from 'clsx'
+import type { SyntheticEvent } from 'react'
 import { twMerge } from 'tailwind-merge'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+export function preventBaseUIHandler(event: SyntheticEvent | BaseUIEvent<SyntheticEvent>) {
+  if ('preventBaseUIHandler' in event) {
+    event.preventBaseUIHandler()
+  }
 }
 
 export function getRelativeTimeString(

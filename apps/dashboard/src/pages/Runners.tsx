@@ -235,11 +235,13 @@ const Runners: React.FC = () => {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="secondary">
-                  Cancel
-                </Button>
-              </DialogClose>
+              <DialogClose
+                render={
+                  <Button type="button" variant="secondary">
+                    Cancel
+                  </Button>
+                }
+              />
               <Button
                 variant={runnerToToggleScheduling.unschedulable ? 'default' : 'destructive'}
                 onClick={confirmToggleScheduling}
@@ -263,11 +265,13 @@ const Runners: React.FC = () => {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="secondary">
-                  Cancel
-                </Button>
-              </DialogClose>
+              <DialogClose
+                render={
+                  <Button type="button" variant="secondary">
+                    Cancel
+                  </Button>
+                }
+              />
               <Button variant="destructive" onClick={confirmDelete} disabled={runnerIsLoading[runnerToDelete.id]}>
                 {runnerIsLoading[runnerToDelete.id] && <Spinner />}
                 Delete

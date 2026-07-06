@@ -125,12 +125,14 @@ const LinkedAccount = ({ provider }: { provider: AccountProvider }) => {
           <div>{provider.displayName}</div>
           {provider.isPrimary && (
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge variant="outline" className="gap-1 text-xs">
-                  <ShieldCheck className="h-3 w-3" />
-                  Primary
-                </Badge>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <Badge variant="outline" className="gap-1 text-xs">
+                    <ShieldCheck className="h-3 w-3" />
+                    Primary
+                  </Badge>
+                }
+              />
               <TooltipContent>
                 <p>Primary accounts cannot be unlinked</p>
               </TooltipContent>

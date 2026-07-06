@@ -90,12 +90,14 @@ export function SandboxActionsSegmented({
     <ButtonGroup className="empty:hidden">
       {showStart && (
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="outline" size="sm" onClick={onStart} disabled={actionsLocked}>
-              <Play className="size-4" />
-              Start
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button variant="outline" size="sm" onClick={onStart} disabled={actionsLocked}>
+                <Play className="size-4" />
+                Start
+              </Button>
+            }
+          />
           <TooltipContent>{sandbox.state === SandboxState.PAUSED ? 'Resume sandbox' : 'Start sandbox'}</TooltipContent>
         </Tooltip>
       )}
@@ -107,17 +109,19 @@ export function SandboxActionsSegmented({
       )}
       {showPause && (
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              onClick={onPause}
-              disabled={actionsLocked}
-              aria-label="Pause sandbox"
-            >
-              <Pause className="size-4" />
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onClick={onPause}
+                disabled={actionsLocked}
+                aria-label="Pause sandbox"
+              >
+                <Pause className="size-4" />
+              </Button>
+            }
+          />
           <TooltipContent>Pause</TooltipContent>
         </Tooltip>
       )}
@@ -129,34 +133,38 @@ export function SandboxActionsSegmented({
       )}
       {showArchive && (
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              onClick={onArchive}
-              disabled={actionsLocked}
-              aria-label="Archive sandbox"
-            >
-              <Archive className="size-4" />
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onClick={onArchive}
+                disabled={actionsLocked}
+                aria-label="Archive sandbox"
+              >
+                <Archive className="size-4" />
+              </Button>
+            }
+          />
           <TooltipContent>Archive</TooltipContent>
         </Tooltip>
       )}
       {showDelete && (
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              onClick={onDelete}
-              disabled={actionsLocked}
-              aria-label="Delete sandbox"
-              className="text-destructive-foreground hover:bg-destructive/10 hover:text-destructive-foreground"
-            >
-              <Trash2 className="size-4" />
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onClick={onDelete}
+                disabled={actionsLocked}
+                aria-label="Delete sandbox"
+                className="text-destructive-foreground hover:bg-destructive/10 hover:text-destructive-foreground"
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            }
+          />
           <TooltipContent>Delete</TooltipContent>
         </Tooltip>
       )}

@@ -24,10 +24,8 @@ function TooltipButton({
   ...props
 }: Props) {
   return (
-    <Tooltip delayDuration={0}>
-      <TooltipTrigger asChild>
-        <Button ref={ref} {...props} size={size} aria-label={tooltipText} />
-      </TooltipTrigger>
+    <Tooltip delay={0}>
+      <TooltipTrigger render={<Button ref={ref} {...props} size={size} aria-label={tooltipText} />} />
       <TooltipContent side={side}>{tooltipContent || <div>{tooltipText}</div>}</TooltipContent>
     </Tooltip>
   )

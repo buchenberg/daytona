@@ -12,14 +12,14 @@ export function Tooltip({
   side = 'top',
   contentClassName,
 }: {
-  label: React.ReactNode
+  label: React.ReactElement<Record<string, unknown>>
   content: React.ReactNode
   side?: 'right' | 'left' | 'top' | 'bottom'
   contentClassName?: string
 }) {
   return (
     <UiTooltip>
-      <TooltipTrigger asChild>{label}</TooltipTrigger>
+      <TooltipTrigger render={label} />
       <TooltipContent side={side} className={contentClassName}>
         {content}
       </TooltipContent>

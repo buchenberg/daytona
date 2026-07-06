@@ -60,12 +60,16 @@ export function PaymentMethodsCard({ organizationId, creditCardConnectedCreditsG
         </div>
         {showPortalEdit &&
           (portalUrl ? (
-            <Button variant="secondary" size="sm" asChild>
-              <a href={portalUrl} target="_blank" rel="noopener noreferrer">
-                <PencilIcon />
-                Edit
-              </a>
-            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              render={
+                <a href={portalUrl} target="_blank" rel="noopener noreferrer">
+                  <PencilIcon />
+                  Edit
+                </a>
+              }
+            />
           ) : (
             <Button variant="secondary" size="sm" disabled>
               <PencilIcon />

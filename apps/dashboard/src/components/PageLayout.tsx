@@ -101,12 +101,18 @@ function PageHeaderExternalAction({
   className?: string
 }) {
   return (
-    <Button variant={variant} size="sm" className={cn('text-muted-foreground', className)} aria-label={label} asChild>
-      <a href={href} target="_blank" rel="noopener noreferrer">
-        {icon}
-        <span className="hidden md:inline">{label}</span>
-      </a>
-    </Button>
+    <Button
+      variant={variant}
+      size="sm"
+      className={cn('text-muted-foreground', className)}
+      aria-label={label}
+      render={
+        <a href={href} target="_blank" rel="noopener noreferrer">
+          {icon}
+          <span className="hidden md:inline">{label}</span>
+        </a>
+      }
+    />
   )
 }
 
@@ -152,63 +158,71 @@ function PageHeaderProfileMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="ml-1 h-8 max-w-44 gap-2 bg-input/50 px-2 text-muted-foreground hover:text-foreground md:px-2.5"
-          aria-label="Profile"
-        >
-          {user?.profile.picture ? (
-            <img
-              src={user.profile.picture}
-              alt={user.profile.name || 'Profile picture'}
-              className="size-4 shrink-0 rounded-sm"
-            />
-          ) : (
-            <SquareUserRound className="size-4 shrink-0" />
-          )}
-          <span className="hidden min-w-0 truncate md:block">
-            {user?.profile.name || user?.profile.email || 'Profile'}
-          </span>
-          <ChevronsUpDown className="hidden size-4 shrink-0 opacity-50 md:block" />
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="ml-1 h-8 max-w-44 gap-2 bg-input/50 px-2 text-muted-foreground hover:text-foreground md:px-2.5"
+            aria-label="Profile"
+          >
+            {user?.profile.picture ? (
+              <img
+                src={user.profile.picture}
+                alt={user.profile.name || 'Profile picture'}
+                className="size-4 shrink-0 rounded-sm"
+              />
+            ) : (
+              <SquareUserRound className="size-4 shrink-0" />
+            )}
+            <span className="hidden min-w-0 truncate md:block">
+              {user?.profile.name || user?.profile.email || 'Profile'}
+            </span>
+            <ChevronsUpDown className="hidden size-4 shrink-0 opacity-50 md:block" />
+          </Button>
+        }
+      />
       <DropdownMenuContent side="bottom" align="end" className="w-64">
         <div className="px-2 py-1.5">
           <div className="truncate text-sm font-medium">{user?.profile.name || 'Profile'}</div>
           <div className="truncate text-xs text-muted-foreground">{user?.profile.email || ''}</div>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to={RoutePath.ACCOUNT_SETTINGS}>
-            <Settings className="size-4" />
-            Account Settings
-          </Link>
-        </DropdownMenuItem>
+        <DropdownMenuItem
+          render={
+            <Link to={RoutePath.ACCOUNT_SETTINGS}>
+              <Settings className="size-4" />
+              Account Settings
+            </Link>
+          }
+        />
         <DropdownMenuItem onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
           {theme === 'dark' ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
           {theme === 'dark' ? 'Light mode' : 'Dark mode'}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to={RoutePath.USER_INVITATIONS}>
-            <Mail className="size-4" />
-            Invitations
-            {organizationInvitationsCount > 0 && (
-              <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">
-                {organizationInvitationsCount}
-              </span>
-            )}
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to={RoutePath.ONBOARDING}>
-            <ListChecks className="size-4" />
-            Onboarding
-          </Link>
-        </DropdownMenuItem>
+        <DropdownMenuItem
+          render={
+            <Link to={RoutePath.USER_INVITATIONS}>
+              <Mail className="size-4" />
+              Invitations
+              {organizationInvitationsCount > 0 && (
+                <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">
+                  {organizationInvitationsCount}
+                </span>
+              )}
+            </Link>
+          }
+        />
+        <DropdownMenuItem
+          render={
+            <Link to={RoutePath.ONBOARDING}>
+              <ListChecks className="size-4" />
+              Onboarding
+            </Link>
+          }
+        />
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut}>
           <LogOut className="size-4" />

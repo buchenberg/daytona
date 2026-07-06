@@ -115,8 +115,14 @@ export const UpdateSecretDialog: React.FC<UpdateSecretDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Update Secret: {secret?.name}</DialogTitle>
-          <DialogDescription>Update the value or description of this secret.</DialogDescription>
+          <DialogTitle>Update Secret</DialogTitle>
+          <DialogDescription>
+            Set a new value, description, or allowed hosts for{' '}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs text-foreground break-all">
+              {secret?.name}
+            </code>
+            .
+          </DialogDescription>
         </DialogHeader>
 
         <form
@@ -202,11 +208,13 @@ export const UpdateSecretDialog: React.FC<UpdateSecretDialogProps> = ({
         </form>
 
         <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="secondary">
-              Cancel
-            </Button>
-          </DialogClose>
+          <DialogClose
+            render={
+              <Button type="button" variant="secondary">
+                Cancel
+              </Button>
+            }
+          />
           <form.Subscribe
             selector={(state) => [state.canSubmit, state.isSubmitting]}
             children={([canSubmit, isSubmitting]) => (

@@ -368,18 +368,20 @@ export function SnapshotSheet({
                       )}
                       {showDelete && (
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="icon-sm"
-                              disabled={actionsDisabled}
-                              onClick={() => onDelete(activeSnapshot)}
-                              aria-label="Delete snapshot"
-                              className="text-destructive-foreground hover:bg-destructive/10 hover:text-destructive-foreground"
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          </TooltipTrigger>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
+                                disabled={actionsDisabled}
+                                onClick={() => onDelete(activeSnapshot)}
+                                aria-label="Delete snapshot"
+                                className="text-destructive-foreground hover:bg-destructive/10 hover:text-destructive-foreground"
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            }
+                          />
                           <TooltipContent>Delete</TooltipContent>
                         </Tooltip>
                       )}

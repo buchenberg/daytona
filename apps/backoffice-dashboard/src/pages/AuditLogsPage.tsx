@@ -105,9 +105,7 @@ export const AuditLogsPage = () => {
         return (
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="truncate">{user}</div>
-              </TooltipTrigger>
+              <TooltipTrigger render={<div className="truncate">{user}</div>} />
               <TooltipContent>
                 <p>{user}</p>
               </TooltipContent>
@@ -123,9 +121,7 @@ export const AuditLogsPage = () => {
       render: (log) => (
         <TooltipProvider>
           <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="truncate">{log.action}</div>
-            </TooltipTrigger>
+            <TooltipTrigger render={<div className="truncate">{log.action}</div>} />
             <TooltipContent>
               <p>{log.action}</p>
             </TooltipContent>
@@ -148,9 +144,7 @@ export const AuditLogsPage = () => {
             <div className="truncate">{log.targetType || '-'}</div>
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-sm text-muted-foreground truncate">{displayId}</div>
-                </TooltipTrigger>
+                <TooltipTrigger render={<div className="text-sm text-muted-foreground truncate">{displayId}</div>} />
                 <TooltipContent className="max-w-md">
                   <div className="space-y-1">
                     {ids.map((id, idx) => (

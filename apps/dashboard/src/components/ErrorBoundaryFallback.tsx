@@ -31,7 +31,7 @@ export function ErrorBoundaryFallback({ error, resetErrorBoundary }: Partial<Fal
           </Alert>
 
           {error?.stack && (
-            <Accordion type="single" collapsible className="rounded-lg border border-border bg-muted/40">
+            <Accordion multiple={false} className="rounded-lg border border-border bg-muted/40">
               <AccordionItem value="stack-trace" className="border-b-0">
                 <AccordionTrigger
                   className="px-4 py-3 text-sm font-semibold hover:no-underline"

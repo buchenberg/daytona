@@ -148,10 +148,7 @@ const Webhooks: React.FC = () => {
                 <TabsTrigger value="messages">Messages</TabsTrigger>
               </TabsList>
             </div>
-            <TabsContent
-              value="endpoints"
-              className="min-h-0 p-4 data-[state=active]:flex data-[state=active]:flex-1 flex-col"
-            >
+            <TabsContent value="endpoints" className="min-h-0 p-4 flex flex-1 flex-col">
               <WebhooksEndpointTable
                 data={endpoints.data || []}
                 loading={endpoints.loading}
@@ -160,10 +157,7 @@ const Webhooks: React.FC = () => {
                 onDelete={handleDelete}
               />
             </TabsContent>
-            <TabsContent
-              value="messages"
-              className="min-h-0 p-4 data-[state=active]:flex data-[state=active]:flex-1 flex-col"
-            >
+            <TabsContent value="messages" className="min-h-0 p-4 flex flex-1 flex-col">
               <WebhooksMessagesTable />
             </TabsContent>
           </Tabs>

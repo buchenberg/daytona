@@ -139,11 +139,13 @@ export function SandboxTableActions({
       )}
 
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="Open menu">
-            <MoreHorizontal className="w-4 h-4" />
-          </Button>
-        </DropdownMenuTrigger>
+        <DropdownMenuTrigger
+          render={
+            <Button variant="ghost" size="icon-sm" aria-label="Open menu">
+              <MoreHorizontal className="w-4 h-4" />
+            </Button>
+          }
+        />
         <DropdownMenuContent align="end">
           {canStopSandbox && (
             <DropdownMenuItem

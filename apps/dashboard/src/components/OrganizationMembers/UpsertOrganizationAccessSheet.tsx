@@ -234,17 +234,19 @@ export const UpsertOrganizationAccessSheet: React.FC<UpsertOrganizationAccessShe
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       {trigger === undefined ? (
-        <SheetTrigger asChild>
-          {isCreateMode ? (
-            <CreateResourceButton resource="Member" className={className} disabled={disabled} label="Invite">
-              Member
-            </CreateResourceButton>
-          ) : (
-            <Button variant="default" size="sm" className={className} disabled={disabled}>
-              Update Access
-            </Button>
-          )}
-        </SheetTrigger>
+        <SheetTrigger
+          render={
+            isCreateMode ? (
+              <CreateResourceButton resource="Member" className={className} disabled={disabled} label="Invite">
+                Member
+              </CreateResourceButton>
+            ) : (
+              <Button variant="default" size="sm" className={className} disabled={disabled}>
+                Update Access
+              </Button>
+            )
+          }
+        />
       ) : (
         trigger
       )}
@@ -304,10 +306,11 @@ export const UpsertOrganizationAccessSheet: React.FC<UpsertOrganizationAccessShe
                   <RadioGroup
                     className="gap-6"
                     value={field.state.value}
-                    onValueChange={(value: CreateOrganizationInvitationRoleEnum) => {
+                    onValueChange={(value) => {
+                      const role = value as CreateOrganizationInvitationRoleEnum
                       const previousRole = field.state.value
-                      field.handleChange(value)
-                      handleAssignedRolesOnRoleChange(previousRole, value)
+                      field.handleChange(role)
+                      handleAssignedRolesOnRoleChange(previousRole, role)
                     }}
                   >
                     <div className="grid grid-cols-[auto_1fr] items-start gap-4">

@@ -257,15 +257,17 @@ export const UpsertRegionSheet = ({
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       {trigger === undefined ? (
-        <SheetTrigger asChild>
-          {isEditMode ? (
-            <Button variant="default" size="sm" disabled={disabled} className={className} title="Edit Region">
-              Edit Region
-            </Button>
-          ) : (
-            <CreateResourceButton resource="Region" disabled={disabled} className={className} title="Create Region" />
-          )}
-        </SheetTrigger>
+        <SheetTrigger
+          render={
+            isEditMode ? (
+              <Button variant="default" size="sm" disabled={disabled} className={className} title="Edit Region">
+                Edit Region
+              </Button>
+            ) : (
+              <CreateResourceButton resource="Region" disabled={disabled} className={className} title="Create Region" />
+            )
+          }
+        />
       ) : (
         trigger
       )}

@@ -268,11 +268,13 @@ const columns: ColumnDef<DockerRegistry>[] = [
       return (
         <div className="flex justify-end">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Open menu">
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="Open menu">
+                  <MoreHorizontal />
+                </Button>
+              }
+            />
 
             <DropdownMenuContent align="end">
               {writePermitted && (

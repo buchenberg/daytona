@@ -364,27 +364,27 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
                     {group.items.map((item) => (
                       <SidebarMenuItem key={item.label}>
                         <SidebarMenuButton
-                          asChild
                           isActive={pathname.startsWith(item.path)}
                           className="text-sm"
                           tooltip={item.label}
-                        >
-                          {item.onClick ? (
-                            <button onClick={() => item.onClick?.()}>
-                              {item.icon}
-                              <span>{item.label}</span>
-                            </button>
-                          ) : (
-                            <Link
-                              to={item.path}
-                              onPointerEnter={() => preloadSidebarItem(item)}
-                              onFocus={() => preloadSidebarItem(item)}
-                            >
-                              {item.icon}
-                              <span>{item.label}</span>
-                            </Link>
-                          )}
-                        </SidebarMenuButton>
+                          render={
+                            item.onClick ? (
+                              <button onClick={() => item.onClick?.()}>
+                                {item.icon}
+                                <span>{item.label}</span>
+                              </button>
+                            ) : (
+                              <Link
+                                to={item.path}
+                                onPointerEnter={() => preloadSidebarItem(item)}
+                                onFocus={() => preloadSidebarItem(item)}
+                              >
+                                {item.icon}
+                                <span>{item.label}</span>
+                              </Link>
+                            )
+                          }
+                        />
                       </SidebarMenuItem>
                     ))}
                   </SidebarMenu>

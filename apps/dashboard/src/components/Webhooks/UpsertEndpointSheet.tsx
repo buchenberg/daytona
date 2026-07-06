@@ -208,17 +208,24 @@ export const UpsertEndpointSheet = ({
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       {trigger === undefined ? (
-        <SheetTrigger asChild>
-          {isEditMode ? (
-            <Button variant="default" size="sm" disabled={disabled} className={className} title="Edit Endpoint">
-              Edit Endpoint
-            </Button>
-          ) : (
-            <CreateResourceButton resource="Endpoint" disabled={disabled} className={className} title="Create Endpoint">
-              Endpoint
-            </CreateResourceButton>
-          )}
-        </SheetTrigger>
+        <SheetTrigger
+          render={
+            isEditMode ? (
+              <Button variant="default" size="sm" disabled={disabled} className={className} title="Edit Endpoint">
+                Edit Endpoint
+              </Button>
+            ) : (
+              <CreateResourceButton
+                resource="Endpoint"
+                disabled={disabled}
+                className={className}
+                title="Create Endpoint"
+              >
+                Endpoint
+              </CreateResourceButton>
+            )
+          }
+        />
       ) : (
         trigger
       )}
@@ -298,35 +305,38 @@ export const UpsertEndpointSheet = ({
                   <Field data-invalid={isInvalid}>
                     <FieldLabel>Events</FieldLabel>
                     <Popover open={eventsPopoverOpen} onOpenChange={setEventsPopoverOpen} modal>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-invalid={isInvalid}
-                          aria-expanded={eventsPopoverOpen}
-                          className={cn('w-full justify-between h-auto min-h-10', {
-                            '!pl-2': selectedEvents.length > 0,
-                          })}
-                        >
-                          <div className="flex flex-wrap gap-1">
-                            {selectedEvents.length === 0 ? (
-                              <span className="text-muted-foreground">Select events...</span>
-                            ) : selectedEvents.length > 2 ? (
-                              <Badge variant="secondary" className="rounded-sm px-1 font-normal">
-                                {selectedEvents.length} events selected
-                              </Badge>
-                            ) : (
-                              selectedEvents.map((event) => (
-                                <Badge key={event} variant="secondary" className="rounded-sm px-1 font-normal">
-                                  {WEBHOOK_EVENTS.find((webhookEvent) => webhookEvent.value === event)?.label || event}
+                      <PopoverTrigger
+                        render={
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-invalid={isInvalid}
+                            aria-expanded={eventsPopoverOpen}
+                            className={cn('w-full justify-between h-auto min-h-10', {
+                              '!pl-2': selectedEvents.length > 0,
+                            })}
+                          >
+                            <div className="flex flex-wrap gap-1">
+                              {selectedEvents.length === 0 ? (
+                                <span className="text-muted-foreground">Select events...</span>
+                              ) : selectedEvents.length > 2 ? (
+                                <Badge variant="secondary" className="rounded-sm px-1 font-normal">
+                                  {selectedEvents.length} events selected
                                 </Badge>
-                              ))
-                            )}
-                          </div>
-                          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                              ) : (
+                                selectedEvents.map((event) => (
+                                  <Badge key={event} variant="secondary" className="rounded-sm px-1 font-normal">
+                                    {WEBHOOK_EVENTS.find((webhookEvent) => webhookEvent.value === event)?.label ||
+                                      event}
+                                  </Badge>
+                                ))
+                              )}
+                            </div>
+                            <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                          </Button>
+                        }
+                      />
+                      <PopoverContent className="w-[var(--anchor-width)] p-0" align="start">
                         <Command>
                           <CommandInput placeholder="Search events..." />
                           <CommandList>

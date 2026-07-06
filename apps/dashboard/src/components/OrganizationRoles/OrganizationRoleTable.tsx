@@ -352,11 +352,13 @@ const organizationRoleColumns: ColumnDef<OrganizationRole>[] = [
       return (
         <div className="text-right">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Open menu">
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="Open menu">
+                  <MoreHorizontal />
+                </Button>
+              }
+            />
 
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onUpdate(row.original)}>Edit</DropdownMenuItem>

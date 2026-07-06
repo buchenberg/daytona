@@ -377,11 +377,13 @@ const columns: ColumnDef<OrganizationUser>[] = [
       return (
         <div className="text-right">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Open menu">
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="Open menu">
+                  <MoreHorizontal />
+                </Button>
+              }
+            />
 
             <DropdownMenuContent align="end">
               {canUpdateAccess && (

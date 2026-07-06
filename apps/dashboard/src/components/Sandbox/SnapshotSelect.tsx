@@ -6,7 +6,7 @@
 import { Badge } from '@/components/ui/badge'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { InputGroup, InputGroupAddon } from '@/components/ui/input-group'
-import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
 import { useRegionLookup } from '@/hooks/queries/useRegionsQuery'
 import { useSnapshotsQuery } from '@/hooks/queries/useSnapshotsQuery'
@@ -142,6 +142,7 @@ export function SnapshotSelect({
   const [open, setOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const anchorRef = useRef<HTMLDivElement>(null)
   const debouncedSearchValue = useDebouncedValue(searchValue, 300)
   const searchTerm = debouncedSearchValue.trim()
   const { selectedOrganization } = useSelectedOrganization()
@@ -227,18 +228,19 @@ export function SnapshotSelect({
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       {name && <input type="hidden" name={name} value={value ?? ''} />}
-      <PopoverAnchor asChild>
-        <InputGroup
-          className={cn(
-            'h-8 overflow-hidden data-[disabled]:opacity-50',
-            {
-              'opacity-50': loading,
-            },
-            className,
-          )}
-          data-disabled={loading || disabled ? true : undefined}
-        >
-          <PopoverTrigger asChild>
+      <InputGroup
+        ref={anchorRef}
+        className={cn(
+          'h-8 overflow-hidden data-[disabled]:opacity-50',
+          {
+            'opacity-50': loading,
+          },
+          className,
+        )}
+        data-disabled={loading || disabled ? true : undefined}
+      >
+        <PopoverTrigger
+          render={
             <button
               id={id}
               type="button"
@@ -247,34 +249,39 @@ export function SnapshotSelect({
               className="absolute inset-0 z-10 rounded-md outline-none disabled:cursor-not-allowed"
               aria-label={loading ? 'Loading snapshots' : selectedLabel}
             />
-          </PopoverTrigger>
-          <span
-            aria-hidden="true"
-            className={cn('min-w-0 flex-1 truncate px-3 text-sm', {
-              'text-muted-foreground': !value,
-            })}
-          >
-            {loading ? 'Loading snapshots...' : selectedLabel}
+          }
+        />
+        <span
+          aria-hidden="true"
+          className={cn('min-w-0 flex-1 truncate px-3 text-sm', {
+            'text-muted-foreground': !value,
+          })}
+        >
+          {loading ? 'Loading snapshots...' : selectedLabel}
+        </span>
+        <InputGroupAddon align="inline-end" className="text-foreground">
+          <span className="flex size-5 items-center justify-center">
+            {value && (
+              <button
+                type="button"
+                aria-label="Clear snapshot"
+                disabled={loading || disabled}
+                className="relative z-20 rounded-sm p-0.5 text-current opacity-50 hover:text-foreground disabled:cursor-not-allowed"
+                onClick={handleClear}
+              >
+                <X aria-hidden="true" className="size-3.5" />
+              </button>
+            )}
           </span>
-          <InputGroupAddon align="inline-end" className="text-foreground">
-            <span className="flex size-5 items-center justify-center">
-              {value && (
-                <button
-                  type="button"
-                  aria-label="Clear snapshot"
-                  disabled={loading || disabled}
-                  className="relative z-20 rounded-sm p-0.5 text-current opacity-50 hover:text-foreground disabled:cursor-not-allowed"
-                  onClick={handleClear}
-                >
-                  <X aria-hidden="true" className="size-3.5" />
-                </button>
-              )}
-            </span>
-            <ChevronDownIcon aria-hidden="true" className="size-4 text-current opacity-50" />
-          </InputGroupAddon>
-        </InputGroup>
-      </PopoverAnchor>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start" container={popoverContainer}>
+          <ChevronDownIcon aria-hidden="true" className="size-4 text-current opacity-50" />
+        </InputGroupAddon>
+      </InputGroup>
+      <PopoverContent
+        className="w-[var(--anchor-width)] p-0"
+        align="start"
+        anchor={anchorRef}
+        container={popoverContainer}
+      >
         <Command shouldFilter={!shouldFetchSearchResults}>
           <CommandInput
             ref={inputRef}

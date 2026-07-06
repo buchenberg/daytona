@@ -33,22 +33,26 @@ export const LeaveOrganizationDialog: React.FC<LeaveOrganizationDialogProps> = (
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="destructive" className="w-auto px-4">
-          Leave Organization
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button variant="destructive" className="w-auto px-4">
+            Leave Organization
+          </Button>
+        }
+      />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Leave Organization</DialogTitle>
           <DialogDescription>Are you sure you want to leave this organization?</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="secondary" disabled={loading}>
-              Cancel
-            </Button>
-          </DialogClose>
+          <DialogClose
+            render={
+              <Button type="button" variant="secondary" disabled={loading}>
+                Cancel
+              </Button>
+            }
+          />
           {loading ? (
             <Button type="button" variant="default" disabled>
               Leaving...

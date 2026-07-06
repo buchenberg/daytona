@@ -103,12 +103,17 @@ export function SandboxTerminalTab({ sandbox }: { sandbox: SandboxListItem }) {
   return (
     <div className="flex-1 flex flex-col p-4">
       <div className="mb-2 flex shrink-0 justify-end">
-        <Button variant="link" size="sm" className="h-auto px-0 py-0" asChild>
-          <a href={session.url} target="_blank" rel="noopener noreferrer">
-            Open in new tab
-            <ArrowUpRight className="size-4" />
-          </a>
-        </Button>
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto px-0 py-0"
+          render={
+            <a href={session.url} target="_blank" rel="noopener noreferrer">
+              Open in new tab
+              <ArrowUpRight className="size-4" />
+            </a>
+          }
+        />
       </div>
       <div className="flex-1 min-h-0 rounded-md border border-border bg-black overflow-hidden p-1">
         <iframe title="Sandbox terminal" src={session.url} className="w-full h-full border-0" />

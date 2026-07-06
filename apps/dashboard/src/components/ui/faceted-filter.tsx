@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Slot } from '@radix-ui/react-slot'
+import { mergeProps } from '@base-ui/react/merge-props'
+import { useRender } from '@base-ui/react/use-render'
 import { PlusCircle, X } from 'lucide-react'
 import { AnimatePresence, motion, type MotionProps } from 'motion/react'
 import {
@@ -245,143 +246,134 @@ function FacetedFilterRoot({
   )
 }
 
-function FacetedFilterAnchor({ className, asChild = false, ...props }: ComponentProps<'div'> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot : 'div'
+function FacetedFilterAnchor({ className, render, ...props }: useRender.ComponentProps<'div'>) {
+  const defaultProps = {
+    'data-slot': 'faceted-filter-anchor',
+    className: cn('inline-flex h-8 min-w-0 items-stretch rounded-md bg-background dark:bg-card text-sm', className),
+  }
 
-  return (
-    <Comp
-      data-slot="faceted-filter-anchor"
-      className={cn('inline-flex h-8 min-w-0 items-stretch rounded-md bg-background dark:bg-card text-sm', className)}
-      {...props}
-    />
-  )
+  return useRender({
+    render,
+    defaultTagName: 'div',
+    props: mergeProps<'div'>(defaultProps, props),
+  })
 }
 
 interface FacetedFilterLabelTriggerProps extends FacetedFilterButtonProps {
-  asChild?: boolean
+  render?: useRender.RenderProp
   icon?: ReactNode
 }
 
 function FacetedFilterLabelTrigger({
-  asChild = false,
+  render,
   icon = defaultIcon,
   className,
   children,
   ...props
 }: FacetedFilterLabelTriggerProps) {
   const context = useFacetedFilterContext('FacetedFilterLabelTrigger')
-  const Comp = asChild ? Slot : motion.button
-  const animationProps = asChild ? {} : { layout: context.layout, transition: segmentTransition }
   const hasIcon = shouldRenderIcon(icon)
 
-  return (
-    <Comp
-      {...props}
-      {...animationProps}
-      type="button"
-      disabled
-      data-slot="faceted-filter-label-trigger"
-      className={cn(
-        'inline-flex min-w-0 cursor-default items-center gap-1.5 border border-border bg-background dark:bg-card font-medium text-foreground transition-colors outline-hidden disabled:pointer-events-none disabled:opacity-100',
-        !context.hasValue && buttonVariants({ variant: 'outline', size: 'sm' }),
-        'h-full',
-        !context.hasValue && 'disabled:opacity-100',
-        {
-          'rounded-l-md px-3': context.hasValue,
-          'rounded-md! border-dashed': !context.hasValue,
-        },
-        className,
-      )}
-    >
-      {asChild ? (
-        children
-      ) : (
-        <>
-          {hasIcon && <FacetedFilterIcon>{icon}</FacetedFilterIcon>}
-          <span data-slot="faceted-filter-label" className="min-w-0 truncate whitespace-nowrap">
-            {children}
-          </span>
-        </>
-      )}
-    </Comp>
-  )
+  const defaultProps = {
+    type: 'button',
+    disabled: true,
+    'data-slot': 'faceted-filter-label-trigger',
+    className: cn(
+      'inline-flex min-w-0 cursor-default items-center gap-1.5 border border-border bg-background dark:bg-card font-medium text-foreground transition-colors outline-hidden disabled:pointer-events-none disabled:opacity-100',
+      !context.hasValue && buttonVariants({ variant: 'outline', size: 'sm' }),
+      'h-full',
+      !context.hasValue && 'disabled:opacity-100',
+      {
+        'rounded-l-md px-3': context.hasValue,
+        'rounded-md! border-dashed': !context.hasValue,
+      },
+      className,
+    ),
+    children: render ? (
+      children
+    ) : (
+      <>
+        {hasIcon && <FacetedFilterIcon>{icon}</FacetedFilterIcon>}
+        <span data-slot="faceted-filter-label" className="min-w-0 truncate whitespace-nowrap">
+          {children}
+        </span>
+      </>
+    ),
+  }
+
+  return useRender({
+    render: render ?? <motion.button layout={context.layout} transition={segmentTransition} />,
+    props: mergeProps(props, defaultProps),
+  })
 }
 
 interface FacetedFilterValueTriggerProps extends FacetedFilterButtonProps {
-  asChild?: boolean
+  render?: ComponentProps<typeof PopoverTrigger>['render']
 }
 
 function FacetedFilterValueTrigger({
-  asChild = false,
+  render,
   className,
   children,
   tabIndex,
   ...props
 }: FacetedFilterValueTriggerProps) {
   const context = useFacetedFilterContext('FacetedFilterValueTrigger')
-  const Comp = asChild ? Slot : motion.button
-  const animationProps = asChild
-    ? {}
-    : {
-        layout: context.layout,
-        transition: context.hasValue ? context.valueSegmentTransition : segmentTransition,
-        ...(context.hasValue ? context.segmentAnimation : { initial: false }),
-      }
+  const animationProps = {
+    layout: context.layout,
+    transition: context.hasValue ? context.valueSegmentTransition : segmentTransition,
+    ...(context.hasValue ? context.segmentAnimation : { initial: false }),
+  }
 
   return (
-    <PopoverTrigger asChild>
-      <Comp
-        {...props}
-        {...animationProps}
-        type="button"
-        tabIndex={context.hasValue ? tabIndex : -1}
-        aria-hidden={!context.hasValue}
-        data-slot="faceted-filter-value-trigger"
-        className={cn(
-          'inline-flex h-full min-w-0 items-stretch overflow-hidden font-medium text-foreground transition-colors outline-hidden hover:text-accent-foreground focus-visible:z-10 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
-          'hover:bg-accent dark:hover:bg-accent',
-          {
-            '-ml-px max-w-72 cursor-pointer border border-border bg-background dark:bg-card': context.hasValue,
-            'w-0 max-w-0 border-0 p-0 opacity-0 pointer-events-none': !context.hasValue,
-            'rounded-none!': context.hasValue && context.onClear,
-            'rounded-r-md': context.hasValue && !context.onClear,
-          },
-          className,
-        )}
-      >
-        {asChild ? (
-          children
-        ) : (
-          <AnimatePresence initial={false} mode="popLayout">
-            {context.hasValue ? children : null}
-          </AnimatePresence>
-        )}
-      </Comp>
+    <PopoverTrigger
+      {...props}
+      render={render ?? <motion.button {...animationProps} />}
+      type="button"
+      tabIndex={context.hasValue ? tabIndex : -1}
+      aria-hidden={!context.hasValue}
+      data-slot="faceted-filter-value-trigger"
+      className={cn(
+        'inline-flex h-full min-w-0 items-stretch overflow-hidden font-medium text-foreground transition-colors outline-hidden hover:text-accent-foreground focus-visible:z-10 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+        'hover:bg-accent dark:hover:bg-accent',
+        {
+          '-ml-px max-w-72 cursor-pointer border border-border bg-background dark:bg-card': context.hasValue,
+          'w-0 max-w-0 border-0 p-0 opacity-0 pointer-events-none': !context.hasValue,
+          'rounded-none!': context.hasValue && context.onClear,
+          'rounded-r-md': context.hasValue && !context.onClear,
+        },
+        className,
+      )}
+    >
+      {render ? (
+        children
+      ) : (
+        <AnimatePresence initial={false} mode="popLayout">
+          {context.hasValue ? children : null}
+        </AnimatePresence>
+      )}
     </PopoverTrigger>
   )
 }
 
 interface FacetedFilterSegmentProps extends FacetedFilterSpanProps {
-  asChild?: boolean
+  render?: useRender.RenderProp
 }
 
-function FacetedFilterSegment({ asChild = false, className, ...props }: FacetedFilterSegmentProps) {
+function FacetedFilterSegment({ render, className, ...props }: FacetedFilterSegmentProps) {
   const context = useFacetedFilterContext('FacetedFilterSegment')
 
-  if (asChild) {
-    return <Slot data-slot="faceted-filter-segment" className={className} {...props} />
+  const defaultProps = {
+    'data-slot': 'faceted-filter-segment',
+    className,
   }
 
-  return (
-    <motion.span
-      data-slot="faceted-filter-segment"
-      layout={context.contentLayout}
-      transition={segmentTransition}
-      {...context.segmentAnimation}
-      className={className}
-      {...props}
-    />
-  )
+  return useRender({
+    render: render ?? (
+      <motion.span layout={context.contentLayout} transition={segmentTransition} {...context.segmentAnimation} />
+    ),
+    props: mergeProps(props, defaultProps),
+  })
 }
 
 interface FacetedFilterOperatorProps extends FacetedFilterSpanProps {
@@ -406,22 +398,24 @@ function FacetedFilterOperator({
       {context.hasValue &&
         (canChangeOperator ? (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <motion.button
-                key="operator"
-                layout={context.contentLayout}
-                transition={segmentTransition}
-                type="button"
-                className={cn(
-                  '-ml-px inline-flex cursor-pointer items-center whitespace-nowrap border border-border bg-background dark:bg-card px-3 text-muted-foreground transition-colors outline-hidden hover:text-foreground focus-visible:z-10 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
-                  'hover:bg-accent dark:hover:bg-accent',
-                  className,
-                )}
-                aria-label="Change filter operator"
-                {...context.segmentAnimation}
-              >
-                {selectedOperator.symbol ?? selectedOperator.label}
-              </motion.button>
+            <DropdownMenuTrigger
+              render={
+                <motion.button
+                  key="operator"
+                  layout={context.contentLayout}
+                  transition={segmentTransition}
+                  {...context.segmentAnimation}
+                />
+              }
+              type="button"
+              className={cn(
+                '-ml-px inline-flex cursor-pointer items-center whitespace-nowrap border border-border bg-background dark:bg-card px-3 text-muted-foreground transition-colors outline-hidden hover:text-foreground focus-visible:z-10 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+                'hover:bg-accent dark:hover:bg-accent',
+                className,
+              )}
+              aria-label="Change filter operator"
+            >
+              {selectedOperator.symbol ?? selectedOperator.label}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-32">
               <DropdownMenuRadioGroup value={selectedOperator.value} onValueChange={onOperatorChange}>
@@ -475,38 +469,30 @@ function FacetedFilterValueList({ className, children, ...props }: FacetedFilter
 }
 
 interface FacetedFilterValueItemProps extends FacetedFilterSpanProps {
-  asChild?: boolean
+  render?: useRender.RenderProp
 }
 
-function FacetedFilterValueItem({ asChild = false, className, children, ...props }: FacetedFilterValueItemProps) {
+function FacetedFilterValueItem({ render, className, children, ...props }: FacetedFilterValueItemProps) {
   const context = useFacetedFilterContext('FacetedFilterValueItem')
 
-  if (asChild) {
-    return (
-      <Slot
-        data-slot="faceted-filter-value-item"
-        className={cn('inline-flex min-w-0 max-w-40 shrink items-center text-foreground', className)}
-        {...props}
-      >
-        {children}
-      </Slot>
-    )
+  const defaultProps = {
+    'data-slot': 'faceted-filter-value-item',
+    className: cn('inline-flex min-w-0 max-w-40 shrink items-center text-foreground', className),
+    children,
   }
 
-  return (
-    <motion.span
-      data-slot="faceted-filter-value-item"
-      layout={context.contentLayout}
-      transition={segmentTransition}
-      initial={false}
-      animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-      exit={{ opacity: 0, x: 4, filter: 'blur(2px)' }}
-      className={cn('inline-flex min-w-0 max-w-40 shrink items-center text-foreground', className)}
-      {...props}
-    >
-      {children}
-    </motion.span>
-  )
+  return useRender({
+    render: render ?? (
+      <motion.span
+        layout={context.contentLayout}
+        transition={segmentTransition}
+        initial={false}
+        animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+        exit={{ opacity: 0, x: 4, filter: 'blur(2px)' }}
+      />
+    ),
+    props: mergeProps(props, defaultProps),
+  })
 }
 
 interface FacetedFilterValuesProps extends FacetedFilterSpanProps {
@@ -547,62 +533,55 @@ function FacetedFilterValues({ items, title, maxValues = 2, className, ...props 
 }
 
 interface FacetedFilterClearProps extends FacetedFilterButtonProps {
-  asChild?: boolean
+  render?: useRender.RenderProp
 }
 
-function FacetedFilterClear({ asChild = false, className, children, onClick, ...props }: FacetedFilterClearProps) {
+function FacetedFilterClear({ render, className, children, onClick, ...props }: FacetedFilterClearProps) {
   const context = useFacetedFilterContext('FacetedFilterClear')
-  const Comp = asChild ? Slot : motion.button
-  const animationProps = asChild
-    ? {}
-    : {
-        layout: context.contentLayout,
-        transition: context.clearSegmentTransition,
-        ...context.clearSegmentAnimation,
-      }
   const handleClick: FacetedFilterButtonProps['onClick'] = (event) => {
     onClick?.(event)
     if (event.defaultPrevented) return
     context.onClear?.()
   }
 
+  const defaultProps = {
+    type: 'button',
+    'data-slot': 'faceted-filter-clear',
+    className: cn(
+      '-ml-px inline-flex w-8 cursor-pointer items-center justify-center rounded-r-md border border-border bg-background dark:bg-card text-muted-foreground transition-colors outline-hidden hover:text-foreground focus-visible:z-10 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+      'hover:bg-accent dark:hover:bg-accent',
+      className,
+    ),
+    onClick: handleClick,
+    children: render ? children : (children ?? <X className="size-3.5" />),
+  }
+
+  const element = useRender({
+    render: render ?? (
+      <motion.button
+        key="clear"
+        layout={context.contentLayout}
+        transition={context.clearSegmentTransition}
+        {...context.clearSegmentAnimation}
+      />
+    ),
+    enabled: Boolean(context.hasValue && context.onClear),
+    props: mergeProps(props, defaultProps),
+  })
+
   return (
     <AnimatePresence initial={false} mode="popLayout">
-      {context.hasValue && context.onClear && (
-        <Comp
-          key={asChild ? undefined : 'clear'}
-          {...props}
-          {...animationProps}
-          type="button"
-          data-slot="faceted-filter-clear"
-          className={cn(
-            '-ml-px inline-flex w-8 cursor-pointer items-center justify-center rounded-r-md border border-border bg-background dark:bg-card text-muted-foreground transition-colors outline-hidden hover:text-foreground focus-visible:z-10 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
-            'hover:bg-accent dark:hover:bg-accent',
-            className,
-          )}
-          onClick={handleClick}
-        >
-          {asChild ? children : (children ?? <X className="size-3.5" />)}
-        </Comp>
-      )}
+      {element}
     </AnimatePresence>
   )
 }
 
-function FacetedFilterContent({
-  className,
-  align = 'start',
-  onCloseAutoFocus,
-  ...props
-}: ComponentProps<typeof PopoverContent>) {
+function FacetedFilterContent({ className, align = 'start', ...props }: ComponentProps<typeof PopoverContent>) {
   return (
     <PopoverContent
       data-slot="faceted-filter-content"
       className={cn('w-[200px] p-0', className)}
       align={align}
-      onCloseAutoFocus={(event) => {
-        onCloseAutoFocus?.(event)
-      }}
       {...props}
     />
   )

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Button } from '@/components/ui/button'
+import { ResponsiveButton } from '@/components/ResponsiveButton'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,17 +55,18 @@ export function AuditLogFilterMenu({
 
   return (
     <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
-          aria-label="Filter"
-          disabled={disabled}
-        >
-          <ListFilter className="h-4 w-4" />
-          <span className="max-[420px]:hidden">Filter</span>
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <ResponsiveButton
+            icon={<ListFilter className="size-4" />}
+            variant="outline"
+            className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
+            disabled={disabled}
+          >
+            Filter
+          </ResponsiveButton>
+        }
+      />
       <DropdownMenuContent className="w-52" align="start">
         {AUDIT_FILTER_FIELDS.map((def) => {
           const Icon = def.icon

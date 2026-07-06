@@ -139,23 +139,25 @@ export const TableView = ({
       title: 'Actions',
       width: '150px',
       render: (organization) => (
-        <TooltipProvider delayDuration={300}>
+        <TooltipProvider delay={300}>
           <div className="flex gap-1">
             {onEdit && canWrite && (
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onEdit(organization)
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onEdit(organization)
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  }
+                />
                 <TooltipContent>
                   <p>Edit organization</p>
                 </TooltipContent>
@@ -163,19 +165,21 @@ export const TableView = ({
             )}
             {onInitializeWebhooks && canWrite && (
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onInitializeWebhooks(organization)
-                    }}
-                  >
-                    <Webhook className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onInitializeWebhooks(organization)
+                      }}
+                    >
+                      <Webhook className="h-4 w-4" />
+                    </Button>
+                  }
+                />
                 <TooltipContent>
                   <p>Initialize webhooks</p>
                 </TooltipContent>

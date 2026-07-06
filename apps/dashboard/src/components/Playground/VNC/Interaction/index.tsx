@@ -77,7 +77,6 @@ const VNCInteractionOptions: React.FC = () => {
         </p>
       </div>
       <Accordion
-        type="multiple"
         value={openedInteractionOptionsSections}
         onValueChange={(interactionOptionsSections) =>
           setOpenedInteractionOptionsSections(interactionOptionsSections as VNCInteractionOptionsSections[])
@@ -91,7 +90,7 @@ const VNCInteractionOptions: React.FC = () => {
               value={section.value}
               className="border px-2 last:border-b first:rounded-t-lg last:rounded-b-lg border-t-0 first:border-t"
             >
-              <AccordionTrigger className="font-semibold text-muted-foreground hover:no-underline dark:bg-muted/50 bg-muted/80 hover:text-primary py-3 border-b border-b-transparent data-[state=open]:border-b-border -mx-2 px-3">
+              <AccordionTrigger className="font-semibold text-muted-foreground hover:no-underline dark:bg-muted/50 bg-muted/80 hover:text-primary py-3 border-b border-b-transparent data-panel-open:border-b-border -mx-2 px-3">
                 <div className="flex items-center gap-2 [&_svg]:size-4 text-sm font-medium">
                   {sectionIcons[section.value]} {section.label}
                 </div>

@@ -107,9 +107,7 @@ export const CreateVolumeSheet = ({
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <CreateResourceButton resource="Volume" disabled={disabled} className={className} />
-      </SheetTrigger>
+      <SheetTrigger render={<CreateResourceButton resource="Volume" disabled={disabled} className={className} />} />
       <SheetContent className="w-dvw sm:w-[420px] p-0 flex flex-col gap-0">
         <SheetHeader className="border-b border-border p-4 px-5 items-center flex text-left flex-row">
           <SheetTitle>Create Volume</SheetTitle>

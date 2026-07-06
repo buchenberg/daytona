@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import * as AccordionPrimitive from '@radix-ui/react-accordion'
+import { Accordion as AccordionPrimitive } from '@base-ui/react/accordion'
 import { ChevronDown } from 'lucide-react'
 import * as React from 'react'
 
@@ -30,7 +30,7 @@ const AccordionTrigger = ({
   <AccordionPrimitive.Header className={cn('flex items-center', headerClassName)}>
     <AccordionPrimitive.Trigger
       className={cn(
-        'flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180',
+        'flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-panel-open]>svg]:rotate-180',
         className,
       )}
       {...props}
@@ -42,17 +42,13 @@ const AccordionTrigger = ({
   </AccordionPrimitive.Header>
 )
 
-const AccordionContent = ({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof AccordionPrimitive.Content>) => (
-  <AccordionPrimitive.Content
-    className="overflow-hidden text-sm transition-all data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
+const AccordionContent = ({ className, children, ...props }: React.ComponentProps<typeof AccordionPrimitive.Panel>) => (
+  <AccordionPrimitive.Panel
+    className="h-[var(--accordion-panel-height)] overflow-hidden text-sm transition-[height] duration-200 ease-out data-[ending-style]:h-0 data-[starting-style]:h-0"
     {...props}
   >
     <div className={cn('pb-4 pt-0', className)}>{children}</div>
-  </AccordionPrimitive.Content>
+  </AccordionPrimitive.Panel>
 )
 
 export { Accordion, AccordionContent, AccordionItem, AccordionTrigger }

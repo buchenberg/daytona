@@ -28,11 +28,9 @@ export const TruncatedText = memo(({ text, maxLength = 30, className }: Truncate
   const truncated = text.substring(0, maxLength) + '...'
 
   return (
-    <TooltipProvider delayDuration={300}>
+    <TooltipProvider delay={300}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className={cn('cursor-help', className)}>{truncated}</span>
-        </TooltipTrigger>
+        <TooltipTrigger render={<span className={cn('cursor-help', className)}>{truncated}</span>} />
         <TooltipContent className="max-w-[400px] break-words">
           <p>{text}</p>
         </TooltipContent>

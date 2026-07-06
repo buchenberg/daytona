@@ -13,6 +13,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Spinner } from '@/components/ui/spinner'
+import { preventBaseUIHandler } from '@/lib/utils'
 import { Ref, useImperativeHandle, useState } from 'react'
 
 import type { SandboxFileSystemNode } from './types'
@@ -100,11 +102,12 @@ export function DeleteNodeDialog({
             variant="destructive"
             disabled={isPending}
             onClick={async (event) => {
-              event.preventDefault()
+              preventBaseUIHandler(event)
               await handleConfirmDelete()
             }}
           >
-            {isPending ? 'Deleting…' : 'Delete'}
+            {isPending && <Spinner />}
+            Delete
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -91,11 +91,13 @@ const columns: ColumnDef<EndpointOut>[] = [
       return (
         <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Open menu" disabled={isLoading}>
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="Open menu" disabled={isLoading}>
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              }
+            />
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onDisable(row.original)} disabled={isLoading}>
                 {row.original.disabled ? 'Enable' : 'Disable'}

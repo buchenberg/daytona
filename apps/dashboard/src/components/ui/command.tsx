@@ -32,14 +32,17 @@ function CommandDialog({
   showCloseButton = false,
   overlay,
   ref,
+  initialFocus,
   ...props
 }: React.ComponentProps<typeof Dialog> & {
+  children?: React.ReactNode
   title?: string
   overlay?: React.ReactNode
   description?: string
   className?: string
   showCloseButton?: boolean
   ref?: React.RefObject<HTMLDivElement>
+  initialFocus?: React.ComponentProps<typeof DialogContent>['initialFocus']
 }) {
   return (
     <Dialog {...props}>
@@ -51,6 +54,7 @@ function CommandDialog({
         className={cn('overflow-hidden p-0 [&_[data-slot=dialog-close]]:hidden', className)}
         overlay={overlay}
         ref={ref}
+        initialFocus={initialFocus}
       >
         {children}
       </DialogContent>

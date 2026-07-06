@@ -143,20 +143,22 @@ export const OrganizationPicker: React.FC = () => {
   return (
     <SidebarMenuItem>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <SidebarMenuButton
-            variant="outline"
-            disabled={loadingSelectOrganization}
-            tooltip={optimisticSelectedOrganization.name}
-          >
-            <div className="w-4 h-4 flex-shrink-0 rounded-full bg-black text-white flex items-center justify-center text-[10px] font-bold">
-              {optimisticSelectedOrganization.name[0].toUpperCase()}
-            </div>
-            <span className="truncate text-foreground">{optimisticSelectedOrganization.name}</span>
-            <ChevronsUpDown className="ml-auto w-4 h-4 opacity-50" />
-          </SidebarMenuButton>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-(--radix-popper-anchor-width)">
+        <DropdownMenuTrigger
+          render={
+            <SidebarMenuButton
+              variant="outline"
+              disabled={loadingSelectOrganization}
+              tooltip={optimisticSelectedOrganization.name}
+            >
+              <div className="w-4 h-4 flex-shrink-0 rounded-full bg-black text-white flex items-center justify-center text-[10px] font-bold">
+                {optimisticSelectedOrganization.name[0].toUpperCase()}
+              </div>
+              <span className="truncate text-foreground">{optimisticSelectedOrganization.name}</span>
+              <ChevronsUpDown className="ml-auto w-4 h-4 opacity-50" />
+            </SidebarMenuButton>
+          }
+        />
+        <DropdownMenuContent className="w-(--anchor-width)">
           <div className="max-h-44 overflow-y-auto">
             {sortedOrganizations.map((org) => (
               <DropdownMenuItem

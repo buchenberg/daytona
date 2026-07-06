@@ -33,7 +33,7 @@ import { AnimatePresence } from 'motion/react'
 import { useCallback, useImperativeHandle, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useCommandPaletteActions } from '../CommandPalette'
-import { SelectionToast } from '../SelectionToast'
+import { SelectionToast, SelectionToastContainer } from '../SelectionToast'
 import { Button } from '../ui/button'
 import { Skeleton } from '../ui/skeleton'
 import {
@@ -401,16 +401,17 @@ export function SandboxTable({
         </Table>
       </TableContainer>
 
-      <AnimatePresence>
-        {hasSelection && (
-          <SelectionToast
-            className="absolute bottom-[120px] sm:bottom-20 left-1/2 -translate-x-1/2 z-50"
-            selectedCount={selectedRows.length}
-            onClearSelection={() => table.resetRowSelection()}
-            onActionClick={handleOpenCommandPalette}
-          />
-        )}
-      </AnimatePresence>
+      <SelectionToastContainer>
+        <AnimatePresence>
+          {hasSelection && (
+            <SelectionToast
+              selectedCount={selectedRows.length}
+              onClearSelection={() => table.resetRowSelection()}
+              onActionClick={handleOpenCommandPalette}
+            />
+          )}
+        </AnimatePresence>
+      </SelectionToastContainer>
 
       <BulkActionAlertDialog
         action={pendingBulkAction}

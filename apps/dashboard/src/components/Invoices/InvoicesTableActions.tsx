@@ -33,23 +33,27 @@ export function InvoicesTableActions({ invoice, onView, onVoid, onPay }: Invoice
   return (
     <div className="flex items-center justify-center">
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="Open menu">
-            <MoreHorizontalIcon className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
+        <DropdownMenuTrigger
+          render={
+            <Button variant="ghost" size="icon-sm" aria-label="Open menu">
+              <MoreHorizontalIcon className="h-4 w-4" />
+            </Button>
+          }
+        />
         <DropdownMenuContent align="end">
-          {onView && <DropdownMenuItem onSelect={() => onView?.(invoice)}>View</DropdownMenuItem>}
-          {onPay && <DropdownMenuItem onSelect={() => onPay?.(invoice)}>Pay</DropdownMenuItem>}
+          {onView && <DropdownMenuItem onClick={() => onView?.(invoice)}>View</DropdownMenuItem>}
+          {onPay && <DropdownMenuItem onClick={() => onPay?.(invoice)}>Pay</DropdownMenuItem>}
           {onVoid && (
             <>
               <DropdownMenuSeparator />
               <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} variant="destructive">
-                    Void
-                  </DropdownMenuItem>
-                </AlertDialogTrigger>
+                <AlertDialogTrigger
+                  render={
+                    <DropdownMenuItem closeOnClick={false} variant="destructive">
+                      Void
+                    </DropdownMenuItem>
+                  }
+                />
                 <AlertDialogContent className="sm:max-w-md">
                   <AlertDialogHeader>
                     <AlertDialogTitle>Void Invoice</AlertDialogTitle>

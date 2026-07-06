@@ -25,6 +25,7 @@ import {
 import { useState, type ReactNode } from 'react'
 import { SearchInput } from '../SearchInput'
 import TooltipButton from '../TooltipButton'
+import { ResponsiveButton } from '../ResponsiveButton'
 import { Button } from '../ui/button'
 import {
   DropdownMenu,
@@ -325,16 +326,17 @@ export function SandboxTableHeader({
           />
 
           <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
-                aria-label="Filter"
-              >
-                <ListFilter className="w-4 h-4" />
-                <span className="max-[420px]:hidden">Filter</span>
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <ResponsiveButton
+                  icon={<ListFilter className="size-4" />}
+                  variant="outline"
+                  className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
+                >
+                  Filter
+                </ResponsiveButton>
+              }
+            />
             <DropdownMenuContent className="w-48" align="start">
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>

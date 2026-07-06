@@ -99,12 +99,14 @@ export function CreatedAtFilter({ onFilterChange, value }: CreatedAtFilterConten
       </div>
       <div className="flex gap-2 items-center">
         <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className={cn('min-w-40', { 'text-muted-foreground': !fromDate })}>
-              <CalendarIcon className=" h-4 w-4" />
-              {fromDate ? format(fromDate, 'PPP') : <span>Pick a date</span>}
-            </Button>
-          </PopoverTrigger>
+          <PopoverTrigger
+            render={
+              <Button variant="outline" className={cn('min-w-40', { 'text-muted-foreground': !fromDate })}>
+                <CalendarIcon className=" h-4 w-4" />
+                {fromDate ? format(fromDate, 'PPP') : <span>Pick a date</span>}
+              </Button>
+            }
+          />
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar mode="single" selected={fromDate} onSelect={handleFromDateSelect} initialFocus />
           </PopoverContent>
@@ -113,12 +115,14 @@ export function CreatedAtFilter({ onFilterChange, value }: CreatedAtFilterConten
         <div className="w-4 flex-shrink-0 h-[1px] bg-border"></div>
 
         <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className={cn('min-w-40', { 'text-muted-foreground': !toDate })}>
-              <CalendarIcon className=" h-4 w-4" />
-              {toDate ? format(toDate, 'PPP') : <span>Pick a date</span>}
-            </Button>
-          </PopoverTrigger>
+          <PopoverTrigger
+            render={
+              <Button variant="outline" className={cn('min-w-40', { 'text-muted-foreground': !toDate })}>
+                <CalendarIcon className=" h-4 w-4" />
+                {toDate ? format(toDate, 'PPP') : <span>Pick a date</span>}
+              </Button>
+            }
+          />
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar mode="single" selected={toDate} onSelect={handleToDateSelect} initialFocus />
           </PopoverContent>

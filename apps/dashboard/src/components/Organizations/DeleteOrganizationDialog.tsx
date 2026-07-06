@@ -50,11 +50,13 @@ export const DeleteOrganizationDialog: React.FC<DeleteOrganizationDialogProps> =
         }
       }}
     >
-      <DialogTrigger asChild>
-        <Button variant="destructive" className="w-auto px-4">
-          Delete Organization
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button variant="destructive" className="w-auto px-4">
+            Delete Organization
+          </Button>
+        }
+      />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Delete Organization</DialogTitle>
@@ -85,11 +87,13 @@ export const DeleteOrganizationDialog: React.FC<DeleteOrganizationDialogProps> =
           </div>
         </form>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="secondary" disabled={loading}>
-              Cancel
-            </Button>
-          </DialogClose>
+          <DialogClose
+            render={
+              <Button type="button" variant="secondary" disabled={loading}>
+                Cancel
+              </Button>
+            }
+          />
           {loading ? (
             <Button type="button" variant="destructive" disabled>
               Deleting...

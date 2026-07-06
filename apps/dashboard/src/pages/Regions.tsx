@@ -330,11 +330,13 @@ const Regions: React.FC = () => {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="secondary">
-                  Cancel
-                </Button>
-              </DialogClose>
+              <DialogClose
+                render={
+                  <Button type="button" variant="secondary">
+                    Cancel
+                  </Button>
+                }
+              />
               <Button
                 variant="destructive"
                 onClick={() => handleDelete(regionToDelete)}

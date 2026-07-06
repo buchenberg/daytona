@@ -200,24 +200,28 @@ function DataTableConfigMenu<TData>({
   return (
     <DropdownMenu modal={false}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              className={cn('relative shrink-0', className)}
-              aria-label="Table settings"
-            >
-              <Settings2Icon className="size-4" />
-              {hasStoredConfig && (
-                <span
-                  aria-hidden="true"
-                  className="absolute right-1 top-1 size-1.5 rounded-full bg-info ring-2 ring-background"
-                />
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  className={cn('relative shrink-0', className)}
+                  aria-label="Table settings"
+                >
+                  <Settings2Icon className="size-4" />
+                  {hasStoredConfig && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute right-1 top-1 size-1.5 rounded-full bg-info ring-2 ring-background"
+                    />
+                  )}
+                </Button>
+              }
+            />
+          }
+        />
         <TooltipContent>Table settings</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align={align} className="w-80 p-1.5">

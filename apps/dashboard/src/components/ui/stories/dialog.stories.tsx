@@ -26,9 +26,7 @@ type Story = StoryObj<typeof Dialog>
 export const Default: Story = {
   render: () => (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline">Open Dialog</Button>
-      </DialogTrigger>
+      <DialogTrigger render={<Button variant="outline">Open Dialog</Button>} />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Dialog Title</DialogTitle>

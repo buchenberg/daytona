@@ -502,9 +502,7 @@ export const CreateSandboxSheet = ({
         setOpen(isOpen)
       }}
     >
-      <SheetTrigger asChild>
-        <CreateResourceButton resource="Sandbox" />
-      </SheetTrigger>
+      <SheetTrigger render={<CreateResourceButton resource="Sandbox" />} />
       <SheetContent ref={handleSheetContentRef} className={cn('w-dvw sm:w-[500px] flex flex-col gap-0 p-0', className)}>
         <SheetHeader className="border-b border-border p-4 px-5 items-center flex text-left flex-row">
           <SheetTitle>Create Sandbox</SheetTitle>
@@ -1064,25 +1062,27 @@ export const CreateSandboxSheet = ({
                         Add Variable
                       </Button>
                     </div>
-                    <FieldDescription asChild>
-                      <div>
-                        <input
-                          type="file"
-                          accept="env"
-                          className="sr-only peer"
-                          onChange={handleEnvFileImport}
-                          id="env-file-input"
-                        />
-                        <label
-                          className="inline-flex items-center gap-1 underline hover:text-foreground cursor-pointer peer-focus-visible:text-primary"
-                          htmlFor="env-file-input"
-                        >
-                          <Upload className="size-3" />
-                          Import .env file
-                        </label>{' '}
-                        or paste .env contents into any key field.
-                      </div>
-                    </FieldDescription>
+                    <FieldDescription
+                      render={
+                        <div>
+                          <input
+                            type="file"
+                            accept="env"
+                            className="sr-only peer"
+                            onChange={handleEnvFileImport}
+                            id="env-file-input"
+                          />
+                          <label
+                            className="inline-flex items-center gap-1 underline hover:text-foreground cursor-pointer peer-focus-visible:text-primary"
+                            htmlFor="env-file-input"
+                          >
+                            <Upload className="size-3" />
+                            Import .env file
+                          </label>{' '}
+                          or paste .env contents into any key field.
+                        </div>
+                      }
+                    />
                     {hasErrors && <FieldError errors={field.state.meta.errors} />}
                   </Field>
                 )

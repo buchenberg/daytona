@@ -132,11 +132,14 @@ const columns: ColumnDef<EndpointMessageOut>[] = [
       return (
         <div className="flex justify-center">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="icon-sm" aria-label="Open menu">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              onClick={(e) => e.stopPropagation()}
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="Open menu">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              }
+            />
             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
               <DropdownMenuItem onClick={() => onReplay(msgId)}>Replay</DropdownMenuItem>
             </DropdownMenuContent>

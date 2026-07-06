@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   DropdownMenu,
@@ -172,11 +173,13 @@ const WebhookEndpointDetails: React.FC = () => {
                   </TimestampTooltip>
                   <div className="ml-auto flex items-center gap-2 shrink-0">
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon-sm" aria-label="Open menu" disabled={isMutating}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button variant="outline" size="icon-sm" aria-label="Open menu" disabled={isMutating}>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        }
+                      />
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setEditSheetOpen(true)}>Edit</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setDisableDialogOpen(true)}>
@@ -353,7 +356,8 @@ const WebhookEndpointDetails: React.FC = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
-              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+              {deleteMutation.isPending && <Spinner />}
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

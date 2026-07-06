@@ -5,7 +5,9 @@
 
 'use client'
 
-import * as SheetPrimitive from '@radix-ui/react-dialog'
+import { Dialog as SheetPrimitive } from '@base-ui/react/dialog'
+
+import { cancelDismissOnToastPress } from '@/components/ui/dialog'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { GripVerticalIcon, X } from 'lucide-react'
 import { animate, motion, useMotionValue } from 'motion/react'
@@ -15,16 +17,14 @@ import { cn } from '@/lib/utils'
 import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 
 export const sheetVariants = cva(
-  'fixed z-50 gap-4 bg-background p-6 shadow-lg outline-hidden transition ease-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:duration-250 data-[state=open]:duration-250',
+  'fixed z-50 gap-4 bg-background p-6 shadow-lg outline-hidden transition ease-out data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:duration-250 data-open:duration-250',
   {
     variants: {
       side: {
-        top: 'inset-x-0 top-0 border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top',
-        bottom:
-          'inset-x-0 bottom-0 border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
-        left: 'inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm',
-        right:
-          'inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right',
+        top: 'inset-x-0 top-0 border-b data-closed:slide-out-to-top data-open:slide-in-from-top',
+        bottom: 'inset-x-0 bottom-0 border-t data-closed:slide-out-to-bottom data-open:slide-in-from-bottom',
+        left: 'inset-y-0 left-0 h-full w-3/4 border-r data-closed:slide-out-to-left data-open:slide-in-from-left sm:max-w-sm',
+        right: 'inset-y-0 right-0 h-full w-3/4 border-l data-closed:slide-out-to-right data-open:slide-in-from-right',
       },
     },
     defaultVariants: {
@@ -33,8 +33,18 @@ export const sheetVariants = cva(
   },
 )
 
-function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />
+function Sheet({ onOpenChange, ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
+  return (
+    <SheetPrimitive.Root
+      onOpenChange={(open, eventDetails) => {
+        cancelDismissOnToastPress(open, eventDetails)
+        if (!eventDetails.isCanceled) {
+          onOpenChange?.(open, eventDetails)
+        }
+      }}
+      {...props}
+    />
+  )
 }
 
 function SheetTrigger({ ...props }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {
@@ -46,15 +56,15 @@ function SheetClose({ ...props }: React.ComponentProps<typeof SheetPrimitive.Clo
 }
 
 function SheetPortal({ ...props }: React.ComponentProps<typeof SheetPrimitive.Portal>) {
-  return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />
+  return <SheetPrimitive.Portal {...props} />
 }
 
-function SheetOverlay({ className, ...props }: React.ComponentProps<typeof SheetPrimitive.Overlay>) {
+function SheetOverlay({ className, ...props }: React.ComponentProps<typeof SheetPrimitive.Backdrop>) {
   return (
-    <SheetPrimitive.Overlay
+    <SheetPrimitive.Backdrop
       data-slot="sheet-overlay"
       className={cn(
-        'fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+        'fixed inset-0 z-50 bg-black/50 data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:duration-250 data-closed:fill-mode-forwards',
         className,
       )}
       {...props}
@@ -63,7 +73,7 @@ function SheetOverlay({ className, ...props }: React.ComponentProps<typeof Sheet
 }
 
 export interface SheetContentProps
-  extends React.ComponentProps<typeof SheetPrimitive.Content>,
+  extends React.ComponentProps<typeof SheetPrimitive.Popup>,
     VariantProps<typeof sheetVariants> {
   showCloseButton?: boolean
 }
@@ -72,7 +82,7 @@ function SheetContent({ className, children, side = 'right', showCloseButton = t
   return (
     <SheetPortal>
       <SheetOverlay />
-      <SheetPrimitive.Content
+      <SheetPrimitive.Popup
         data-slot="sheet-content"
         data-side={side}
         className={cn(sheetVariants({ side }), className)}
@@ -80,7 +90,7 @@ function SheetContent({ className, children, side = 'right', showCloseButton = t
       >
         {children}
         {showCloseButton ? <SheetCloseButton /> : null}
-      </SheetPrimitive.Content>
+      </SheetPrimitive.Popup>
     </SheetPortal>
   )
 }
@@ -143,7 +153,7 @@ function SheetSubsectionTitle({ className, ...props }: React.ComponentProps<'div
 
 function SheetCloseButton() {
   return (
-    <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
+    <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
       <X className="h-4 w-4" />
       <span className="sr-only">Close</span>
     </SheetPrimitive.Close>
@@ -546,36 +556,41 @@ export function ResizableSheetContent({
   return (
     <SheetPortal>
       <SheetOverlay />
-      <SheetPrimitive.Content asChild data-slot="sheet-content" data-side={side} {...props}>
-        <motion.div
-          className={cn(sheetVariants({ side }), 'overflow-visible', className)}
-          style={{ width: widthValue }}
-        >
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-visible">
-            {canResize && (
-              <ResizableSheetContentHandle
-                ref={handleRef}
-                side={resizeSide}
-                active={isResizing}
-                data-disabled={isHandleTemporarilyDisabled ? '' : undefined}
-                hitArea={RESIZE_HIT_AREA}
-                role="separator"
-                tabIndex={0}
-                aria-label="Resize sheet"
-                aria-orientation="vertical"
-                onPointerDown={handleResizePointerDown}
-                onPointerMove={handleResizePointerMove}
-                onPointerUp={handleResizePointerUp}
-                onPointerCancel={handleResizePointerUp}
-                onLostPointerCapture={handleResizeLostPointerCapture}
-                onKeyDown={handleResizeKeyDown}
-              />
-            )}
-            {children}
-            {showCloseButton ? <SheetCloseButton /> : null}
-          </div>
-        </motion.div>
-      </SheetPrimitive.Content>
+      <SheetPrimitive.Popup
+        data-slot="sheet-content"
+        data-side={side}
+        render={
+          <motion.div
+            className={cn(sheetVariants({ side }), 'overflow-visible', className)}
+            style={{ width: widthValue }}
+          />
+        }
+        {...props}
+      >
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-visible">
+          {canResize && (
+            <ResizableSheetContentHandle
+              ref={handleRef}
+              side={resizeSide}
+              active={isResizing}
+              data-disabled={isHandleTemporarilyDisabled ? '' : undefined}
+              hitArea={RESIZE_HIT_AREA}
+              role="separator"
+              tabIndex={0}
+              aria-label="Resize sheet"
+              aria-orientation="vertical"
+              onPointerDown={handleResizePointerDown}
+              onPointerMove={handleResizePointerMove}
+              onPointerUp={handleResizePointerUp}
+              onPointerCancel={handleResizePointerUp}
+              onLostPointerCapture={handleResizeLostPointerCapture}
+              onKeyDown={handleResizeKeyDown}
+            />
+          )}
+          {children}
+          {showCloseButton ? <SheetCloseButton /> : null}
+        </div>
+      </SheetPrimitive.Popup>
     </SheetPortal>
   )
 }

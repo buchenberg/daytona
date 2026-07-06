@@ -14,8 +14,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { buttonVariants } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { useDeleteSecretMutation } from '@/hooks/mutations/useDeleteSecretMutation'
 import { handleApiError } from '@/lib/error-handling'
+import { preventBaseUIHandler } from '@/lib/utils'
 import { Secret } from '@daytona/api-client'
 import React from 'react'
 import { toast } from 'sonner'
@@ -56,7 +58,11 @@ export const DeleteSecretDialog: React.FC<DeleteSecretDialogProps> = ({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete Secret</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete <strong>{secret?.name}</strong>? This action cannot be undone.
+            The secret{' '}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs text-foreground break-all">
+              {secret?.name}
+            </code>{' '}
+            will be permanently deleted. This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -65,11 +71,12 @@ export const DeleteSecretDialog: React.FC<DeleteSecretDialogProps> = ({
             className={buttonVariants({ variant: 'destructive' })}
             disabled={deleteSecretMutation.isPending}
             onClick={(e) => {
-              e.preventDefault()
+              preventBaseUIHandler(e)
               handleDelete()
             }}
           >
-            {deleteSecretMutation.isPending ? 'Deleting...' : 'Delete'}
+            {deleteSecretMutation.isPending && <Spinner />}
+            Delete
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

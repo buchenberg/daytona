@@ -33,6 +33,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Spinner } from '@/components/ui/spinner'
 import { DAYTONA_DOCS_URL } from '@/constants/ExternalLinks'
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '@/constants/Pagination'
 import { LocalStorageKey } from '@/enums/LocalStorageKey'
@@ -41,11 +42,12 @@ import { mutationKeys } from '@/hooks/mutations/mutationKeys'
 import { useArchiveSandboxMutation } from '@/hooks/mutations/useArchiveSandboxMutation'
 import { useDeleteSandboxMutation } from '@/hooks/mutations/useDeleteSandboxMutation'
 import { useMutatingSandboxes } from '@/hooks/mutations/useMutatingSandboxes'
+import { usePauseSandboxMutation } from '@/hooks/mutations/usePauseSandboxMutation'
 import { useRecoverSandboxMutation } from '@/hooks/mutations/useRecoverSandboxMutation'
 import { useStartSandboxMutation } from '@/hooks/mutations/useStartSandboxMutation'
 import { useStopSandboxMutation } from '@/hooks/mutations/useStopSandboxMutation'
-import { usePauseSandboxMutation } from '@/hooks/mutations/usePauseSandboxMutation'
 import { queryKeys } from '@/hooks/queries/queryKeys'
+import { useAvailableRegionsQuery, useRegionLookup } from '@/hooks/queries/useRegionsQuery'
 import {
   DEFAULT_SANDBOX_SORTING,
   SandboxFilters,
@@ -54,7 +56,6 @@ import {
   useSandboxesQuery,
 } from '@/hooks/queries/useSandboxesQuery'
 import { SnapshotFilters, SnapshotQueryParams, useSnapshotsQuery } from '@/hooks/queries/useSnapshotsQuery'
-import { useAvailableRegionsQuery, useRegionLookup } from '@/hooks/queries/useRegionsQuery'
 import { useApi } from '@/hooks/useApi'
 import { useConfig } from '@/hooks/useConfig'
 import { useSandboxWsSync, type SandboxWsSyncEvent } from '@/hooks/useSandboxWsSync'
@@ -63,7 +64,7 @@ import { createBulkActionToast } from '@/lib/bulk-action-toast'
 import { handleApiError } from '@/lib/error-handling'
 import { getLocalStorageItem, setLocalStorageItem } from '@/lib/local-storage'
 import { EMPTY_REGIONS } from '@/lib/regions'
-import { formatDuration, pluralize } from '@/lib/utils'
+import { formatDuration, pluralize, preventBaseUIHandler } from '@/lib/utils'
 import {
   ListSandboxesResponse,
   OrganizationRolePermissionsEnum,
@@ -1255,7 +1256,7 @@ const Sandboxes: React.FC = () => {
   }, [apiKeyApi, navigate, selectedOrganization, user])
 
   const handleCreateSnapshotConfirm = async (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault()
+    preventBaseUIHandler(event)
     if (!sandboxToSnapshot || !snapshotName.trim()) return
 
     try {
@@ -1366,11 +1367,12 @@ const Sandboxes: React.FC = () => {
                   variant="destructive"
                   disabled={sandboxIsLoading[sandboxToDelete]}
                   onClick={async (event) => {
-                    event.preventDefault()
+                    preventBaseUIHandler(event)
                     await handleDelete(sandboxToDelete)
                   }}
                 >
-                  {sandboxIsLoading[sandboxToDelete] ? 'Deleting...' : 'Delete'}
+                  {sandboxIsLoading[sandboxToDelete] && <Spinner />}
+                  Delete
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -1422,7 +1424,8 @@ const Sandboxes: React.FC = () => {
                   disabled={!snapshotName.trim() || createSandboxSnapshotMutation.isPending}
                   onClick={handleCreateSnapshotConfirm}
                 >
-                  {createSandboxSnapshotMutation.isPending ? 'Creating...' : 'Create'}
+                  {createSandboxSnapshotMutation.isPending && <Spinner />}
+                  Create
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

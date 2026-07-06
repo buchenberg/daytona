@@ -16,7 +16,7 @@ import WebTerminal from '@/components/Playground/Terminal/WebTerminal'
 import VNCDesktopWindowResponse from '@/components/Playground/VNC/DesktopWindowResponse'
 import VNCInteractionOptions from '@/components/Playground/VNC/Interaction'
 import { Button } from '@/components/ui/button'
-import { Drawer, DrawerContent } from '@/components/ui/drawer'
+import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from '@/components/ui/drawer'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PlaygroundCategories } from '@/enums/Playground'
 import { PlaygroundProvider } from '@/providers/PlaygroundProvider'
@@ -121,30 +121,34 @@ const Playground: React.FC = () => {
                 <TabsContent
                   value={playgroundCategory}
                   key={playgroundCategory}
-                  className="mt-0 data-[state=inactive]:hidden"
-                  asChild
-                >
-                  <PlaygroundLayout className="overflow-auto">
-                    <PlaygroundLayoutSidebar>
-                      <AnimatePresence mode="popLayout">
-                        <SlideLeftRight direction={direction} key={playgroundCategory}>
-                          {sidePanel}
-                        </SlideLeftRight>
-                      </AnimatePresence>
-                    </PlaygroundLayoutSidebar>
+                  className="mt-0"
+                  render={
+                    <PlaygroundLayout className="overflow-auto">
+                      <PlaygroundLayoutSidebar>
+                        <AnimatePresence mode="popLayout">
+                          <SlideLeftRight direction={direction} key={playgroundCategory}>
+                            {sidePanel}
+                          </SlideLeftRight>
+                        </AnimatePresence>
+                      </PlaygroundLayoutSidebar>
 
-                    <Drawer open={drawerOpen === playgroundCategory} onOpenChange={handleDrawerOpenChange}>
-                      <DrawerContent>
-                        <div className="p-4 overflow-auto">{sidePanel}</div>
-                      </DrawerContent>
-                    </Drawer>
-                    <PlaygroundLayoutContent className="[&>*]:w-full xs:[&>*]:max-w-[min(90%,1024px)]">
-                      {playgroundCategory === PlaygroundCategories.SANDBOX && <SandboxCodeSnippetsResponse />}
-                      {playgroundCategory === PlaygroundCategories.TERMINAL && <WebTerminal />}
-                      {playgroundCategory === PlaygroundCategories.VNC && <VNCDesktopWindowResponse />}
-                    </PlaygroundLayoutContent>
-                  </PlaygroundLayout>
-                </TabsContent>
+                      <Drawer open={drawerOpen === playgroundCategory} onOpenChange={handleDrawerOpenChange}>
+                        <DrawerContent>
+                          <DrawerTitle className="sr-only">Configuration</DrawerTitle>
+                          <DrawerDescription className="sr-only">
+                            Configure the {playgroundCategory} playground.
+                          </DrawerDescription>
+                          <div className="p-4 overflow-auto">{sidePanel}</div>
+                        </DrawerContent>
+                      </Drawer>
+                      <PlaygroundLayoutContent className="[&>*]:w-full xs:[&>*]:max-w-[min(90%,1024px)]">
+                        {playgroundCategory === PlaygroundCategories.SANDBOX && <SandboxCodeSnippetsResponse />}
+                        {playgroundCategory === PlaygroundCategories.TERMINAL && <WebTerminal />}
+                        {playgroundCategory === PlaygroundCategories.VNC && <VNCDesktopWindowResponse />}
+                      </PlaygroundLayoutContent>
+                    </PlaygroundLayout>
+                  }
+                />
               </Tabs>
             </PlaygroundSandboxProvider>
           </PlaygroundProvider>

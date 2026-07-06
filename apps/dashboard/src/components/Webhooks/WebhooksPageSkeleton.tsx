@@ -23,10 +23,7 @@ export function WebhooksPageSkeleton() {
                 <TabsTrigger value="messages">Messages</TabsTrigger>
               </TabsList>
             </div>
-            <TabsContent
-              value="endpoints"
-              className="min-h-0 p-4 data-[state=active]:flex data-[state=active]:flex-1 flex-col"
-            >
+            <TabsContent value="endpoints" className="min-h-0 p-4 flex flex-1 flex-col">
               <WebhooksEndpointTable
                 data={[]}
                 loading={true}

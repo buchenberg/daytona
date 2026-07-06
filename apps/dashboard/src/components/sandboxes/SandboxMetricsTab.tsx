@@ -106,9 +106,8 @@ function MetricGroupChart({
         <h3 className="text-sm font-medium">{displayTitle}</h3>
         {viewMode && onViewModeChange && (
           <ToggleGroup
-            type="single"
-            value={viewMode}
-            onValueChange={(value) => {
+            value={[viewMode]}
+            onValueChange={([value]) => {
               if (value) onViewModeChange(value as ViewMode)
             }}
             variant="outline"

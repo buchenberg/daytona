@@ -108,7 +108,8 @@ const columns: ColumnDef<SandboxListItem>[] = [
       return (
         <div className="flex justify-center">
           <Checkbox
-            checked={allSelected || (partiallySelected && 'indeterminate')}
+            checked={allSelected}
+            indeterminate={partiallySelected}
             onCheckedChange={() => {
               table.getRowModel().rows.forEach((row) => {
                 if (!row.getCanSelect()) {
@@ -219,11 +220,13 @@ const columns: ColumnDef<SandboxListItem>[] = [
       const label = getSandboxClassLabel(sandboxClass)
       return (
         <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="inline-flex items-center" aria-label={label}>
-              <Icon className="size-4 text-muted-foreground shrink-0" />
-            </span>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <span className="inline-flex items-center" aria-label={label}>
+                <Icon className="size-4 text-muted-foreground shrink-0" />
+              </span>
+            }
+          />
           <TooltipContent>{label}</TooltipContent>
         </Tooltip>
       )
@@ -309,9 +312,11 @@ const columns: ColumnDef<SandboxListItem>[] = [
 
       return (
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge variant="info">{labelEntries.length === 1 ? '1 label' : `${labelEntries.length} labels`}</Badge>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Badge variant="info">{labelEntries.length === 1 ? '1 label' : `${labelEntries.length} labels`}</Badge>
+            }
+          />
           <TooltipContent className="scrollbar-sm max-h-[400px] max-w-[300px] overflow-y-auto p-2">
             <div className="flex flex-wrap gap-2">
               {labelEntries.map(([key, value]) => (

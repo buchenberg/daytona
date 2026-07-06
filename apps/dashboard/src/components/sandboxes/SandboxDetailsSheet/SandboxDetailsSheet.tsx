@@ -275,7 +275,17 @@ const SandboxDetailsSheet: React.FC<SandboxDetailsSheetProps> = ({
   const isNotFound = isError && getSandboxQueryErrorStatus(error) === 404
 
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
+    <Sheet
+      open={open}
+      onOpenChange={(isOpen, eventDetails) => {
+        // keep the sheet open when the dismissal originates from a nested alert dialog
+        if (!isOpen && isNestedAlertDialogEvent(eventDetails.event)) {
+          eventDetails.cancel()
+          return
+        }
+        handleOpenChange(isOpen)
+      }}
+    >
       <ResizableSheetContent
         ref={sheetContentRef}
         side="right"
@@ -284,17 +294,7 @@ const SandboxDetailsSheet: React.FC<SandboxDetailsSheetProps> = ({
         minWidth={minWidth}
         maxWidth={maxWidth}
         resizable={false}
-        onPointerDownOutside={(event) => {
-          if (isNestedAlertDialogEvent(event)) {
-            event.preventDefault()
-          }
-        }}
-        onFocusOutside={(event) => {
-          if (isNestedAlertDialogEvent(event)) {
-            event.preventDefault()
-          }
-        }}
-        className="p-0 flex flex-col gap-0 data-[state=closed]:slide-out-to-right-[400px] data-[state=closed]:duration-250 data-[state=open]:slide-in-from-right-[400px] ease-[cubic-bezier(0.22,1,0.36,1)] [&>button]:hidden"
+        className="p-0 flex flex-col gap-0 data-closed:slide-out-to-right-[400px] data-closed:duration-250 data-open:slide-in-from-right-[400px] ease-[cubic-bezier(0.22,1,0.36,1)] [&>button]:hidden"
       >
         <SheetHeader className="flex flex-row items-start justify-between p-4 px-5 space-y-0 border-b border-border">
           <div className="min-w-0">

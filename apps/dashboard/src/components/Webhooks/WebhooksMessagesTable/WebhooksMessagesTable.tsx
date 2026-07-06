@@ -6,6 +6,7 @@
 import { PageFooterPortal } from '@/components/PageLayout'
 import { Pagination } from '@/components/Pagination'
 import { SearchInput } from '@/components/SearchInput'
+import { ResponsiveButton } from '@/components/ResponsiveButton'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -218,16 +219,17 @@ export function WebhooksMessagesTable() {
           </div>
           <div className="flex max-w-full shrink-0 flex-wrap items-center gap-4">
             <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
-                  aria-label="Filter"
-                >
-                  <ListFilter className="size-4" />
-                  <span className="max-[420px]:hidden">Filter</span>
-                </Button>
-              </DropdownMenuTrigger>
+              <DropdownMenuTrigger
+                render={
+                  <ResponsiveButton
+                    icon={<ListFilter className="size-4" />}
+                    variant="outline"
+                    className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
+                  >
+                    Filter
+                  </ResponsiveButton>
+                }
+              />
               <DropdownMenuContent className="w-48" align="start">
                 <WebhookMessageFilterSubmenu
                   column={eventTypeColumn}

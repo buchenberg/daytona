@@ -73,27 +73,27 @@ export function SandboxContentTabPanels({
 }) {
   return (
     <>
-      <TabsContent value="logs" className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
+      <TabsContent value="logs" className="flex-1 min-h-0 m-0 flex flex-col overflow-hidden">
         <SandboxLogsTab sandboxId={sandbox.id} />
       </TabsContent>
-      <TabsContent value="traces" className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
+      <TabsContent value="traces" className="flex-1 min-h-0 m-0 flex flex-col overflow-hidden">
         <SandboxTracesTab sandboxId={sandbox.id} />
       </TabsContent>
-      <TabsContent value="metrics" className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
+      <TabsContent value="metrics" className="flex-1 min-h-0 m-0 flex flex-col overflow-hidden">
         <SandboxMetricsTab sandboxId={sandbox.id} />
       </TabsContent>
       {spendingTabAvailable && (
-        <TabsContent value="spending" className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
+        <TabsContent value="spending" className="flex-1 min-h-0 m-0 flex flex-col overflow-hidden">
           <SandboxSpendingTab sandboxId={sandbox.id} />
         </TabsContent>
       )}
-      <TabsContent value="terminal" className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
+      <TabsContent value="terminal" className="flex-1 min-h-0 m-0 flex flex-col overflow-hidden">
         <SandboxTerminalTab sandbox={sandbox} />
       </TabsContent>
-      <TabsContent value="filesystem" className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
+      <TabsContent value="filesystem" className="flex-1 min-h-0 m-0 flex flex-col overflow-hidden">
         <SandboxFileSystemTab sandbox={sandbox} />
       </TabsContent>
-      <TabsContent value="vnc" className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
+      <TabsContent value="vnc" className="flex-1 min-h-0 m-0 flex flex-col overflow-hidden">
         <SandboxVncTab sandbox={sandbox} />
       </TabsContent>
     </>

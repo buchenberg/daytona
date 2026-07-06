@@ -5,8 +5,10 @@
 
 'use client'
 
-import { Slot } from '@radix-ui/react-slot'
+import { mergeProps } from '@base-ui/react/merge-props'
+import { useRender } from '@base-ui/react/use-render'
 import { File as FileIcon, Trash2, Upload } from 'lucide-react'
+import * as React from 'react'
 import {
   type ComponentProps,
   type ReactNode,
@@ -346,12 +348,10 @@ function FileUploadDropzoneOutline({
   )
 }
 
-type FileUploadDropzoneProps = ComponentProps<'div'> & {
-  asChild?: boolean
-}
+type FileUploadDropzoneProps = useRender.ComponentProps<'div'>
 
 function FileUploadDropzone({
-  asChild = false,
+  render,
   children,
   className,
   onClick,
@@ -364,160 +364,166 @@ function FileUploadDropzone({
   ...props
 }: FileUploadDropzoneProps) {
   const { disabled, inputId, isDragOver, openFileDialog, setIsDragOver } = useFileUploadContext()
-  const Comp = asChild ? Slot : 'div'
 
-  return (
-    <Comp
-      data-slot="file-upload-dropzone"
-      data-state={isDragOver ? 'over' : 'idle'}
-      role="button"
-      tabIndex={disabled ? -1 : 0}
-      aria-disabled={disabled}
-      className={cn(
-        'relative flex flex-col items-center gap-2 rounded-2xl px-4 py-6 text-center transition-colors select-none',
-        'hover:bg-muted/40 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40',
-        'data-[state=over]:bg-muted/60',
-        { 'cursor-not-allowed opacity-60 hover:bg-transparent': disabled },
-        className,
-      )}
-      onClick={(event) => {
-        onClick?.(event)
-        if (!event.defaultPrevented) {
-          openFileDialog()
-        }
-      }}
-      onKeyDown={(event) => {
-        onKeyDown?.(event)
-        if (event.defaultPrevented || disabled) {
-          return
-        }
+  const defaultProps = {
+    'data-slot': 'file-upload-dropzone',
+    'data-state': isDragOver ? 'over' : 'idle',
+    role: 'button',
+    tabIndex: disabled ? -1 : 0,
+    'aria-disabled': disabled,
+    className: cn(
+      'relative flex flex-col items-center gap-2 rounded-2xl px-4 py-6 text-center transition-colors select-none',
+      'hover:bg-muted/40 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40',
+      'data-[state=over]:bg-muted/60',
+      { 'cursor-not-allowed opacity-60 hover:bg-transparent': disabled },
+      className,
+    ),
+    onClick: (event: React.MouseEvent<HTMLDivElement>) => {
+      onClick?.(event)
+      if (!event.defaultPrevented) {
+        openFileDialog()
+      }
+    },
+    onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => {
+      onKeyDown?.(event)
+      if (event.defaultPrevented || disabled) {
+        return
+      }
 
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          openFileDialog()
-        }
-      }}
-      onDragEnter={(event) => {
-        onDragEnter?.(event)
-        if (disabled) {
-          return
-        }
+      if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault()
-        setIsDragOver(true)
-      }}
-      onDragOver={(event) => {
-        onDragOver?.(event)
-        if (disabled) {
-          return
-        }
-        event.preventDefault()
-        setIsDragOver(true)
-      }}
-      onDragLeave={(event) => {
-        onDragLeave?.(event)
-        if (disabled) {
-          return
-        }
-        event.preventDefault()
-        setIsDragOver(false)
-      }}
-      onDrop={(event) => {
-        onDrop?.(event)
-        if (disabled) {
-          return
-        }
-        event.preventDefault()
-        setIsDragOver(false)
+        openFileDialog()
+      }
+    },
+    onDragEnter: (event: React.DragEvent<HTMLDivElement>) => {
+      onDragEnter?.(event)
+      if (disabled) {
+        return
+      }
+      event.preventDefault()
+      setIsDragOver(true)
+    },
+    onDragOver: (event: React.DragEvent<HTMLDivElement>) => {
+      onDragOver?.(event)
+      if (disabled) {
+        return
+      }
+      event.preventDefault()
+      setIsDragOver(true)
+    },
+    onDragLeave: (event: React.DragEvent<HTMLDivElement>) => {
+      onDragLeave?.(event)
+      if (disabled) {
+        return
+      }
+      event.preventDefault()
+      setIsDragOver(false)
+    },
+    onDrop: (event: React.DragEvent<HTMLDivElement>) => {
+      onDrop?.(event)
+      if (disabled) {
+        return
+      }
+      event.preventDefault()
+      setIsDragOver(false)
 
-        const files = Array.from(event.dataTransfer.files ?? [])
-        if (files.length === 0) {
-          return
-        }
+      const files = Array.from(event.dataTransfer.files ?? [])
+      if (files.length === 0) {
+        return
+      }
 
-        const input = getInputElement(inputId)
-        if (!input) {
-          return
-        }
+      const input = getInputElement(inputId)
+      if (!input) {
+        return
+      }
 
-        input.files = toFileList(files)
-        input.dispatchEvent(new Event('change', { bubbles: true }))
-      }}
-      onPaste={(event) => {
-        onPaste?.(event)
-        if (disabled) {
-          return
-        }
+      input.files = toFileList(files)
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    },
+    onPaste: (event: React.ClipboardEvent<HTMLDivElement>) => {
+      onPaste?.(event)
+      if (disabled) {
+        return
+      }
 
-        const files: File[] = []
-        for (const item of Array.from(event.clipboardData.items)) {
-          if (item.kind === 'file') {
-            const file = item.getAsFile()
-            if (file) {
-              files.push(file)
-            }
+      const files: File[] = []
+      for (const item of Array.from(event.clipboardData.items)) {
+        if (item.kind === 'file') {
+          const file = item.getAsFile()
+          if (file) {
+            files.push(file)
           }
         }
+      }
 
-        if (files.length === 0) {
-          return
-        }
+      if (files.length === 0) {
+        return
+      }
 
-        event.preventDefault()
-        const input = getInputElement(inputId)
-        if (!input) {
-          return
-        }
+      event.preventDefault()
+      const input = getInputElement(inputId)
+      if (!input) {
+        return
+      }
 
-        input.files = toFileList(files)
-        input.dispatchEvent(new Event('change', { bubbles: true }))
-        setIsDragOver(false)
-      }}
-      {...props}
-    >
-      <FileUploadDropzoneOutline isAnimating={isDragOver} className="text-border" />
-      {children}
-    </Comp>
-  )
+      input.files = toFileList(files)
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+      setIsDragOver(false)
+    },
+    children: (
+      <>
+        <FileUploadDropzoneOutline isAnimating={isDragOver} className="text-border" />
+        {children}
+      </>
+    ),
+  }
+
+  return useRender({
+    render,
+    defaultTagName: 'div',
+    props: mergeProps<'div'>(defaultProps, props),
+  })
 }
 
-type FileUploadTriggerProps = ComponentProps<'button'> & {
-  asChild?: boolean
-}
+type FileUploadTriggerProps = useRender.ComponentProps<'button'>
 
-function FileUploadTrigger({ asChild = false, children, onClick, ...props }: FileUploadTriggerProps) {
+function FileUploadTrigger({ render, children, onClick, ...props }: FileUploadTriggerProps) {
   const { disabled, openFileDialog } = useFileUploadContext()
-  const Comp = asChild ? Slot : 'button'
 
-  return (
-    <Comp
-      data-slot="file-upload-trigger"
-      type="button"
-      aria-disabled={disabled}
-      onClick={(event) => {
-        onClick?.(event)
-        if (!event.defaultPrevented) {
-          openFileDialog()
-        }
-      }}
-      {...props}
-    >
-      {children}
-    </Comp>
-  )
+  const defaultProps = {
+    'data-slot': 'file-upload-trigger',
+    type: 'button' as const,
+    'aria-disabled': disabled,
+    onClick: (event: React.MouseEvent<HTMLButtonElement>) => {
+      onClick?.(event)
+      if (!event.defaultPrevented) {
+        openFileDialog()
+      }
+    },
+    children,
+  }
+
+  return useRender({
+    render,
+    defaultTagName: 'button',
+    props: mergeProps<'button'>(defaultProps, props),
+  })
 }
 
-type FileUploadListProps = ComponentProps<'ul'> & {
-  asChild?: boolean
-}
+type FileUploadListProps = useRender.ComponentProps<'ul'>
 
-function FileUploadList({ asChild = false, children, className, ...props }: FileUploadListProps) {
-  const Comp = asChild ? Slot : 'ul'
+function FileUploadList({ render, children, className, ...props }: FileUploadListProps) {
+  const defaultProps = {
+    'data-slot': 'file-upload-list',
+    className: cn('flex flex-col gap-2 empty:hidden', className),
+    children,
+  }
 
-  return (
-    <Comp data-slot="file-upload-list" className={cn('flex flex-col gap-2 empty:hidden', className)} {...props}>
-      {children}
-    </Comp>
-  )
+  return useRender({
+    render,
+    defaultTagName: 'ul',
+    props: mergeProps<'ul'>(defaultProps, props),
+  })
 }
 
 type FileUploadItemContextValue = {
@@ -536,35 +542,32 @@ function useFileUploadItemContext() {
   return context
 }
 
-type FileUploadItemProps = ComponentProps<'li'> & {
-  asChild?: boolean
+type FileUploadItemProps = useRender.ComponentProps<'li'> & {
   file: File
 }
 
-function FileUploadItem({ asChild = false, children, className, file, ...props }: FileUploadItemProps) {
-  const Comp = asChild ? Slot : 'li'
+function FileUploadItem({ render, children, className, file, ...props }: FileUploadItemProps) {
   const value = useMemo(() => ({ file }), [file])
 
-  return (
-    <FileUploadItemContext.Provider value={value}>
-      <Comp
-        data-slot="file-upload-item"
-        className={cn('flex items-center gap-3 rounded-2xl border border-border bg-background p-3', className)}
-        {...props}
-      >
-        {children}
-      </Comp>
-    </FileUploadItemContext.Provider>
-  )
+  const defaultProps = {
+    'data-slot': 'file-upload-item',
+    className: cn('flex items-center gap-3 rounded-2xl border border-border bg-background p-3', className),
+    children,
+  }
+
+  const item = useRender({
+    render,
+    defaultTagName: 'li',
+    props: mergeProps<'li'>(defaultProps, props),
+  })
+
+  return <FileUploadItemContext.Provider value={value}>{item}</FileUploadItemContext.Provider>
 }
 
-type FileUploadItemPreviewProps = ComponentProps<'div'> & {
-  asChild?: boolean
-}
+type FileUploadItemPreviewProps = useRender.ComponentProps<'div'>
 
-function FileUploadItemPreview({ asChild = false, children, className, ...props }: FileUploadItemPreviewProps) {
+function FileUploadItemPreview({ render, children, className, ...props }: FileUploadItemPreviewProps) {
   const { file } = useFileUploadItemContext()
-  const Comp = asChild ? Slot : 'div'
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -584,86 +587,89 @@ function FileUploadItemPreview({ asChild = false, children, className, ...props 
     }
   }, [file])
 
-  return (
-    <Comp
-      data-slot="file-upload-item-preview"
-      className={cn(
-        'relative flex size-12 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted',
-        className,
-      )}
-      {...props}
-    >
-      {objectUrl ? (
-        <img src={objectUrl} alt="" className="size-full object-cover" />
-      ) : (
-        <FileIcon className="size-5 text-muted-foreground" />
-      )}
-      {children}
-    </Comp>
-  )
+  const defaultProps = {
+    'data-slot': 'file-upload-item-preview',
+    className: cn(
+      'relative flex size-12 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted',
+      className,
+    ),
+    children: (
+      <>
+        {objectUrl ? (
+          <img src={objectUrl} alt="" className="size-full object-cover" />
+        ) : (
+          <FileIcon className="size-5 text-muted-foreground" />
+        )}
+        {children}
+      </>
+    ),
+  }
+
+  return useRender({
+    render,
+    defaultTagName: 'div',
+    props: mergeProps<'div'>(defaultProps, props),
+  })
 }
 
-type FileUploadItemMetadataProps = ComponentProps<'div'> & {
-  asChild?: boolean
+type FileUploadItemMetadataProps = useRender.ComponentProps<'div'> & {
   unit?: 'KB' | 'MB'
 }
 
-function FileUploadItemMetadata({
-  asChild = false,
-  children,
-  className,
-  unit = 'MB',
-  ...props
-}: FileUploadItemMetadataProps) {
+function FileUploadItemMetadata({ render, children, className, unit = 'MB', ...props }: FileUploadItemMetadataProps) {
   const { file } = useFileUploadItemContext()
-  const Comp = asChild ? Slot : 'div'
   const unitSize = Math.pow(1024, unit === 'KB' ? 1 : 2)
   const fileSizeLabel = `${(file.size / unitSize).toFixed(2)} ${unit}`
 
-  return (
-    <Comp data-slot="file-upload-item-metadata" className={cn('mr-auto flex min-w-0 flex-col', className)} {...props}>
-      {children ?? (
-        <>
-          <span className="truncate text-sm font-medium text-foreground">{file.name}</span>
-          <span className="text-xs text-muted-foreground">{fileSizeLabel}</span>
-        </>
-      )}
-    </Comp>
-  )
+  const defaultProps = {
+    'data-slot': 'file-upload-item-metadata',
+    className: cn('mr-auto flex min-w-0 flex-col', className),
+    children: children ?? (
+      <>
+        <span className="truncate text-sm font-medium text-foreground">{file.name}</span>
+        <span className="text-xs text-muted-foreground">{fileSizeLabel}</span>
+      </>
+    ),
+  }
+
+  return useRender({
+    render,
+    defaultTagName: 'div',
+    props: mergeProps<'div'>(defaultProps, props),
+  })
 }
 
-type FileUploadItemDeleteProps = ComponentProps<'button'> & {
-  asChild?: boolean
-}
+type FileUploadItemDeleteProps = useRender.ComponentProps<'button'>
 
-function FileUploadItemDelete({ asChild = false, children, className, onClick, ...props }: FileUploadItemDeleteProps) {
+function FileUploadItemDelete({ render, children, className, onClick, ...props }: FileUploadItemDeleteProps) {
   const { onFileRemove } = useFileUploadContext()
   const { file } = useFileUploadItemContext()
-  const Comp = asChild ? Slot : 'button'
 
-  return (
-    <Comp
-      data-slot="file-upload-item-delete"
-      type="button"
-      className={cn(
-        'inline-flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
-        className,
-      )}
-      onClick={(event) => {
-        onClick?.(event)
-        if (event.defaultPrevented) {
-          return
-        }
+  const defaultProps = {
+    'data-slot': 'file-upload-item-delete',
+    type: 'button' as const,
+    className: cn(
+      'inline-flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+      className,
+    ),
+    onClick: (event: React.MouseEvent<HTMLButtonElement>) => {
+      onClick?.(event)
+      if (event.defaultPrevented) {
+        return
+      }
 
-        event.preventDefault()
-        event.stopPropagation()
-        onFileRemove(file)
-      }}
-      {...props}
-    >
-      {children ?? <Trash2 className="size-4" />}
-    </Comp>
-  )
+      event.preventDefault()
+      event.stopPropagation()
+      onFileRemove(file)
+    },
+    children: children ?? <Trash2 className="size-4" />,
+  }
+
+  return useRender({
+    render,
+    defaultTagName: 'button',
+    props: mergeProps<'button'>(defaultProps, props),
+  })
 }
 
 function FileUploadDropzoneContent({

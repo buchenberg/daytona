@@ -442,17 +442,19 @@ function SandboxFileSystem({ sandbox }: { sandbox: SandboxListItem }) {
 
                 setIsContentsOverlayOpen(true)
               }}
+              onOpenChangeComplete={(open) => {
+                if (!open) {
+                  fileTreePaneRef.current?.restoreFocus(lastOpenedNodePath)
+                }
+              }}
             >
               <DialogContent
                 animate={false}
                 container={filesystemRootRef.current}
                 overlay={<DialogOverlay className="absolute inset-0 z-20" />}
-                className="absolute inset-0 z-30 max-h-none max-w-none gap-0 overflow-hidden rounded-none border-0 p-0 shadow-none outline-none sm:max-w-none translate-y-0 translate-x-0 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+                className="absolute inset-0 z-30 max-h-none max-w-none gap-0 overflow-hidden rounded-none border-0 p-0 shadow-none outline-none sm:max-w-none translate-y-0 translate-x-0 data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95"
                 showCloseButton={false}
-                onCloseAutoFocus={(event) => {
-                  event.preventDefault()
-                  fileTreePaneRef.current?.restoreFocus(lastOpenedNodePath)
-                }}
+                finalFocus={false}
               >
                 <DialogTitle className="sr-only">{selectedNodePath ?? 'Contents'}</DialogTitle>
                 <DialogDescription className="sr-only">

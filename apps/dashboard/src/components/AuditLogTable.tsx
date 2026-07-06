@@ -309,12 +309,14 @@ const auditLogColumns: ColumnDef<AuditLog>[] = [
             <div className="text-sm text-muted-foreground truncate">{statusCode || '204'}</div>
           ) : (
             <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="text-sm text-muted-foreground truncate">
-                  {statusCode || '500'}
-                  {` - ${errorMessage}`}
-                </div>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <div className="text-sm text-muted-foreground truncate">
+                    {statusCode || '500'}
+                    {` - ${errorMessage}`}
+                  </div>
+                }
+              />
               <TooltipContent className="max-h-60 max-w-sm overflow-y-auto">
                 <p className="whitespace-pre-wrap wrap-break-word">{errorMessage}</p>
               </TooltipContent>

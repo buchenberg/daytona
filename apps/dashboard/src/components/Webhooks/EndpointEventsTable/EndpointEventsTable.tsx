@@ -6,6 +6,7 @@
 import { PageFooterPortal } from '@/components/PageLayout'
 import { Pagination } from '@/components/Pagination'
 import { SearchInput } from '@/components/SearchInput'
+import { ResponsiveButton } from '@/components/ResponsiveButton'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -280,16 +281,17 @@ export function EndpointEventsTable({ data, loading, onReplay }: EndpointEventsT
               containerClassName="min-w-0 flex-1 sm:max-w-sm"
             />
             <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
-                  aria-label="Filter"
-                >
-                  <ListFilter className="size-4" />
-                  <span className="max-[420px]:hidden">Filter</span>
-                </Button>
-              </DropdownMenuTrigger>
+              <DropdownMenuTrigger
+                render={
+                  <ResponsiveButton
+                    icon={<ListFilter className="size-4" />}
+                    variant="outline"
+                    className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
+                  >
+                    Filter
+                  </ResponsiveButton>
+                }
+              />
               <DropdownMenuContent className="w-48" align="start">
                 <WebhookFilterSubmenu
                   column={eventTypeColumn}

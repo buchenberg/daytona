@@ -4,24 +4,13 @@
  */
 
 import { cn } from '@/lib/utils'
-import { Slot } from '@radix-ui/react-slot'
-import { useRef, useState } from 'react'
+import { useRender } from '@base-ui/react/use-render'
+import { useRef, useState, type ComponentProps } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 
-export function EllipsisWithTooltip({
-  children,
-  asChild,
-  className,
-  ...props
-}: {
-  children: React.ReactNode
-  className?: string
-  asChild?: boolean
-}) {
+export function EllipsisWithTooltip({ children, render, className, ...props }: useRender.ComponentProps<'div'>) {
   const [isOpen, setIsOpen] = useState(false)
-  const triggerRef = useRef<HTMLDivElement>(null)
-
-  const Comp = asChild ? Slot : 'div'
+  const triggerRef = useRef<HTMLElement | null>(null)
 
   return (
     <Tooltip
@@ -36,12 +25,17 @@ export function EllipsisWithTooltip({
           setIsOpen(false)
         }
       }}
-      delayDuration={300}
+      delay={300}
     >
-      <TooltipTrigger asChild>
-        <Comp ref={triggerRef} className={cn('truncate', className)} {...props}>
-          {children}
-        </Comp>
+      <TooltipTrigger
+        render={render ?? <div />}
+        ref={(node: HTMLElement | null) => {
+          triggerRef.current = node
+        }}
+        className={cn('truncate', className)}
+        {...(props as ComponentProps<typeof TooltipTrigger>)}
+      >
+        {children}
       </TooltipTrigger>
       <TooltipContent>{children}</TooltipContent>
     </Tooltip>

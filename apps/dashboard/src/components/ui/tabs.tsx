@@ -5,7 +5,7 @@
 
 'use client'
 
-import * as TabsPrimitive from '@radix-ui/react-tabs'
+import { Tabs as TabsPrimitive } from '@base-ui/react/tabs'
 import * as React from 'react'
 
 import { cn } from '@/lib/utils'
@@ -42,16 +42,16 @@ function TabsList({
   )
 }
 
-function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
+function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Tab>) {
   const variant = React.useContext(TabsVariantContext)
   return (
-    <TabsPrimitive.Trigger
+    <TabsPrimitive.Tab
       data-slot="tabs-trigger"
       className={cn(
         {
-          'inline-flex items-center justify-center whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm font-medium transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none':
+          'inline-flex items-center justify-center whitespace-nowrap rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm font-medium transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-active:border-foreground data-active:bg-transparent data-active:text-foreground data-active:shadow-none':
             variant === 'underline',
-          'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow':
+          'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-active:bg-card data-active:text-foreground data-active:shadow':
             variant !== 'underline',
         },
         className,
@@ -61,10 +61,8 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
   )
 }
 
-function TabsContent({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Content>) {
-  return (
-    <TabsPrimitive.Content data-slot="tabs-content" className={cn('flex-1 outline-hidden', className)} {...props} />
-  )
+function TabsContent({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Panel>) {
+  return <TabsPrimitive.Panel data-slot="tabs-content" className={cn('flex-1 outline-hidden', className)} {...props} />
 }
 
 export { Tabs, TabsContent, TabsList, TabsTrigger }

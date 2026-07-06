@@ -743,19 +743,19 @@ export function FileTreePane({
                       !searchEnabled ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger
-                            asChild
                             onClick={(event) => event.stopPropagation()}
                             onPointerDown={(event) => event.stopPropagation()}
-                          >
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              tabIndex={isFocused || isSelected ? 0 : -1}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-                            >
-                              <EllipsisIcon className="size-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
+                            render={
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                tabIndex={isFocused || isSelected ? 0 : -1}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                              >
+                                <EllipsisIcon className="size-4" />
+                              </Button>
+                            }
+                          />
                           <DropdownMenuContent
                             align="end"
                             side="right"
@@ -763,7 +763,7 @@ export function FileTreePane({
                               'w-44': node.isDir,
                               'w-48': !node.isDir,
                             })}
-                            onCloseAutoFocus={(event) => event.preventDefault()}
+                            finalFocus={false}
                           >
                             <DropdownMenuItem
                               onClick={() => refreshPath(node.isDir ? node.path : getParentPath(node.path))}
@@ -780,7 +780,7 @@ export function FileTreePane({
                               <DropdownMenuItem onClick={() => handleCopyNode(node)}>Copy contents</DropdownMenuItem>
                             ) : null}
                             {node.isDir ? (
-                              <DropdownMenuItem onSelect={() => onRequestCreateFolder(node.path)}>
+                              <DropdownMenuItem onClick={() => onRequestCreateFolder(node.path)}>
                                 Create Folder
                               </DropdownMenuItem>
                             ) : null}

@@ -16,6 +16,7 @@ import {
 import { buttonVariants } from '@/components/ui/button'
 import { useApi } from '@/hooks/useApi'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
+import { preventBaseUIHandler } from '@/lib/utils'
 import { Sandbox } from '@daytona/api-client'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -129,7 +130,7 @@ export function RecursiveDeleteDialog({ sandboxId, open, onClose, onDeleted }: R
             className={buttonVariants({ variant: 'destructive' })}
             disabled={loading || deleting}
             onClick={(e) => {
-              e.preventDefault()
+              preventBaseUIHandler(e)
               handleDelete()
             }}
           >

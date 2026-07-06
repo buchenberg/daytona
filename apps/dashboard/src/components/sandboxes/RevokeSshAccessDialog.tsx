@@ -70,9 +70,7 @@ export function RevokeSshAccessDialog({ sandboxId, open, onOpenChange }: RevokeS
           />
         </Field>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="secondary">Cancel</Button>
-          </DialogClose>
+          <DialogClose render={<Button variant="secondary">Cancel</Button>} />
           <Button variant="destructive" onClick={handleRevoke} disabled={!token.trim() || revokeMutation.isPending}>
             {revokeMutation.isPending && <Spinner />}
             Revoke

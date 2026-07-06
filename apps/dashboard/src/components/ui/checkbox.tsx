@@ -5,7 +5,7 @@
 
 'use client'
 
-import * as CheckboxPrimitive from '@radix-ui/react-checkbox'
+import { Checkbox as CheckboxPrimitive } from '@base-ui/react/checkbox'
 import { CheckIcon, MinusIcon } from 'lucide-react'
 import * as React from 'react'
 
@@ -16,7 +16,7 @@ function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxP
     <CheckboxPrimitive.Root
       data-slot="checkbox"
       className={cn(
-        'peer group border-border dark:bg-input/50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:data-[state=checked]:bg-primary data-[state=checked]:border-primary focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive size-4 shrink-0 rounded-[4px] border shadow-xs transition-shadow outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50',
+        'peer group border-border dark:bg-input/50 data-checked:bg-primary data-checked:text-primary-foreground dark:data-checked:bg-primary data-checked:border-primary focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive size-4 shrink-0 rounded-[4px] border shadow-xs transition-shadow outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50',
         className,
       )}
       {...props}
@@ -25,8 +25,8 @@ function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxP
         data-slot="checkbox-indicator"
         className="grid place-content-center text-current transition-none"
       >
-        <MinusIcon className="hidden size-2.5 group-data-[state=indeterminate]:block" />
-        <CheckIcon className="hidden size-3.5 group-data-[state=checked]:block" />
+        <MinusIcon className="hidden size-2.5 group-data-indeterminate:block" />
+        <CheckIcon className="hidden size-3.5 group-data-checked:block" />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   )

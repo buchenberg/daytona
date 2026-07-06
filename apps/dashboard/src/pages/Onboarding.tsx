@@ -127,13 +127,13 @@ const Onboarding: React.FC = () => {
                 <TabsList className="bg-foreground/10 p-0 rounded-none">
                   <TabsTrigger
                     value="python"
-                    className="data-[state=active]:bg-transparent data-[state=active]:text-foreground border-b-2 data-[state=active]:border-primary rounded-none h-full"
+                    className="data-active:bg-transparent data-active:text-foreground border-b-2 data-active:border-primary rounded-none h-full"
                   >
                     <img src={pythonIcon} alt="Python" className="w-4 h-4" />
                   </TabsTrigger>
                   <TabsTrigger
                     value="typescript"
-                    className="data-[state=active]:bg-transparent data-[state=active]:text-foreground border-b-2 data-[state=active]:border-primary rounded-none h-full"
+                    className="data-active:bg-transparent data-active:text-foreground border-b-2 data-active:border-primary rounded-none h-full"
                   >
                     <img src={typescriptIcon} alt="TypeScript" className="w-4 h-4" />
                   </TabsTrigger>

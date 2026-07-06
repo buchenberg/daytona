@@ -150,17 +150,19 @@ function SandboxDetailsSheetContent({
                   showOverview={false}
                   leadingContent={
                     <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="mx-1 size-8 text-muted-foreground hover:text-foreground"
-                          onClick={() => onResetToOverview()}
-                        >
-                          <ChevronsRight className="size-4" />
-                          <span className="sr-only">Collapse</span>
-                        </Button>
-                      </TooltipTrigger>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="mx-1 size-8 text-muted-foreground hover:text-foreground"
+                            onClick={() => onResetToOverview()}
+                          >
+                            <ChevronsRight className="size-4" />
+                            <span className="sr-only">Collapse</span>
+                          </Button>
+                        }
+                      />
                       <TooltipContent>Collapse</TooltipContent>
                     </Tooltip>
                   }
@@ -181,7 +183,7 @@ function SandboxDetailsSheetContent({
             <SandboxDetailsTabsList spendingTabAvailable={spendingTabAvailable} showOverview />
           </div>
 
-          <TabsContent value="overview" className="m-0 min-h-0 flex-1 data-[state=active]:flex flex-col">
+          <TabsContent value="overview" className="m-0 min-h-0 flex-1 flex flex-col">
             {sandboxInfoPanel}
           </TabsContent>
 

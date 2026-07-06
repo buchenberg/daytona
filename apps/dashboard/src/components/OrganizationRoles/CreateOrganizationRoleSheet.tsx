@@ -112,9 +112,7 @@ export const CreateOrganizationRoleSheet: React.FC<CreateOrganizationRoleSheetPr
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <CreateResourceButton resource="Role" className={className} />
-      </SheetTrigger>
+      <SheetTrigger render={<CreateResourceButton resource="Role" className={className} />} />
       <SheetContent className="w-dvw sm:w-[560px] p-0 flex flex-col gap-0">
         <SheetHeader className="border-b border-border p-4 px-5 items-center flex text-left flex-row">
           <SheetTitle>Create Role</SheetTitle>
