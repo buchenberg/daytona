@@ -541,6 +541,8 @@ export class RunnerService {
       if (isHighReliabilityRegion(runner.region)) {
         updateData.availabilityScore = Math.max(0, updateData.availabilityScore - 20) // More conservative scoring for dedicated runners
       }
+    } else {
+      this.logger.warn(`Runner ${runnerId} reported null metrics`)
     }
 
     await this.updateRunner(runnerId, updateData)

@@ -18,6 +18,10 @@ import (
 	"github.com/daytonaio/runner/pkg/docker"
 )
 
+const dockerPingTimeout = 3 * time.Second
+
+const metricsCollectTimeout = 5 * time.Second
+
 type HealthcheckServiceConfig struct {
 	Interval   time.Duration
 	Timeout    time.Duration
@@ -100,10 +104,6 @@ func (s *Service) Start(ctx context.Context) {
 
 // sendHealthcheck sends a healthcheck to the API
 func (s *Service) sendHealthcheck(ctx context.Context) error {
-	// Create context with timeout
-	reqCtx, cancel := context.WithTimeout(ctx, s.timeout)
-	defer cancel()
-
 	// Build healthcheck request
 	healthcheck := apiclient.NewRunnerHealthcheck(internal.Version)
 	healthcheck.SetDomain(s.domain)
@@ -124,9 +124,11 @@ func (s *Service) sendHealthcheck(ctx context.Context) error {
 		Healthy:     true,
 	}
 
-	err := s.docker.Ping(reqCtx)
+	pingCtx, pingCancel := context.WithTimeout(ctx, dockerPingTimeout)
+	err := s.docker.Ping(pingCtx)
+	pingCancel()
 	if err != nil {
-		s.log.WarnContext(reqCtx, "Failed to ping Docker daemon", "error", err)
+		s.log.WarnContext(ctx, "Failed to ping Docker daemon", "error", err)
 
 		errStr := err.Error()
 		dockerHealth.Healthy = false
@@ -136,9 +138,12 @@ func (s *Service) sendHealthcheck(ctx context.Context) error {
 	healthcheck.SetServiceHealth([]apiclient.RunnerServiceHealth{dockerHealth})
 
 	// Collect metrics
-	m, err := s.collector.Collect(reqCtx)
+	metricsCtx, metricsCancel := context.WithTimeout(ctx, metricsCollectTimeout)
+	m, err := s.collector.Collect(metricsCtx)
+	metricsCancel()
+
 	if err != nil {
-		s.log.WarnContext(reqCtx, "Failed to collect metrics for healthcheck", "error", err)
+		s.log.WarnContext(ctx, "Failed to collect metrics for healthcheck", "error", err)
 	} else {
 		metrics := apiclient.RunnerHealthMetrics{
 			CurrentCpuLoadAverage:        m.CPULoadAverage,
@@ -160,6 +165,9 @@ func (s *Service) sendHealthcheck(ctx context.Context) error {
 		}
 		healthcheck.SetMetrics(metrics)
 	}
+
+	reqCtx, cancel := context.WithTimeout(ctx, s.timeout)
+	defer cancel()
 
 	req := s.client.RunnersAPI.RunnerHealthcheck(reqCtx).RunnerHealthcheck(*healthcheck)
 	_, err = req.Execute()
