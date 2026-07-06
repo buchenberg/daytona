@@ -102,8 +102,9 @@ export const handlers = [
     return HttpResponse.json<OrganizationWallet>({
       balanceCents: 1000,
       ongoingBalanceCents: 1000,
+      totalSpentThisMonthCents: 500,
+      totalAmountDueThisMonthCents: 250,
       name: 'Wallet',
-      creditCardConnected: false,
       automaticTopUp: undefined,
       hasFailedOrPendingInvoice: true,
     })

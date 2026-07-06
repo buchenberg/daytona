@@ -22,6 +22,8 @@ import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObj
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
 // @ts-ignore
+import type { BalanceList } from '../models';
+// @ts-ignore
 import type { BillingInfo } from '../models';
 // @ts-ignore
 import type { ChargeList } from '../models';
@@ -57,6 +59,53 @@ export const BillingInfoApiAxiosParamCreator = function (configuration?: Configu
 
             // authentication JwtAuth required
             await setApiKeyToObject(localVarHeaderParameter, "Authorization", configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * List the non-zero commit and credit balances on the organization\'s contract
+         * @summary List balances
+         * @param {string} organizationId Organization ID
+         * @param {number} [limit] Page size (1-100, default 25)
+         * @param {string} [nextPage] Cursor from a previous response to fetch the next page
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listV2Balances: async (organizationId: string, limit?: number, nextPage?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'organizationId' is not null or undefined
+            assertParamExists('listV2Balances', 'organizationId', organizationId)
+            const localVarPath = `/v2/organization/{organizationId}/balances`
+                .replace(`{${"organizationId"}}`, encodeURIComponent(String(organizationId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication JwtAuth required
+            await setApiKeyToObject(localVarHeaderParameter, "Authorization", configuration)
+
+            if (limit !== undefined) {
+                localVarQueryParameter['limit'] = limit;
+            }
+
+            if (nextPage !== undefined) {
+                localVarQueryParameter['nextPage'] = nextPage;
+            }
 
             localVarHeaderParameter['Accept'] = 'application/json';
 
@@ -176,6 +225,21 @@ export const BillingInfoApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * List the non-zero commit and credit balances on the organization\'s contract
+         * @summary List balances
+         * @param {string} organizationId Organization ID
+         * @param {number} [limit] Page size (1-100, default 25)
+         * @param {string} [nextPage] Cursor from a previous response to fetch the next page
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listV2Balances(organizationId: string, limit?: number, nextPage?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<BalanceList>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listV2Balances(organizationId, limit, nextPage, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['BillingInfoApi.listV2Balances']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * List successful and failed Stripe charges for the organization
          * @summary List Stripe charges
          * @param {string} organizationId Organization ID
@@ -223,6 +287,18 @@ export const BillingInfoApiFactory = function (configuration?: Configuration, ba
             return localVarFp.getV2BillingInfo(organizationId, options).then((request) => request(axios, basePath));
         },
         /**
+         * List the non-zero commit and credit balances on the organization\'s contract
+         * @summary List balances
+         * @param {string} organizationId Organization ID
+         * @param {number} [limit] Page size (1-100, default 25)
+         * @param {string} [nextPage] Cursor from a previous response to fetch the next page
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listV2Balances(organizationId: string, limit?: number, nextPage?: string, options?: RawAxiosRequestConfig): AxiosPromise<BalanceList> {
+            return localVarFp.listV2Balances(organizationId, limit, nextPage, options).then((request) => request(axios, basePath));
+        },
+        /**
          * List successful and failed Stripe charges for the organization
          * @summary List Stripe charges
          * @param {string} organizationId Organization ID
@@ -260,6 +336,19 @@ export class BillingInfoApi extends BaseAPI {
      */
     public getV2BillingInfo(organizationId: string, options?: RawAxiosRequestConfig) {
         return BillingInfoApiFp(this.configuration).getV2BillingInfo(organizationId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * List the non-zero commit and credit balances on the organization\'s contract
+     * @summary List balances
+     * @param {string} organizationId Organization ID
+     * @param {number} [limit] Page size (1-100, default 25)
+     * @param {string} [nextPage] Cursor from a previous response to fetch the next page
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public listV2Balances(organizationId: string, limit?: number, nextPage?: string, options?: RawAxiosRequestConfig) {
+        return BillingInfoApiFp(this.configuration).listV2Balances(organizationId, limit, nextPage, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

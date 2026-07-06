@@ -5,6 +5,7 @@ All URIs are relative to _http://localhost:6100_
 |Method | HTTP request | Description|
 |------------- | ------------- | -------------|
 |[**getV2BillingInfo**](#getv2billinginfo) | **GET** /v2/organization/{organizationId}/billing-info | Get billing info|
+|[**listV2Balances**](#listv2balances) | **GET** /v2/organization/{organizationId}/balances | List balances|
 |[**listV2Charges**](#listv2charges) | **GET** /v2/organization/{organizationId}/charges | List Stripe charges|
 |[**listV2PaymentMethods**](#listv2paymentmethods) | **GET** /v2/organization/{organizationId}/payment-methods | List payment methods|
 
@@ -41,6 +42,63 @@ const { status, data } = await apiInstance.getV2BillingInfo(
 ### Return type
 
 **BillingInfo**
+
+### Authorization
+
+[JwtAuth](../README.md#JwtAuth)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: application/json
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **listV2Balances**
+>
+> BalanceList listV2Balances()
+
+List the non-zero commit and credit balances on the organization\'s contract
+
+### Example
+
+```typescript
+import {
+    BillingInfoApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new BillingInfoApi(configuration);
+
+let organizationId: string; //Organization ID (default to undefined)
+let limit: number; //Page size (1-100, default 25) (optional) (default to undefined)
+let nextPage: string; //Cursor from a previous response to fetch the next page (optional) (default to undefined)
+
+const { status, data } = await apiInstance.listV2Balances(
+    organizationId,
+    limit,
+    nextPage
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **organizationId** | [**string**] | Organization ID | defaults to undefined|
+| **limit** | [**number**] | Page size (1-100, default 25) | (optional) defaults to undefined|
+| **nextPage** | [**string**] | Cursor from a previous response to fetch the next page | (optional) defaults to undefined|
+
+### Return type
+
+**BalanceList**
 
 ### Authorization
 

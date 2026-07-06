@@ -74,6 +74,8 @@ export const queryKeys = {
     billingInfo: (organizationId: string) => [...queryKeys.billing.all, organizationId, 'billing-info'] as const,
     paymentMethods: (organizationId: string) => [...queryKeys.billing.all, organizationId, 'payment-methods'] as const,
     charges: (organizationId: string) => [...queryKeys.billing.all, organizationId, 'charges'] as const,
+    balances: (organizationId: string, limit?: number) =>
+      [...queryKeys.billing.all, organizationId, 'balances', ...(limit !== undefined ? [{ limit }] : [])] as const,
     invoices: (organizationId: string, page?: number, perPage?: number) =>
       [
         ...queryKeys.billing.all,

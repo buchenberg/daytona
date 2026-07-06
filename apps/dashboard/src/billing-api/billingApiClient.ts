@@ -5,6 +5,7 @@
 
 import {
   AutomaticTopUp,
+  BalanceList,
   BillingInfo,
   BillingInfoApi,
   ChargeList,
@@ -149,6 +150,14 @@ export class BillingApiClient {
 
   public async getOrganizationSetupCheckoutUrl(organizationId: string): Promise<string> {
     const response = await this.setupCheckoutUrlApi.getV2SetupCheckoutURL(organizationId)
+    return response.data
+  }
+
+  public async listBalances(
+    organizationId: string,
+    { limit, nextPage }: { limit?: number; nextPage?: string } = {},
+  ): Promise<BalanceList> {
+    const response = await this.billingInfoApi.listV2Balances(organizationId, limit, nextPage)
     return response.data
   }
 

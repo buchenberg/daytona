@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
+import { BalancesCard } from '@/components/BalancesCard'
 import { BillingInfoCard } from '@/components/BillingInfoCard'
 import { ChargesTable } from '@/components/Charges'
 import { InvoicesTable } from '@/components/Invoices'
@@ -230,9 +231,7 @@ const Wallet = () => {
   // the Radar setup-checkout flow. While that's pending, every portal-based
   // card-add path is hidden so the abuse check can't be bypassed. Non-personal
   // orgs get no free credits and use the portal normally.
-  const restrictToSetupCheckout = Boolean(
-    selectedOrganization?.personal && !wallet?.creditCardConnected && !wallet?.creditCardConnectedCreditsGranted,
-  )
+  const restrictToSetupCheckout = Boolean(selectedOrganization?.personal && !wallet?.creditCardConnectedCreditsGranted)
 
   return (
     <PageLayout>
@@ -331,17 +330,17 @@ const Wallet = () => {
                 <div className="flex items-start sm:flex-row flex-col gap-4 sm:items-end justify-between">
                   <div className="flex gap-4 sm:gap-12 sm:flex-row flex-col">
                     <div className="flex flex-col gap-1">
-                      <div className="">Current balance</div>
-                      <div className="text-xl text-foreground font-semibold">
-                        {formatAmount(wallet.ongoingBalanceCents ?? 0)}
-                      </div>
+                      <div className="">Total spend this month</div>
+                      <div className="text-xl font-semibold">{formatAmount(wallet.totalSpentThisMonthCents ?? 0)}</div>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="">Spent this month</div>
-                      <div className="text-xl font-semibold">
-                        {formatAmount((wallet.balanceCents ?? 0) - (wallet.ongoingBalanceCents ?? 0))}
+                    {(wallet.totalAmountDueThisMonthCents ?? 0) > 0 && (
+                      <div className="flex flex-col gap-1">
+                        <div className="">Total amount due</div>
+                        <div className="text-xl font-semibold">
+                          {formatAmount(wallet.totalAmountDueThisMonthCents ?? 0)}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -381,6 +380,7 @@ const Wallet = () => {
 
             {selectedOrganization && (
               <>
+                <BalancesCard organizationId={selectedOrganization.id} />
                 {!restrictToSetupCheckout && <BillingInfoCard organizationId={selectedOrganization.id} />}
                 <PaymentMethodsCard
                   organizationId={selectedOrganization.id}
