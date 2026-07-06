@@ -68,6 +68,7 @@ jobs:
       contents: read
       packages: write
       issues: write # react to the /preview comment
+      pull-requests: write # resolve the PR head on issue_comment; comment reactions on PRs need this scope
     outputs:
       branch: ${{ steps.ref.outputs.branch }}
       branch_slug: ${{ steps.slug.outputs.branch_slug }}
