@@ -72,7 +72,7 @@ export function AuditLogTableHeader({
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <DateRangePicker
-            className="max-w-95 truncate"
+            className="min-w-0 shrink max-w-95"
             value={dateRange}
             onChange={onDateRangeChange}
             quickRangesEnabled

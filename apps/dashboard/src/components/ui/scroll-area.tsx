@@ -128,7 +128,9 @@ function ScrollArea({
           },
         )}
       >
-        <ScrollAreaPrimitive.Content data-slot="scroll-area-content">{children}</ScrollAreaPrimitive.Content>
+        <ScrollAreaPrimitive.Content data-slot="scroll-area-content" style={horizontal ? undefined : { minWidth: 0 }}>
+          {children}
+        </ScrollAreaPrimitive.Content>
       </ScrollAreaPrimitive.Viewport>
       {vertical && <ScrollBar />}
       {horizontal && <ScrollBar orientation="horizontal" />}

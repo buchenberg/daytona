@@ -255,9 +255,9 @@ export function DateRangePicker({
             )}
             disabled={disabled}
           >
-            <div className="flex items-center gap-2">
-              <CalendarIcon className="h-4 w-4" />
-              {internalRange?.from ? formatRange(internalRange) : <span>Select date range</span>}
+            <div className="flex min-w-0 items-center gap-2">
+              <CalendarIcon className="h-4 w-4 shrink-0" />
+              <span className="truncate">{internalRange?.from ? formatRange(internalRange) : 'Select date range'}</span>
             </div>
           </Button>
         }

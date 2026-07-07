@@ -289,10 +289,11 @@ export function RefreshSegmentedButton({
       >
         <SelectTrigger
           size="sm"
-          className="min-w-[80px] justify-end gap-2 rounded-l-none border-0 border-l px-3 shadow-none focus-visible:ring-[3px]"
+          aria-label="Auto-refresh interval"
+          className="min-w-0 xs:min-w-[80px] justify-end gap-2 rounded-l-none border-0 border-l px-2 xs:px-3 shadow-none focus-visible:ring-[3px]"
         >
           <span
-            className={cn('min-w-0 truncate text-right', {
+            className={cn('min-w-0 truncate text-right max-xs:sr-only', {
               '[font-variant-numeric:tabular-nums]': countdownSeconds !== null,
               'text-muted-foreground': isRefreshing,
             })}
