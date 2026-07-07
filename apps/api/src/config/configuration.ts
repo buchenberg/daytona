@@ -10,6 +10,7 @@ export interface DefaultOrganizationQuota {
   totalCpuQuota: number
   totalMemoryQuota: number
   totalDiskQuota: number
+  totalGpuQuota: number
   maxCpuPerSandbox: number
   maxMemoryPerSandbox: number
   maxDiskPerSandbox: number
@@ -34,6 +35,10 @@ const defaultContainerOrganizationQuota: DefaultOrganizationQuota = {
   ),
   totalDiskQuota: parseInt(
     process.env.DEFAULT_ORG_QUOTA_CONTAINER_TOTAL_DISK_QUOTA || process.env.DEFAULT_ORG_QUOTA_TOTAL_DISK_QUOTA || '30',
+    10,
+  ),
+  totalGpuQuota: parseInt(
+    process.env.DEFAULT_ORG_QUOTA_CONTAINER_TOTAL_GPU_QUOTA || process.env.DEFAULT_ORG_QUOTA_TOTAL_GPU_QUOTA || '1',
     10,
   ),
   maxCpuPerSandbox: parseInt(
@@ -81,6 +86,8 @@ const defaultWindowsOrganizationQuota: DefaultOrganizationQuota = {
   totalCpuQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_WINDOWS_TOTAL_CPU_QUOTA || '2', 10),
   totalMemoryQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_WINDOWS_TOTAL_MEMORY_QUOTA || '8', 10),
   totalDiskQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_WINDOWS_TOTAL_DISK_QUOTA || '30', 10),
+  // gpus are only available for container sandboxes for now
+  totalGpuQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_WINDOWS_TOTAL_GPU_QUOTA || '0', 10),
   maxCpuPerSandbox: parseInt(process.env.DEFAULT_ORG_QUOTA_WINDOWS_MAX_CPU_PER_SANDBOX || '4', 10),
   maxMemoryPerSandbox: parseInt(process.env.DEFAULT_ORG_QUOTA_WINDOWS_MAX_MEMORY_PER_SANDBOX || '32', 10),
   maxDiskPerSandbox: parseInt(process.env.DEFAULT_ORG_QUOTA_WINDOWS_MAX_DISK_PER_SANDBOX || '50', 10),
@@ -98,6 +105,8 @@ const defaultLinuxVmOrganizationQuota: DefaultOrganizationQuota = {
   totalCpuQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_LINUX_VM_TOTAL_CPU_QUOTA || '2', 10),
   totalMemoryQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_LINUX_VM_TOTAL_MEMORY_QUOTA || '8', 10),
   totalDiskQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_LINUX_VM_TOTAL_DISK_QUOTA || '30', 10),
+  // gpus are only available for container sandboxes for now
+  totalGpuQuota: parseInt(process.env.DEFAULT_ORG_QUOTA_LINUX_VM_TOTAL_GPU_QUOTA || '0', 10),
   maxCpuPerSandbox: parseInt(process.env.DEFAULT_ORG_QUOTA_LINUX_VM_MAX_CPU_PER_SANDBOX || '4', 10),
   maxMemoryPerSandbox: parseInt(process.env.DEFAULT_ORG_QUOTA_LINUX_VM_MAX_MEMORY_PER_SANDBOX || '32', 10),
   maxDiskPerSandbox: parseInt(process.env.DEFAULT_ORG_QUOTA_LINUX_VM_MAX_DISK_PER_SANDBOX || '50', 10),

@@ -498,6 +498,7 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
         totalCpuQuota: this.defaultOrganizationQuota.totalCpuQuota,
         totalMemoryQuota: this.defaultOrganizationQuota.totalMemoryQuota,
         totalDiskQuota: this.defaultOrganizationQuota.totalDiskQuota,
+        totalGpuQuota: this.defaultOrganizationQuota.totalGpuQuota,
       })
       const newRegionQuotas = [regionQuota, ...this.buildAdditionalClassRegionQuotas(organization.id, defaultRegionId)]
 
@@ -644,6 +645,7 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
             totalCpuQuota: quota.totalCpuQuota,
             totalMemoryQuota: quota.totalMemoryQuota,
             totalDiskQuota: quota.totalDiskQuota,
+            totalGpuQuota: quota.totalGpuQuota,
             maxCpuPerSandbox: quota.maxCpuPerSandbox,
             maxMemoryPerSandbox: quota.maxMemoryPerSandbox,
             maxDiskPerSandbox: quota.maxDiskPerSandbox,
@@ -722,6 +724,7 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
           totalCpuQuota: quota.totalCpuQuota,
           totalMemoryQuota: quota.totalMemoryQuota,
           totalDiskQuota: quota.totalDiskQuota,
+          totalGpuQuota: quota.totalGpuQuota,
         })
         organization.regionQuotas = [
           regionQuota,

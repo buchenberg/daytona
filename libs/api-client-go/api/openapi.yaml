@@ -15490,15 +15490,16 @@ components:
       type: object
     CreateOrganizationQuota:
       example:
-        snapshotQuota: 7.061401241503109
+        snapshotQuota: 9.301444243932576
         totalCpuQuota: 0.8008281904610115
-        maxCpuPerSandbox: 5.962133916683182
-        maxDiskPerSandbox: 2.3021358869347655
-        maxConcurrentSnapshotProcessing: 2.027123023002322
-        maxMemoryPerSandbox: 5.637376656633329
-        volumeQuota: 3.616076749251911
+        maxCpuPerSandbox: 5.637376656633329
+        maxDiskPerSandbox: 7.061401241503109
+        maxConcurrentSnapshotProcessing: 4.145608029883936
+        maxMemoryPerSandbox: 2.3021358869347655
+        volumeQuota: 2.027123023002322
+        totalGpuQuota: 5.962133916683182
         totalMemoryQuota: 6.027456183070403
-        maxSnapshotSize: 9.301444243932576
+        maxSnapshotSize: 3.616076749251911
         totalDiskQuota: 1.4658129805029452
       properties:
         totalCpuQuota:
@@ -15506,6 +15507,8 @@ components:
         totalMemoryQuota:
           type: number
         totalDiskQuota:
+          type: number
+        totalGpuQuota:
           type: number
         maxCpuPerSandbox:
           type: number
@@ -15532,15 +15535,16 @@ components:
         personalOrganizationDefaultRegionId: personalOrganizationDefaultRegionId
         id: id
         personalOrganizationQuota:
-          snapshotQuota: 7.061401241503109
+          snapshotQuota: 9.301444243932576
           totalCpuQuota: 0.8008281904610115
-          maxCpuPerSandbox: 5.962133916683182
-          maxDiskPerSandbox: 2.3021358869347655
-          maxConcurrentSnapshotProcessing: 2.027123023002322
-          maxMemoryPerSandbox: 5.637376656633329
-          volumeQuota: 3.616076749251911
+          maxCpuPerSandbox: 5.637376656633329
+          maxDiskPerSandbox: 7.061401241503109
+          maxConcurrentSnapshotProcessing: 4.145608029883936
+          maxMemoryPerSandbox: 2.3021358869347655
+          volumeQuota: 2.027123023002322
+          totalGpuQuota: 5.962133916683182
           totalMemoryQuota: 6.027456183070403
-          maxSnapshotSize: 9.301444243932576
+          maxSnapshotSize: 3.616076749251911
           totalDiskQuota: 1.4658129805029452
         email: email
       properties:

@@ -26,6 +26,11 @@ export class CreateOrganizationQuotaDto {
   @ApiPropertyOptional()
   @IsNumber()
   @IsOptional()
+  totalGpuQuota?: number
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
   maxCpuPerSandbox?: number
 
   @ApiPropertyOptional()
