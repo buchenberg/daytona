@@ -11,7 +11,6 @@ import (
 
 	"github.com/daytonaio/runner/cmd/runner/config"
 	"github.com/daytonaio/runner/pkg/docker/sysboxmgr"
-	"github.com/docker/docker/api/types/container"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1"
@@ -101,12 +100,6 @@ func pingSysboxDaemon(ctx context.Context, name, path string) error {
 // stale per-container state (daemons up) apart from a runner-wide outage (daemons down).
 func (d *DockerClient) sysboxDaemonsHealthy(ctx context.Context) bool {
 	return d.PingSysboxMgr(ctx) == nil && d.PingSysboxFs(ctx) == nil
-}
-
-// isSysboxContainer reports whether the container runs under the sysbox runtime.
-func isSysboxContainer(c *container.InspectResponse) bool {
-	return c != nil && c.ContainerJSONBase != nil && c.HostConfig != nil &&
-		strings.HasPrefix(c.HostConfig.Runtime, "sysbox")
 }
 
 // isRedundantRegistrationError matches sysbox-mgr's rejection of a start while the

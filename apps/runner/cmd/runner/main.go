@@ -186,6 +186,8 @@ func run() int {
 		GpuEnabled:                   cfg.GpuEnabled,
 		MountKvmToAndroidSandbox:     cfg.MountKvmToAndroidSandbox,
 		SysboxHealthProbes:           cfg.SysboxHealthProbes,
+		ContainerdAddress:            cfg.ContainerdAddress,
+		ContainerdNamespace:          cfg.ContainerdNamespace,
 		SecretProxyEnabled:           cfg.NetleashEnabled && cfg.NetleashSecretsEnabled,
 		SecretProxyPort:              cfg.NetleashSecretProxyPort,
 		SecretCADir:                  cfg.NetleashSecretCADir,
@@ -195,6 +197,7 @@ func run() int {
 		logger.Error("Error creating Docker client wrapper", "error", err)
 		return 2
 	}
+	defer dockerClient.Close()
 
 	// Re-attach / adopt netleash domain filters for sandboxes that are already
 	// running (e.g. after a runner restart) and keep them reconciled. Pinned

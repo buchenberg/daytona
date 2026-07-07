@@ -62,11 +62,6 @@ export class SandboxWarmPoolService {
     @InjectRedis() private readonly redis: Redis,
   ) {}
 
-  //  on init
-  async onApplicationBootstrap() {
-    //  await this.adHocBackupCheck()
-  }
-
   async fetchWarmPoolSandbox(params: FetchWarmPoolSandboxParams): Promise<Sandbox | null> {
     //  validate snapshot
     let snapshot: Snapshot | null = null

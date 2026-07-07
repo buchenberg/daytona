@@ -12,12 +12,14 @@ import (
 
 	"github.com/daytonaio/common-go/pkg/utils"
 	"github.com/daytonaio/daytona/libs/netleash/pkg/manager"
+	runnerconfig "github.com/daytonaio/runner/cmd/runner/config"
 	"github.com/daytonaio/runner/pkg/cache"
 	"github.com/daytonaio/runner/pkg/common"
 	"github.com/daytonaio/runner/pkg/netrules"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/system"
 	"github.com/docker/docker/client"
+	"google.golang.org/grpc"
 )
 
 type DockerClientConfig struct {
@@ -53,6 +55,12 @@ type DockerClientConfig struct {
 
 	// Sysbox health-probe mode (see sysbox.go).
 	SysboxHealthProbes string
+
+	// Containerd endpoint used to detect when a stopped sysbox container's
+	// runtime cleanup has finished before committing a backup (see
+	// backup_integrity.go). Empty ContainerdAddress means auto-detect.
+	ContainerdAddress   string
+	ContainerdNamespace string
 
 	// Secret injection (netleash shared MITM proxy). When SecretProxyEnabled is
 	// set (and a NetleashManager is present), the runner runs a single proxy that
@@ -149,6 +157,20 @@ func NewDockerClient(ctx context.Context, config DockerClientConfig) (*DockerCli
 		}
 	}
 
+	// Backup ownership verification reads committed layers via overlay2's
+	// UpperDir; surface unsupported storage drivers once at boot instead of
+	// per failed backup.
+	if runnerconfig.GetContainerRuntime() == sysboxRuntimeName && info.Driver != "overlay2" {
+		logger.Error("Sysbox backups require the overlay2 storage driver; backups will fail on this runner", "driver", info.Driver)
+	}
+
+	containerdAddress := resolveContainerdAddress(config.ContainerdAddress)
+	if containerdAddress == "" {
+		logger.Warn("No containerd socket found; backups of stopped sysbox sandboxes will fail until CONTAINERD_ADDRESS is configured")
+	} else {
+		logger.Info("Using containerd socket for backup safety checks", "address", containerdAddress)
+	}
+
 	return &DockerClient{
 		apiClient:                    config.ApiClient,
 		backupInfoCache:              config.BackupInfoCache,
@@ -186,6 +208,8 @@ func NewDockerClient(ctx context.Context, config DockerClientConfig) (*DockerCli
 		filesystem:                   filesystem,
 		mountKvmToAndroidSandbox:     config.MountKvmToAndroidSandbox,
 		sysboxHealthProbes:           config.SysboxHealthProbes,
+		containerdAddress:            containerdAddress,
+		containerdNamespace:          config.ContainerdNamespace,
 		secretProxyEnabled:           config.SecretProxyEnabled && config.NetleashManager != nil,
 		secretProxyPort:              config.SecretProxyPort,
 		secretCADir:                  config.SecretCADir,
@@ -208,6 +232,19 @@ func (d *DockerClient) GpuType() string {
 
 func (d *DockerClient) ApiClient() client.APIClient {
 	return d.apiClient
+}
+
+// Close releases long-lived connections held by the client (currently the
+// lazily-created containerd connection used for backup safety checks).
+func (d *DockerClient) Close() error {
+	d.containerdConnMu.Lock()
+	defer d.containerdConnMu.Unlock()
+	if d.containerdConn == nil {
+		return nil
+	}
+	err := d.containerdConn.Close()
+	d.containerdConn = nil
+	return err
 }
 
 const RUNNER_BRIDGE_NETWORK_NAME = "runner-bridge"
@@ -254,6 +291,12 @@ type DockerClient struct {
 
 	// Sysbox health-probe mode (see sysbox.go).
 	sysboxHealthProbes string
+
+	// Containerd endpoint for backup safety checks (see backup_integrity.go).
+	containerdAddress   string
+	containerdNamespace string
+	containerdConn      *grpc.ClientConn
+	containerdConnMu    sync.Mutex
 
 	// Secret injection config (see DockerClientConfig).
 	secretProxyEnabled bool

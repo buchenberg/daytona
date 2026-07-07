@@ -4,12 +4,16 @@
 package docker
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/daytonaio/common-go/pkg/timer"
@@ -17,6 +21,7 @@ import (
 	"github.com/daytonaio/runner/pkg/common"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/strslice"
+	"github.com/docker/docker/pkg/stdcopy"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -287,6 +292,46 @@ func (d *DockerClient) waitForContainerRunning(ctx context.Context, containerId 
 			if c.State.Running {
 				return c, nil
 			}
+
+			// Report an exited container immediately instead of polling it to
+			// the generic timeout above. When PID 1 is the daytona daemon (the
+			// standard setup — the user's entrypoint runs as a session inside
+			// it), an early exit can only be a platform failure, so say that
+			// instead of blaming the user's entrypoint; for sandboxes running
+			// a custom entrypoint, keep the long-running guidance. Both get
+			// the container's last log lines.
+			if c.State.Status == container.StateExited {
+				var msg string
+				if c.Config != nil && slices.Equal(c.Config.Entrypoint, strslice.StrSlice{common.DAEMON_PATH}) {
+					msg = fmt.Sprintf("sandbox exited with code %d before becoming ready", c.State.ExitCode)
+				} else {
+					msg = fmt.Sprintf("sandbox entrypoint exited with code %d - please ensure that your entrypoint is long-running", c.State.ExitCode)
+				}
+				if logs := d.containerLogTail(ctx, containerId, 5); logs != "" {
+					msg = fmt.Sprintf("%s; last logs: %s", msg, logs)
+				}
+				return nil, errors.New(msg)
+			}
 		}
 	}
+}
+
+// containerLogTail returns the last n log lines of a container as a single
+// space-normalized string, or "" if the logs cannot be read. Best-effort: it is
+// only used to enrich error messages.
+func (d *DockerClient) containerLogTail(ctx context.Context, containerId string, n int) string {
+	reader, err := d.apiClient.ContainerLogs(ctx, containerId, container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Tail:       strconv.Itoa(n),
+	})
+	if err != nil {
+		return ""
+	}
+	defer reader.Close()
+
+	var buf bytes.Buffer
+	_, _ = stdcopy.StdCopy(&buf, &buf, io.LimitReader(reader, 16*1024))
+
+	return strings.Join(strings.Fields(buf.String()), " ")
 }

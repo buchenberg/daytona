@@ -16,6 +16,31 @@ import (
 func (d *DockerClient) commitContainer(ctx context.Context, containerId, imageName string) error {
 	const maxRetries = 3
 
+	c, err := d.ContainerInspect(ctx, containerId)
+	if err != nil {
+		return fmt.Errorf("failed to inspect container before commit: %w", err)
+	}
+
+	// The settle barrier and verify gate below are sysbox-specific.
+	isSysbox := isSysboxContainer(c)
+
+	// A just-stopped sysbox container may still be mid cleanup (ownership revert
+	// + volume sync-out run inside the containerd task deletion); wait so the
+	// commit reads a clean rootfs. See backup_integrity.go.
+	if isSysbox && (c.State == nil || !c.State.Running) {
+		if err := d.awaitSysboxRootfsSettled(ctx, c); err != nil {
+			return err
+		}
+	}
+
+	// Reject any commit that still carries host-shifted ownership.
+	verify := func() error {
+		if !isSysbox {
+			return nil
+		}
+		return d.verifyBackupOwnership(ctx, containerId, imageName)
+	}
+
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		d.logger.InfoContext(ctx, "Committing container", "containerId", containerId, "attempt", attempt, "maxRetries", maxRetries)
 
@@ -25,7 +50,7 @@ func (d *DockerClient) commitContainer(ctx context.Context, containerId, imageNa
 		})
 		if err == nil {
 			d.logger.InfoContext(ctx, "Container committed successfully", "containerId", containerId, "imageId", commitResp.ID)
-			return nil
+			return verify()
 		}
 
 		// Check if the error is related to "failed to get digest" and try export/import fallback
@@ -35,7 +60,7 @@ func (d *DockerClient) commitContainer(ctx context.Context, containerId, imageNa
 			err = d.exportImportContainer(ctx, containerId, imageName)
 			if err == nil {
 				d.logger.InfoContext(ctx, "Container successfully backed up using export/import method", "containerId", containerId)
-				return nil
+				return verify()
 			}
 
 			d.logger.ErrorContext(ctx, "Export/import fallback also failed for container", "containerId", containerId, "error", err)

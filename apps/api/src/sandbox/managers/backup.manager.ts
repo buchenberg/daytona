@@ -5,7 +5,7 @@
 
 import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common'
 import { Cron, CronExpression } from '@nestjs/schedule'
-import { Brackets, In, IsNull, LessThan, Not, Or, Repository } from 'typeorm'
+import { Brackets, LessThan, Not, Repository } from 'typeorm'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Sandbox } from '../entities/sandbox.entity'
 import { SandboxState } from '../enums/sandbox-state.enum'
@@ -17,7 +17,6 @@ import { BackupState } from '../enums/backup-state.enum'
 import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
 import { InjectRedis } from '@nestjs-modules/ioredis'
 import { Redis } from 'ioredis'
-import { SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION } from '../constants/sandbox.constants'
 import { BACKUP_RETRY_ERROR_SUBSTRINGS } from '../constants/errors-for-backup-retry'
 import { fromAxiosError } from '../../common/utils/from-axios-error'
 import { sanitizeSandboxError } from '../utils/sanitize-error.util'
@@ -74,11 +73,6 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
     private readonly jobStateHandlerService: JobStateHandlerService,
   ) {}
 
-  //  on init
-  async onApplicationBootstrap() {
-    // await this.adHocBackupCheck()
-  }
-
   async onApplicationShutdown() {
     //  wait for all active jobs to finish
     while (this.activeJobs.size > 0) {
@@ -134,75 +128,6 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
 
     await this.redis.setex(key, ttlSeconds, String(currentCount + 1))
     return true
-  }
-
-  //  todo: make frequency configurable or more efficient
-  @Cron(CronExpression.EVERY_5_MINUTES, { name: 'ad-hoc-backup-check' })
-  @TrackJobExecution()
-  @LogExecution('ad-hoc-backup-check')
-  @WithInstrumentation()
-  async adHocBackupCheck(): Promise<void> {
-    const lockKey = 'ad-hoc-backup-check'
-    const hasLock = await this.redisLockProvider.lock(lockKey, 5 * 60)
-    if (!hasLock) {
-      return
-    }
-
-    // Get all ready runners
-    const readyRunners = await this.runnerService.findAllReady()
-
-    try {
-      // Process all runners in parallel
-      await Promise.all(
-        readyRunners.map(async (runner) => {
-          const sandboxes = await this.sandboxRepository.find({
-            where: {
-              runnerId: runner.id,
-              organizationId: Not(SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION),
-              state: SandboxState.STARTED,
-              desiredState: Not(SandboxDesiredState.DESTROYED),
-              backupState: In([BackupState.NONE, BackupState.COMPLETED]),
-              lastBackupAt: Or(IsNull(), LessThan(new Date(Date.now() - 1 * 60 * 60 * 1000))),
-              autoDeleteInterval: Not(0),
-              region: Not(In(BACKUP_DISABLED_REGIONS)),
-              sandboxClass: Not(In(BACKUP_DISABLED_SANDBOX_CLASSES)),
-            },
-            order: {
-              lastBackupAt: 'ASC',
-            },
-            take: 25,
-          })
-
-          await Promise.all(
-            sandboxes.map(async (sandbox) => {
-              const lockKey = `sandbox-backup-${sandbox.id}`
-              const hasLock = await this.redisLockProvider.lock(lockKey, 60)
-              if (!hasLock) {
-                return
-              }
-
-              try {
-                //  todo: remove the catch handler asap
-                await this.setBackupPending(sandbox).catch((error) => {
-                  if (error instanceof BadRequestError && error.message === 'A backup is already in progress') {
-                    return
-                  }
-                  this.logger.error(`Failed to create backup for sandbox ${sandbox.id}:`, fromAxiosError(error))
-                })
-              } catch (error) {
-                this.logger.error(`Error processing stop state for sandbox ${sandbox.id}:`, fromAxiosError(error))
-              } finally {
-                await this.redisLockProvider.unlock(lockKey)
-              }
-            }),
-          )
-        }),
-      )
-    } catch (error) {
-      this.logger.error(`Error processing backups: `, error)
-    } finally {
-      await this.redisLockProvider.unlock(lockKey)
-    }
   }
 
   //@Cron(CronExpression.EVERY_10_SECONDS, { name: 'check-backup-states', waitForCompletion: true })

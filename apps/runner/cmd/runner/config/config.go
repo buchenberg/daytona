@@ -103,6 +103,12 @@ type Config struct {
 	// SysboxHealthProbes controls sysbox daemon health probing:
 	// ""=auto (probe only on sysbox runners), "true"/"false" force.
 	SysboxHealthProbes string `envconfig:"SYSBOX_HEALTH_PROBES" validate:"omitempty,oneof=true false"`
+	// ContainerdAddress is the containerd gRPC socket the runner queries to tell
+	// when a stopped sandbox's runtime cleanup (sysbox rootfs ownership revert +
+	// volume sync-out) has finished before committing a backup; empty means
+	// auto-detect the standard docker-ce socket, then dockerd's embedded one.
+	ContainerdAddress   string `envconfig:"CONTAINERD_ADDRESS"`
+	ContainerdNamespace string `envconfig:"CONTAINERD_NAMESPACE" default:"moby"`
 }
 
 var DEFAULT_API_PORT int = 8080

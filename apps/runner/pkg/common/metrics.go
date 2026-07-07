@@ -36,4 +36,13 @@ var (
 		},
 		[]string{"operation", "status"},
 	)
+
+	// Counter for backups rejected because the committed layer still carries
+	// host-shifted (sysbox uid-shift) ownership; alert on rate() > 0.
+	BackupOwnershipRejectedCount = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "backup_ownership_rejected_total",
+			Help: "Number of backups rejected due to host-shifted ownership in the committed layer",
+		},
+	)
 )
