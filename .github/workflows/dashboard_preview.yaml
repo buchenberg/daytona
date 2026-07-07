@@ -11,6 +11,12 @@ name: 'Dashboard Preview'
 #     caps them at the 10 most recent).
 # Each preview is tracked as a GitHub environment named `dashboard-preview-<branch_slug>`,
 # so the PR shows deployment status and a "View deployment" button pointing at the preview URL.
+# Redeploys via `/dashboard-preview` are easy to lose track of (GitHub marks the previous
+# deployment inactive while the new run is in flight), so the workflow edits a status
+# footer into the triggering comment: a link to the run while deploying, and the
+# preview URL (or the failure) once it finishes. It also posts a `dashboard-preview`
+# commit status on the PR head, so the run shows up in the PR checks list
+# (comment-triggered runs don't appear there on their own).
 
 on:
   workflow_dispatch:
@@ -64,10 +70,12 @@ jobs:
     permissions:
       contents: read
       packages: write
-      issues: write # react to the /dashboard-preview comment
+      issues: write # react to and edit the /dashboard-preview comment
       pull-requests: write # resolve the PR head on issue_comment; comment reactions on PRs need this scope
+      statuses: write # surface comment-triggered runs in the PR checks list
     outputs:
       branch: ${{ steps.ref.outputs.branch }}
+      head_sha: ${{ steps.ref.outputs.ref }}
       branch_slug: ${{ steps.slug.outputs.branch_slug }}
       deployment_slug: ${{ steps.slug.outputs.deployment_slug }}
     steps:
@@ -76,7 +84,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMENT_ID: ${{ github.event.comment.id }}
-        run: gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" -f content=rocket --silent || true
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" -f content=rocket --silent || true
+          # Edit a status footer into the triggering comment (replacing any previous
+          # one, e.g. from a re-run) so the maintainer can follow the redeploy without
+          # digging through the Actions tab. The notify job rewrites it with the outcome.
+          body=$(gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}" --jq .body | sed '/<!-- dashboard-preview-status -->/,$d')
+          printf '%s\n<!-- dashboard-preview-status -->\n\n---\n🚀 Preview deploy [in progress](%s)…\n' "$body" "$RUN_URL" > body.md
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}" -F body=@body.md --silent || true
 
       - name: Resolve build ref
         id: ref
@@ -109,6 +125,21 @@ jobs:
               echo "branch=$INPUT_BRANCH" >> "$GITHUB_OUTPUT"
               ;;
           esac
+
+      - name: Set pending commit status
+        # Comment-triggered runs don't show up in the PR checks list on their own;
+        # a commit status on the head SHA does. The notify job flips it to
+        # success/failure when the run finishes.
+        if: ${{ github.event_name == 'issue_comment' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ steps.ref.outputs.ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+            -f state=pending -f context=dashboard-preview \
+            -f description="Preview deploy in progress" \
+            -f target_url="$RUN_URL" --silent || true
 
       - name: Checkout target repo
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -223,6 +254,53 @@ jobs:
       - name: Print preview URL
         run: |
           echo "Preview URL: https://${{ needs.build.outputs.branch_slug }}.p.daytona.work"
+
+  notify:
+    name: Update /dashboard-preview comment
+    # Rewrite the status footer on the triggering comment with the outcome, so the
+    # maintainer gets the preview URL (or the failing run) right where they asked
+    # for the redeploy, and flip the pending commit status in the PR checks list.
+    # Only the issue_comment path has a comment/status to update.
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      needs.build.result != 'skipped'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    needs: [build, deploy]
+    permissions:
+      issues: write
+      pull-requests: write
+      statuses: write
+    steps:
+      - name: Update comment and commit status with result
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          BRANCH_SLUG: ${{ needs.build.outputs.branch_slug }}
+          HEAD_SHA: ${{ needs.build.outputs.head_sha }}
+        run: |
+          if [ "$DEPLOY_RESULT" = "success" ]; then
+            status="✅ Preview deployed: https://${BRANCH_SLUG}.p.daytona.work ([run](${RUN_URL}))"
+            state=success desc="Preview deployed"
+          elif [ "$BUILD_RESULT" != "success" ]; then
+            status="❌ Preview build [${BUILD_RESULT}](${RUN_URL})"
+            state=failure desc="Preview build ${BUILD_RESULT}"
+          else
+            status="❌ Preview deploy [${DEPLOY_RESULT}](${RUN_URL})"
+            state=failure desc="Preview deploy ${DEPLOY_RESULT}"
+          fi
+          # Flip the check first: a stuck "pending" status is worse than a stale footer.
+          if [ -n "$HEAD_SHA" ]; then
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+              -f state="$state" -f context=dashboard-preview -f description="$desc" \
+              -f target_url="$RUN_URL" --silent || true
+          fi
+          body=$(gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}" --jq .body | sed '/<!-- dashboard-preview-status -->/,$d')
+          printf '%s\n<!-- dashboard-preview-status -->\n\n---\n%s\n' "$body" "$status" > body.md
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}" -F body=@body.md --silent
 
   teardown:
     name: Uninstall preview
