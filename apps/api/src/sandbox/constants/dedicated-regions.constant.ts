@@ -36,7 +36,7 @@ export const BACKUP_DISABLED_REGIONS: string[] = [LARGE_SANDBOX_SHARED_REGION, E
  *
  * Sandboxes of these classes are never backed up and cannot be archived.
  */
-export const BACKUP_DISABLED_SANDBOX_CLASSES: SandboxClass[] = [SandboxClass.LINUX_VM]
+export const BACKUP_DISABLED_SANDBOX_CLASSES: SandboxClass[] = [SandboxClass.LINUX_VM, SandboxClass.WINDOWS]
 
 /**
  * @returns true if backups and archiving are disabled for the given region
