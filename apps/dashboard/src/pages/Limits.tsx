@@ -4,6 +4,7 @@
  */
 
 import { CurrentUsageCard } from '@/components/CurrentUsageCard'
+import { OrganizationUserRoleEnum } from '@daytona/api-client'
 import { PageContent, PageHeader, PageIntro, PageLayout } from '@/components/PageLayout'
 import { TierComparisonTable, TierComparisonTableSkeleton } from '@/components/TierComparisonTable'
 import { TierUpgradeCard } from '@/components/TierUpgradeCard'
@@ -25,7 +26,8 @@ import { useNavigate } from 'react-router'
 
 export default function Limits() {
   const { user } = useAuth()
-  const { selectedOrganization } = useSelectedOrganization()
+  const { selectedOrganization, authenticatedUserOrganizationMember } = useSelectedOrganization()
+  const isOwner = authenticatedUserOrganizationMember?.role === OrganizationUserRoleEnum.OWNER
   const organizationTierQuery = useOwnerTierQuery()
   const tiersQuery = useTiersQuery()
 
@@ -36,7 +38,7 @@ export default function Limits() {
   const navigate = useNavigate()
   const paymentMethodsQuery = usePaymentMethodsQuery({
     organizationId: selectedOrganization?.id ?? '',
-    enabled: Boolean(config.billingApiUrl && selectedOrganization),
+    enabled: Boolean(config.billingApiUrl && selectedOrganization && isOwner),
   })
   const paymentMethods = paymentMethodsQuery.data
   const paymentMethodsUnavailable = paymentMethodsQuery.isError && paymentMethods === undefined
@@ -61,7 +63,9 @@ export default function Limits() {
   const upgradeRequirementsError = paymentMethodsUnavailable && !tierDataError
 
   const handleRetryTierData = () => {
-    organizationTierQuery.refetch()
+    if (isOwner) {
+      organizationTierQuery.refetch()
+    }
     tiersQuery.refetch()
   }
 
@@ -79,30 +83,31 @@ export default function Limits() {
 
         {config.billingApiUrl && selectedOrganization && (
           <>
-            {upgradeRequirementsError ? (
-              <Card>
-                <CardContent className="flex p-0">
-                  <LimitsSectionErrorState
-                    title="Failed to load upgrade requirements"
-                    description="Something went wrong while fetching your billing requirements."
-                    onRetry={handleRetryPaymentMethods}
+            {isOwner &&
+              (upgradeRequirementsError ? (
+                <Card>
+                  <CardContent className="flex p-0">
+                    <LimitsSectionErrorState
+                      title="Failed to load upgrade requirements"
+                      description="Something went wrong while fetching your billing requirements."
+                      onRetry={handleRetryPaymentMethods}
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                !upgradeRequirementsLoading &&
+                !tierDataError && (
+                  <TierUpgradeCard
+                    organizationTier={organizationTier}
+                    tiers={tiers || []}
+                    organization={selectedOrganization}
+                    requirementsState={{
+                      emailVerified: !!user?.profile?.email_verified,
+                      creditCardLinked: hasPaymentMethod,
+                    }}
                   />
-                </CardContent>
-              </Card>
-            ) : (
-              !upgradeRequirementsLoading &&
-              !tierDataError && (
-                <TierUpgradeCard
-                  organizationTier={organizationTier}
-                  tiers={tiers || []}
-                  organization={selectedOrganization}
-                  requirementsState={{
-                    emailVerified: !!user?.profile?.email_verified,
-                    creditCardLinked: hasPaymentMethod,
-                  }}
-                />
-              )
-            )}
+                )
+              ))}
 
             <Card className="mb-10">
               <CardHeader>

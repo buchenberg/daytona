@@ -40,7 +40,7 @@ export function TierComparisonTable({
         'Sandbox Creation/min',
         'Sandbox Lifecycle/min',
       ]}
-      currentRow={(currentTier?.tier || 1) - 1}
+      currentRow={currentTier?.tier ? currentTier.tier - 1 : undefined}
       data={buildTierComparisonTableData(tiers || [])}
     />
   )

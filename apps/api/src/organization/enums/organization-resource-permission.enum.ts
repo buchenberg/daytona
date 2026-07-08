@@ -41,4 +41,7 @@ export enum OrganizationResourcePermission {
 
   // secrets
   MANAGE_SECRETS = 'manage:secrets',
+
+  // limits
+  READ_LIMITS = 'read:limits',
 }

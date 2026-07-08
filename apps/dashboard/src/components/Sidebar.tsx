@@ -172,7 +172,7 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
       preload: lazyRoutes.Webhooks,
     })
 
-    if (authenticatedUserOrganizationMember?.role === OrganizationUserRoleEnum.OWNER) {
+    if (authenticatedUserHasPermission(OrganizationRolePermissionsEnum.READ_LIMITS)) {
       arr.push({
         icon: <LockKeyhole size={16} strokeWidth={1.5} />,
         label: 'Limits',
@@ -200,7 +200,7 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
     })
 
     return arr
-  }, [authenticatedUserOrganizationMember?.role])
+  }, [authenticatedUserHasPermission])
 
   const billingItems = useMemo(() => {
     if (!billingEnabled || authenticatedUserOrganizationMember?.role !== OrganizationUserRoleEnum.OWNER) {

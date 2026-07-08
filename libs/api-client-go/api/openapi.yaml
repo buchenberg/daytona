@@ -9815,6 +9815,7 @@ components:
             - read:audit_logs
             - manage:api_keys
             - manage:secrets
+            - read:limits
             type: string
             x-enum-varnames:
             - WRITE_REGISTRIES
@@ -9834,6 +9835,7 @@ components:
             - READ_AUDIT_LOGS
             - MANAGE_API_KEYS
             - MANAGE_SECRETS
+            - READ_LIMITS
           type: array
         expiresAt:
           description: When the API key expires
@@ -9890,6 +9892,7 @@ components:
             - read:audit_logs
             - manage:api_keys
             - manage:secrets
+            - read:limits
             type: string
             x-enum-varnames:
             - WRITE_REGISTRIES
@@ -9909,6 +9912,7 @@ components:
             - READ_AUDIT_LOGS
             - MANAGE_API_KEYS
             - MANAGE_SECRETS
+            - READ_LIMITS
           type: array
         expiresAt:
           description: When the API key expires
@@ -9970,6 +9974,7 @@ components:
             - read:audit_logs
             - manage:api_keys
             - manage:secrets
+            - read:limits
             type: string
             x-enum-varnames:
             - WRITE_REGISTRIES
@@ -9989,6 +9994,7 @@ components:
             - READ_AUDIT_LOGS
             - MANAGE_API_KEYS
             - MANAGE_SECRETS
+            - READ_LIMITS
           type: array
         lastUsedAt:
           description: When the API key was last used
@@ -10057,6 +10063,7 @@ components:
             - read:audit_logs
             - manage:api_keys
             - manage:secrets
+            - read:limits
             type: string
             x-enum-varnames:
             - WRITE_REGISTRIES
@@ -10076,6 +10083,7 @@ components:
             - READ_AUDIT_LOGS
             - MANAGE_API_KEYS
             - MANAGE_SECRETS
+            - READ_LIMITS
           type: array
         isGlobal:
           description: Global role flag
@@ -10795,6 +10803,7 @@ components:
             - read:audit_logs
             - manage:api_keys
             - manage:secrets
+            - read:limits
             type: string
             x-enum-varnames:
             - WRITE_REGISTRIES
@@ -10814,6 +10823,7 @@ components:
             - READ_AUDIT_LOGS
             - MANAGE_API_KEYS
             - MANAGE_SECRETS
+            - READ_LIMITS
           type: array
       required:
       - description
@@ -10857,6 +10867,7 @@ components:
             - read:audit_logs
             - manage:api_keys
             - manage:secrets
+            - read:limits
             type: string
             x-enum-varnames:
             - WRITE_REGISTRIES
@@ -10876,6 +10887,7 @@ components:
             - READ_AUDIT_LOGS
             - MANAGE_API_KEYS
             - MANAGE_SECRETS
+            - READ_LIMITS
           type: array
       required:
       - description

@@ -359,7 +359,12 @@ const router = createBrowserRouter([
           },
           {
             path: getRouteSubPath(RoutePath.LIMITS),
-            element: <OwnerAccessOrganizationOutlet pageTitle="Limits" />,
+            element: (
+              <RequiredPermissionsOrganizationOutlet
+                pageTitle="Limits"
+                requiredPermissions={[OrganizationRolePermissionsEnum.READ_LIMITS]}
+              />
+            ),
             children: [{ index: true, lazy: lazyRoutes.Limits }],
           },
           {

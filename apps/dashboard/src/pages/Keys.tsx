@@ -64,6 +64,10 @@ const Keys: React.FC = () => {
       permissions = permissions.filter((p) => p !== CreateApiKeyPermissionsEnum.MANAGE_API_KEYS)
     }
 
+    // read:limits only governs dashboard Limits-page visibility and gates no API endpoint,
+    // so it must never be offered or silently granted (via Full Access) on an API key.
+    permissions = permissions.filter((p) => p !== CreateApiKeyPermissionsEnum.READ_LIMITS)
+
     return permissions
   }, [authenticatedUserOrganizationMember, allowsManageApiKeys])
 
