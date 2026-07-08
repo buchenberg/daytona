@@ -122,7 +122,9 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
     return true
   }
 
-  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'check-backup-states-dedicated-org', waitForCompletion: true })
+  // DISABLED: the dedicated-org backup sync is turned off. To re-enable, uncomment the @Cron
+  // below and re-add the org's registry override in backup-registry-overrides.constant.ts.
+  // @Cron(CronExpression.EVERY_10_SECONDS, { name: 'check-backup-states-dedicated-org', waitForCompletion: true })
   @TrackJobExecution()
   @LogExecution('check-backup-states-dedicated-org')
   @WithInstrumentation()
