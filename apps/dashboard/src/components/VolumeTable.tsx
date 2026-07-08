@@ -23,16 +23,13 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { DataTableFacetedFilter, type FacetedFilterOption } from '@/components/ui/data-table-faceted-filter'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuPortal,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  DropdownMenuPanel,
+  DropdownMenuPanelGroup,
+  DropdownMenuPanelContent,
+  DropdownMenuPanelTrigger,
+} from '@/components/ui/dropdown-menu-panel'
 import { MiddleTruncate } from '@/components/ui/middle-truncate'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -121,45 +118,43 @@ function VolumeFilterSubmenu({ column, options, title }: VolumeFilterSubmenuProp
   }
 
   return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger>
+    <DropdownMenuPanel>
+      <DropdownMenuPanelTrigger>
         <CircleDot className="size-4" />
         {title}
-      </DropdownMenuSubTrigger>
-      <DropdownMenuPortal>
-        <DropdownMenuSubContent className="p-0 w-72">
-          <Command>
-            <CommandInput placeholder={title}>
-              <CommandInputButton
-                className="text-sm text-muted-foreground hover:text-primary px-2"
-                onClick={() => column.setFilterValue(undefined)}
-              >
-                Clear
-              </CommandInputButton>
-            </CommandInput>
-            <CommandList>
-              <CommandGroup>
-                {options.map((option) => (
-                  <CommandCheckboxItem
-                    key={option.value}
-                    checked={values.includes(option.value)}
-                    onSelect={() => {
-                      const nextValues = values.includes(option.value)
-                        ? values.filter((value) => value !== option.value)
-                        : [...values, option.value]
+      </DropdownMenuPanelTrigger>
+      <DropdownMenuPanelContent className="p-0 w-72">
+        <Command>
+          <CommandInput placeholder={title}>
+            <CommandInputButton
+              className="text-sm text-muted-foreground hover:text-primary px-2"
+              onClick={() => column.setFilterValue(undefined)}
+            >
+              Clear
+            </CommandInputButton>
+          </CommandInput>
+          <CommandList>
+            <CommandGroup>
+              {options.map((option) => (
+                <CommandCheckboxItem
+                  key={option.value}
+                  checked={values.includes(option.value)}
+                  onSelect={() => {
+                    const nextValues = values.includes(option.value)
+                      ? values.filter((value) => value !== option.value)
+                      : [...values, option.value]
 
-                      handleFilterChange(nextValues)
-                    }}
-                  >
-                    {option.label}
-                  </CommandCheckboxItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </DropdownMenuSubContent>
-      </DropdownMenuPortal>
-    </DropdownMenuSub>
+                    handleFilterChange(nextValues)
+                  }}
+                >
+                  {option.label}
+                </CommandCheckboxItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </DropdownMenuPanelContent>
+    </DropdownMenuPanel>
   )
 }
 
@@ -302,9 +297,11 @@ export function VolumeTable({
                 </ResponsiveButton>
               }
             />
-            <DropdownMenuContent className="w-48" align="start">
-              <VolumeFilterSubmenu column={stateColumn} title="State" options={statuses} />
-            </DropdownMenuContent>
+            <DropdownMenuPanelGroup>
+              <DropdownMenuContent className="w-48" align="start">
+                <VolumeFilterSubmenu column={stateColumn} title="State" options={statuses} />
+              </DropdownMenuContent>
+            </DropdownMenuPanelGroup>
           </DropdownMenu>
         </div>
       </div>

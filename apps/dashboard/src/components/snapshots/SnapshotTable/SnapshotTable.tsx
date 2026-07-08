@@ -18,15 +18,13 @@ import {
   CommandInputButton,
   CommandList,
 } from '@/components/ui/command'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuPortal,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  DropdownMenuPanel,
+  DropdownMenuPanelGroup,
+  DropdownMenuPanelContent,
+  DropdownMenuPanelTrigger,
+} from '@/components/ui/dropdown-menu-panel'
 import { FacetedFilter, type FacetedFilterOption } from '@/components/ui/faceted-filter'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
@@ -494,14 +492,14 @@ export function SnapshotTable({
                 </ResponsiveButton>
               }
             />
-            <DropdownMenuContent className="w-48" align="start">
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Square className="size-4" />
-                  State
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                  <DropdownMenuSubContent className="p-0 w-64">
+            <DropdownMenuPanelGroup>
+              <DropdownMenuContent className="w-48" align="start">
+                <DropdownMenuPanel>
+                  <DropdownMenuPanelTrigger>
+                    <Square className="size-4" />
+                    State
+                  </DropdownMenuPanelTrigger>
+                  <DropdownMenuPanelContent className="p-0 w-64">
                     <SnapshotStateFilter
                       value={stateFilter}
                       onFilterChange={(values) => {
@@ -509,16 +507,14 @@ export function SnapshotTable({
                         pushFilter('state')
                       }}
                     />
-                  </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Globe className="size-4" />
-                  Region
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                  <DropdownMenuSubContent className="p-0 w-64">
+                  </DropdownMenuPanelContent>
+                </DropdownMenuPanel>
+                <DropdownMenuPanel>
+                  <DropdownMenuPanelTrigger>
+                    <Globe className="size-4" />
+                    Region
+                  </DropdownMenuPanelTrigger>
+                  <DropdownMenuPanelContent className="p-0 w-64">
                     <SnapshotRegionFilter
                       value={regionFilter}
                       options={regionOptions}
@@ -527,10 +523,10 @@ export function SnapshotTable({
                         pushFilter('region')
                       }}
                     />
-                  </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-            </DropdownMenuContent>
+                  </DropdownMenuPanelContent>
+                </DropdownMenuPanel>
+              </DropdownMenuContent>
+            </DropdownMenuPanelGroup>
           </DropdownMenu>
         </div>
       </div>

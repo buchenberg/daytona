@@ -17,15 +17,13 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { DataTableFacetedFilter, type FacetedFilterOption } from '@/components/ui/data-table-faceted-filter'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuPortal,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  DropdownMenuPanel,
+  DropdownMenuPanelGroup,
+  DropdownMenuPanelContent,
+  DropdownMenuPanelTrigger,
+} from '@/components/ui/dropdown-menu-panel'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -93,45 +91,43 @@ function WebhookFilterSubmenu({ column, icon, onFilterChange, options, title }: 
   }
 
   return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger>
+    <DropdownMenuPanel>
+      <DropdownMenuPanelTrigger>
         {icon}
         {title}
-      </DropdownMenuSubTrigger>
-      <DropdownMenuPortal>
-        <DropdownMenuSubContent className="p-0 w-72">
-          <Command>
-            <CommandInput placeholder={title}>
-              <CommandInputButton
-                className="text-sm text-muted-foreground hover:text-primary px-2"
-                onClick={() => onFilterChange(undefined)}
-              >
-                Clear
-              </CommandInputButton>
-            </CommandInput>
-            <CommandList>
-              <CommandGroup>
-                {options.map((option) => (
-                  <CommandCheckboxItem
-                    key={option.value}
-                    checked={values.includes(option.value)}
-                    onSelect={() => {
-                      const nextValues = values.includes(option.value)
-                        ? values.filter((value) => value !== option.value)
-                        : [...values, option.value]
+      </DropdownMenuPanelTrigger>
+      <DropdownMenuPanelContent className="p-0 w-72">
+        <Command>
+          <CommandInput placeholder={title}>
+            <CommandInputButton
+              className="text-sm text-muted-foreground hover:text-primary px-2"
+              onClick={() => onFilterChange(undefined)}
+            >
+              Clear
+            </CommandInputButton>
+          </CommandInput>
+          <CommandList>
+            <CommandGroup>
+              {options.map((option) => (
+                <CommandCheckboxItem
+                  key={option.value}
+                  checked={values.includes(option.value)}
+                  onSelect={() => {
+                    const nextValues = values.includes(option.value)
+                      ? values.filter((value) => value !== option.value)
+                      : [...values, option.value]
 
-                      handleFilterChange(nextValues)
-                    }}
-                  >
-                    {option.label}
-                  </CommandCheckboxItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </DropdownMenuSubContent>
-      </DropdownMenuPortal>
-    </DropdownMenuSub>
+                    handleFilterChange(nextValues)
+                  }}
+                >
+                  {option.label}
+                </CommandCheckboxItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </DropdownMenuPanelContent>
+    </DropdownMenuPanel>
   )
 }
 
@@ -292,28 +288,30 @@ export function EndpointEventsTable({ data, loading, onReplay }: EndpointEventsT
                   </ResponsiveButton>
                 }
               />
-              <DropdownMenuContent className="w-48" align="start">
-                <WebhookFilterSubmenu
-                  column={eventTypeColumn}
-                  icon={<Tag className="size-4" />}
-                  onFilterChange={(value) => {
-                    eventTypeColumn?.setFilterValue(value)
-                    pushFilter('eventType')
-                  }}
-                  title="Event Type"
-                  options={eventTypeOptions}
-                />
-                <WebhookFilterSubmenu
-                  column={statusColumn}
-                  icon={<CircleDot className="size-4" />}
-                  onFilterChange={(value) => {
-                    statusColumn?.setFilterValue(value)
-                    pushFilter('status')
-                  }}
-                  title="Status"
-                  options={statusOptions}
-                />
-              </DropdownMenuContent>
+              <DropdownMenuPanelGroup>
+                <DropdownMenuContent className="w-48" align="start">
+                  <WebhookFilterSubmenu
+                    column={eventTypeColumn}
+                    icon={<Tag className="size-4" />}
+                    onFilterChange={(value) => {
+                      eventTypeColumn?.setFilterValue(value)
+                      pushFilter('eventType')
+                    }}
+                    title="Event Type"
+                    options={eventTypeOptions}
+                  />
+                  <WebhookFilterSubmenu
+                    column={statusColumn}
+                    icon={<CircleDot className="size-4" />}
+                    onFilterChange={(value) => {
+                      statusColumn?.setFilterValue(value)
+                      pushFilter('status')
+                    }}
+                    title="Status"
+                    options={statusOptions}
+                  />
+                </DropdownMenuContent>
+              </DropdownMenuPanelGroup>
             </DropdownMenu>
           </div>
         </div>

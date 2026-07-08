@@ -11,10 +11,17 @@ import * as React from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
-function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
+function Command({ className, onKeyDown, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
   return (
     <CommandPrimitive
       data-slot="command"
+      // menu typeahead preventDefaults printable keys; don't let key events bubble past the Command
+      onKeyDown={(event) => {
+        onKeyDown?.(event)
+        if (event.key !== 'Escape' && event.key !== 'Tab' && event.currentTarget.closest('[role="menu"]')) {
+          event.stopPropagation()
+        }
+      }}
       className={cn(
         'bg-popover text-popover-foreground flex h-full w-full flex-col overflow-hidden rounded-md',
         className,

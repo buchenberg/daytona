@@ -27,16 +27,13 @@ import { SearchInput } from '../SearchInput'
 import TooltipButton from '../TooltipButton'
 import { ResponsiveButton } from '../ResponsiveButton'
 import { Button } from '../ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuPortal,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu'
+  DropdownMenuPanel,
+  DropdownMenuPanelGroup,
+  DropdownMenuPanelContent,
+  DropdownMenuPanelTrigger,
+} from '../ui/dropdown-menu-panel'
 import { BooleanFilter, BooleanFilterIndicator } from './filters/BooleanFilter'
 import { CreatedAtFilter, CreatedAtFilterIndicator } from './filters/CreatedAtFilter'
 import { LabelFilter, LabelFilterIndicator } from './filters/LabelFilter'
@@ -337,14 +334,14 @@ export function SandboxTableHeader({
                 </ResponsiveButton>
               }
             />
-            <DropdownMenuContent className="w-48" align="start">
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Square className="w-4 h-4" />
-                  State
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                  <DropdownMenuSubContent className="p-0 w-64">
+            <DropdownMenuPanelGroup>
+              <DropdownMenuContent className="w-48" align="start">
+                <DropdownMenuPanel>
+                  <DropdownMenuPanelTrigger>
+                    <Square className="w-4 h-4" />
+                    State
+                  </DropdownMenuPanelTrigger>
+                  <DropdownMenuPanelContent className="p-0 w-64">
                     <StateFilter
                       value={(table.getColumn('state')?.getFilterValue() as string[]) || []}
                       onFilterChange={(value) => {
@@ -352,17 +349,15 @@ export function SandboxTableHeader({
                         pushFilter('state')
                       }}
                     />
-                  </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-              {showClassFilter && (
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <Boxes className="w-4 h-4" />
-                    Class
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuPortal>
-                    <DropdownMenuSubContent className="p-0 w-64">
+                  </DropdownMenuPanelContent>
+                </DropdownMenuPanel>
+                {showClassFilter && (
+                  <DropdownMenuPanel>
+                    <DropdownMenuPanelTrigger>
+                      <Boxes className="w-4 h-4" />
+                      Class
+                    </DropdownMenuPanelTrigger>
+                    <DropdownMenuPanelContent className="p-0 w-64">
                       <SandboxClassFilter
                         value={(sandboxClassColumn?.getFilterValue() as string[]) || []}
                         onFilterChange={(value) => {
@@ -370,18 +365,16 @@ export function SandboxTableHeader({
                           pushFilter('class')
                         }}
                       />
-                    </DropdownMenuSubContent>
-                  </DropdownMenuPortal>
-                </DropdownMenuSub>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Camera className="w-4 h-4" />
-                  Snapshot
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                  <DropdownMenuSubContent className="p-0 w-64">
+                    </DropdownMenuPanelContent>
+                  </DropdownMenuPanel>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuPanel>
+                  <DropdownMenuPanelTrigger>
+                    <Camera className="w-4 h-4" />
+                    Snapshot
+                  </DropdownMenuPanelTrigger>
+                  <DropdownMenuPanelContent className="p-0 w-64">
                     <SnapshotFilter
                       value={(table.getColumn('snapshot')?.getFilterValue() as string[]) || []}
                       onFilterChange={(value) => {
@@ -393,16 +386,14 @@ export function SandboxTableHeader({
                       snapshotsDataHasMore={snapshotsDataHasMore}
                       onChangeSnapshotSearchValue={onChangeSnapshotSearchValue}
                     />
-                  </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Globe className="w-4 h-4" />
-                  Region
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                  <DropdownMenuSubContent className="p-0 w-64">
+                  </DropdownMenuPanelContent>
+                </DropdownMenuPanel>
+                <DropdownMenuPanel>
+                  <DropdownMenuPanelTrigger>
+                    <Globe className="w-4 h-4" />
+                    Region
+                  </DropdownMenuPanelTrigger>
+                  <DropdownMenuPanelContent className="p-0 w-64">
                     <RegionFilter
                       value={(table.getColumn('region')?.getFilterValue() as string[]) || []}
                       onFilterChange={(value) => {
@@ -412,18 +403,16 @@ export function SandboxTableHeader({
                       options={regionOptions}
                       isLoading={regionsDataIsLoading}
                     />
-                  </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-              <DropdownMenuSeparator />
-              {RESOURCE_FILTERS.map(({ type, label, icon: Icon }) => (
-                <DropdownMenuSub key={type}>
-                  <DropdownMenuSubTrigger>
-                    <Icon className="w-4 h-4" />
-                    {label}
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuPortal>
-                    <DropdownMenuSubContent className="p-3 w-64">
+                  </DropdownMenuPanelContent>
+                </DropdownMenuPanel>
+                <DropdownMenuSeparator />
+                {RESOURCE_FILTERS.map(({ type, label, icon: Icon }) => (
+                  <DropdownMenuPanel key={type}>
+                    <DropdownMenuPanelTrigger>
+                      <Icon className="w-4 h-4" />
+                      {label}
+                    </DropdownMenuPanelTrigger>
+                    <DropdownMenuPanelContent className="p-3 w-64">
                       <ResourceFilter
                         value={(table.getColumn('resources')?.getFilterValue() as ResourceFilterValue) || {}}
                         onFilterChange={(value) => {
@@ -432,18 +421,16 @@ export function SandboxTableHeader({
                         }}
                         resourceType={type}
                       />
-                    </DropdownMenuSubContent>
-                  </DropdownMenuPortal>
-                </DropdownMenuSub>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Tag className="w-4 h-4" />
-                  Labels
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                  <DropdownMenuSubContent className="p-0 w-64">
+                    </DropdownMenuPanelContent>
+                  </DropdownMenuPanel>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuPanel>
+                  <DropdownMenuPanelTrigger>
+                    <Tag className="w-4 h-4" />
+                    Labels
+                  </DropdownMenuPanelTrigger>
+                  <DropdownMenuPanelContent className="p-0 w-64">
                     <LabelFilter
                       value={(table.getColumn('labels')?.getFilterValue() as string[]) || []}
                       onFilterChange={(value) => {
@@ -451,16 +438,14 @@ export function SandboxTableHeader({
                         pushFilter('labels')
                       }}
                     />
-                  </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Calendar className="w-4 h-4" />
-                  Last Event
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                  <DropdownMenuSubContent className="p-3 w-92">
+                  </DropdownMenuPanelContent>
+                </DropdownMenuPanel>
+                <DropdownMenuPanel>
+                  <DropdownMenuPanelTrigger>
+                    <Calendar className="w-4 h-4" />
+                    Last Event
+                  </DropdownMenuPanelTrigger>
+                  <DropdownMenuPanelContent className="p-3 w-92">
                     <LastEventFilter
                       onFilterChange={(value) => {
                         table.getColumn('lastEvent')?.setFilterValue(value)
@@ -468,16 +453,14 @@ export function SandboxTableHeader({
                       }}
                       value={(table.getColumn('lastEvent')?.getFilterValue() as Date[]) || []}
                     />
-                  </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <CalendarPlus className="w-4 h-4" />
-                  Created
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                  <DropdownMenuSubContent className="p-3 w-92">
+                  </DropdownMenuPanelContent>
+                </DropdownMenuPanel>
+                <DropdownMenuPanel>
+                  <DropdownMenuPanelTrigger>
+                    <CalendarPlus className="w-4 h-4" />
+                    Created
+                  </DropdownMenuPanelTrigger>
+                  <DropdownMenuPanelContent className="p-3 w-92">
                     <CreatedAtFilter
                       onFilterChange={(value) => {
                         table.getColumn('createdAt')?.setFilterValue(value)
@@ -485,17 +468,15 @@ export function SandboxTableHeader({
                       }}
                       value={(table.getColumn('createdAt')?.getFilterValue() as Date[]) || []}
                     />
-                  </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-              <DropdownMenuSeparator />
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Eye className="w-4 h-4" />
-                  Visibility
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                  <DropdownMenuSubContent className="p-2 w-48">
+                  </DropdownMenuPanelContent>
+                </DropdownMenuPanel>
+                <DropdownMenuSeparator />
+                <DropdownMenuPanel>
+                  <DropdownMenuPanelTrigger>
+                    <Eye className="w-4 h-4" />
+                    Visibility
+                  </DropdownMenuPanelTrigger>
+                  <DropdownMenuPanelContent className="p-2 w-48">
                     <BooleanFilter
                       label="Visibility"
                       valueLabels={VISIBILITY_FILTER_LABELS}
@@ -505,16 +486,14 @@ export function SandboxTableHeader({
                       }}
                       value={table.getColumn('isPublic')?.getFilterValue() as boolean | undefined}
                     />
-                  </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Wrench className="w-4 h-4" />
-                  Recovery
-                </DropdownMenuSubTrigger>
-                <DropdownMenuPortal>
-                  <DropdownMenuSubContent className="p-2 w-48">
+                  </DropdownMenuPanelContent>
+                </DropdownMenuPanel>
+                <DropdownMenuPanel>
+                  <DropdownMenuPanelTrigger>
+                    <Wrench className="w-4 h-4" />
+                    Recovery
+                  </DropdownMenuPanelTrigger>
+                  <DropdownMenuPanelContent className="p-2 w-48">
                     <BooleanFilter
                       label="Recovery"
                       valueLabels={RECOVERY_FILTER_LABELS}
@@ -524,10 +503,10 @@ export function SandboxTableHeader({
                       }}
                       value={table.getColumn('isRecoverable')?.getFilterValue() as boolean | undefined}
                     />
-                  </DropdownMenuSubContent>
-                </DropdownMenuPortal>
-              </DropdownMenuSub>
-            </DropdownMenuContent>
+                  </DropdownMenuPanelContent>
+                </DropdownMenuPanel>
+              </DropdownMenuContent>
+            </DropdownMenuPanelGroup>
           </DropdownMenu>
         </div>
 

@@ -4,15 +4,13 @@
  */
 
 import { ResponsiveButton } from '@/components/ResponsiveButton'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuPortal,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  DropdownMenuPanel,
+  DropdownMenuPanelGroup,
+  DropdownMenuPanelContent,
+  DropdownMenuPanelTrigger,
+} from '@/components/ui/dropdown-menu-panel'
 import type { FacetedFilterOption } from '@/components/ui/faceted-filter'
 import { ListFilter } from 'lucide-react'
 import { AuditFilterValueEditor } from './AuditFilterValueEditor'
@@ -67,19 +65,19 @@ export function AuditLogFilterMenu({
           </ResponsiveButton>
         }
       />
-      <DropdownMenuContent className="w-52" align="start">
-        {AUDIT_FILTER_FIELDS.map((def) => {
-          const Icon = def.icon
-          const rule = rules.find((entry) => entry.field === def.field)
+      <DropdownMenuPanelGroup>
+        <DropdownMenuContent className="w-52" align="start">
+          {AUDIT_FILTER_FIELDS.map((def) => {
+            const Icon = def.icon
+            const rule = rules.find((entry) => entry.field === def.field)
 
-          return (
-            <DropdownMenuSub key={def.field}>
-              <DropdownMenuSubTrigger>
-                <Icon className="size-4" />
-                {def.label}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuPortal>
-                <DropdownMenuSubContent className="w-64 p-0">
+            return (
+              <DropdownMenuPanel key={def.field}>
+                <DropdownMenuPanelTrigger>
+                  <Icon className="size-4" />
+                  {def.label}
+                </DropdownMenuPanelTrigger>
+                <DropdownMenuPanelContent className="w-64 p-0">
                   <AuditFilterValueEditor
                     def={def}
                     operator={rule?.operator ?? def.defaultOperator}
@@ -87,12 +85,12 @@ export function AuditLogFilterMenu({
                     options={optionsByField?.[def.field]}
                     onChange={(value) => upsertValue(def.field, value)}
                   />
-                </DropdownMenuSubContent>
-              </DropdownMenuPortal>
-            </DropdownMenuSub>
-          )
-        })}
-      </DropdownMenuContent>
+                </DropdownMenuPanelContent>
+              </DropdownMenuPanel>
+            )
+          })}
+        </DropdownMenuContent>
+      </DropdownMenuPanelGroup>
     </DropdownMenu>
   )
 }
