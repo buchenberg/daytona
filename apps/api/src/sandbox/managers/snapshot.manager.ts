@@ -1765,28 +1765,51 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         // Use base region for registry lookups (dedicated regions may not have registry configs)
         const regionForRegistry = getFallbackRegion(runner.region) ?? runner.region
 
-        let sourceRegistry =
-          (await this.dockerRegistryService.findSourceRegistryBySnapshotImageName(
-            snapshot.imageName,
-            regionForRegistry,
-            snapshot.organizationId,
-          )) ?? undefined
-        if (!sourceRegistry) {
-          sourceRegistry =
-            (await this.dockerRegistryService.getDefaultSourceRegistryForImage(snapshot.imageName)) ?? undefined
-        }
-        const destinationRegistry =
-          (await this.dockerRegistryService.getAvailableInternalRegistry(regionForRegistry)) ?? undefined
+        // Snapshots created from a sandbox have no external `imageName` - their canonical
+        // reference is `ref`, which already lives in the internal registry. Pull directly
+        // from `ref` (mirroring propagateSnapshotToRunners) instead of trying to pull an
+        // empty `imageName` from an external source registry, which caused flaky activation.
+        const fromSandbox = !snapshot.imageName && !snapshot.buildInfo
+        if (fromSandbox) {
+          if (!snapshot.ref) {
+            throw new Error(`Snapshot ${snapshot.id} has no imageName or ref to pull from`)
+          }
+          const internalRegistry =
+            (await this.dockerRegistryService.findInternalRegistryBySnapshotRef(snapshot.ref, regionForRegistry)) ??
+            undefined
+          await this.pullSnapshotRunner(
+            runner,
+            snapshot.ref,
+            internalRegistry,
+            undefined,
+            undefined,
+            snapshot.sandboxClass,
+            snapshot.disk,
+          )
+        } else {
+          let sourceRegistry =
+            (await this.dockerRegistryService.findSourceRegistryBySnapshotImageName(
+              snapshot.imageName,
+              regionForRegistry,
+              snapshot.organizationId,
+            )) ?? undefined
+          if (!sourceRegistry) {
+            sourceRegistry =
+              (await this.dockerRegistryService.getDefaultSourceRegistryForImage(snapshot.imageName)) ?? undefined
+          }
+          const destinationRegistry =
+            (await this.dockerRegistryService.getAvailableInternalRegistry(regionForRegistry)) ?? undefined
 
-        await this.pullSnapshotRunner(
-          runner,
-          snapshot.imageName,
-          sourceRegistry,
-          destinationRegistry,
-          snapshot.ref ? snapshot.ref : undefined,
-          snapshot.sandboxClass,
-          snapshot.disk,
-        )
+          await this.pullSnapshotRunner(
+            runner,
+            snapshot.imageName,
+            sourceRegistry,
+            destinationRegistry,
+            snapshot.ref ? snapshot.ref : undefined,
+            snapshot.sandboxClass,
+            snapshot.disk,
+          )
+        }
       } else {
         await this.pullSnapshotRunner(
           runner,
