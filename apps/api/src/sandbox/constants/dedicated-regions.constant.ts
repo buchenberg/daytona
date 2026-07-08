@@ -242,6 +242,14 @@ export function resolveEffectiveRegion(
     if (META_ORGS.has(organizationId) && baseRegionId === 'us') {
       return META_DEDICATED_REGION
     }
+    // GPUs are only available in the `us` region. Rather than granting every
+    // `eu`-only org a `us` region quota just to try GPUs, transparently place
+    // GPU sandboxes targeting `eu` onto `us` runners. The customer-facing
+    // `sandbox.region` stays `eu`, so quota validation still runs against the
+    // org's existing `eu` quota.
+    if (baseRegionId === 'eu') {
+      return 'us'
+    }
     return baseRegionId
   }
 
