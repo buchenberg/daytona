@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { useCreateInvoicePaymentUrlMutation } from '@/hooks/mutations/useCreateInvoicePaymentUrlMutation'
+import { useDownloadInvoiceMutation } from '@/hooks/mutations/useDownloadInvoiceMutation'
 import { useRedeemCouponMutation } from '@/hooks/mutations/useRedeemCouponMutation'
 import { useSetAutomaticTopUpMutation } from '@/hooks/mutations/useSetAutomaticTopUpMutation'
 import { useTopUpWalletMutation } from '@/hooks/mutations/useTopUpWalletMutation'
@@ -69,6 +70,7 @@ const Wallet = () => {
   const redeemCouponMutation = useRedeemCouponMutation()
   const topUpWalletMutation = useTopUpWalletMutation()
   const createInvoicePaymentUrlMutation = useCreateInvoicePaymentUrlMutation()
+  const downloadInvoiceMutation = useDownloadInvoiceMutation()
 
   useEffect(() => {
     if (wallet?.automaticTopUp) {
@@ -203,9 +205,26 @@ const Wallet = () => {
         return
       }
 
-      window.open(invoice.fileUrl ?? '', '_blank')
+      const newWindow = window.open('', '_blank')
+      try {
+        const blob = await downloadInvoiceMutation.mutateAsync({
+          organizationId: selectedOrganization.id,
+          invoiceId: invoice.id ?? '',
+        })
+        const objectUrl = URL.createObjectURL(blob)
+        if (newWindow) {
+          newWindow.location.href = objectUrl
+        }
+        // Revoke once the new tab has had a chance to load the PDF.
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60000)
+      } catch (error) {
+        newWindow?.close()
+        toast.error('Failed to open invoice', {
+          description: String(error),
+        })
+      }
     },
-    [selectedOrganization],
+    [selectedOrganization, downloadInvoiceMutation],
   )
 
   const isPostPaid = wallet?.billingType === BillingType.BillingTypePostPaid

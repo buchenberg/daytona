@@ -6,6 +6,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **concurrentCPU** | **number** |  | [default to undefined]
 **concurrentDiskGiB** | **number** |  | [default to undefined]
+**concurrentGPU** | **number** |  | [default to undefined]
 **concurrentRAMGiB** | **number** |  | [default to undefined]
 
 ## Example
@@ -16,6 +17,7 @@ import { TierLimit } from './api';
 const instance: TierLimit = {
     concurrentCPU,
     concurrentDiskGiB,
+    concurrentGPU,
     concurrentRAMGiB,
 };
 ```

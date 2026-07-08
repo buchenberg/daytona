@@ -17,6 +17,7 @@
 export interface TierLimit {
     'concurrentCPU': number;
     'concurrentDiskGiB': number;
+    'concurrentGPU': number;
     'concurrentRAMGiB': number;
 }
 

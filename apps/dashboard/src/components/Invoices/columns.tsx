@@ -204,7 +204,7 @@ export const invoiceColumns: ColumnDef<Invoice>[] = [
     enableHiding: false,
     cell: ({ row, table }) => {
       const { onViewInvoice, onVoidInvoice, onPayInvoice } = getMeta(table)
-      const isViewable = Boolean(row.original.fileUrl)
+      const isViewable = row.original.status === 'finalized'
       const isVoidable =
         row.original.status === 'finalized' &&
         ['pending', 'failed'].includes(row.original.paymentStatus ?? '') &&
