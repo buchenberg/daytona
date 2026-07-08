@@ -799,7 +799,7 @@ export const CreateSandboxSheet = ({
                 return (
                   <Field data-invalid={hasErrors}>
                     <FieldLabel htmlFor={field.name}>Region</FieldLabel>
-                    <Select value={field.state.value} onValueChange={field.handleChange}>
+                    <Select value={field.state.value ?? null} onValueChange={field.handleChange}>
                       <SelectTrigger
                         aria-invalid={hasErrors}
                         className="h-8"

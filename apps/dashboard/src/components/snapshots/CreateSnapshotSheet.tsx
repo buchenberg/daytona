@@ -270,7 +270,7 @@ export const CreateSnapshotSheet = ({
               {(field) => (
                 <Field>
                   <FieldLabel htmlFor={field.name}>Region</FieldLabel>
-                  <Select value={field.state.value} onValueChange={field.handleChange}>
+                  <Select value={field.state.value ?? null} onValueChange={field.handleChange}>
                     <SelectTrigger className="h-8" id={field.name} disabled={loadingRegions} loading={loadingRegions}>
                       <SelectValue placeholder={loadingRegions ? 'Loading regions...' : 'Select a region'} />
                     </SelectTrigger>

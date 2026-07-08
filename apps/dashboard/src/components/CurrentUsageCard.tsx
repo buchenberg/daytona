@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils'
 import { SandboxClass, type Organization, type RegionUsageOverview } from '@daytona/api-client'
 import { keepPreviousData } from '@tanstack/react-query'
 import { AlertCircle } from 'lucide-react'
-import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
 export function CurrentUsageCard({
   organizationTier,
@@ -235,10 +235,10 @@ function CurrentUsageErrorState({ onRetry, retrying }: { onRetry: () => unknown;
 
 interface UsageScopeSelection {
   classes: SandboxClass[]
-  selectedSandboxClass: SandboxClass | undefined
+  selectedSandboxClass: SandboxClass | null
   setSelectedSandboxClass: (sandboxClass: SandboxClass) => void
   regionsForSelectedClass: RegionUsageOverview[]
-  selectedRegionId: string | undefined
+  selectedRegionId: string | null
   setSelectedRegionId: (regionId: string) => void
   currentEntry: RegionUsageOverview | null
 }
@@ -247,8 +247,8 @@ function useUsageScopeSelection(
   regionUsage: RegionUsageOverview[] | undefined,
   defaultRegionId?: string,
 ): UsageScopeSelection {
-  const [selectedSandboxClass, setSelectedSandboxClass] = useState<SandboxClass | undefined>(undefined)
-  const [selectedRegionId, setSelectedRegionId] = useState<string | undefined>(undefined)
+  const [selectedSandboxClass, setSelectedSandboxClass] = useState<SandboxClass | null>(null)
+  const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null)
 
   const usageByClass = useMemo(() => {
     const map = new Map<SandboxClass, RegionUsageOverview[]>()
@@ -264,7 +264,7 @@ function useUsageScopeSelection(
 
   useEffect(() => {
     if (classes.length === 0) {
-      setSelectedSandboxClass(undefined)
+      setSelectedSandboxClass(null)
       return
     }
 
@@ -306,7 +306,7 @@ function useUsageScopeSelection(
 
   useEffect(() => {
     if (regionsForSelectedClass.length === 0) {
-      setSelectedRegionId(undefined)
+      setSelectedRegionId(null)
       return
     }
 

@@ -41,7 +41,7 @@ export const SetDefaultRegionDialog: React.FC<SetDefaultRegionDialogProps> = ({ 
   const formId = useId()
   const regionSelectId = useId()
   const [open, setOpen] = useState(false)
-  const [defaultRegionId, setDefaultRegionId] = useState<string | undefined>(undefined)
+  const [defaultRegionId, setDefaultRegionId] = useState<string | null>(null)
 
   useImperativeHandle(ref, () => ({
     open: () => setOpen(true),
@@ -71,7 +71,7 @@ export const SetDefaultRegionDialog: React.FC<SetDefaultRegionDialogProps> = ({ 
       onOpenChange={(isOpen) => {
         setOpen(isOpen)
         if (!isOpen) {
-          setDefaultRegionId(undefined)
+          setDefaultRegionId(null)
         }
       }}
     >
