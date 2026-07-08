@@ -308,7 +308,8 @@ export class RunnerService {
     }
 
     if (params.gpu > 0) {
-      runnerFilter.gpu = MoreThanOrEqual(params.gpu)
+      // runner.gpu = -1 means infinite GPU capacity, so it satisfies any positive GPU requirement.
+      runnerFilter.gpu = Or(Equal(-1), MoreThanOrEqual(params.gpu))
       if (typeof params.gpuType === 'string') {
         runnerFilter.gpuType = params.gpuType
       }
@@ -1020,6 +1021,10 @@ export class RunnerService {
    *
    * BUILD_FAILED is excluded because the build failed before a GPU container
    * was created on the runner, so no physical card is reserved.
+   *
+   * Runners with `runner.gpu = -1` are treated as having infinite GPU capacity
+   * and are never considered at capacity. The `runner.gpu > 0` predicate below
+   * already excludes them, so they can host unlimited GPU sandboxes.
    */
   async getRunnersAtGpuCapacity(): Promise<string[]> {
     const rows = await this.sandboxRepository
