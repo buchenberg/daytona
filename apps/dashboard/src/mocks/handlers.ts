@@ -6,6 +6,7 @@
 import {
   BillingInfo,
   ChargeList,
+  GpuAccess,
   Invoice,
   OrganizationEmail,
   OrganizationTier,
@@ -127,6 +128,9 @@ export const handlers = [
   }),
   http.get(`${BILLING_API_URL}/v2/organization/:organizationId/payment-methods`, async () => {
     return HttpResponse.json<PaymentMethod[]>([])
+  }),
+  http.get(`${BILLING_API_URL}/v2/organization/:organizationId/validate-gpu-access`, async () => {
+    return HttpResponse.json<GpuAccess>({ hasGpuCredits: true })
   }),
   http.get(`${BILLING_API_URL}/v2/organization/:organizationId/charges`, async () => {
     return HttpResponse.json<ChargeList>({

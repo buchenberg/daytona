@@ -130,6 +130,7 @@ import { SANDBOX_SEARCH_ADAPTER } from '../constants/sandbox-tokens'
 import { SandboxSearchAdapter } from '../interfaces/sandbox-search.interface'
 import { SecretService } from '../../secret/services/secret.service'
 import { SandboxSecret } from '../entities/sandbox-secret.entity'
+import { BillingService } from '../../billing/services/billing.service'
 
 const DEFAULT_CPU = 1
 const DEFAULT_MEMORY = 1
@@ -170,10 +171,21 @@ export class SandboxService {
     @InjectRepository(SandboxSecret)
     private readonly sandboxSecretRepository: Repository<SandboxSecret>,
     private readonly buildInfoService: BuildInfoService,
+    private readonly billingService: BillingService,
   ) {}
 
   protected getLockKey(id: string): string {
     return `sandbox:${id}:state-change-sync`
+  }
+
+  private async assertOrganizationHasGpuAccess(organizationId: string): Promise<void> {
+    if (!this.billingService.enabled) {
+      return
+    }
+
+    if (!(await this.billingService.hasGpuAccess(organizationId))) {
+      throw new BadRequestError("Organization doesn't have GPU credits. Add more by visiting the Wallet page")
+    }
   }
 
   private assertSandboxNotErrored(sandbox: Sandbox): void {
@@ -561,6 +573,10 @@ export class SandboxService {
       // GPU sandboxes are always ephemeral.
       if (gpu > 0 && !isEphemeral(createSandboxDto)) {
         throw new BadRequestError('GPU sandboxes must be ephemeral - set autoDeleteInterval to 0')
+      }
+
+      if (gpu > 0) {
+        await this.assertOrganizationHasGpuAccess(organization.id)
       }
 
       if (snapshot.sandboxClass === SandboxClass.ANDROID && !createSandboxDto.linkedSandbox) {
@@ -968,6 +984,10 @@ export class SandboxService {
       // GPU sandboxes are always ephemeral - delete on first stop.
       if (gpu > 0 && !isEphemeral(createSandboxDto)) {
         throw new BadRequestError('GPU sandboxes must be ephemeral - set autoDeleteInterval to 0')
+      }
+
+      if (gpu > 0) {
+        await this.assertOrganizationHasGpuAccess(organization.id)
       }
 
       this.organizationService.assertOrganizationIsNotSuspended(organization)

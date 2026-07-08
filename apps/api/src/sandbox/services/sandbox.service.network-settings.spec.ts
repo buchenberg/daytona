@@ -34,6 +34,7 @@ import { BadRequestError } from '../../exceptions/bad-request.exception'
 import { SecretService } from '../../secret/services/secret.service'
 import { SandboxSecret } from '../entities/sandbox-secret.entity'
 import { BuildInfoService } from './build-info.service'
+import { BillingService } from '../../billing/services/billing.service'
 
 type SandboxFixture = Partial<Sandbox>
 
@@ -100,6 +101,7 @@ describe('SandboxService.updateNetworkSettings', () => {
       undefined as unknown as SecretService,
       undefined as unknown as Repository<SandboxSecret>,
       undefined as unknown as BuildInfoService,
+      undefined as unknown as BillingService,
     )
   }
 

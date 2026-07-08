@@ -10,6 +10,7 @@ import {
   BillingInfoApi,
   ChargeList,
   Configuration,
+  GpuAccess,
   InvoicesApi,
   OrganizationApi,
   OrganizationEmail,
@@ -141,6 +142,11 @@ export class BillingApiClient {
 
   public async listPaymentMethods(organizationId: string): Promise<PaymentMethod[]> {
     const response = await this.billingInfoApi.listV2PaymentMethods(organizationId)
+    return response.data
+  }
+
+  public async validateGpuAccess(organizationId: string): Promise<GpuAccess> {
+    const response = await this.billingInfoApi.validateGpuAccess(organizationId)
     return response.data
   }
 

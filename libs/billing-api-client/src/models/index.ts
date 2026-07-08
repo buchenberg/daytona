@@ -10,6 +10,7 @@ export * from './billing-info';
 export * from './billing-type';
 export * from './charge';
 export * from './charge-list';
+export * from './gpu-access';
 export * from './invoice';
 export * from './invoice-error-detail';
 export * from './invoice-payment-status';

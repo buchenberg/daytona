@@ -28,6 +28,8 @@ import type { BillingInfo } from '../models';
 // @ts-ignore
 import type { ChargeList } from '../models';
 // @ts-ignore
+import type { GpuAccess } from '../models';
+// @ts-ignore
 import type { PaymentMethod } from '../models';
 /**
  * BillingInfoApi - axios parameter creator
@@ -202,6 +204,43 @@ export const BillingInfoApiAxiosParamCreator = function (configuration?: Configu
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Check whether the organization has a non-expired balance with an available amount applicable to GPU sandbox usage
+         * @summary Validate GPU access
+         * @param {string} organizationId Organization ID
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        validateGpuAccess: async (organizationId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'organizationId' is not null or undefined
+            assertParamExists('validateGpuAccess', 'organizationId', organizationId)
+            const localVarPath = `/v2/organization/{organizationId}/validate-gpu-access`
+                .replace(`{${"organizationId"}}`, encodeURIComponent(String(organizationId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication JwtAuth required
+            await setApiKeyToObject(localVarHeaderParameter, "Authorization", configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -267,6 +306,19 @@ export const BillingInfoApiFp = function(configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['BillingInfoApi.listV2PaymentMethods']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
+        /**
+         * Check whether the organization has a non-expired balance with an available amount applicable to GPU sandbox usage
+         * @summary Validate GPU access
+         * @param {string} organizationId Organization ID
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async validateGpuAccess(organizationId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<GpuAccess>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.validateGpuAccess(organizationId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['BillingInfoApi.validateGpuAccess']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
     }
 };
 
@@ -319,6 +371,16 @@ export const BillingInfoApiFactory = function (configuration?: Configuration, ba
          */
         listV2PaymentMethods(organizationId: string, options?: RawAxiosRequestConfig): AxiosPromise<Array<PaymentMethod>> {
             return localVarFp.listV2PaymentMethods(organizationId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Check whether the organization has a non-expired balance with an available amount applicable to GPU sandbox usage
+         * @summary Validate GPU access
+         * @param {string} organizationId Organization ID
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        validateGpuAccess(organizationId: string, options?: RawAxiosRequestConfig): AxiosPromise<GpuAccess> {
+            return localVarFp.validateGpuAccess(organizationId, options).then((request) => request(axios, basePath));
         },
     };
 };
@@ -373,6 +435,17 @@ export class BillingInfoApi extends BaseAPI {
      */
     public listV2PaymentMethods(organizationId: string, options?: RawAxiosRequestConfig) {
         return BillingInfoApiFp(this.configuration).listV2PaymentMethods(organizationId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Check whether the organization has a non-expired balance with an available amount applicable to GPU sandbox usage
+     * @summary Validate GPU access
+     * @param {string} organizationId Organization ID
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public validateGpuAccess(organizationId: string, options?: RawAxiosRequestConfig) {
+        return BillingInfoApiFp(this.configuration).validateGpuAccess(organizationId, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

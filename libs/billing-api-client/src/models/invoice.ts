@@ -38,6 +38,7 @@ export interface Invoice {
     'paymentStatus'?: InvoicePaymentStatus;
     'sequentialId'?: number;
     'status'?: InvoiceStatus;
+    'subtotalAmountCents'?: number;
     'totalAmountCents'?: number;
     'totalDueAmountCents'?: number;
     'type'?: InvoiceType;

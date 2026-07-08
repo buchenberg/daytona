@@ -8,6 +8,7 @@ All URIs are relative to _http://localhost:6100_
 |[**listV2Balances**](#listv2balances) | **GET** /v2/organization/{organizationId}/balances | List balances|
 |[**listV2Charges**](#listv2charges) | **GET** /v2/organization/{organizationId}/charges | List Stripe charges|
 |[**listV2PaymentMethods**](#listv2paymentmethods) | **GET** /v2/organization/{organizationId}/payment-methods | List payment methods|
+|[**validateGpuAccess**](#validategpuaccess) | **GET** /v2/organization/{organizationId}/validate-gpu-access | Validate GPU access|
 
 # **getV2BillingInfo**
 >
@@ -207,6 +208,57 @@ const { status, data } = await apiInstance.listV2PaymentMethods(
 ### Return type
 
 **Array<PaymentMethod>**
+
+### Authorization
+
+[JwtAuth](../README.md#JwtAuth)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: application/json
+
+### HTTP response details
+
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **validateGpuAccess**
+>
+> GpuAccess validateGpuAccess()
+
+Check whether the organization has a non-expired balance with an available amount applicable to GPU sandbox usage
+
+### Example
+
+```typescript
+import {
+    BillingInfoApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new BillingInfoApi(configuration);
+
+let organizationId: string; //Organization ID (default to undefined)
+
+const { status, data } = await apiInstance.validateGpuAccess(
+    organizationId
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **organizationId** | [**string**] | Organization ID | defaults to undefined|
+
+### Return type
+
+**GpuAccess**
 
 ### Authorization
 

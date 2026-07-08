@@ -478,6 +478,7 @@ const configuration = {
   },
   billing: {
     apiKey: process.env.BILLING_API_KEY,
+    adminApiKey: process.env.BILLING_ADMIN_API_KEY,
   },
   runnerCleanupTool: {
     apiKey: process.env.RUNNER_CLEANUP_TOOL_API_KEY,

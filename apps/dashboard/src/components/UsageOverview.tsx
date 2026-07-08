@@ -3,24 +3,32 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
+import { RoutePath } from '@/enums/RoutePath'
 import { cn } from '@/lib/utils'
 import { SandboxClass, type RegionUsageOverview } from '@daytona/api-client'
+import { Lock } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { Link } from 'react-router'
 import QuotaLine from './QuotaLine'
 import { Skeleton } from './ui/skeleton'
 
 export function UsageOverview({
   usageOverview,
   hasGpuQuotaInClass = false,
+  gpuLocked = false,
   className,
 }: {
   usageOverview: RegionUsageOverview
   hasGpuQuotaInClass?: boolean
+  gpuLocked?: boolean
   className?: string
 }) {
   const isWindows = usageOverview.sandboxClass === SandboxClass.WINDOWS
   const gpuCurrent = isWindows ? 0 : usageOverview.currentGpuUsage
   const gpuTotal = isWindows ? 0 : usageOverview.totalGpuQuota
+  // Billing can only lock a GPU bar that is otherwise unlocked: the zero-quota
+  // states ("Coming soon", "Contact Sales", "Unavailable in region") take precedence.
+  const showGpuLock = gpuLocked && !isWindows && (gpuTotal > 0 || gpuCurrent > 0)
 
   return (
     <div className={cn('flex gap-4 [&>*]:flex-1 flex-col lg:flex-row', className)}>
@@ -48,17 +56,37 @@ export function UsageOverview({
         label="GPU"
         className={cn({ 'opacity-50': isWindows })}
         value={
-          <UsageValue
-            current={gpuCurrent}
-            total={gpuTotal}
-            unit="GPU"
-            zeroQuotaValue={
-              <GpuZeroQuotaValue isWindows={isWindows} hasGpuQuotaInClass={hasGpuQuotaInClass} current={gpuCurrent} />
-            }
-          />
+          showGpuLock ? (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground text-nowrap">
+              <Lock size={12} />
+              Locked
+            </span>
+          ) : (
+            <UsageValue
+              current={gpuCurrent}
+              total={gpuTotal}
+              unit="GPU"
+              zeroQuotaValue={
+                <GpuZeroQuotaValue isWindows={isWindows} hasGpuQuotaInClass={hasGpuQuotaInClass} current={gpuCurrent} />
+              }
+            />
+          )
         }
       >
-        <QuotaLine current={gpuCurrent} total={gpuTotal} />
+        <div className={cn({ 'opacity-50': showGpuLock })}>
+          <QuotaLine current={gpuCurrent} total={gpuTotal} />
+        </div>
+        {showGpuLock && (
+          <div className="text-xs text-warning-foreground">
+            <Link
+              to={RoutePath.BILLING_WALLET}
+              className="font-medium underline underline-offset-2 hover:text-foreground"
+            >
+              Top up
+            </Link>{' '}
+            to unlock GPUs
+          </div>
+        )}
       </ResourceUsageItem>
     </div>
   )

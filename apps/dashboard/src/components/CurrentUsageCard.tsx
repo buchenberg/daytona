@@ -24,7 +24,13 @@ import { keepPreviousData } from '@tanstack/react-query'
 import { AlertCircle } from 'lucide-react'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 
-export function CurrentUsageCard({ organizationTier }: { organizationTier?: { tier?: number | null } | null }) {
+export function CurrentUsageCard({
+  organizationTier,
+  gpuLocked = false,
+}: {
+  organizationTier?: { tier?: number | null } | null
+  gpuLocked?: boolean
+}) {
   const config = useConfig()
   const { selectedOrganization } = useSelectedOrganization()
   const { getRegionName } = useRegionLookup(selectedOrganization?.id)
@@ -165,6 +171,7 @@ export function CurrentUsageCard({ organizationTier }: { organizationTier?: { ti
               <UsageOverview
                 usageOverview={currentRegionUsageOverview}
                 hasGpuQuotaInClass={regionsForSelectedClass.some((usage) => usage.totalGpuQuota > 0)}
+                gpuLocked={gpuLocked}
               />
             </div>
           )

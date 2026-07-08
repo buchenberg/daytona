@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { RoutePath } from '@/enums/RoutePath'
 import { useOwnerTierQuery } from '@/hooks/queries/billingQueries'
+import { useGpuAccessQuery } from '@/hooks/queries/useGpuAccessQuery'
 import { usePaymentMethodsQuery } from '@/hooks/queries/usePaymentMethodsQuery'
 import { useTiersQuery } from '@/hooks/queries/useTiersQuery'
 import { useConfig } from '@/hooks/useConfig'
@@ -41,6 +42,13 @@ export default function Limits() {
   const paymentMethodsUnavailable = paymentMethodsQuery.isError && paymentMethods === undefined
   const hasPaymentMethod = (paymentMethods?.length ?? 0) > 0
 
+  const gpuAccessQuery = useGpuAccessQuery({
+    organizationId: selectedOrganization?.id ?? '',
+    enabled: Boolean(config.billingApiUrl && selectedOrganization),
+  })
+  // Only lock the GPU bar on a definitive "no credits" answer, never while loading or on error.
+  const gpuLocked = gpuAccessQuery.data?.hasGpuCredits === false
+
   useEffect(() => {
     if (selectedOrganization && !selectedOrganization.defaultRegionId) {
       navigate(RoutePath.SETTINGS)
@@ -67,7 +75,7 @@ export default function Limits() {
 
       <PageContent>
         <PageIntro title="Limits" />
-        <CurrentUsageCard organizationTier={organizationTier} />
+        <CurrentUsageCard organizationTier={organizationTier} gpuLocked={gpuLocked} />
 
         {config.billingApiUrl && selectedOrganization && (
           <>

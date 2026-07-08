@@ -73,6 +73,7 @@ export const queryKeys = {
     usagePortalUrl: (organizationId: string) => [...queryKeys.billing.all, organizationId, 'usage-portal-url'] as const,
     billingInfo: (organizationId: string) => [...queryKeys.billing.all, organizationId, 'billing-info'] as const,
     paymentMethods: (organizationId: string) => [...queryKeys.billing.all, organizationId, 'payment-methods'] as const,
+    gpuAccess: (organizationId: string) => [...queryKeys.billing.all, organizationId, 'gpu-access'] as const,
     charges: (organizationId: string) => [...queryKeys.billing.all, organizationId, 'charges'] as const,
     balances: (organizationId: string, limit?: number) =>
       [...queryKeys.billing.all, organizationId, 'balances', ...(limit !== undefined ? [{ limit }] : [])] as const,

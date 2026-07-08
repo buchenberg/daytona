@@ -68,10 +68,12 @@ import { SecretModule } from '../secret/secret.module'
 import { SandboxAuthContextGuard } from './guards/sandbox-auth-context.guard'
 import { SandboxSecretsAuthContextGuard } from './guards/sandbox-secrets-auth-context.guard'
 import { SandboxSecret } from './entities/sandbox-secret.entity'
+import { BillingModule } from '../billing/billing.module'
 
 @Module({
   imports: [
     UserModule,
+    BillingModule,
     DockerRegistryModule,
     OrganizationModule,
     RegionModule,

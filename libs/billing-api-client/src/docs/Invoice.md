@@ -15,6 +15,7 @@ Name | Type | Description | Notes
 **paymentStatus** | [**InvoicePaymentStatus**](InvoicePaymentStatus.md) |  | [optional] [default to undefined]
 **sequentialId** | **number** |  | [optional] [default to undefined]
 **status** | [**InvoiceStatus**](InvoiceStatus.md) |  | [optional] [default to undefined]
+**subtotalAmountCents** | **number** |  | [optional] [default to undefined]
 **totalAmountCents** | **number** |  | [optional] [default to undefined]
 **totalDueAmountCents** | **number** |  | [optional] [default to undefined]
 **type** | [**InvoiceType**](InvoiceType.md) |  | [optional] [default to undefined]
@@ -36,6 +37,7 @@ const instance: Invoice = {
     paymentStatus,
     sequentialId,
     status,
+    subtotalAmountCents,
     totalAmountCents,
     totalDueAmountCents,
     type,
