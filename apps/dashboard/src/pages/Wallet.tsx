@@ -399,7 +399,11 @@ const Wallet = () => {
 
             {selectedOrganization && (
               <>
-                <BalancesCard organizationId={selectedOrganization.id} />
+                <BalancesCard
+                  organizationId={selectedOrganization.id}
+                  freeCreditsBalanceCents={wallet.freeCreditsBalanceCents}
+                  paidCreditsBalanceCents={wallet.paidCreditsBalanceCents}
+                />
                 {!restrictToSetupCheckout && <BillingInfoCard organizationId={selectedOrganization.id} />}
                 <PaymentMethodsCard
                   organizationId={selectedOrganization.id}

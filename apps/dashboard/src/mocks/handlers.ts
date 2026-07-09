@@ -106,7 +106,8 @@ export const handlers = [
   http.get(`${BILLING_API_URL}/v2/organization/:organizationId/wallet`, async () => {
     return HttpResponse.json<OrganizationWallet>({
       balanceCents: 1000,
-      ongoingBalanceCents: 1000,
+      freeCreditsBalanceCents: 750,
+      paidCreditsBalanceCents: 250,
       totalSpentThisMonthCents: 500,
       totalAmountDueThisMonthCents: 250,
       name: 'Wallet',

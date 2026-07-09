@@ -25,9 +25,10 @@ export interface OrganizationWallet {
     'balanceCents'?: number;
     'billingType'?: BillingType;
     'creditCardConnectedCreditsGranted'?: boolean;
+    'freeCreditsBalanceCents'?: number;
     'hasFailedOrPendingInvoice'?: boolean;
     'name'?: string;
-    'ongoingBalanceCents'?: number;
+    'paidCreditsBalanceCents'?: number;
     'totalAmountDueThisMonthCents'?: number;
     'totalSpentThisMonthCents'?: number;
 }

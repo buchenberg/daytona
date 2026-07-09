@@ -3,16 +3,18 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useBalancesQuery } from '@/hooks/queries/useBalancesQuery'
-import { formatMoney } from '@/lib/utils'
+import { formatAmount, formatMoney } from '@/lib/utils'
 import { Balance, BalanceType } from '@daytona/billing-api-client'
-import { ChevronLeft, ChevronRight, RefreshCcw, TagIcon } from 'lucide-react'
+import { ChevronLeft, ChevronRight, InfoIcon, RefreshCcw, TagIcon } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -25,10 +27,14 @@ const MIXED_CREDIT_DATES = ['2026-05-15', '2026-05-18']
 
 interface BalancesCardProps {
   organizationId: string
+  freeCreditsBalanceCents?: number
+  paidCreditsBalanceCents?: number
 }
 
-export function BalancesCard({ organizationId }: BalancesCardProps) {
-  const balancesQuery = useBalancesQuery({ organizationId, limit: PAGE_SIZE })
+export function BalancesCard({ organizationId, freeCreditsBalanceCents, paidCreditsBalanceCents }: BalancesCardProps) {
+  // Balances are only fetched once the user expands the accordion.
+  const [expanded, setExpanded] = useState(false)
+  const balancesQuery = useBalancesQuery({ organizationId, limit: PAGE_SIZE, enabled: expanded })
   const [pageIndex, setPageIndex] = useState(0)
 
   const pages = balancesQuery.data?.pages ?? []
@@ -69,54 +75,79 @@ export function BalancesCard({ organizationId }: BalancesCardProps) {
     <Card className="w-full">
       <CardHeader>
         <CardTitle>Balances</CardTitle>
-        <CardDescription>Credit balances available on your organization and when they expire.</CardDescription>
+        <CardDescription>Credit balances available on your organization.</CardDescription>
       </CardHeader>
-      <CardContent>
-        {balancesQuery.isLoading ? (
-          <BalancesSkeleton />
-        ) : balancesQuery.isError && !page ? (
-          <div className="flex flex-col items-start gap-3">
-            <p className="text-sm text-muted-foreground">Something went wrong while fetching your balances.</p>
-            <Button variant="outline" size="sm" onClick={() => balancesQuery.refetch()}>
-              <RefreshCcw className="size-4" />
-              Retry
-            </Button>
+      <CardContent className="pb-0">
+        <div className="flex gap-4 sm:gap-12 sm:flex-row flex-col">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1.5">
+              Free credit balance
+              <Tooltip>
+                <TooltipTrigger
+                  render={<InfoIcon className="h-4 w-4 text-muted-foreground" aria-label="Free credit info" />}
+                />
+                <TooltipContent>Free credits cannot be used for GPU sandboxes.</TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="text-xl font-semibold">{formatAmount(freeCreditsBalanceCents ?? 0)}</div>
           </div>
-        ) : balances.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No active balances.</p>
-        ) : (
-          <div className="flex flex-col gap-6">
-            {balances.map((balance, index) => (
-              <BalanceItem key={balance.id ?? index} balance={balance} />
-            ))}
-            {showPagination && (
-              <div className="flex items-center justify-end gap-4">
-                <span className="text-sm font-medium text-muted-foreground">Page {currentPage + 1}</span>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    className="h-8 w-8 p-0"
-                    onClick={() => setPageIndex(currentPage - 1)}
-                    disabled={currentPage === 0}
-                  >
-                    <span className="sr-only">Go to previous page</span>
-                    <ChevronLeft />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-8 w-8 p-0"
-                    onClick={handleNextPage}
-                    disabled={!hasNextPage || balancesQuery.isFetchingNextPage}
-                  >
-                    <span className="sr-only">Go to next page</span>
-                    {balancesQuery.isFetchingNextPage ? <Spinner /> : <ChevronRight />}
-                  </Button>
-                </div>
+          <div className="flex flex-col gap-1">
+            <div className="">Paid credit balance</div>
+            <div className="text-xl font-semibold">{formatAmount(paidCreditsBalanceCents ?? 0)}</div>
+          </div>
+        </div>
+      </CardContent>
+      <Accordion onValueChange={(value: unknown[]) => setExpanded(value.length > 0)}>
+        <AccordionItem value="balances" className="border-b-0">
+          <AccordionTrigger className="px-4 py-4 text-sm">See breakdown and expiration</AccordionTrigger>
+          <AccordionContent className="px-4">
+            {balancesQuery.isPending ? (
+              <BalancesSkeleton />
+            ) : balancesQuery.isError && !page ? (
+              <div className="flex flex-col items-start gap-3">
+                <p className="text-sm text-muted-foreground">Something went wrong while fetching your balances.</p>
+                <Button variant="outline" size="sm" onClick={() => balancesQuery.refetch()}>
+                  <RefreshCcw className="size-4" />
+                  Retry
+                </Button>
+              </div>
+            ) : balances.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No active balances.</p>
+            ) : (
+              <div className="flex flex-col gap-6">
+                {balances.map((balance, index) => (
+                  <BalanceItem key={balance.id ?? index} balance={balance} />
+                ))}
+                {showPagination && (
+                  <div className="flex items-center justify-end gap-4">
+                    <span className="text-sm font-medium text-muted-foreground">Page {currentPage + 1}</span>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setPageIndex(currentPage - 1)}
+                        disabled={currentPage === 0}
+                      >
+                        <span className="sr-only">Go to previous page</span>
+                        <ChevronLeft />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-8 w-8 p-0"
+                        onClick={handleNextPage}
+                        disabled={!hasNextPage || balancesQuery.isFetchingNextPage}
+                      >
+                        <span className="sr-only">Go to next page</span>
+                        {balancesQuery.isFetchingNextPage ? <Spinner /> : <ChevronRight />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
-      </CardContent>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </Card>
   )
 }

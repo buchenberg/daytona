@@ -8,9 +8,10 @@ Name | Type | Description | Notes
 **balanceCents** | **number** |  | [optional] [default to undefined]
 **billingType** | [**BillingType**](BillingType.md) |  | [optional] [default to undefined]
 **creditCardConnectedCreditsGranted** | **boolean** |  | [optional] [default to undefined]
+**freeCreditsBalanceCents** | **number** |  | [optional] [default to undefined]
 **hasFailedOrPendingInvoice** | **boolean** |  | [optional] [default to undefined]
 **name** | **string** |  | [optional] [default to undefined]
-**ongoingBalanceCents** | **number** |  | [optional] [default to undefined]
+**paidCreditsBalanceCents** | **number** |  | [optional] [default to undefined]
 **totalAmountDueThisMonthCents** | **number** |  | [optional] [default to undefined]
 **totalSpentThisMonthCents** | **number** |  | [optional] [default to undefined]
 
@@ -24,9 +25,10 @@ const instance: OrganizationWallet = {
     balanceCents,
     billingType,
     creditCardConnectedCreditsGranted,
+    freeCreditsBalanceCents,
     hasFailedOrPendingInvoice,
     name,
-    ongoingBalanceCents,
+    paidCreditsBalanceCents,
     totalAmountDueThisMonthCents,
     totalSpentThisMonthCents,
 };
