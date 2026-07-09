@@ -37,7 +37,7 @@ export class ToolboxService {
     while (attempt <= maxRetries) {
       try {
         const headers: any = {
-          Authorization: `Bearer ${runner.apiKey}`,
+          'X-Daytona-Authorization': `Bearer ${runner.apiKey}`,
         }
 
         // Only set Content-Type for requests with body data
