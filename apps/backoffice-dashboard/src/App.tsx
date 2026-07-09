@@ -3,28 +3,19 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Suspense } from 'react'
+import { ReactNode, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { ConfigProvider } from './providers/ConfigProvider'
-import { ApiProvider } from './providers/ApiProvider'
+import { ApiProvider, usePermissions } from './providers/ApiProvider'
 import { Header } from './components/layout/Header'
 import { Sidebar } from './components/layout/Sidebar'
 import { CautionBanner } from './components/layout/CautionBanner'
 import { SidebarProvider, SidebarInset, useSidebar } from '@dashboard/ui/sidebar'
 import { BannerProvider } from '@dashboard/components/Banner'
-import { SandboxesPage } from './pages/SandboxesPage'
-import { RunnersPage } from './pages/RunnersPage'
-import { SnapshotsPage } from './pages/SnapshotsPage'
-import { OrganizationsPage } from './pages/OrganizationsPage'
-import { OrganizationUsersPage } from './pages/OrganizationUsersPage'
-import { RegionQuotasPage } from './pages/RegionQuotasPage'
-import { UsersPage } from './pages/UsersPage'
-import { AuditLogsPage } from './pages/AuditLogsPage'
-import { ChatPage } from './pages/ChatPage'
 import { Toaster } from 'sonner'
-import { useEffect } from 'react'
+import { APP_ROUTES, AppRoute, canAccessRoute, firstAccessibleRoute } from './routes'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +37,33 @@ function SidebarAutoCollapse() {
   return null
 }
 
+function ProtectedRoute({ route, children }: { route: AppRoute; children: ReactNode }) {
+  const permissions = usePermissions()
+  if (canAccessRoute(permissions, route)) return <>{children}</>
+  const fallback = firstAccessibleRoute(permissions)
+  return fallback ? <Navigate to={fallback.path} replace /> : <NoAccess />
+}
+
+function HomeRedirect() {
+  const permissions = usePermissions()
+  const fallback = firstAccessibleRoute(permissions)
+  return fallback ? <Navigate to={fallback.path} replace /> : <NoAccess />
+}
+
+function NoAccess() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <div className="text-center max-w-md p-8">
+        <h1 className="text-xl font-semibold mb-2">No access</h1>
+        <p className="text-muted-foreground text-sm">
+          Your account doesn&apos;t have permission to view any backoffice resources. Ask an administrator to grant you
+          access.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function Dashboard() {
   const location = useLocation()
   const isChat = location.pathname === '/chat'
@@ -60,17 +78,22 @@ function Dashboard() {
           <CautionBanner />
           <main className={`flex-1 bg-background ${isChat ? 'overflow-hidden' : 'overflow-y-auto'}`}>
             <Routes>
-              <Route path="/" element={<Navigate to="/sandboxes" replace />} />
-              <Route path="/sandboxes" element={<SandboxesPage />} />
-              <Route path="/runners" element={<RunnersPage />} />
-              <Route path="/snapshots" element={<SnapshotsPage />} />
-              <Route path="/organizations" element={<OrganizationsPage />} />
-              <Route path="/organization-users" element={<OrganizationUsersPage />} />
-              <Route path="/region-quotas" element={<RegionQuotasPage />} />
-              <Route path="/users" element={<UsersPage />} />
-              <Route path="/audit-logs" element={<AuditLogsPage />} />
-              <Route path="/chat" element={<ChatPage />} />
-              <Route path="*" element={<Navigate to="/sandboxes" replace />} />
+              <Route path="/" element={<HomeRedirect />} />
+              {APP_ROUTES.map((route) => {
+                const Page = route.component
+                return (
+                  <Route
+                    key={route.path}
+                    path={route.path}
+                    element={
+                      <ProtectedRoute route={route}>
+                        <Page />
+                      </ProtectedRoute>
+                    }
+                  />
+                )
+              })}
+              <Route path="*" element={<HomeRedirect />} />
             </Routes>
           </main>
         </div>

@@ -28,6 +28,11 @@ export type OrganizationUserAction = 'read' | 'write' | 'write-bulk' | 'delete'
 export type RegionQuotaAction = 'read' | 'write' | 'write-bulk' | 'delete'
 export type UserAction = 'read' | 'delete'
 export type AuditLogAction = 'read'
+// For Mali the grantable "actions" are datasources rather than CRUD verbs:
+// `maliDatasources: ['grafana']` reads as "may invoke Grafana tools". This
+// keeps datasource grants flowing through the same resource→actions machinery
+// (guards, DTOs, wildcard checks) as everything else.
+export type MaliDatasource = 'database' | 'clickhouse' | 'grafana' | 'opensearch' | 'posthog' | 'sandbox'
 
 export interface Permissions {
   superAdmin?: boolean
@@ -39,11 +44,17 @@ export interface Permissions {
   regionQuotas?: RegionQuotaAction[]
   users?: UserAction[]
   auditLogs?: AuditLogAction[]
+  maliDatasources?: MaliDatasource[]
 }
 
 export type PermissionResource = Exclude<keyof Permissions, 'superAdmin'>
 
 export type ActionFor<R extends PermissionResource> = NonNullable<Permissions[R]> extends Array<infer A> ? A : never
+
+// Wildcard used in permission *requirements* (decorators / helpers) to mean
+// "any action on this resource is sufficient". Inspired by IAM-style `*`
+// policies. Stored `Permissions` values never contain '*'.
+export type WildcardAction = '*'
 
 export type PermissionTuple = {
   [R in PermissionResource]: [R, ActionFor<R>]
@@ -58,6 +69,7 @@ export const ALL_RESOURCES: readonly PermissionResource[] = [
   'regionQuotas',
   'users',
   'auditLogs',
+  'maliDatasources',
 ] as const
 
 export const ACTIONS_BY_RESOURCE: { [R in PermissionResource]: readonly ActionFor<R>[] } = {
@@ -69,4 +81,5 @@ export const ACTIONS_BY_RESOURCE: { [R in PermissionResource]: readonly ActionFo
   regionQuotas: ['read', 'write', 'write-bulk', 'delete'],
   users: ['read', 'delete'],
   auditLogs: ['read'],
+  maliDatasources: ['database', 'clickhouse', 'grafana', 'opensearch', 'posthog', 'sandbox'],
 }

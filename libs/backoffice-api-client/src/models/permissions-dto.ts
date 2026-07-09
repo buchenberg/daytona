@@ -27,6 +27,7 @@ export interface PermissionsDto {
     'regionQuotas'?: Array<PermissionsDtoRegionQuotasEnum>;
     'users'?: Array<PermissionsDtoUsersEnum>;
     'auditLogs'?: Array<PermissionsDtoAuditLogsEnum>;
+    'maliDatasources'?: Array<PermissionsDtoMaliDatasourcesEnum>;
 }
 
 export const PermissionsDtoSandboxesEnum = {
@@ -34,6 +35,7 @@ export const PermissionsDtoSandboxesEnum = {
     WRITE: 'write',
     WRITE_BULK: 'write-bulk',
     DELETE: 'delete',
+    RESYNC: 'resync',
 } as const;
 
 export type PermissionsDtoSandboxesEnum = typeof PermissionsDtoSandboxesEnum[keyof typeof PermissionsDtoSandboxesEnum];
@@ -88,5 +90,15 @@ export const PermissionsDtoAuditLogsEnum = {
 } as const;
 
 export type PermissionsDtoAuditLogsEnum = typeof PermissionsDtoAuditLogsEnum[keyof typeof PermissionsDtoAuditLogsEnum];
+export const PermissionsDtoMaliDatasourcesEnum = {
+    DATABASE: 'database',
+    CLICKHOUSE: 'clickhouse',
+    GRAFANA: 'grafana',
+    OPENSEARCH: 'opensearch',
+    POSTHOG: 'posthog',
+    SANDBOX: 'sandbox',
+} as const;
+
+export type PermissionsDtoMaliDatasourcesEnum = typeof PermissionsDtoMaliDatasourcesEnum[keyof typeof PermissionsDtoMaliDatasourcesEnum];
 
 

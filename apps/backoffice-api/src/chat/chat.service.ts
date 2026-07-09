@@ -21,6 +21,7 @@ import { matchSkills } from '../skills'
 import { MemoryService } from './memory.service'
 import { parseLlmJson } from './parse-llm-json'
 import { formatSSE } from './sse-events'
+import { Permissions } from '../common/permissions'
 
 const MAX_ROUNDS = 15
 const MAX_IDENTICAL_TOOL_CALLS = 3
@@ -39,6 +40,7 @@ interface ChatStreamOptions {
   conversationId?: string
   message: string
   userId: string
+  permissions: Permissions
 }
 
 interface StreamRoundOptions {
@@ -48,6 +50,7 @@ interface StreamRoundOptions {
   tools: Anthropic.Tool[]
   abortController: AbortController
   userId: string
+  permissions: Permissions
   savePartialOnAbort: boolean
 }
 
@@ -90,7 +93,7 @@ export class ChatService {
   // ---------------------------------------------------------------------------
 
   async *streamChat(options: ChatStreamOptions): AsyncGenerator<string> {
-    const { message, userId } = options
+    const { message, userId, permissions } = options
     let conversationId = options.conversationId
 
     const abortController = new AbortController()
@@ -136,9 +139,10 @@ export class ChatService {
         conversationId,
         messages,
         systemPrompt: await this.buildSystemPrompt(message, userId),
-        tools: await this.toolRegistry.listAvailableTools(userId),
+        tools: await this.toolRegistry.listAvailableTools(userId, permissions),
         abortController,
         userId,
+        permissions,
         savePartialOnAbort: true,
       })
     } catch (error) {
@@ -154,7 +158,7 @@ export class ChatService {
     }
   }
 
-  async *streamContinue(conversationId: string, userId: string): AsyncGenerator<string> {
+  async *streamContinue(conversationId: string, userId: string, permissions: Permissions): AsyncGenerator<string> {
     const existing = await this.conversationsService.findById(conversationId)
     if (!existing) {
       yield formatSSE({ type: 'error', error: 'Conversation not found' })
@@ -186,9 +190,10 @@ export class ChatService {
         conversationId,
         messages,
         systemPrompt: await this.buildSystemPrompt('', userId),
-        tools: await this.toolRegistry.listAvailableTools(userId),
+        tools: await this.toolRegistry.listAvailableTools(userId, permissions),
         abortController,
         userId,
+        permissions,
         savePartialOnAbort: false,
       })
     } catch (error) {
@@ -207,7 +212,8 @@ export class ChatService {
   // ---------------------------------------------------------------------------
 
   private async *executeRounds(options: StreamRoundOptions): AsyncGenerator<string> {
-    const { conversationId, messages, systemPrompt, tools, abortController, userId, savePartialOnAbort } = options
+    const { conversationId, messages, systemPrompt, tools, abortController, userId, permissions, savePartialOnAbort } =
+      options
 
     const toolCallHistory = new Map<string, number>()
     let tokenWarningEmitted = false
@@ -368,7 +374,7 @@ export class ChatService {
 
       // Execute tools
       const toolUseBlocks = assistantContent.filter((b) => (b as ContentBlock).type === 'tool_use') as ContentBlock[]
-      const toolResults = yield* this.executeTools(toolUseBlocks, abortController, userId, toolCallHistory)
+      const toolResults = yield* this.executeTools(toolUseBlocks, abortController, userId, permissions, toolCallHistory)
 
       await this.conversationsService.addMessage(conversationId, 'user', toolResults)
       messages.push({ role: 'user', content: toolResults })
@@ -385,6 +391,7 @@ export class ChatService {
     toolUseBlocks: ContentBlock[],
     abortController: AbortController,
     userId: string,
+    permissions: Permissions,
     toolCallHistory: Map<string, number>,
   ): AsyncGenerator<string, Anthropic.ToolResultBlockParam[]> {
     const orderedResults = new Array<Anthropic.ToolResultBlockParam>(toolUseBlocks.length)
@@ -426,7 +433,7 @@ export class ChatService {
           return { index, toolResult: stuckResult.toolResult, yieldEvent: stuckResult.yieldEvent }
         }
 
-        return this.executeSingleTool(block, index, userId)
+        return this.executeSingleTool(block, index, userId, permissions)
       })
 
       const settled = await Promise.allSettled(promises)
@@ -465,7 +472,7 @@ export class ChatService {
         continue
       }
 
-      const { toolResult, yieldEvent } = await this.executeSingleTool(block, index, userId)
+      const { toolResult, yieldEvent } = await this.executeSingleTool(block, index, userId, permissions)
       orderedResults[index] = toolResult
       if (yieldEvent) yield yieldEvent
     }
@@ -477,8 +484,14 @@ export class ChatService {
     block: ContentBlock,
     index: number,
     userId: string,
+    permissions: Permissions,
   ): Promise<{ index: number; toolResult: Anthropic.ToolResultBlockParam; yieldEvent: string | null }> {
-    const result = await this.toolRegistry.execute(block.name!, block.input as Record<string, unknown>, userId)
+    const result = await this.toolRegistry.execute(
+      block.name!,
+      block.input as Record<string, unknown>,
+      permissions,
+      userId,
+    )
 
     let parsedResult: unknown
     try {

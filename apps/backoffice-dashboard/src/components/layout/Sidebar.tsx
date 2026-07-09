@@ -5,17 +5,6 @@
 
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
-import {
-  Database,
-  Server,
-  Camera,
-  Building2,
-  Users,
-  MapPin,
-  UserCircle,
-  ClipboardList,
-  MessageCircle,
-} from 'lucide-react'
 import { Logo, LogoText } from '@backoffice/assets/Logo'
 import {
   Sidebar as SidebarComponent,
@@ -29,23 +18,16 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@dashboard/ui/sidebar'
-
-const navigation = [
-  { name: 'Sandboxes', href: '/sandboxes', icon: Database },
-  { name: 'Runners', href: '/runners', icon: Server },
-  { name: 'Snapshots', href: '/snapshots', icon: Camera },
-  { name: 'Organizations', href: '/organizations', icon: Building2 },
-  { name: 'Organization Users', href: '/organization-users', icon: Users },
-  { name: 'Region Quotas', href: '/region-quotas', icon: MapPin },
-  { name: 'Users', href: '/users', icon: UserCircle },
-  { name: 'Audit Logs', href: '/audit-logs', icon: ClipboardList },
-  { name: 'mali', href: '/chat', icon: MessageCircle },
-]
+import { usePermissions } from '../../providers/ApiProvider'
+import { APP_ROUTES, canAccessRoute } from '../../routes'
 
 export function Sidebar() {
   const location = useLocation()
   const sidebar = useSidebar()
+  const permissions = usePermissions()
   const [version, setVersion] = useState<string>('')
+
+  const visibleRoutes = APP_ROUTES.filter((route) => canAccessRoute(permissions, route))
 
   useEffect(() => {
     fetch('/api/v1/health')
@@ -67,17 +49,18 @@ export function Sidebar() {
           </div>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navigation.map((item) => {
-                const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + '/')
+              {visibleRoutes.map((route) => {
+                const isActive = location.pathname === route.path || location.pathname.startsWith(route.path + '/')
+                const Icon = route.icon
                 return (
-                  <SidebarMenuItem key={item.name}>
+                  <SidebarMenuItem key={route.path}>
                     <SidebarMenuButton
                       isActive={isActive}
                       className="text-sm"
                       render={
-                        <Link to={item.href}>
-                          <item.icon size={16} strokeWidth={1.5} />
-                          <span>{item.name}</span>
+                        <Link to={route.path}>
+                          <Icon size={16} strokeWidth={1.5} />
+                          <span>{route.name}</span>
                         </Link>
                       }
                     />

@@ -5,6 +5,7 @@
 
 import { Injectable, Logger } from '@nestjs/common'
 import Anthropic from '@anthropic-ai/sdk'
+import { hasPermission, MaliDatasource, Permissions } from '../common/permissions'
 import { GrafanaService } from './grafana/grafana.service'
 import { grafanaToolDefinitions, grafanaToolExecutors } from './grafana/grafana.tools'
 import { DatabaseService } from './database/database.service'
@@ -48,6 +49,7 @@ interface DatasourceService {
 
 type Entry = {
   tool: Anthropic.Tool
+  datasource: MaliDatasource
   service: DatasourceService
   execute: (input: Record<string, unknown>, userId: string) => Promise<string>
 }
@@ -65,18 +67,31 @@ export class ToolRegistry {
     private readonly posthog: PosthogService,
     private readonly sandbox: SandboxService,
   ) {
-    this.registerCategory('Grafana', this.grafana, grafanaToolDefinitions, grafanaToolExecutors)
-    this.registerCategory('Database', this.database, databaseToolDefinitions, databaseToolExecutors)
-    this.registerCategory('ClickHouse', this.clickhouse, clickhouseToolDefinitions, clickhouseToolExecutors)
-    this.registerCategory('OpenSearch', this.opensearch, opensearchToolDefinitions, opensearchToolExecutors)
-    this.registerCategory('PostHog', this.posthog, posthogToolDefinitions, posthogToolExecutors)
-    this.registerCategory('Sandbox', this.sandbox, sandboxToolDefinitions, sandboxToolExecutors)
+    this.registerCategory('Grafana', 'grafana', this.grafana, grafanaToolDefinitions, grafanaToolExecutors)
+    this.registerCategory('Database', 'database', this.database, databaseToolDefinitions, databaseToolExecutors)
+    this.registerCategory(
+      'ClickHouse',
+      'clickhouse',
+      this.clickhouse,
+      clickhouseToolDefinitions,
+      clickhouseToolExecutors,
+    )
+    this.registerCategory(
+      'OpenSearch',
+      'opensearch',
+      this.opensearch,
+      opensearchToolDefinitions,
+      opensearchToolExecutors,
+    )
+    this.registerCategory('PostHog', 'posthog', this.posthog, posthogToolDefinitions, posthogToolExecutors)
+    this.registerCategory('Sandbox', 'sandbox', this.sandbox, sandboxToolDefinitions, sandboxToolExecutors)
 
     this.logger.log(`Tool registry initialized with ${this.entries.size} tools`)
   }
 
   private registerCategory<S extends DatasourceService>(
     name: string,
+    datasource: MaliDatasource,
     service: S,
     definitions: readonly Anthropic.Tool[],
     executors: Record<string, ToolExecutor<S>>,
@@ -87,6 +102,7 @@ export class ToolRegistry {
       if (!executor) continue
       this.entries.set(def.name, {
         tool: def,
+        datasource,
         service,
         execute: async (input, userId) => truncateResult(await executor(service, input, userId)),
       })
@@ -94,24 +110,37 @@ export class ToolRegistry {
   }
 
   /**
-   * Tools the given user is allowed to use right now. Per-user availability
-   * is determined by each service's `isEnabledFor(userId)`, backed by
-   * SettingsService's short-TTL overrides cache — so repeat calls are cheap.
+   * Tools the given user is allowed to use right now. A tool is available
+   * only if the caller is granted its datasource via `maliDatasources`
+   * permissions AND the datasource is enabled for them — per-user
+   * availability is determined by each service's `isEnabledFor(userId)`,
+   * backed by SettingsService's short-TTL overrides cache — so repeat
+   * calls are cheap. The tool definitions sent to Claude must match what
+   * `execute` will actually run, so callers always pass perms.
    */
-  async listAvailableTools(userId: string): Promise<Anthropic.Tool[]> {
+  async listAvailableTools(userId: string, perms: Permissions): Promise<Anthropic.Tool[]> {
     const checks = await Promise.all(
       Array.from(this.entries.values()).map(async (e) => ({
         tool: e.tool,
-        available: await e.service.isEnabledFor(userId),
+        available: this.isToolAllowed(e.tool.name, perms) && (await e.service.isEnabledFor(userId)),
       })),
     )
     return checks.filter((c) => c.available).map((c) => c.tool)
   }
 
-  async execute(name: string, input: Record<string, unknown>, userId: string): Promise<string> {
+  private isToolAllowed(name: string, perms: Permissions): boolean {
+    const entry = this.entries.get(name)
+    if (!entry) return false
+    return hasPermission(perms, 'maliDatasources', entry.datasource)
+  }
+
+  async execute(name: string, input: Record<string, unknown>, perms: Permissions, userId: string): Promise<string> {
     const entry = this.entries.get(name)
     if (!entry) {
       return JSON.stringify({ error: `Unknown tool: ${name}` })
+    }
+    if (!this.isToolAllowed(name, perms)) {
+      return JSON.stringify({ error: `Tool ${name} is not available for this user` })
     }
 
     const timeoutMs = TOOL_TIMEOUTS[name] ?? DEFAULT_TIMEOUT_MS

@@ -6,6 +6,8 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Req, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiSecurity, ApiQuery } from '@nestjs/swagger'
 import { FlexibleAuthGuard } from '../common/guards/flexible-auth.guard'
+import { PermissionsGuard } from '../common/guards/permissions.guard'
+import { RequirePermission } from '../common/decorators/require-permission.decorator'
 import { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface'
 import { ConversationsService } from './conversations.service'
 import { CollaboratorsService } from './collaborators.service'
@@ -14,7 +16,8 @@ import { AddCollaboratorDto } from './dto/add-collaborator.dto'
 
 @ApiTags('conversations')
 @ApiSecurity('bearerAuth')
-@UseGuards(FlexibleAuthGuard)
+@UseGuards(FlexibleAuthGuard, PermissionsGuard)
+@RequirePermission(['maliDatasources', '*'])
 @Controller('conversations')
 export class ConversationsController {
   constructor(

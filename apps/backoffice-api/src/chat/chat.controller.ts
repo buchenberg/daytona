@@ -8,6 +8,8 @@ import { ApiTags, ApiOperation, ApiSecurity } from '@nestjs/swagger'
 import { SkipThrottle } from '@nestjs/throttler'
 import { Response } from 'express'
 import { FlexibleAuthGuard } from '../common/guards/flexible-auth.guard'
+import { PermissionsGuard } from '../common/guards/permissions.guard'
+import { RequirePermission } from '../common/decorators/require-permission.decorator'
 import { AuthenticatedRequest } from '../common/interfaces/authenticated-request.interface'
 import { ChatService } from './chat.service'
 import { MemoryService } from './memory.service'
@@ -15,7 +17,8 @@ import { ChatRequestDto, StopChatRequestDto, ContinueChatRequestDto } from './dt
 
 @ApiTags('chat')
 @ApiSecurity('bearerAuth')
-@UseGuards(FlexibleAuthGuard)
+@UseGuards(FlexibleAuthGuard, PermissionsGuard)
+@RequirePermission(['maliDatasources', '*'])
 @Controller('chat')
 export class ChatController {
   constructor(
@@ -28,6 +31,7 @@ export class ChatController {
   @ApiOperation({ summary: 'Stream a chat response via SSE' })
   async stream(@Body() body: ChatRequestDto, @Req() req: AuthenticatedRequest, @Res() res: Response) {
     const userId = req.user?.id || 'anonymous'
+    const permissions = req.user?.permissions ?? {}
 
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
@@ -41,6 +45,7 @@ export class ChatController {
       conversationId: body.conversationId,
       message: body.message,
       userId,
+      permissions,
     })
 
     req.on('close', () => {
@@ -78,6 +83,7 @@ export class ChatController {
   @ApiOperation({ summary: 'Continue a conversation after max_rounds' })
   async continueChat(@Body() body: ContinueChatRequestDto, @Req() req: AuthenticatedRequest, @Res() res: Response) {
     const userId = req.user?.id || 'anonymous'
+    const permissions = req.user?.permissions ?? {}
 
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
@@ -89,7 +95,7 @@ export class ChatController {
       this.chatService.stopStream(body.conversationId)
     })
 
-    const generator = this.chatService.streamContinue(body.conversationId, userId)
+    const generator = this.chatService.streamContinue(body.conversationId, userId, permissions)
 
     for await (const chunk of generator) {
       if (res.writableEnded) break
