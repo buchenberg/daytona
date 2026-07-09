@@ -19,6 +19,10 @@ import type { UpdateRegionQuotaDto } from './update-region-quota-dto';
 
 export interface PatchRegionQuotaDto {
     /**
+     * Sandbox class of the quota row to update. Defaults to \"container\".
+     */
+    'sandboxClass'?: PatchRegionQuotaDtoSandboxClassEnum;
+    /**
      * Fields to update
      */
     'updates': UpdateRegionQuotaDto;
@@ -27,4 +31,14 @@ export interface PatchRegionQuotaDto {
      */
     'preconditions'?: UpdateRegionQuotaDto;
 }
+
+export const PatchRegionQuotaDtoSandboxClassEnum = {
+    LINUX_VM: 'linux-vm',
+    CONTAINER: 'container',
+    ANDROID: 'android',
+    WINDOWS: 'windows',
+} as const;
+
+export type PatchRegionQuotaDtoSandboxClassEnum = typeof PatchRegionQuotaDtoSandboxClassEnum[keyof typeof PatchRegionQuotaDtoSandboxClassEnum];
+
 

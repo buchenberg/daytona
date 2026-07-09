@@ -6,3 +6,5 @@
 export * from './region-quotas.service'
 export * from './region-quotas-bulk.service'
 export * from './region-quotas-search.service'
+export * from './quota-bump.service'
+export * from './quota-bump-expiry.service'

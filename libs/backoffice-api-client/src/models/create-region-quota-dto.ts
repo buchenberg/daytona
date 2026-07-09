@@ -24,6 +24,10 @@ export interface CreateRegionQuotaDto {
      */
     'regionId': string;
     /**
+     * Sandbox class this quota applies to. Defaults to \"container\".
+     */
+    'sandboxClass'?: CreateRegionQuotaDtoSandboxClassEnum;
+    /**
      * Total CPU quota for the region
      */
     'totalCpuQuota': number;
@@ -52,4 +56,14 @@ export interface CreateRegionQuotaDto {
      */
     'maxDiskPerNonEphemeralSandbox'?: number | null;
 }
+
+export const CreateRegionQuotaDtoSandboxClassEnum = {
+    LINUX_VM: 'linux-vm',
+    CONTAINER: 'container',
+    ANDROID: 'android',
+    WINDOWS: 'windows',
+} as const;
+
+export type CreateRegionQuotaDtoSandboxClassEnum = typeof CreateRegionQuotaDtoSandboxClassEnum[keyof typeof CreateRegionQuotaDtoSandboxClassEnum];
+
 

@@ -1,10 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { RegionQuota } from '@api/organization/entities/region-quota.entity'
+import { SandboxClass } from '@api/sandbox/enums/sandbox-class.enum'
 import { PaginationResponseDto } from '../../common/dto/pagination.dto'
 
 export class RegionQuotaResponseDto implements Partial<RegionQuota> {
   @ApiProperty() organizationId: string
   @ApiProperty() regionId: string
+  @ApiProperty({ enum: SandboxClass }) sandboxClass: SandboxClass
   @ApiProperty() totalCpuQuota: number
   @ApiProperty() totalMemoryQuota: number
   @ApiProperty() totalDiskQuota: number

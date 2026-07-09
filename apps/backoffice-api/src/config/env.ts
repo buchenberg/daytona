@@ -10,6 +10,12 @@ import type { StringValue } from 'ms'
 // Load .env.local from root
 dotenv.config({ path: path.resolve(__dirname, '../../../.env.local') })
 
+/** parseInt that falls back to `fallback` when the env var is unset or non-numeric. */
+function intEnv(value: string | undefined, fallback: number): number {
+  const parsed = parseInt(value ?? '', 10)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
 export const config = {
   port: parseInt(process.env.PORT || '8080', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -42,6 +48,25 @@ export const config = {
       rejectUnauthorized:
         (process.env.BACKOFFICE_DB_TLS_REJECT_UNAUTHORIZED ?? process.env.DB_TLS_REJECT_UNAUTHORIZED) !== 'false',
     },
+  },
+
+  // Temporary region-quota bumps (support self-service with maker-checker approval)
+  regionQuotas: {
+    // How long a bump stays active before it auto-reverts unless approved.
+    bumpTtlHours: intEnv(process.env.QUOTA_BUMP_TTL_HOURS, 24),
+    // A single bump may add the GREATER of this % of the current value or the flat
+    // per-field allowance below, so small/zero quotas can still get a useful bump.
+    bumpMaxIncreasePercent: intEnv(process.env.QUOTA_BUMP_MAX_INCREASE_PERCENT, 40),
+    // Flat per-bump allowance: a bump may always add at least this much to a field
+    // even when the % cap rounds lower (e.g. a field at 0). The per-editor daily
+    // budget below is the real upper bound on how much gets handed out.
+    bumpFlatIncreaseCpu: intEnv(process.env.QUOTA_BUMP_FLAT_INCREASE_CPU, 500),
+    bumpFlatIncreaseMemory: intEnv(process.env.QUOTA_BUMP_FLAT_INCREASE_MEMORY, 500),
+    bumpFlatIncreaseDisk: intEnv(process.env.QUOTA_BUMP_FLAT_INCREASE_DISK, 500),
+    // Per-editor rolling-24h budget: how much each support user may hand out.
+    bumpDailyBudgetCpu: intEnv(process.env.QUOTA_BUMP_DAILY_BUDGET_CPU, 5000),
+    bumpDailyBudgetMemory: intEnv(process.env.QUOTA_BUMP_DAILY_BUDGET_MEMORY, 5000),
+    bumpDailyBudgetDisk: intEnv(process.env.QUOTA_BUMP_DAILY_BUDGET_DISK, 5000),
   },
 
   auth: {

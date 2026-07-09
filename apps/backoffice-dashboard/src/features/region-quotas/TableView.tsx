@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Filter, RefreshCw, Edit } from 'lucide-react'
+import { Filter, RefreshCw, Edit, TrendingUp } from 'lucide-react'
 import { Button } from '@dashboard/ui/button'
 import { Input } from '@dashboard/ui/input'
 import { DataTable, Column } from '@backoffice/components/DataTable'
@@ -29,6 +29,7 @@ interface TableViewProps {
   selectedRowKeys?: string[]
   onSelectionChange?: (selectedRowKeys: string[]) => void
   onEdit?: (regionQuota: RegionQuota) => void
+  onBump?: (regionQuota: RegionQuota) => void
   sortField?: string
   sortOrder?: 'asc' | 'desc'
   onSortChange?: (field: string, order: 'asc' | 'desc') => void
@@ -48,6 +49,7 @@ export const TableView = ({
   selectedRowKeys = [],
   onSelectionChange,
   onEdit,
+  onBump,
   sortField,
   sortOrder,
   onSortChange,
@@ -55,6 +57,7 @@ export const TableView = ({
   onSearchChange,
 }: TableViewProps) => {
   const canWrite = useHasPermission('regionQuotas', 'write')
+  const canBump = useHasPermission('regionQuotas', 'bump')
   const columns: Column<RegionQuota>[] = [
     {
       key: 'organization',
@@ -73,7 +76,12 @@ export const TableView = ({
       key: 'regionId',
       title: 'Region',
       width: '150px',
-      render: (record) => <span className="font-mono font-medium">{record.regionId}</span>,
+      render: (record) => (
+        <div className="flex flex-col">
+          <span className="font-mono font-medium">{record.regionId}</span>
+          <span className="text-xs text-muted-foreground">{record.sandboxClass}</span>
+        </div>
+      ),
     },
     {
       key: 'totalCpuQuota',
@@ -132,24 +140,43 @@ export const TableView = ({
     },
   ]
 
-  // Add Edit button column if onEdit callback is provided
-  if (onEdit && canWrite) {
+  // Actions column: full editors get Edit, support staff get a temporary Bump.
+  const showEdit = !!onEdit && canWrite
+  const showBump = !!onBump && canBump
+  if (showEdit || showBump) {
     columns.push({
       key: 'actions',
       title: 'Actions',
-      width: '100px',
+      width: '160px',
       render: (regionQuota) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation()
-            onEdit(regionQuota)
-          }}
-        >
-          <Edit className="mr-1 h-3 w-3" />
-          Edit
-        </Button>
+        <div className="flex gap-1">
+          {showEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdit?.(regionQuota)
+              }}
+            >
+              <Edit className="mr-1 h-3 w-3" />
+              Edit
+            </Button>
+          )}
+          {showBump && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                onBump?.(regionQuota)
+              }}
+            >
+              <TrendingUp className="mr-1 h-3 w-3" />
+              Bump
+            </Button>
+          )}
+        </div>
       ),
     })
   }
@@ -185,7 +212,7 @@ export const TableView = ({
           total: pagination.total,
         }}
         onPaginationChange={onPaginationChange}
-        rowKey={(record) => `${record.organizationId}:${record.regionId}`}
+        rowKey={(record) => `${record.organizationId}:${record.regionId}:${record.sandboxClass}`}
         selectedRows={onSelectionChange ? new Set(selectedRowKeys) : undefined}
         onSelectionChange={onSelectionChange ? (keys) => onSelectionChange(Array.from(keys)) : undefined}
         sortField={sortField}

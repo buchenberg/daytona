@@ -14,6 +14,7 @@ import {
   UserCircle,
   ClipboardList,
   MessageCircle,
+  Bell,
   LucideIcon,
 } from 'lucide-react'
 import { hasPermission, PermissionResource, Permissions } from '@backoffice-api/permissions'
@@ -23,6 +24,7 @@ import { SnapshotsPage } from './pages/SnapshotsPage'
 import { OrganizationsPage } from './pages/OrganizationsPage'
 import { OrganizationUsersPage } from './pages/OrganizationUsersPage'
 import { RegionQuotasPage } from './pages/RegionQuotasPage'
+import { NotificationsPage } from './pages/NotificationsPage'
 import { UsersPage } from './pages/UsersPage'
 import { AuditLogsPage } from './pages/AuditLogsPage'
 import { ChatPage } from './pages/ChatPage'
@@ -67,6 +69,18 @@ export const APP_ROUTES: readonly AppRoute[] = [
   { path: '/audit-logs', name: 'Audit Logs', icon: ClipboardList, requires: 'auditLogs', component: AuditLogsPage },
   { path: '/chat', name: 'mali', icon: MessageCircle, requires: 'maliDatasources', component: ChatPage },
 ]
+
+// Reached from the Header bell rather than the sidebar, so it lives outside
+// APP_ROUTES (which drives the sidebar and post-login landing precedence).
+// Quota-bump notifications are part of the region-quotas feature, so access
+// follows the `regionQuotas` resource.
+export const NOTIFICATIONS_ROUTE: AppRoute = {
+  path: '/notifications',
+  name: 'Notifications',
+  icon: Bell,
+  requires: 'regionQuotas',
+  component: NotificationsPage,
+}
 
 export function canAccessRoute(permissions: Permissions, route: AppRoute): boolean {
   return hasPermission(permissions, route.requires, '*')

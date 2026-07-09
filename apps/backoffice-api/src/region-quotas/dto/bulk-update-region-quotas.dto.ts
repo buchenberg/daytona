@@ -4,8 +4,18 @@
  */
 
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { IsArray, IsString, IsBoolean, ArrayMinSize, ArrayMaxSize, ValidateNested, IsOptional } from 'class-validator'
+import {
+  IsArray,
+  IsString,
+  IsBoolean,
+  IsEnum,
+  ArrayMinSize,
+  ArrayMaxSize,
+  ValidateNested,
+  IsOptional,
+} from 'class-validator'
 import { Type } from 'class-transformer'
+import { SandboxClass } from '@api/sandbox/enums/sandbox-class.enum'
 import { UpdateRegionQuotaDto } from './update-region-quota.dto'
 
 export class RegionQuotaCompositeKey {
@@ -16,6 +26,11 @@ export class RegionQuotaCompositeKey {
   @ApiProperty()
   @IsString()
   region: string
+
+  @ApiPropertyOptional({ enum: SandboxClass, description: 'Sandbox class; defaults to "container" when omitted' })
+  @IsOptional()
+  @IsEnum(SandboxClass)
+  sandboxClass?: SandboxClass
 }
 
 export class BulkUpdateRegionQuotaDto {

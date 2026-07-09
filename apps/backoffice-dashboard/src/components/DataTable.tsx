@@ -4,7 +4,7 @@
  */
 
 import { ReactNode } from 'react'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@dashboard/ui/table'
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from '@dashboard/ui/table'
 import { Checkbox } from '@dashboard/ui/checkbox'
 import { Button } from '@dashboard/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@dashboard/ui/select'
@@ -102,12 +102,13 @@ export function DataTable<T>({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
+      {/* Scrolls horizontally instead of overflowing; select pins left, actions pin right. */}
+      <TableContainer>
         <Table>
           <TableHeader>
             <TableRow>
               {onSelectionChange && (
-                <TableHead className="w-12">
+                <TableHead className="w-12" sticky="left">
                   <Checkbox
                     checked={allSelected}
                     onCheckedChange={handleSelectAll}
@@ -117,7 +118,11 @@ export function DataTable<T>({
                 </TableHead>
               )}
               {columns.map((column) => (
-                <TableHead key={column.key} style={{ width: column.width }}>
+                <TableHead
+                  key={column.key}
+                  style={{ width: column.width }}
+                  sticky={column.key === 'actions' ? 'right' : undefined}
+                >
                   {column.sortable && onSortChange ? (
                     <button
                       className="group/sort-header flex items-center gap-1 hover:text-foreground"
@@ -153,7 +158,7 @@ export function DataTable<T>({
                     data-state={isSelected ? 'selected' : ''}
                   >
                     {onSelectionChange && (
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                      <TableCell onClick={(e) => e.stopPropagation()} sticky="left">
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={(checked) => handleSelectRow(id, checked as boolean)}
@@ -162,7 +167,7 @@ export function DataTable<T>({
                       </TableCell>
                     )}
                     {columns.map((column) => (
-                      <TableCell key={column.key}>
+                      <TableCell key={column.key} sticky={column.key === 'actions' ? 'right' : undefined}>
                         {column.render ? column.render(item) : String((item as any)[column.key] ?? '-')}
                       </TableCell>
                     ))}
@@ -172,7 +177,7 @@ export function DataTable<T>({
             )}
           </TableBody>
         </Table>
-      </div>
+      </TableContainer>
 
       {pagination && onPaginationChange && (
         <div className="flex items-center justify-between">

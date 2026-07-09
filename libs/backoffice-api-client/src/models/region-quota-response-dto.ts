@@ -17,6 +17,7 @@
 export interface RegionQuotaResponseDto {
     'organizationId': string;
     'regionId': string;
+    'sandboxClass': RegionQuotaResponseDtoSandboxClassEnum;
     'totalCpuQuota': number;
     'totalMemoryQuota': number;
     'totalDiskQuota': number;
@@ -29,4 +30,14 @@ export interface RegionQuotaResponseDto {
     'updatedAt': Date;
     'organizationName'?: string;
 }
+
+export const RegionQuotaResponseDtoSandboxClassEnum = {
+    LINUX_VM: 'linux-vm',
+    CONTAINER: 'container',
+    ANDROID: 'android',
+    WINDOWS: 'windows',
+} as const;
+
+export type RegionQuotaResponseDtoSandboxClassEnum = typeof RegionQuotaResponseDtoSandboxClassEnum[keyof typeof RegionQuotaResponseDtoSandboxClassEnum];
+
 

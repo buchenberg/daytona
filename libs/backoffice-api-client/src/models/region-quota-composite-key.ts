@@ -17,5 +17,19 @@
 export interface RegionQuotaCompositeKey {
     'organizationId': string;
     'region': string;
+    /**
+     * Sandbox class; defaults to \"container\" when omitted
+     */
+    'sandboxClass'?: RegionQuotaCompositeKeySandboxClassEnum;
 }
+
+export const RegionQuotaCompositeKeySandboxClassEnum = {
+    LINUX_VM: 'linux-vm',
+    CONTAINER: 'container',
+    ANDROID: 'android',
+    WINDOWS: 'windows',
+} as const;
+
+export type RegionQuotaCompositeKeySandboxClassEnum = typeof RegionQuotaCompositeKeySandboxClassEnum[keyof typeof RegionQuotaCompositeKeySandboxClassEnum];
+
 

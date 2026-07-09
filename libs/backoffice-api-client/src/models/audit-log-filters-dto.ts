@@ -16,6 +16,10 @@
 
 export interface AuditLogFiltersDto {
     /**
+     * Free-text match on actor email or target/resource ID
+     */
+    'search'?: string;
+    /**
      * Filter by actor email
      */
     'actorEmail'?: string;

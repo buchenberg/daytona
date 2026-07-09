@@ -40,12 +40,14 @@ export class RegionQuotasService {
       throw new NotFoundException(`Region ${dto.regionId} not found`)
     }
 
+    const sandboxClass = dto.sandboxClass ?? SandboxClass.CONTAINER
+
     const existing = await this.regionQuotaRepository.findOne({
-      where: { organizationId: dto.organizationId, regionId: dto.regionId },
+      where: { organizationId: dto.organizationId, regionId: dto.regionId, sandboxClass },
     })
     if (existing) {
       throw new ConflictException(
-        `Region quota already exists for organization ${dto.organizationId} and region ${dto.regionId}`,
+        `Region quota already exists for organization ${dto.organizationId}, region ${dto.regionId} and sandbox class ${sandboxClass}`,
       )
     }
 
@@ -72,7 +74,7 @@ export class RegionQuotasService {
     const regionQuota = new RegionQuota({
       organizationId: dto.organizationId,
       regionId: dto.regionId,
-      sandboxClass: SandboxClass.CONTAINER,
+      sandboxClass,
       totalCpuQuota: dto.totalCpuQuota,
       totalMemoryQuota: dto.totalMemoryQuota,
       totalDiskQuota: dto.totalDiskQuota,
@@ -88,7 +90,7 @@ export class RegionQuotasService {
       // PostgreSQL unique violation — primary key conflict between the pre-check and the save.
       if ((error as { code?: string }).code === '23505') {
         throw new ConflictException(
-          `Region quota already exists for organization ${dto.organizationId} and region ${dto.regionId}`,
+          `Region quota already exists for organization ${dto.organizationId}, region ${dto.regionId} and sandbox class ${sandboxClass}`,
         )
       }
       throw error
@@ -103,23 +105,27 @@ export class RegionQuotasService {
     regionId: string,
     patchData: PatchRegionQuotaDto,
   ): Promise<{ regionQuota: RegionQuota; warnings: string[] }> {
+    const sandboxClass = patchData.sandboxClass ?? SandboxClass.CONTAINER
+
     const regionQuota = await this.regionQuotaRepository.findOne({
-      where: { organizationId, regionId },
+      where: { organizationId, regionId, sandboxClass },
       relations: ['organization'],
     })
 
     if (!regionQuota) {
-      throw new Error(`Region quota not found for organization ${organizationId} and region ${regionId}`)
+      throw new NotFoundException(
+        `Region quota not found for organization ${organizationId}, region ${regionId} and sandbox class ${sandboxClass}`,
+      )
     }
 
     const updateData = patchData.updates
 
     const warnings = this.validateUpdate(regionQuota, updateData)
 
-    // Atomic update: UPDATE ... SET updates WHERE orgId = ? AND regionId = ? AND preconditions
+    // Atomic update: UPDATE ... SET updates WHERE (composite key) AND preconditions
     const updated = await updateWithPreconditions(
       this.regionQuotaRepository,
-      { organizationId, regionId },
+      { organizationId, regionId, sandboxClass },
       updateData,
       patchData.preconditions,
     )

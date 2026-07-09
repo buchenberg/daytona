@@ -59,7 +59,9 @@ import type {
   BulkInsertResponseDto,
   SandboxSyncStatusResponseDto,
   SandboxResyncResponseDto,
+  CreateQuotaBumpDto,
 } from '@daytonaio/backoffice-api-client'
+import type { QuotaBumpRequestDto, QuotaBumpBudgetDto, PendingQuotaBumpsResponse } from '../types/quota-bumps'
 import axios from 'axios'
 
 declare global {
@@ -286,6 +288,47 @@ export class BackofficeApiClient {
 
   async forceOrganizationResyncForSandbox(sandboxId: string): Promise<SandboxResyncResponseDto> {
     const response = await this.sandboxesApi.sandboxSyncStatusControllerForceOrganizationResync(sandboxId)
+    return response.data
+  }
+
+  // ---------------------------------------------------------------------------
+  // Temporary region-quota bumps. Raw axios — the generated client types these
+  // responses as void, so we keep typed wrappers here.
+  // ---------------------------------------------------------------------------
+  async createQuotaBump(data: CreateQuotaBumpDto): Promise<QuotaBumpRequestDto> {
+    const response = await axios.post(`${API_URL}/region-quotas/bumps`, data, { withCredentials: true })
+    return response.data
+  }
+
+  async listPendingQuotaBumps(page = 1, pageSize = 100): Promise<PendingQuotaBumpsResponse> {
+    const response = await axios.get(`${API_URL}/region-quotas/bumps`, {
+      params: { page, pageSize },
+      withCredentials: true,
+    })
+    return response.data
+  }
+
+  async getQuotaBumpBudget(): Promise<QuotaBumpBudgetDto> {
+    const response = await axios.get(`${API_URL}/region-quotas/bumps/budget`, { withCredentials: true })
+    return response.data
+  }
+
+  async approveQuotaBump(id: string): Promise<QuotaBumpRequestDto> {
+    const response = await axios.post(`${API_URL}/region-quotas/bumps/${id}/approve`, {}, { withCredentials: true })
+    return response.data
+  }
+
+  async rejectQuotaBump(id: string, reason?: string): Promise<QuotaBumpRequestDto> {
+    const response = await axios.post(
+      `${API_URL}/region-quotas/bumps/${id}/reject`,
+      { reason },
+      { withCredentials: true },
+    )
+    return response.data
+  }
+
+  async cancelQuotaBump(id: string): Promise<QuotaBumpRequestDto> {
+    const response = await axios.post(`${API_URL}/region-quotas/bumps/${id}/cancel`, {}, { withCredentials: true })
     return response.data
   }
 }

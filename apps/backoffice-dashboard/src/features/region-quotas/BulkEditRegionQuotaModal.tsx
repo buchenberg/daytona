@@ -97,7 +97,11 @@ export const BulkEditRegionQuotaModal = ({ regionQuotas, open, onClose, onSucces
       setLoading(true)
 
       const response = await BackofficeApiClient.bulkUpdateRegionQuotas({
-        ids: regionQuotas.map((rq) => ({ organizationId: rq.organizationId, region: rq.regionId })),
+        ids: regionQuotas.map((rq) => ({
+          organizationId: rq.organizationId,
+          region: rq.regionId,
+          sandboxClass: rq.sandboxClass,
+        })),
         updates,
       })
 

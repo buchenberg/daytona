@@ -4,7 +4,8 @@
  */
 
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateIf } from 'class-validator'
+import { IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateIf } from 'class-validator'
+import { SandboxClass } from '@api/sandbox/enums/sandbox-class.enum'
 
 export class CreateRegionQuotaDto {
   @ApiProperty({ description: 'Organization ID (UUID)' })
@@ -16,6 +17,14 @@ export class CreateRegionQuotaDto {
   @IsString()
   @IsNotEmpty()
   regionId: string
+
+  @ApiPropertyOptional({
+    description: 'Sandbox class this quota applies to. Defaults to "container".',
+    enum: SandboxClass,
+  })
+  @IsOptional()
+  @IsEnum(SandboxClass)
+  sandboxClass?: SandboxClass
 
   @ApiProperty({ description: 'Total CPU quota for the region' })
   @IsNumber()

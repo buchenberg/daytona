@@ -7,6 +7,7 @@ import { PageLayout, PageHeaderBase, PageTitle, PageContent } from '@dashboard/c
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Label } from '@dashboard/ui/label'
+import { Input } from '@dashboard/ui/input'
 import { Switch } from '@dashboard/ui/switch'
 import { DateRangePicker } from '@dashboard/ui/date-range-picker'
 import { DataTable, Column } from '@backoffice/components/DataTable'
@@ -38,6 +39,18 @@ export const AuditLogsPage = () => {
   const [autoRefresh, setAutoRefresh] = useState(false)
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined })
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20 })
+  // Raw input value; debounced into the applied search below.
+  const [search, setSearch] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState<string | undefined>(undefined)
+
+  // Debounce the search and reset to page 1 when it changes.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedSearch(search.trim() || undefined)
+      setPagination((prev) => ({ ...prev, page: 1 }))
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search])
 
   const fetchData = useCallback(
     async (showLoading = true) => {
@@ -49,6 +62,7 @@ export const AuditLogsPage = () => {
           filters: {
             startDate: dateRange.from,
             endDate: dateRange.to,
+            search: appliedSearch,
           },
         })
         if (response.success) {
@@ -60,7 +74,7 @@ export const AuditLogsPage = () => {
         if (showLoading) setLoading(false)
       }
     },
-    [pagination, dateRange],
+    [pagination, dateRange, appliedSearch],
   )
 
   // Initial load
@@ -181,6 +195,12 @@ export const AuditLogsPage = () => {
       <PageHeaderBase>
         <PageTitle>Audit Logs</PageTitle>
         <div className="flex items-center gap-4 ml-auto">
+          <Input
+            placeholder="Search by actor email or resource ID..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-9 w-[300px]"
+          />
           <DateRangePicker
             value={dateRange}
             onChange={handleDateRangeChange}

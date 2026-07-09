@@ -7,6 +7,7 @@ import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { RegionQuota } from '@api/organization/entities/region-quota.entity'
+import { SandboxClass } from '@api/sandbox/enums/sandbox-class.enum'
 import { BulkUpdateRegionQuotaDto, UpdateRegionQuotaDto } from '../dto'
 import { BulkUpdateResponseDto, BulkUpdateResultDto } from '../../common/dto'
 @Injectable()
@@ -22,14 +23,16 @@ export class RegionQuotasBulkService {
   async bulkUpdate(request: BulkUpdateRegionQuotaDto): Promise<BulkUpdateResponseDto> {
     const { ids, updates, dryRun = false } = request
 
-    // Parse composite keys (format: "organizationId:regionId")
+    // Parse composite keys (object form, or string "organizationId:regionId:sandboxClass").
+    // sandboxClass defaults to "container" so legacy single-row org/region pairs keep working.
     const compositeKeys = ids.map((id: any) => {
       const organizationId = typeof id === 'string' ? id.split(':')[0] : id.organizationId
       const regionId = typeof id === 'string' ? id.split(':')[1] : id.region
+      const sandboxClass = (typeof id === 'string' ? id.split(':')[2] : id.sandboxClass) ?? SandboxClass.CONTAINER
       if (!organizationId || !regionId) {
-        throw new Error(`Invalid composite key format: ${id}. Expected format: "organizationId:regionId"`)
+        throw new Error(`Invalid composite key format: ${id}. Expected format: "organizationId:regionId:sandboxClass"`)
       }
-      return { organizationId, regionId }
+      return { organizationId, regionId, sandboxClass }
     })
 
     // Fetch all region quotas
@@ -39,6 +42,7 @@ export class RegionQuotasBulkService {
         where: {
           organizationId: key.organizationId,
           regionId: key.regionId,
+          sandboxClass: key.sandboxClass,
         },
         relations: ['organization'],
       })
@@ -58,7 +62,7 @@ export class RegionQuotasBulkService {
 
     // Process each region quota
     for (const regionQuota of regionQuotas) {
-      const compositeId = `${regionQuota.organizationId}:${regionQuota.regionId}`
+      const compositeId = `${regionQuota.organizationId}:${regionQuota.regionId}:${regionQuota.sandboxClass}`
       try {
         const preview = this.previewChanges(regionQuota, updates)
 
@@ -129,7 +133,7 @@ export class RegionQuotasBulkService {
    */
   private generateWarnings(regionQuota: RegionQuota, updates: UpdateRegionQuotaDto): string[] {
     const warnings: string[] = []
-    const compositeId = `${regionQuota.organizationId}:${regionQuota.regionId}`
+    const compositeId = `${regionQuota.organizationId}:${regionQuota.regionId}:${regionQuota.sandboxClass}`
 
     // Warn about significant quota reductions
     for (const field of ['totalCpuQuota', 'totalMemoryQuota', 'totalDiskQuota'] as const) {

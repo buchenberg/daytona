@@ -11,8 +11,10 @@ import { Button } from '@dashboard/ui/button'
 import { Input } from '@dashboard/ui/input'
 import { Label } from '@dashboard/ui/label'
 import { Separator } from '@dashboard/ui/separator'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@dashboard/ui/select'
 import BackofficeApiClient from '../../api/BackofficeApiClient'
 import type { CreateRegionQuotaDto } from '@daytonaio/backoffice-api-client'
+import { SANDBOX_CLASSES, SandboxClass } from '../../types/quota-bumps'
 
 interface CreateRegionQuotaModalProps {
   open: boolean
@@ -23,6 +25,7 @@ interface CreateRegionQuotaModalProps {
 type FormState = {
   organizationId: string
   regionId: string
+  sandboxClass: SandboxClass
   totalCpuQuota: string
   totalMemoryQuota: string
   totalDiskQuota: string
@@ -35,6 +38,7 @@ type FormState = {
 const initialState: FormState = {
   organizationId: '',
   regionId: '',
+  sandboxClass: 'container',
   totalCpuQuota: '',
   totalMemoryQuota: '',
   totalDiskQuota: '',
@@ -80,6 +84,7 @@ export const CreateRegionQuotaModal = ({ open, onClose, onSuccess }: CreateRegio
     const dto: CreateRegionQuotaDto = {
       organizationId: formData.organizationId.trim(),
       regionId: formData.regionId.trim(),
+      sandboxClass: formData.sandboxClass,
       totalCpuQuota: totalCpu,
       totalMemoryQuota: totalMem,
       totalDiskQuota: totalDisk,
@@ -133,6 +138,24 @@ export const CreateRegionQuotaModal = ({ open, onClose, onSuccess }: CreateRegio
                   onChange={(e) => setFormData((prev) => ({ ...prev, regionId: e.target.value }))}
                   required
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sandboxClass">Sandbox Class</Label>
+                <Select
+                  value={formData.sandboxClass}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, sandboxClass: value as SandboxClass }))}
+                >
+                  <SelectTrigger id="sandboxClass">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SANDBOX_CLASSES.map((sc) => (
+                      <SelectItem key={sc} value={sc}>
+                        {sc}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

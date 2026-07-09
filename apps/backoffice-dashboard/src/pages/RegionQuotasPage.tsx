@@ -14,12 +14,14 @@ import { FilterPanel } from '../features/region-quotas/FilterPanel'
 import { EditRegionQuotaModal } from '../features/region-quotas/EditRegionQuotaModal'
 import { CreateRegionQuotaModal } from '../features/region-quotas/CreateRegionQuotaModal'
 import { BulkEditRegionQuotaModal as BulkEditModal } from '../features/region-quotas/BulkEditRegionQuotaModal'
+import { BumpRegionQuotaModal } from '../features/quota-bumps/BumpRegionQuotaModal'
 import { useHasPermission } from '../providers/ApiProvider'
 import { RegionQuotaFiltersDto, RegionQuota } from '../types'
 
 export const RegionQuotasPage = () => {
   const canBulkWrite = useHasPermission('regionQuotas', 'write-bulk')
   const canWrite = useHasPermission('regionQuotas', 'write')
+  const canBump = useHasPermission('regionQuotas', 'bump')
   const [filterOpen, setFilterOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [filters, setFilters] = useState<RegionQuotaFiltersDto>({})
@@ -39,6 +41,7 @@ export const RegionQuotasPage = () => {
 
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false)
+  const [bumpOpen, setBumpOpen] = useState(false)
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
   const [selectedRegionQuota, setSelectedRegionQuota] = useState<RegionQuota | null>(null)
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([])
@@ -73,6 +76,11 @@ export const RegionQuotasPage = () => {
     setEditOpen(true)
   }
 
+  const handleBump = (regionQuota: RegionQuota) => {
+    setSelectedRegionQuota(regionQuota)
+    setBumpOpen(true)
+  }
+
   const handleBulkEdit = () => {
     setBulkEditOpen(true)
   }
@@ -95,7 +103,7 @@ export const RegionQuotasPage = () => {
   ).length
 
   const selectedRegionQuotas = (data?.regionQuotas || []).filter((rq: RegionQuota) =>
-    selectedRowKeys.includes(`${rq.organizationId}:${rq.regionId}`),
+    selectedRowKeys.includes(`${rq.organizationId}:${rq.regionId}:${rq.sandboxClass}`),
   )
 
   return (
@@ -134,6 +142,7 @@ export const RegionQuotasPage = () => {
           selectedRowKeys={selectedRowKeys}
           onSelectionChange={handleSelectionChange}
           onEdit={handleEdit}
+          onBump={canBump ? handleBump : undefined}
           sortField={sortField}
           sortOrder={sortOrder}
           onSortChange={(field, order) => {
@@ -173,6 +182,13 @@ export const RegionQuotasPage = () => {
           onSuccess={() => {
             refetch()
           }}
+        />
+
+        <BumpRegionQuotaModal
+          regionQuota={selectedRegionQuota}
+          open={bumpOpen}
+          onClose={() => setBumpOpen(false)}
+          onSuccess={handleEditSuccess}
         />
       </PageContent>
     </PageLayout>

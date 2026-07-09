@@ -9,6 +9,11 @@ import { Type } from 'class-transformer'
 import { PaginationResponseDto } from '../../common/dto/pagination.dto'
 
 export class AuditLogFiltersDto {
+  @ApiPropertyOptional({ description: 'Free-text match on actor email or target/resource ID' })
+  @IsOptional()
+  @IsString()
+  search?: string
+
   @ApiPropertyOptional({ description: 'Filter by actor email' })
   @IsOptional()
   @IsString()

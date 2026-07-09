@@ -6,6 +6,7 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
+import { ScheduleModule } from '@nestjs/schedule'
 import { ServeStaticModule } from '@nestjs/serve-static'
 import { config } from './config/env'
 import { join } from 'path'
@@ -13,6 +14,7 @@ import { join } from 'path'
 // Backoffice DB entities
 import { AuditLog } from './backoffice-db/entities/audit-log.entity'
 import { BackofficeUser } from './backoffice-db/entities/backoffice-user.entity'
+import { QuotaBumpRequest } from './backoffice-db/entities/quota-bump-request.entity'
 import { Conversation } from './chat/entities/conversation.entity'
 import { Message } from './chat/entities/message.entity'
 import { UserSettings } from './chat/entities/user-settings.entity'
@@ -84,7 +86,16 @@ import { HealthController } from './health.controller'
       username: config.backofficeDb.username,
       password: config.backofficeDb.password,
       database: config.backofficeDb.database,
-      entities: [AuditLog, BackofficeUser, Conversation, Message, UserSettings, ThreadCollaborator, Memory],
+      entities: [
+        AuditLog,
+        BackofficeUser,
+        QuotaBumpRequest,
+        Conversation,
+        Message,
+        UserSettings,
+        ThreadCollaborator,
+        Memory,
+      ],
       migrations: [join(__dirname, 'migrations-backoffice/**/*{.ts,.js}')],
       migrationsRun: config.backofficeDb.migrationsRun,
       synchronize: false,
@@ -97,6 +108,8 @@ import { HealthController } from './health.controller'
     }),
 
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 120 }]),
+
+    ScheduleModule.forRoot(),
 
     // Auth & Audit modules
     AuthModule,

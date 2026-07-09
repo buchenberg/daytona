@@ -17,4 +17,9 @@ export enum AuditAction {
   IMPORT = 'import',
   LOGIN = 'login',
   FORCE_RESYNC = 'force_resync',
+  QUOTA_BUMP_CREATE = 'quota_bump_create',
+  QUOTA_BUMP_APPROVE = 'quota_bump_approve',
+  QUOTA_BUMP_REJECT = 'quota_bump_reject',
+  QUOTA_BUMP_CANCEL = 'quota_bump_cancel',
+  QUOTA_BUMP_EXPIRE = 'quota_bump_expire',
 }

@@ -113,7 +113,8 @@ export const EditRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
         return
       }
 
-      const patchDto: PatchRegionQuotaDto = { updates }
+      // Target the right composite-key row.
+      const patchDto: PatchRegionQuotaDto = { updates, sandboxClass: regionQuota.sandboxClass }
       if (Object.keys(preconditions).length > 0) {
         patchDto.preconditions = preconditions
       }
@@ -143,7 +144,7 @@ export const EditRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
           <DialogDescription>
             Organization: {regionQuota?.organizationName || regionQuota?.organizationId}
             <br />
-            Region: {regionQuota?.regionId}
+            Region: {regionQuota?.regionId} · {regionQuota?.sandboxClass}
           </DialogDescription>
         </DialogHeader>
 

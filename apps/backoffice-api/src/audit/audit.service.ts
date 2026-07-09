@@ -14,6 +14,11 @@ import {
   UpdateAuditLogInternalDto,
 } from './dto'
 
+/** Escape LIKE/ILIKE wildcards so user input is matched literally (default `\` escape char). */
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 @Injectable()
 export class AuditService {
   private readonly logger = new Logger(AuditService.name)
@@ -65,14 +70,22 @@ export class AuditService {
     const query = this.auditLogRepository.createQueryBuilder('audit')
 
     // Apply filters
+    if (filters?.search) {
+      query.andWhere('(audit.actorEmail ILIKE :search OR audit.targetId ILIKE :search)', {
+        search: `%${escapeLike(filters.search)}%`,
+      })
+    }
     if (filters?.actorEmail) {
-      query.andWhere('audit.actorEmail ILIKE :email', { email: `%${filters.actorEmail}%` })
+      query.andWhere('audit.actorEmail ILIKE :email', { email: `%${escapeLike(filters.actorEmail)}%` })
     }
     if (filters?.action) {
       query.andWhere('audit.action = :action', { action: filters.action })
     }
     if (filters?.targetType) {
       query.andWhere('audit.targetType = :targetType', { targetType: filters.targetType })
+    }
+    if (filters?.targetId) {
+      query.andWhere('audit.targetId ILIKE :targetId', { targetId: `%${escapeLike(filters.targetId)}%` })
     }
     if (filters?.startDate) {
       query.andWhere('audit.createdAt >= :startDate', { startDate: filters.startDate })
