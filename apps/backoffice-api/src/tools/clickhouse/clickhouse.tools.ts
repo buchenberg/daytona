@@ -5,6 +5,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { ClickhouseService } from './clickhouse.service'
+import { ToolExecutor } from '../tool-registry'
 
 export const clickhouseToolDefinitions: Anthropic.Tool[] = [
   {
@@ -71,17 +72,15 @@ function validateClickhouseSql(sql: string): string | null {
   return null
 }
 
-export const clickhouseToolExecutors: Record<
-  string,
-  (service: ClickhouseService, input: Record<string, unknown>) => Promise<unknown>
-> = {
-  query_clickhouse: (service, input) => {
+export const clickhouseToolExecutors: Record<string, ToolExecutor<ClickhouseService>> = {
+  query_clickhouse: (service, input, userId) => {
     const sql = (input.sql as string).trim()
     const error = validateClickhouseSql(sql)
     if (error) return Promise.resolve({ error })
-    return service.queryClickhouse(sql)
+    return service.queryClickhouse(sql, userId)
   },
-  list_clickhouse_tables: (service, input) => service.listClickhouseTables((input.database as string) || 'billing'),
-  describe_clickhouse_table: (service, input) =>
-    service.describeClickhouseTable(input.table as string, (input.database as string) || 'billing'),
+  list_clickhouse_tables: (service, input, userId) =>
+    service.listClickhouseTables((input.database as string) || 'billing', userId),
+  describe_clickhouse_table: (service, input, userId) =>
+    service.describeClickhouseTable(input.table as string, (input.database as string) || 'billing', userId),
 }

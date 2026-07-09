@@ -13,10 +13,9 @@ import { ConversationsController } from './conversations.controller'
 import { ConversationsService } from './conversations.service'
 import { CollaboratorsService } from './collaborators.service'
 import { SettingsController } from './settings.controller'
-import { SettingsService } from './settings.service'
+import { SettingsModule } from './settings.module'
 import { Conversation } from './entities/conversation.entity'
 import { Message } from './entities/message.entity'
-import { UserSettings } from './entities/user-settings.entity'
 import { ThreadCollaborator } from './entities/thread-collaborator.entity'
 import { Memory } from './entities/memory.entity'
 import { MemoryService } from './memory.service'
@@ -24,14 +23,12 @@ import { BackofficeUser } from '../backoffice-db/entities/backoffice-user.entity
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature(
-      [Conversation, Message, UserSettings, ThreadCollaborator, Memory, BackofficeUser],
-      'backoffice',
-    ),
+    TypeOrmModule.forFeature([Conversation, Message, ThreadCollaborator, Memory, BackofficeUser], 'backoffice'),
     AuthModule,
+    SettingsModule,
     ToolsModule,
   ],
   controllers: [ChatController, ConversationsController, SettingsController],
-  providers: [ChatService, ConversationsService, CollaboratorsService, SettingsService, MemoryService],
+  providers: [ChatService, ConversationsService, CollaboratorsService, MemoryService],
 })
 export class ChatModule {}

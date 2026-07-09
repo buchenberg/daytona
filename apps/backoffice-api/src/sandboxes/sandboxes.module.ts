@@ -22,10 +22,11 @@ import {
   SandboxResyncService,
 } from './services'
 import { AuthModule } from '../auth/auth.module'
+import { SettingsModule } from '../chat/settings.module'
 import { OpensearchService } from '../tools/opensearch/opensearch.service'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Sandbox, SandboxLastActivity, Runner]), AuthModule],
+  imports: [TypeOrmModule.forFeature([Sandbox, SandboxLastActivity, Runner]), AuthModule, SettingsModule],
   controllers: [SandboxesController, SandboxesBulkController, SandboxesSearchController, SandboxSyncStatusController],
   providers: [
     SandboxesService,

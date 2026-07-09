@@ -13,14 +13,10 @@
  */
 
 
-// May contain unused imports in some cases
-// @ts-ignore
-import type { DatasourceOverridesDto } from './datasource-overrides-dto';
 
-export interface UpdateSettingsDto {
-    /**
-     * Per-user overrides and disables for Mali datasources (database, clickhouse, opensearch, grafana, posthog, sandbox). Secret fields are encrypted at rest.
-     */
-    'datasourceOverrides'?: DatasourceOverridesDto;
+export interface GrafanaOverrideDto {
+    'disabled'?: boolean;
+    'url'?: string;
+    'token'?: string;
 }
 

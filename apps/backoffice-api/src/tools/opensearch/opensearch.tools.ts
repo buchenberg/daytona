@@ -5,6 +5,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { OpensearchService } from './opensearch.service'
+import { ToolExecutor } from '../tool-registry'
 
 export const opensearchToolDefinitions: Anthropic.Tool[] = [
   {
@@ -67,12 +68,10 @@ export const opensearchToolDefinitions: Anthropic.Tool[] = [
   },
 ]
 
-export const opensearchToolExecutors: Record<
-  string,
-  (service: OpensearchService, input: Record<string, unknown>) => Promise<unknown>
-> = {
-  list_opensearch_indices: (service) => service.listOpensearchIndices(),
-  get_opensearch_index_mapping: (service, input) => service.getOpensearchIndexMapping(input.index as string),
-  query_opensearch: (service, input) =>
-    service.queryOpensearch(input.index as string, input.query as string, (input.size as number) || 100),
+export const opensearchToolExecutors: Record<string, ToolExecutor<OpensearchService>> = {
+  list_opensearch_indices: (service, _input, userId) => service.listOpensearchIndices(userId),
+  get_opensearch_index_mapping: (service, input, userId) =>
+    service.getOpensearchIndexMapping(input.index as string, userId),
+  query_opensearch: (service, input, userId) =>
+    service.queryOpensearch(input.index as string, input.query as string, (input.size as number) || 100, userId),
 }

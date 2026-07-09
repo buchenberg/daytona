@@ -44,13 +44,19 @@ models/bulk-update-runner-dto.ts
 models/bulk-update-sandbox-dto.ts
 models/bulk-update-snapshot-dto.ts
 models/chat-request-dto.ts
+models/clickhouse-override-dto.ts
 models/continue-chat-request-dto.ts
 models/create-region-quota-dto.ts
 models/create-runner-dto.ts
+models/database-override-dto.ts
+models/database-tls-override-dto.ts
+models/datasource-overrides-dto.ts
 models/executed-actions-dto.ts
+models/grafana-override-dto.ts
 models/index.ts
 models/initialize-webhooks-response-dto.ts
 models/manual-step-dto.ts
+models/opensearch-override-dto.ts
 models/organization-filters-dto.ts
 models/organization-preview-dto.ts
 models/organization-response-dto.ts
@@ -70,6 +76,7 @@ models/patch-runner-dto.ts
 models/patch-sandbox-dto.ts
 models/patch-snapshot-dto.ts
 models/permissions-dto.ts
+models/posthog-override-dto.ts
 models/range-dto.ts
 models/region-quota-composite-key.ts
 models/region-quota-filters-dto.ts
@@ -81,6 +88,7 @@ models/runner-response-dto.ts
 models/runner-search-data-dto.ts
 models/runner-search-response-dto.ts
 models/sandbox-filters-dto.ts
+models/sandbox-override-dto.ts
 models/sandbox-preview-dto.ts
 models/sandbox-response-dto.ts
 models/sandbox-resync-response-dto.ts

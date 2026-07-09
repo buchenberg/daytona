@@ -102,6 +102,12 @@ export const config = {
     fallbackModel: process.env.ANTHROPIC_FALLBACK_MODEL || 'claude-haiku-4-5-20251001',
     memoryContextMessages: process.env.MALI_MEMORY_CONTEXT_MESSAGES || '5',
 
+    // Master secret for AES-256-CBC/PBKDF2 encryption of secret fields in
+    // mali_user_settings.datasource_overrides. Compatible with:
+    //   openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt -a -k "$MALI_SETTINGS_SECRET"
+    // If empty: encryption is skipped with a one-time warning on first use (dev only).
+    settingsSecret: process.env.MALI_SETTINGS_SECRET || '',
+
     grafana: {
       url: process.env.MALI_GRAFANA_URL || '',
       token: process.env.MALI_GRAFANA_TOKEN || '',

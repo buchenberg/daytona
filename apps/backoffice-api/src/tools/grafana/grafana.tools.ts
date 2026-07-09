@@ -4,6 +4,7 @@
  */
 
 import { GrafanaService } from './grafana.service'
+import { ToolExecutor } from '../tool-registry'
 
 export const grafanaToolDefinitions = [
   {
@@ -234,69 +235,76 @@ export const grafanaToolDefinitions = [
   },
 ]
 
-export const grafanaToolExecutors: Record<
-  string,
-  (service: GrafanaService, input: Record<string, unknown>) => Promise<unknown>
-> = {
-  list_datasources: (service) => service.listDatasources(),
+export const grafanaToolExecutors: Record<string, ToolExecutor<GrafanaService>> = {
+  list_datasources: (service, _input, userId) => service.listDatasources(userId),
 
-  get_datasource_by_name: (service, input) => service.getDatasourceByName(input.name as string),
+  get_datasource_by_name: (service, input, userId) => service.getDatasourceByName(input.name as string, userId),
 
-  query_prometheus: (service, input) =>
-    service.queryPrometheus(input.datasource_uid as string, input.query as string, input.time as string | undefined),
+  query_prometheus: (service, input, userId) =>
+    service.queryPrometheus(
+      input.datasource_uid as string,
+      input.query as string,
+      input.time as string | undefined,
+      userId,
+    ),
 
-  query_prometheus_range: (service, input) =>
+  query_prometheus_range: (service, input, userId) =>
     service.queryPrometheusRange(
       input.datasource_uid as string,
       input.query as string,
       input.start as string,
       input.end as string,
       input.step as string,
+      userId,
     ),
 
-  list_prometheus_label_names: (service, input) => service.listPrometheusLabelNames(input.datasource_uid as string),
+  list_prometheus_label_names: (service, input, userId) =>
+    service.listPrometheusLabelNames(input.datasource_uid as string, userId),
 
-  get_prometheus_label_values: (service, input) =>
-    service.getPrometheusLabelValues(input.datasource_uid as string, input.label_name as string),
+  get_prometheus_label_values: (service, input, userId) =>
+    service.getPrometheusLabelValues(input.datasource_uid as string, input.label_name as string, userId),
 
-  get_prometheus_metric_metadata: (service, input) =>
-    service.getPrometheusMetricMetadata(input.datasource_uid as string, input.metric as string | undefined),
+  get_prometheus_metric_metadata: (service, input, userId) =>
+    service.getPrometheusMetricMetadata(input.datasource_uid as string, input.metric as string | undefined, userId),
 
-  query_loki: (service, input) =>
+  query_loki: (service, input, userId) =>
     service.queryLoki(
       input.datasource_uid as string,
       input.query as string,
       input.start as string | undefined,
       input.end as string | undefined,
-      input.limit as number | undefined,
-      input.direction as string | undefined,
+      (input.limit as number | undefined) ?? 100,
+      (input.direction as string | undefined) ?? 'backward',
+      userId,
     ),
 
-  list_loki_label_names: (service, input) => service.listLokiLabelNames(input.datasource_uid as string),
+  list_loki_label_names: (service, input, userId) => service.listLokiLabelNames(input.datasource_uid as string, userId),
 
-  get_loki_label_values: (service, input) =>
-    service.getLokiLabelValues(input.datasource_uid as string, input.label_name as string),
+  get_loki_label_values: (service, input, userId) =>
+    service.getLokiLabelValues(input.datasource_uid as string, input.label_name as string, userId),
 
-  search_tempo_traces: (service, input) =>
+  search_tempo_traces: (service, input, userId) =>
     service.searchTempoTraces(
       input.datasource_uid as string,
       input.q as string | undefined,
       input.tags as string | undefined,
       input.min_duration as string | undefined,
       input.max_duration as string | undefined,
-      input.limit as number | undefined,
+      (input.limit as number | undefined) ?? 20,
       input.start as string | undefined,
       input.end as string | undefined,
+      userId,
     ),
 
-  get_tempo_trace: (service, input) => service.getTempoTrace(input.datasource_uid as string, input.trace_id as string),
+  get_tempo_trace: (service, input, userId) =>
+    service.getTempoTrace(input.datasource_uid as string, input.trace_id as string, userId),
 
-  search_dashboards: (service, input) =>
-    service.searchDashboards(input.query as string | undefined, input.tag as string | undefined),
+  search_dashboards: (service, input, userId) =>
+    service.searchDashboards(input.query as string | undefined, input.tag as string | undefined, userId),
 
-  get_dashboard: (service, input) => service.getDashboard(input.uid as string),
+  get_dashboard: (service, input, userId) => service.getDashboard(input.uid as string, userId),
 
-  get_alert_rules: (service) => service.getAlertRules(),
+  get_alert_rules: (service, _input, userId) => service.getAlertRules(userId),
 
-  get_firing_alerts: (service) => service.getFiringAlerts(),
+  get_firing_alerts: (service, _input, userId) => service.getFiringAlerts(userId),
 }

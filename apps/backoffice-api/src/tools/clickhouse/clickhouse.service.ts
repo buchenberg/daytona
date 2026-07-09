@@ -3,51 +3,39 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Injectable, Logger } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
+import { Injectable, OnModuleDestroy } from '@nestjs/common'
 import axios, { AxiosInstance } from 'axios'
+import { SettingsService, EffectiveClickhouseConfig } from '../../chat/settings.service'
+import { DatasourceDisabledError } from '../datasource-disabled.error'
+import { hashConfig } from '../datasource-hash'
+import { PoolRegistry } from '../pool-registry'
+
+interface Pool {
+  client: AxiosInstance | null
+  baseUrl: string | null
+  disabled: boolean
+  lastUsedAt: number
+}
 
 @Injectable()
-export class ClickhouseService {
-  private readonly logger = new Logger(ClickhouseService.name)
-  private readonly client: AxiosInstance | null
-  private readonly baseUrl: string | null
+export class ClickhouseService implements OnModuleDestroy {
+  private readonly pools = new PoolRegistry<Pool>()
 
-  constructor(private readonly configService: ConfigService) {
-    const serviceId = this.configService.get<string>('mali.clickhouse.serviceId')
-    const keyId = this.configService.get<string>('mali.clickhouse.keyId')
-    const keySecret = this.configService.get<string>('mali.clickhouse.keySecret')
+  constructor(private readonly settings: SettingsService) {}
 
-    if (serviceId && keyId && keySecret) {
-      this.baseUrl = `https://queries.clickhouse.cloud/service/${serviceId}/run`
-      this.client = axios.create({
-        timeout: 30_000,
-        headers: { 'Content-Type': 'application/json' },
-        auth: { username: keyId, password: keySecret },
-      })
-      this.logger.log('ClickHouse client initialized')
-    } else {
-      this.baseUrl = null
-      this.client = null
-      this.logger.warn('ClickHouse client not configured (missing serviceId, keyId, or keySecret)')
-    }
+  async onModuleDestroy() {
+    await this.pools.shutdown()
   }
 
-  isConfigured(): boolean {
-    return this.client !== null
+  async isEnabledFor(userId: string): Promise<boolean> {
+    const cfg = await this.settings.getEffectiveClickhouseConfig(userId)
+    return !cfg.disabled && !!cfg.serviceId && !!cfg.keyId && !!cfg.keySecret
   }
 
-  private getClient(): AxiosInstance {
-    if (!this.client) {
-      throw new Error('ClickHouse is not configured')
-    }
-    return this.client
-  }
-
-  async queryClickhouse(sql: string): Promise<unknown[]> {
-    const url = this.baseUrl as string
-    const resp = await this.getClient().post(
-      url,
+  async queryClickhouse(sql: string, userId: string): Promise<unknown[]> {
+    const { client, baseUrl } = await this.getContext(userId)
+    const resp = await client.post(
+      baseUrl,
       { sql },
       {
         params: { format: 'JSONEachRow' },
@@ -59,11 +47,33 @@ export class ClickhouseService {
     return lines.filter((line) => line.trim()).map((line) => JSON.parse(line))
   }
 
-  async listClickhouseTables(database = 'billing'): Promise<unknown[]> {
-    return this.queryClickhouse(`SHOW TABLES FROM ${database}`)
+  async listClickhouseTables(database: string, userId: string): Promise<unknown[]> {
+    return this.queryClickhouse(`SHOW TABLES FROM ${database}`, userId)
   }
 
-  async describeClickhouseTable(table: string, database = 'billing'): Promise<unknown[]> {
-    return this.queryClickhouse(`DESCRIBE ${database}.${table}`)
+  async describeClickhouseTable(table: string, database: string, userId: string): Promise<unknown[]> {
+    return this.queryClickhouse(`DESCRIBE ${database}.${table}`, userId)
+  }
+
+  private async getContext(userId: string): Promise<{ client: AxiosInstance; baseUrl: string }> {
+    const cfg = await this.settings.getEffectiveClickhouseConfig(userId)
+    const pool = await this.pools.getOrBuild(hashConfig(cfg), () => this.build(cfg))
+    if (pool.disabled || !pool.client || !pool.baseUrl) {
+      throw new DatasourceDisabledError('clickhouse', userId)
+    }
+    return { client: pool.client, baseUrl: pool.baseUrl }
+  }
+
+  private build(cfg: EffectiveClickhouseConfig): Pool {
+    if (cfg.disabled || !cfg.serviceId || !cfg.keyId || !cfg.keySecret) {
+      return { client: null, baseUrl: null, disabled: true, lastUsedAt: Date.now() }
+    }
+    const baseUrl = `https://queries.clickhouse.cloud/service/${cfg.serviceId}/run`
+    const client = axios.create({
+      timeout: 30_000,
+      headers: { 'Content-Type': 'application/json' },
+      auth: { username: cfg.keyId, password: cfg.keySecret },
+    })
+    return { client, baseUrl, disabled: false, lastUsedAt: Date.now() }
   }
 }

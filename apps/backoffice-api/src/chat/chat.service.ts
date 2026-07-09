@@ -13,7 +13,6 @@ import Anthropic, {
   InternalServerError,
 } from '@anthropic-ai/sdk'
 import { ConversationsService } from './conversations.service'
-import { SettingsService } from './settings.service'
 import { ToolRegistry } from '../tools/tool-registry'
 import { GrafanaService } from '../tools/grafana/grafana.service'
 import { safeSummary } from '../tools/truncate'
@@ -69,13 +68,11 @@ export class ChatService {
   private readonly fallbackModel: string
   private readonly suggestionModel: string
   private readonly abortControllers = new Map<string, AbortController>()
-  private datasourceBlock = ''
-  private datasourceCacheExpiry = 0
+  private readonly datasourceBlockCache = new Map<string, { block: string; expiresAt: number }>()
 
   constructor(
     private readonly configService: ConfigService,
     private readonly conversationsService: ConversationsService,
-    private readonly settingsService: SettingsService,
     private readonly toolRegistry: ToolRegistry,
     private readonly grafana: GrafanaService,
     private readonly memoryService: MemoryService,
@@ -138,8 +135,8 @@ export class ChatService {
       yield* this.executeRounds({
         conversationId,
         messages,
-        systemPrompt: await this.buildSystemPrompt(message),
-        tools: this.toolRegistry.getToolDefinitions(),
+        systemPrompt: await this.buildSystemPrompt(message, userId),
+        tools: await this.toolRegistry.listAvailableTools(userId),
         abortController,
         userId,
         savePartialOnAbort: true,
@@ -188,8 +185,8 @@ export class ChatService {
       yield* this.executeRounds({
         conversationId,
         messages,
-        systemPrompt: await this.buildSystemPrompt(''),
-        tools: this.toolRegistry.getToolDefinitions(),
+        systemPrompt: await this.buildSystemPrompt('', userId),
+        tools: await this.toolRegistry.listAvailableTools(userId),
         abortController,
         userId,
         savePartialOnAbort: false,
@@ -481,8 +478,7 @@ export class ChatService {
     index: number,
     userId: string,
   ): Promise<{ index: number; toolResult: Anthropic.ToolResultBlockParam; yieldEvent: string | null }> {
-    const toolInput = await this.prepareToolInput(block.name!, block.input as Record<string, unknown>, userId)
-    const result = await this.toolRegistry.execute(block.name!, toolInput, userId)
+    const result = await this.toolRegistry.execute(block.name!, block.input as Record<string, unknown>, userId)
 
     let parsedResult: unknown
     try {
@@ -700,39 +696,29 @@ export class ChatService {
   // Private helpers
   // ---------------------------------------------------------------------------
 
-  private async prepareToolInput(
-    toolName: string,
-    input: Record<string, unknown>,
-    userId: string,
-  ): Promise<Record<string, unknown>> {
-    if (this.toolRegistry.isSandboxTool(toolName)) {
-      const apiKey = await this.settingsService.getDaytonaApiKey(userId)
-      return { ...input, _apiKey: apiKey }
-    }
-    return input
-  }
+  private async getDatasourceBlock(userId: string): Promise<string> {
+    if (!(await this.grafana.isEnabledFor(userId))) return ''
 
-  private async getDatasourceBlock(): Promise<string> {
-    if (!this.grafana.isConfigured()) return ''
-    if (Date.now() < this.datasourceCacheExpiry && this.datasourceBlock) {
-      return this.datasourceBlock
-    }
+    const cached = this.datasourceBlockCache.get(userId)
+    if (cached && Date.now() < cached.expiresAt) return cached.block
+
     try {
-      const datasources = await this.grafana.listDatasources()
-      this.datasourceBlock =
+      const datasources = await this.grafana.listDatasources(userId)
+      const block =
         '\n\n### Available Datasources (pre-fetched)\n```json\n' +
         JSON.stringify(datasources, null, 2) +
         '\n```\nUse these UIDs directly — do not call list_datasources unless you need a refresh.'
-      this.datasourceCacheExpiry = Date.now() + 10 * 60 * 1000
+      this.datasourceBlockCache.set(userId, { block, expiresAt: Date.now() + 10 * 60 * 1000 })
+      return block
     } catch {
       // Grafana unreachable — Claude falls back to calling list_datasources
+      return cached?.block ?? ''
     }
-    return this.datasourceBlock
   }
 
-  private async buildSystemPrompt(userMessage: string): Promise<Anthropic.TextBlockParam[]> {
+  private async buildSystemPrompt(userMessage: string, userId: string): Promise<Anthropic.TextBlockParam[]> {
     const skills = matchSkills(userMessage)
-    const datasources = await this.getDatasourceBlock()
+    const datasources = await this.getDatasourceBlock(userId)
 
     // Multi-block caching: base prompt stays cached even when skills/datasources change
     const blocks: Anthropic.TextBlockParam[] = [

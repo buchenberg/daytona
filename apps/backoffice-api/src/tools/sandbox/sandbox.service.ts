@@ -3,9 +3,13 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import axios, { AxiosInstance } from 'axios'
+import { SettingsService } from '../../chat/settings.service'
+import { DatasourceDisabledError } from '../datasource-disabled.error'
+import { hashConfig } from '../datasource-hash'
+import { PoolRegistry } from '../pool-registry'
 
 const DAYTONA_API_BASE = 'https://app.daytona.io/api'
 
@@ -158,20 +162,57 @@ const TOOLCHAIN_INSTALLERS: Record<string, string> = {
   node: 'curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash - && ' + 'sudo apt-get install -y nodejs',
 }
 
-@Injectable()
-export class SandboxService {
-  private readonly logger = new Logger(SandboxService.name)
-  private readonly githubRepoUrl: string
-  private readonly githubPat: string
+interface EffectiveCreds {
+  apiKey: string
+  githubRepoUrl: string | undefined
+  githubPat: string | undefined
+}
 
-  constructor(private readonly configService: ConfigService) {
-    this.githubRepoUrl = this.configService.get<string>('mali.sandbox.githubRepoUrl') || ''
-    this.githubPat = this.configService.get<string>('mali.sandbox.githubPat') || ''
-    this.logger.log('Sandbox service initialized')
+interface Pool {
+  creds: EffectiveCreds | null
+  disabled: boolean
+  lastUsedAt: number
+}
+
+@Injectable()
+export class SandboxService implements OnModuleDestroy {
+  private readonly logger = new Logger(SandboxService.name)
+  private readonly pools = new PoolRegistry<Pool>()
+
+  // Cached Daytona toolbox-proxy URL template; same across all users, fetched once lazily.
+  private proxyBaseUrl: string | null = null
+
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly settings: SettingsService,
+  ) {}
+
+  async onModuleDestroy() {
+    await this.pools.shutdown()
   }
 
-  isConfigured(): boolean {
-    return true
+  async isEnabledFor(userId: string): Promise<boolean> {
+    const cfg = await this.settings.getEffectiveSandboxConfig(userId)
+    return !cfg.disabled && !!cfg.daytonaApiKey
+  }
+
+  private async getCreds(userId: string): Promise<EffectiveCreds> {
+    const cfg = await this.settings.getEffectiveSandboxConfig(userId)
+    const pool = await this.pools.getOrBuild(hashConfig(cfg), () =>
+      cfg.disabled || !cfg.daytonaApiKey
+        ? { creds: null, disabled: true, lastUsedAt: Date.now() }
+        : {
+            creds: {
+              apiKey: cfg.daytonaApiKey,
+              githubRepoUrl: cfg.githubRepoUrl,
+              githubPat: cfg.githubPat,
+            },
+            disabled: false,
+            lastUsedAt: Date.now(),
+          },
+    )
+    if (pool.disabled || !pool.creds) throw new DatasourceDisabledError('sandbox', userId)
+    return pool.creds
   }
 
   private createClient(apiKey: string): AxiosInstance {
@@ -199,9 +240,6 @@ export class SandboxService {
     }
   }
 
-  // Fetches the toolbox proxy base URL from the Daytona API config endpoint,
-  // then builds the full URL for a specific sandbox.
-  private proxyBaseUrl: string | null = null
   private async getToolboxUrl(client: AxiosInstance, sandboxId: string): Promise<string> {
     if (!this.proxyBaseUrl) {
       const resp = await client.get('/config')
@@ -277,13 +315,14 @@ export class SandboxService {
   }
 
   async sandboxCreate(
-    apiKey: string,
-    snapshot?: string,
-    language?: string,
-    name?: string,
-    autoStopInterval?: number,
+    snapshot: string | undefined,
+    language: string | undefined,
+    name: string | undefined,
+    autoStopInterval: number | undefined,
+    userId: string,
   ): Promise<SandboxInfo> {
-    const client = this.createClient(apiKey)
+    const creds = await this.getCreds(userId)
+    const client = this.createClient(creds.apiKey)
     const body: Record<string, unknown> = {}
     if (snapshot) body.snapshot = snapshot
     if (language) body.language = language
@@ -295,32 +334,36 @@ export class SandboxService {
     return this.extractSandboxInfo(sandbox)
   }
 
-  async sandboxList(apiKey: string): Promise<SandboxInfo[]> {
-    const client = this.createClient(apiKey)
+  async sandboxList(userId: string): Promise<SandboxInfo[]> {
+    const creds = await this.getCreds(userId)
+    const client = this.createClient(creds.apiKey)
     const resp = await client.get('/sandbox')
     const items = (resp.data.items || resp.data) as Array<Record<string, unknown>>
     return items.map((s) => this.extractSandboxInfo(s))
   }
 
-  async sandboxGet(apiKey: string, sandboxId: string): Promise<SandboxInfo> {
-    const client = this.createClient(apiKey)
+  async sandboxGet(sandboxId: string, userId: string): Promise<SandboxInfo> {
+    const creds = await this.getCreds(userId)
+    const client = this.createClient(creds.apiKey)
     const resp = await client.get(`/sandbox/${sandboxId}`)
     return this.extractSandboxInfo(resp.data)
   }
 
-  async sandboxDelete(apiKey: string, sandboxId: string): Promise<{ status: string; sandboxId: string }> {
-    const client = this.createClient(apiKey)
+  async sandboxDelete(sandboxId: string, userId: string): Promise<{ status: string; sandboxId: string }> {
+    const creds = await this.getCreds(userId)
+    const client = this.createClient(creds.apiKey)
     await client.delete(`/sandbox/${sandboxId}`)
     return { status: 'deleted', sandboxId }
   }
 
   async sandboxExec(
-    apiKey: string,
     sandboxId: string,
     command: string,
-    timeout = 30,
+    timeout: number,
+    userId: string,
   ): Promise<{ exitCode: number; output: string }> {
-    const client = this.createClient(apiKey)
+    const creds = await this.getCreds(userId)
+    const client = this.createClient(creds.apiKey)
     const result = await this.execInSandbox(client, sandboxId, command, timeout)
     return {
       exitCode: result.exitCode,
@@ -329,12 +372,20 @@ export class SandboxService {
   }
 
   async createFixPr(
-    apiKey: string,
     title: string,
     task: string,
-    context?: string,
-    buildCmd?: string,
+    context: string | undefined,
+    buildCmd: string | undefined,
+    userId: string,
   ): Promise<Record<string, unknown>> {
+    const creds = await this.getCreds(userId)
+    if (!creds.githubRepoUrl || !creds.githubPat) {
+      return {
+        status: 'error',
+        error: 'create_fix_pr requires githubRepoUrl and githubPat in your sandbox settings.',
+      }
+    }
+    const { apiKey, githubRepoUrl, githubPat } = creds
     const client = this.createClient(apiKey)
     const branch = `auto-fix/${Math.floor(Date.now() / 1000)}`
     let sandboxId: string | null = null
@@ -357,12 +408,11 @@ export class SandboxService {
       const pipResult = await this.execInSandbox(client, sandboxId, 'pip install -q anthropic', 120, undefined, env)
       this.logger.log(`SDK installed (exit ${pipResult.exitCode})`)
 
-      // Normalize repo URL: accept both "org/repo" and "https://github.com/org/repo" formats
-      const repoPath = this.githubRepoUrl
+      const repoPath = githubRepoUrl
         .replace(/^https?:\/\/github\.com\//, '')
         .replace(/\.git$/, '')
         .replace(/\/$/, '')
-      const cloneUrl = `https://x-access-token:${this.githubPat}@github.com/${repoPath}.git`
+      const cloneUrl = `https://x-access-token:${githubPat}@github.com/${repoPath}.git`
       this.logger.log(`Cloning ${repoPath}...`)
       const cloneResult = await this.execInSandbox(
         client,
@@ -371,7 +421,7 @@ export class SandboxService {
         120,
       )
       if (cloneResult.exitCode !== 0) {
-        const sanitized = (cloneResult.result || '').replace(this.githubPat, '***')
+        const sanitized = (cloneResult.result || '').replace(githubPat, '***')
         return { status: 'error', error: `git clone failed: ${sanitized}` }
       }
 
@@ -385,7 +435,7 @@ export class SandboxService {
         '/home/daytona/repo',
       )
 
-      const fullTask = this.buildTaskPrompt(task, context || '', branch)
+      const fullTask = this.buildTaskPrompt(task, context || '', branch, githubRepoUrl)
       await this.uploadFile(client, sandboxId, fullTask, '/home/daytona/task.txt')
       await this.uploadFile(client, sandboxId, ORCHESTRATOR_SCRIPT, '/home/daytona/orchestrator.py')
 
@@ -481,8 +531,8 @@ export class SandboxService {
 
       const prScript = PR_SCRIPT_TEMPLATE.replace(
         '{{api_url}}',
-        `https://api.github.com/repos/${this.githubRepoUrl}/pulls`,
-      ).replace('{{pat}}', this.githubPat)
+        `https://api.github.com/repos/${githubRepoUrl}/pulls`,
+      ).replace('{{pat}}', githubPat)
       await this.uploadFile(client, sandboxId, prScript, '/home/daytona/create_pr.py')
 
       const prResult = await this.execInSandbox(client, sandboxId, 'python3 /home/daytona/create_pr.py', 30)
@@ -543,9 +593,9 @@ export class SandboxService {
     }
   }
 
-  private buildTaskPrompt(task: string, context: string, branch: string): string {
+  private buildTaskPrompt(task: string, context: string, branch: string, githubRepoUrl: string): string {
     const parts = [
-      `You are fixing an issue in the ${this.githubRepoUrl} repository.`,
+      `You are fixing an issue in the ${githubRepoUrl} repository.`,
       `The code is checked out at /home/daytona/repo on branch '${branch}'.`,
       '',
       '## Task',

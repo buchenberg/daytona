@@ -3,56 +3,68 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Injectable, Logger } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
+import { Injectable, OnModuleDestroy } from '@nestjs/common'
 import axios, { AxiosInstance } from 'axios'
+import { SettingsService, EffectiveGrafanaConfig } from '../../chat/settings.service'
+import { DatasourceDisabledError } from '../datasource-disabled.error'
+import { hashConfig } from '../datasource-hash'
+import { PoolRegistry } from '../pool-registry'
+
+interface Pool {
+  client: AxiosInstance | null
+  dsIdCache: Map<string, number>
+  disabled: boolean
+  lastUsedAt: number
+}
 
 @Injectable()
-export class GrafanaService {
-  private readonly logger = new Logger(GrafanaService.name)
-  private readonly client: AxiosInstance | null
-  private readonly _dsIdCache = new Map<string, number>()
+export class GrafanaService implements OnModuleDestroy {
+  private readonly pools = new PoolRegistry<Pool>()
 
-  constructor(private readonly configService: ConfigService) {
-    const url = this.configService.get<string>('mali.grafana.url')
-    const token = this.configService.get<string>('mali.grafana.token')
+  constructor(private readonly settings: SettingsService) {}
 
-    if (url && token) {
-      this.client = axios.create({
-        baseURL: url.replace(/\/+$/, ''),
-        timeout: 60_000,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-      })
-      this.logger.log('Grafana client initialized')
-    } else {
-      this.client = null
-      this.logger.warn('Grafana client not configured (missing url or token)')
+  async onModuleDestroy() {
+    await this.pools.shutdown()
+  }
+
+  async isEnabledFor(userId: string): Promise<boolean> {
+    const cfg = await this.settings.getEffectiveGrafanaConfig(userId)
+    return !cfg.disabled && !!cfg.url && !!cfg.token
+  }
+
+  private async getContext(userId: string): Promise<{ client: AxiosInstance; dsIdCache: Map<string, number> }> {
+    const cfg = await this.settings.getEffectiveGrafanaConfig(userId)
+    const pool = await this.pools.getOrBuild(hashConfig(cfg), () => this.build(cfg))
+    if (pool.disabled || !pool.client) throw new DatasourceDisabledError('grafana', userId)
+    return { client: pool.client, dsIdCache: pool.dsIdCache }
+  }
+
+  private build(cfg: EffectiveGrafanaConfig): Pool {
+    if (cfg.disabled || !cfg.url || !cfg.token) {
+      return { client: null, dsIdCache: new Map(), disabled: true, lastUsedAt: Date.now() }
     }
+    const client = axios.create({
+      baseURL: cfg.url.replace(/\/+$/, ''),
+      timeout: 60_000,
+      headers: {
+        Authorization: `Bearer ${cfg.token}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+    })
+    return { client, dsIdCache: new Map(), disabled: false, lastUsedAt: Date.now() }
   }
 
-  isConfigured(): boolean {
-    return this.client !== null
-  }
+  /** Client plus the numeric datasource id behind a UID — proxy endpoints need both. */
+  private async getProxyContext(userId: string, uid: string): Promise<{ client: AxiosInstance; dsId: number }> {
+    const { client, dsIdCache } = await this.getContext(userId)
+    const cached = dsIdCache.get(uid)
+    if (cached !== undefined) return { client, dsId: cached }
 
-  private getClient(): AxiosInstance {
-    if (!this.client) {
-      throw new Error('Grafana is not configured')
-    }
-    return this.client
-  }
-
-  private async resolveDsId(uid: string): Promise<number> {
-    const cached = this._dsIdCache.get(uid)
-    if (cached !== undefined) return cached
-
-    const resp = await this.getClient().get(`/api/datasources/uid/${uid}`)
-    const id = resp.data.id as number
-    this._dsIdCache.set(uid, id)
-    return id
+    const resp = await client.get(`/api/datasources/uid/${uid}`)
+    const dsId = resp.data.id as number
+    dsIdCache.set(uid, dsId)
+    return { client, dsId }
   }
 
   private proxyPath(dsId: number): string {
@@ -106,11 +118,12 @@ export class GrafanaService {
     return total > 0 ? total : 3600
   }
 
-  async listDatasources(): Promise<unknown[]> {
-    const resp = await this.getClient().get('/api/datasources')
+  async listDatasources(userId: string): Promise<unknown[]> {
+    const { client, dsIdCache } = await this.getContext(userId)
+    const resp = await client.get('/api/datasources')
     const raw = resp.data as Array<Record<string, unknown>>
     for (const ds of raw) {
-      this._dsIdCache.set(ds.uid as string, ds.id as number)
+      dsIdCache.set(ds.uid as string, ds.id as number)
     }
     return raw.map((ds) => ({
       uid: ds.uid,
@@ -122,16 +135,22 @@ export class GrafanaService {
     }))
   }
 
-  async getDatasourceByName(name: string): Promise<unknown> {
-    const resp = await this.getClient().get(`/api/datasources/name/${name}`)
+  async getDatasourceByName(name: string, userId: string): Promise<unknown> {
+    const { client } = await this.getContext(userId)
+    const resp = await client.get(`/api/datasources/name/${name}`)
     return resp.data
   }
 
-  async queryPrometheus(datasourceUid: string, query: string, time?: string): Promise<unknown> {
-    const dsId = await this.resolveDsId(datasourceUid)
+  async queryPrometheus(
+    datasourceUid: string,
+    query: string,
+    time: string | undefined,
+    userId: string,
+  ): Promise<unknown> {
+    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
     const params: Record<string, string> = { query }
     if (time) params.time = GrafanaService.parseTime(time)
-    const resp = await this.getClient().get(`${this.proxyPath(dsId)}/api/v1/query`, { params })
+    const resp = await client.get(`${this.proxyPath(dsId)}/api/v1/query`, { params })
     return resp.data
   }
 
@@ -141,47 +160,53 @@ export class GrafanaService {
     start: string,
     end: string,
     step: string,
+    userId: string,
   ): Promise<unknown> {
-    const dsId = await this.resolveDsId(datasourceUid)
+    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
     const params = {
       query,
       start: GrafanaService.parseTime(start),
       end: GrafanaService.parseTime(end),
       step,
     }
-    const resp = await this.getClient().get(`${this.proxyPath(dsId)}/api/v1/query_range`, { params })
+    const resp = await client.get(`${this.proxyPath(dsId)}/api/v1/query_range`, { params })
     return resp.data
   }
 
-  async listPrometheusLabelNames(datasourceUid: string): Promise<unknown> {
-    const dsId = await this.resolveDsId(datasourceUid)
-    const resp = await this.getClient().get(`${this.proxyPath(dsId)}/api/v1/labels`)
+  async listPrometheusLabelNames(datasourceUid: string, userId: string): Promise<unknown> {
+    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
+    const resp = await client.get(`${this.proxyPath(dsId)}/api/v1/labels`)
     return resp.data
   }
 
-  async getPrometheusLabelValues(datasourceUid: string, labelName: string): Promise<unknown> {
-    const dsId = await this.resolveDsId(datasourceUid)
-    const resp = await this.getClient().get(`${this.proxyPath(dsId)}/api/v1/label/${labelName}/values`)
+  async getPrometheusLabelValues(datasourceUid: string, labelName: string, userId: string): Promise<unknown> {
+    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
+    const resp = await client.get(`${this.proxyPath(dsId)}/api/v1/label/${labelName}/values`)
     return resp.data
   }
 
-  async getPrometheusMetricMetadata(datasourceUid: string, metric?: string): Promise<unknown> {
-    const dsId = await this.resolveDsId(datasourceUid)
+  async getPrometheusMetricMetadata(
+    datasourceUid: string,
+    metric: string | undefined,
+    userId: string,
+  ): Promise<unknown> {
+    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
     const params: Record<string, string> = {}
     if (metric) params.metric = metric
-    const resp = await this.getClient().get(`${this.proxyPath(dsId)}/api/v1/metadata`, { params })
+    const resp = await client.get(`${this.proxyPath(dsId)}/api/v1/metadata`, { params })
     return resp.data
   }
 
   async queryLoki(
     datasourceUid: string,
     query: string,
-    start?: string,
-    end?: string,
-    limit = 100,
-    direction = 'backward',
+    start: string | undefined,
+    end: string | undefined,
+    limit: number,
+    direction: string,
+    userId: string,
   ): Promise<unknown> {
-    const dsId = await this.resolveDsId(datasourceUid)
+    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
     const params: Record<string, string> = {
       query,
       start: GrafanaService.parseTime(start || 'now-1h'),
@@ -189,33 +214,34 @@ export class GrafanaService {
       limit: String(Math.min(limit, 5000)),
       direction,
     }
-    const resp = await this.getClient().get(`${this.proxyPath(dsId)}/loki/api/v1/query_range`, { params })
+    const resp = await client.get(`${this.proxyPath(dsId)}/loki/api/v1/query_range`, { params })
     return resp.data
   }
 
-  async listLokiLabelNames(datasourceUid: string): Promise<unknown> {
-    const dsId = await this.resolveDsId(datasourceUid)
-    const resp = await this.getClient().get(`${this.proxyPath(dsId)}/loki/api/v1/labels`)
+  async listLokiLabelNames(datasourceUid: string, userId: string): Promise<unknown> {
+    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
+    const resp = await client.get(`${this.proxyPath(dsId)}/loki/api/v1/labels`)
     return resp.data
   }
 
-  async getLokiLabelValues(datasourceUid: string, labelName: string): Promise<unknown> {
-    const dsId = await this.resolveDsId(datasourceUid)
-    const resp = await this.getClient().get(`${this.proxyPath(dsId)}/loki/api/v1/label/${labelName}/values`)
+  async getLokiLabelValues(datasourceUid: string, labelName: string, userId: string): Promise<unknown> {
+    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
+    const resp = await client.get(`${this.proxyPath(dsId)}/loki/api/v1/label/${labelName}/values`)
     return resp.data
   }
 
   async searchTempoTraces(
     datasourceUid: string,
-    q?: string,
-    tags?: string,
-    minDuration?: string,
-    maxDuration?: string,
-    limit = 20,
-    start?: string,
-    end?: string,
+    q: string | undefined,
+    tags: string | undefined,
+    minDuration: string | undefined,
+    maxDuration: string | undefined,
+    limit: number,
+    start: string | undefined,
+    end: string | undefined,
+    userId: string,
   ): Promise<unknown> {
-    const dsId = await this.resolveDsId(datasourceUid)
+    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
     const params: Record<string, string> = { limit: String(limit) }
     if (q) params.q = q
     if (tags) params.tags = tags
@@ -223,36 +249,40 @@ export class GrafanaService {
     if (maxDuration) params.maxDuration = maxDuration
     if (start) params.start = GrafanaService.parseTime(start)
     if (end) params.end = GrafanaService.parseTime(end)
-    const resp = await this.getClient().get(`${this.proxyPath(dsId)}/api/search`, { params })
+    const resp = await client.get(`${this.proxyPath(dsId)}/api/search`, { params })
     return resp.data
   }
 
-  async getTempoTrace(datasourceUid: string, traceId: string): Promise<unknown> {
-    const dsId = await this.resolveDsId(datasourceUid)
-    const resp = await this.getClient().get(`${this.proxyPath(dsId)}/api/traces/${traceId}`)
+  async getTempoTrace(datasourceUid: string, traceId: string, userId: string): Promise<unknown> {
+    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
+    const resp = await client.get(`${this.proxyPath(dsId)}/api/traces/${traceId}`)
     return resp.data
   }
 
-  async searchDashboards(query?: string, tag?: string): Promise<unknown> {
+  async searchDashboards(query: string | undefined, tag: string | undefined, userId: string): Promise<unknown> {
+    const { client } = await this.getContext(userId)
     const params: Record<string, string> = { type: 'dash-db' }
     if (query) params.query = query
     if (tag) params.tag = tag
-    const resp = await this.getClient().get('/api/search', { params })
+    const resp = await client.get('/api/search', { params })
     return resp.data
   }
 
-  async getDashboard(uid: string): Promise<unknown> {
-    const resp = await this.getClient().get(`/api/dashboards/uid/${uid}`)
+  async getDashboard(uid: string, userId: string): Promise<unknown> {
+    const { client } = await this.getContext(userId)
+    const resp = await client.get(`/api/dashboards/uid/${uid}`)
     return resp.data
   }
 
-  async getAlertRules(): Promise<unknown> {
-    const resp = await this.getClient().get('/api/ruler/grafana/api/v1/rules')
+  async getAlertRules(userId: string): Promise<unknown> {
+    const { client } = await this.getContext(userId)
+    const resp = await client.get('/api/ruler/grafana/api/v1/rules')
     return resp.data
   }
 
-  async getFiringAlerts(): Promise<unknown> {
-    const resp = await this.getClient().get('/api/alertmanager/grafana/api/v2/alerts')
+  async getFiringAlerts(userId: string): Promise<unknown> {
+    const { client } = await this.getContext(userId)
+    const resp = await client.get('/api/alertmanager/grafana/api/v2/alerts')
     return resp.data
   }
 }

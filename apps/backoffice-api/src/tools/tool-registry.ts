@@ -17,16 +17,8 @@ import { PosthogService } from './posthog/posthog.service'
 import { posthogToolDefinitions, posthogToolExecutors } from './posthog/posthog.tools'
 import { SandboxService } from './sandbox/sandbox.service'
 import { sandboxToolDefinitions, sandboxToolExecutors } from './sandbox/sandbox.tools'
+import { DatasourceDisabledError } from './datasource-disabled.error'
 import { truncateResult, safeSummary } from './truncate'
-
-const SANDBOX_TOOL_NAMES = new Set([
-  'sandbox_create',
-  'sandbox_list',
-  'sandbox_get',
-  'sandbox_delete',
-  'sandbox_exec',
-  'create_fix_pr',
-])
 
 /** Tools that mutate state — must execute sequentially, never in parallel. */
 const SIDE_EFFECT_TOOL_NAMES = new Set(['sandbox_create', 'sandbox_delete', 'sandbox_exec', 'create_fix_pr'])
@@ -46,11 +38,24 @@ const TOOL_TIMEOUTS: Record<string, number> = {
 
 const DEFAULT_TIMEOUT_MS = 30_000
 
+/** Signature every category's tool executor implements. */
+export type ToolExecutor<S> = (service: S, input: Record<string, unknown>, userId: string) => Promise<unknown>
+
+/** Every datasource service gates its own per-user availability. */
+interface DatasourceService {
+  isEnabledFor(userId: string): Promise<boolean>
+}
+
+type Entry = {
+  tool: Anthropic.Tool
+  service: DatasourceService
+  execute: (input: Record<string, unknown>, userId: string) => Promise<string>
+}
+
 @Injectable()
 export class ToolRegistry {
   private readonly logger = new Logger(ToolRegistry.name)
-  private readonly tools: Anthropic.Tool[] = []
-  private readonly executors = new Map<string, (input: Record<string, unknown>, userId?: string) => Promise<string>>()
+  private readonly entries = new Map<string, Entry>()
 
   constructor(
     private readonly grafana: GrafanaService,
@@ -65,61 +70,47 @@ export class ToolRegistry {
     this.registerCategory('ClickHouse', this.clickhouse, clickhouseToolDefinitions, clickhouseToolExecutors)
     this.registerCategory('OpenSearch', this.opensearch, opensearchToolDefinitions, opensearchToolExecutors)
     this.registerCategory('PostHog', this.posthog, posthogToolDefinitions, posthogToolExecutors)
-    this.registerSandboxTools()
+    this.registerCategory('Sandbox', this.sandbox, sandboxToolDefinitions, sandboxToolExecutors)
 
-    this.logger.log(`Tool registry initialized with ${this.tools.length} tools`)
+    this.logger.log(`Tool registry initialized with ${this.entries.size} tools`)
   }
 
-  private registerCategory(
+  private registerCategory<S extends DatasourceService>(
     name: string,
-    service: { isConfigured(): boolean },
+    service: S,
     definitions: readonly Anthropic.Tool[],
-    executors: Record<string, (service: any, input: Record<string, unknown>) => Promise<unknown>>,
+    executors: Record<string, ToolExecutor<S>>,
   ) {
-    if (!service.isConfigured()) {
-      this.logger.warn(`${name} tools skipped — not configured`)
-      return
-    }
-    this.logger.log(`${name} tools enabled (${definitions.length} tools)`)
+    this.logger.log(`${name} tools registered (${definitions.length} tools, per-user availability)`)
     for (const def of definitions) {
-      this.tools.push(def)
       const executor = executors[def.name]
-      if (executor) {
-        this.executors.set(def.name, async (input) => {
-          const result = await executor(service, input)
-          return truncateResult(result)
-        })
-      }
+      if (!executor) continue
+      this.entries.set(def.name, {
+        tool: def,
+        service,
+        execute: async (input, userId) => truncateResult(await executor(service, input, userId)),
+      })
     }
   }
 
-  private registerSandboxTools() {
-    this.logger.log(`Sandbox tools enabled (${sandboxToolDefinitions.length} tools)`)
-    for (const def of sandboxToolDefinitions) {
-      this.tools.push(def)
-      const executor = sandboxToolExecutors[def.name]
-      if (executor) {
-        this.executors.set(def.name, async (input) => {
-          const { _apiKey, ...cleanInput } = input as Record<string, unknown> & { _apiKey?: string }
-          if (!_apiKey) {
-            return JSON.stringify({
-              error: 'No Daytona API key configured for your account. ' + 'Please add it in the Settings panel.',
-            })
-          }
-          const result = await executor(this.sandbox, cleanInput, _apiKey)
-          return truncateResult(result)
-        })
-      }
-    }
+  /**
+   * Tools the given user is allowed to use right now. Per-user availability
+   * is determined by each service's `isEnabledFor(userId)`, backed by
+   * SettingsService's short-TTL overrides cache — so repeat calls are cheap.
+   */
+  async listAvailableTools(userId: string): Promise<Anthropic.Tool[]> {
+    const checks = await Promise.all(
+      Array.from(this.entries.values()).map(async (e) => ({
+        tool: e.tool,
+        available: await e.service.isEnabledFor(userId),
+      })),
+    )
+    return checks.filter((c) => c.available).map((c) => c.tool)
   }
 
-  getToolDefinitions(): Anthropic.Tool[] {
-    return this.tools
-  }
-
-  async execute(name: string, input: Record<string, unknown>, userId?: string): Promise<string> {
-    const executor = this.executors.get(name)
-    if (!executor) {
+  async execute(name: string, input: Record<string, unknown>, userId: string): Promise<string> {
+    const entry = this.entries.get(name)
+    if (!entry) {
       return JSON.stringify({ error: `Unknown tool: ${name}` })
     }
 
@@ -127,7 +118,7 @@ export class ToolRegistry {
 
     try {
       const result = await Promise.race([
-        executor(input, userId),
+        entry.execute(input, userId),
         new Promise<never>((_, reject) => {
           const timer = setTimeout(
             () => reject(new Error(`Tool ${name} timed out after ${Math.round(timeoutMs / 1000)}s`)),
@@ -139,14 +130,14 @@ export class ToolRegistry {
       ])
       return result
     } catch (error) {
+      if (error instanceof DatasourceDisabledError) {
+        this.logger.debug(`Tool ${name} blocked: ${error.message}`)
+        return JSON.stringify({ error: error.message })
+      }
       const message = error instanceof Error ? error.message : String(error)
       this.logger.error(`Tool ${name} failed: ${message}`)
       return JSON.stringify({ error: message })
     }
-  }
-
-  isSandboxTool(name: string): boolean {
-    return SANDBOX_TOOL_NAMES.has(name)
   }
 
   isReadOnlyTool(name: string): boolean {

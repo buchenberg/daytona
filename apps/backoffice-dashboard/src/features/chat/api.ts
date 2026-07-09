@@ -208,17 +208,26 @@ export function compactConversation(conversationId: string): Promise<{ summary: 
 
 // Settings
 
+export interface SandboxOverride {
+  disabled?: boolean
+  daytonaApiKey?: string
+  githubRepoUrl?: string
+  githubPat?: string
+}
+
+// Secret fields come back redacted as '********'; sending that value back
+// means "keep the stored secret".
 export interface MaliSettings {
-  daytonaApiKey: string | null
-  githubRepoUrl: string | null
-  githubPat: string | null
+  datasourceOverrides: {
+    sandbox?: SandboxOverride
+  }
 }
 
 export function getSettings(): Promise<MaliSettings> {
   return request('/settings')
 }
 
-export function updateSettings(data: Partial<MaliSettings>): Promise<{ success: boolean }> {
+export function updateSettings(data: MaliSettings): Promise<{ success: boolean }> {
   return request('/settings', {
     method: 'PUT',
     body: JSON.stringify(data),

@@ -5,6 +5,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { PosthogService } from './posthog.service'
+import { ToolExecutor } from '../tool-registry'
 
 export const posthogToolDefinitions: Anthropic.Tool[] = [
   {
@@ -59,11 +60,9 @@ export const posthogToolDefinitions: Anthropic.Tool[] = [
   },
 ]
 
-export const posthogToolExecutors: Record<
-  string,
-  (service: PosthogService, input: Record<string, unknown>) => Promise<unknown>
-> = {
-  query_posthog: (service, input) => service.queryPosthog(input.query as string),
-  list_posthog_events: (service) => service.listPosthogEvents(),
-  list_posthog_properties: (service, input) => service.listPosthogProperties(input.event_name as string | undefined),
+export const posthogToolExecutors: Record<string, ToolExecutor<PosthogService>> = {
+  query_posthog: (service, input, userId) => service.queryPosthog(input.query as string, userId),
+  list_posthog_events: (service, _input, userId) => service.listPosthogEvents(userId),
+  list_posthog_properties: (service, input, userId) =>
+    service.listPosthogProperties(input.event_name as string | undefined, userId),
 }

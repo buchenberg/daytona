@@ -5,6 +5,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { SandboxService } from './sandbox.service'
+import { ToolExecutor } from '../tool-registry'
 
 export const sandboxToolDefinitions: Anthropic.Tool[] = [
   {
@@ -125,39 +126,36 @@ export const sandboxToolDefinitions: Anthropic.Tool[] = [
   },
 ]
 
-export const sandboxToolExecutors: Record<
-  string,
-  (service: SandboxService, input: Record<string, unknown>, apiKey: string) => Promise<unknown>
-> = {
-  sandbox_create: (service, input, apiKey) =>
+export const sandboxToolExecutors: Record<string, ToolExecutor<SandboxService>> = {
+  sandbox_create: (service, input, userId) =>
     service.sandboxCreate(
-      apiKey,
       input.snapshot as string | undefined,
       input.language as string | undefined,
       input.name as string | undefined,
       input.auto_stop_interval as number | undefined,
+      userId,
     ),
 
-  sandbox_list: (service, _input, apiKey) => service.sandboxList(apiKey),
+  sandbox_list: (service, _input, userId) => service.sandboxList(userId),
 
-  sandbox_get: (service, input, apiKey) => service.sandboxGet(apiKey, input.sandbox_id as string),
+  sandbox_get: (service, input, userId) => service.sandboxGet(input.sandbox_id as string, userId),
 
-  sandbox_delete: (service, input, apiKey) => service.sandboxDelete(apiKey, input.sandbox_id as string),
+  sandbox_delete: (service, input, userId) => service.sandboxDelete(input.sandbox_id as string, userId),
 
-  sandbox_exec: (service, input, apiKey) =>
+  sandbox_exec: (service, input, userId) =>
     service.sandboxExec(
-      apiKey,
       input.sandbox_id as string,
       input.command as string,
-      input.timeout as number | undefined,
+      (input.timeout as number | undefined) ?? 30,
+      userId,
     ),
 
-  create_fix_pr: (service, input, apiKey) =>
+  create_fix_pr: (service, input, userId) =>
     service.createFixPr(
-      apiKey,
       input.title as string,
       input.task as string,
       input.context as string | undefined,
       input.build_cmd as string | undefined,
+      userId,
     ),
 }

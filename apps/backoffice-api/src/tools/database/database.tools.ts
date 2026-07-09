@@ -5,6 +5,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { DatabaseService } from './database.service'
+import { ToolExecutor } from '../tool-registry'
 
 export const databaseToolDefinitions: Anthropic.Tool[] = [
   {
@@ -63,16 +64,14 @@ function validateSql(sql: string): string | null {
   return null
 }
 
-export const databaseToolExecutors: Record<
-  string,
-  (service: DatabaseService, input: Record<string, unknown>) => Promise<unknown>
-> = {
-  query_database: (service, input) => {
+export const databaseToolExecutors: Record<string, ToolExecutor<DatabaseService>> = {
+  query_database: (service, input, userId) => {
     const sql = (input.sql as string).trim()
     const error = validateSql(sql)
     if (error) return Promise.resolve({ error })
-    return service.queryDatabase(sql)
+    return service.queryDatabase(sql, userId)
   },
-  list_database_tables: (service) => service.listDatabaseTables(),
-  describe_database_table: (service, input) => service.describeDatabaseTable(input.table_name as string),
+  list_database_tables: (service, _input, userId) => service.listDatabaseTables(userId),
+  describe_database_table: (service, input, userId) =>
+    service.describeDatabaseTable(input.table_name as string, userId),
 }

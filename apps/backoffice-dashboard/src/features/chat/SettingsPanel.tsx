@@ -27,9 +27,10 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({ open, onClose }) => {
       setLoading(true)
       getSettings()
         .then((s) => {
-          setDaytonaApiKey(s.daytonaApiKey || '')
-          setGithubRepoUrl(s.githubRepoUrl || '')
-          setGithubPat(s.githubPat || '')
+          const sandbox = s.datasourceOverrides.sandbox
+          setDaytonaApiKey(sandbox?.daytonaApiKey || '')
+          setGithubRepoUrl(sandbox?.githubRepoUrl || '')
+          setGithubPat(sandbox?.githubPat || '')
         })
         .finally(() => setLoading(false))
     }
@@ -39,10 +40,12 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({ open, onClose }) => {
     setSaving(true)
     setStatus('idle')
     try {
-      const payload: Record<string, string> = { githubRepoUrl }
-      if (daytonaApiKey && daytonaApiKey !== '********') payload.daytonaApiKey = daytonaApiKey
-      if (githubPat && githubPat !== '********') payload.githubPat = githubPat
-      await updateSettings(payload)
+      // The sandbox override replaces the stored one wholesale, so unchanged
+      // secrets are sent as their '********' redaction ("keep stored value").
+      const sandbox: Record<string, string> = { githubRepoUrl }
+      if (daytonaApiKey) sandbox.daytonaApiKey = daytonaApiKey
+      if (githubPat) sandbox.githubPat = githubPat
+      await updateSettings({ datasourceOverrides: { sandbox } })
       setStatus('success')
       setTimeout(() => setStatus('idle'), 2000)
     } catch {

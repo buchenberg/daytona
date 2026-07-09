@@ -11,8 +11,10 @@ import { ClickhouseService } from './clickhouse/clickhouse.service'
 import { OpensearchService } from './opensearch/opensearch.service'
 import { PosthogService } from './posthog/posthog.service'
 import { SandboxService } from './sandbox/sandbox.service'
+import { SettingsModule } from '../chat/settings.module'
 
 @Module({
+  imports: [SettingsModule],
   providers: [
     ToolRegistry,
     GrafanaService,

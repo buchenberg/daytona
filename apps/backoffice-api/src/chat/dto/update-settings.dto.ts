@@ -4,21 +4,19 @@
  */
 
 import { ApiPropertyOptional } from '@nestjs/swagger'
-import { IsOptional, IsString } from 'class-validator'
+import { IsOptional, ValidateNested } from 'class-validator'
+import { Type } from 'class-transformer'
+import { DatasourceOverridesDto } from './datasource-overrides.dto'
 
 export class UpdateSettingsDto {
-  @ApiPropertyOptional({ description: 'Daytona API key for sandbox tools' })
+  @ApiPropertyOptional({
+    type: DatasourceOverridesDto,
+    description:
+      'Per-user overrides and disables for Mali datasources (database, clickhouse, opensearch, grafana, posthog, sandbox). ' +
+      'Secret fields are encrypted at rest.',
+  })
   @IsOptional()
-  @IsString()
-  daytonaApiKey?: string
-
-  @ApiPropertyOptional({ description: 'GitHub repository URL for automated PRs' })
-  @IsOptional()
-  @IsString()
-  githubRepoUrl?: string
-
-  @ApiPropertyOptional({ description: 'GitHub Personal Access Token' })
-  @IsOptional()
-  @IsString()
-  githubPat?: string
+  @ValidateNested()
+  @Type(() => DatasourceOverridesDto)
+  datasourceOverrides?: DatasourceOverridesDto
 }

@@ -3,64 +3,75 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Injectable, Logger } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
+import { Injectable, OnModuleDestroy } from '@nestjs/common'
 import axios, { AxiosInstance } from 'axios'
+import { SettingsService, EffectivePosthogConfig } from '../../chat/settings.service'
+import { DatasourceDisabledError } from '../datasource-disabled.error'
+import { hashConfig } from '../datasource-hash'
+import { PoolRegistry } from '../pool-registry'
+
+interface Pool {
+  client: AxiosInstance | null
+  projectId: string | null
+  disabled: boolean
+  lastUsedAt: number
+}
 
 @Injectable()
-export class PosthogService {
-  private readonly logger = new Logger(PosthogService.name)
-  private readonly client: AxiosInstance | null
-  private readonly projectId: string | null
+export class PosthogService implements OnModuleDestroy {
+  private readonly pools = new PoolRegistry<Pool>()
 
-  constructor(private readonly configService: ConfigService) {
-    const host = this.configService.get<string>('mali.posthog.host')
-    const apiKey = this.configService.get<string>('mali.posthog.apiKey')
-    const projectId = this.configService.get<string>('mali.posthog.projectId')
+  constructor(private readonly settings: SettingsService) {}
 
-    if (host && apiKey && projectId) {
-      this.projectId = projectId
-      this.client = axios.create({
-        baseURL: host.replace(/\/+$/, ''),
-        timeout: 120_000,
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-      })
-      this.logger.log('PostHog client initialized')
-    } else {
-      this.projectId = null
-      this.client = null
-      this.logger.warn('PostHog client not configured (missing host, apiKey, or projectId)')
+  async onModuleDestroy() {
+    await this.pools.shutdown()
+  }
+
+  async isEnabledFor(userId: string): Promise<boolean> {
+    const cfg = await this.settings.getEffectivePosthogConfig(userId)
+    return !cfg.disabled && !!cfg.host && !!cfg.apiKey && !!cfg.projectId
+  }
+
+  private async getContext(userId: string): Promise<{ client: AxiosInstance; projectId: string }> {
+    const cfg = await this.settings.getEffectivePosthogConfig(userId)
+    const pool = await this.pools.getOrBuild(hashConfig(cfg), () => this.build(cfg))
+    if (pool.disabled || !pool.client || !pool.projectId) {
+      throw new DatasourceDisabledError('posthog', userId)
     }
+    return { client: pool.client, projectId: pool.projectId }
   }
 
-  isConfigured(): boolean {
-    return this.client !== null
-  }
-
-  private getClient(): AxiosInstance {
-    if (!this.client) {
-      throw new Error('PostHog is not configured')
+  private build(cfg: EffectivePosthogConfig): Pool {
+    if (cfg.disabled || !cfg.host || !cfg.apiKey || !cfg.projectId) {
+      return { client: null, projectId: null, disabled: true, lastUsedAt: Date.now() }
     }
-    return this.client
+    const client = axios.create({
+      baseURL: cfg.host.replace(/\/+$/, ''),
+      timeout: 120_000,
+      headers: {
+        Authorization: `Bearer ${cfg.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    })
+    return { client, projectId: cfg.projectId, disabled: false, lastUsedAt: Date.now() }
   }
 
-  async queryPosthog(query: string): Promise<unknown> {
-    const resp = await this.getClient().post(`/api/projects/${this.projectId}/query/`, {
+  async queryPosthog(query: string, userId: string): Promise<unknown> {
+    const { client, projectId } = await this.getContext(userId)
+    const resp = await client.post(`/api/projects/${projectId}/query/`, {
       query: { kind: 'HogQLQuery', query },
     })
     return this.formatResults(resp.data)
   }
 
-  async listPosthogEvents(): Promise<unknown> {
+  async listPosthogEvents(userId: string): Promise<unknown> {
+    const { client, projectId } = await this.getContext(userId)
     const results: Array<Record<string, unknown>> = []
-    let url: string | null = `/api/projects/${this.projectId}/event_definitions/`
+    let url: string | null = `/api/projects/${projectId}/event_definitions/`
     let params: Record<string, unknown> | undefined = { limit: 100, ordering: '-query_usage_30_day' }
 
     while (url && results.length < 500) {
-      const resp = await this.getClient().get(url, { params })
+      const resp = await client.get(url, { params })
       const data = resp.data as Record<string, unknown>
       const items = (data.results as Array<Record<string, unknown>>) || []
       for (const item of items) {
@@ -78,9 +89,10 @@ export class PosthogService {
     return results
   }
 
-  async listPosthogProperties(eventName?: string): Promise<unknown> {
+  async listPosthogProperties(eventName: string | undefined, userId: string): Promise<unknown> {
+    const { client, projectId } = await this.getContext(userId)
     const results: Array<Record<string, unknown>> = []
-    let url: string | null = `/api/projects/${this.projectId}/property_definitions/`
+    let url: string | null = `/api/projects/${projectId}/property_definitions/`
     let params: Record<string, unknown> | undefined = { limit: 100 }
 
     if (eventName) {
@@ -89,7 +101,7 @@ export class PosthogService {
     }
 
     while (url && results.length < 500) {
-      const resp = await this.getClient().get(url, { params })
+      const resp = await client.get(url, { params })
       const data = resp.data as Record<string, unknown>
       const items = (data.results as Array<Record<string, unknown>>) || []
       for (const item of items) {
