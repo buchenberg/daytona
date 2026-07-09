@@ -77,7 +77,7 @@ updates:
 
   # npm: scope to production manifests only.
   # NOTE: This config controls Dependabot PR creation, NOT GitHub Advisory
-  # Database alert recurrence. Alerts in guides/ and runtime-tests/ paths
+  # Database alert recurrence. Alerts in runtime-tests/ paths
   # are dismissed in GitHub directly, with the rationale recorded on each
   # dismissal in the Dependabot alerts UI.
   - package-ecosystem: npm
