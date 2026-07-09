@@ -8,6 +8,8 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 import { Sandbox } from '@api/sandbox/entities/sandbox.entity'
 import { SandboxLastActivity } from '@api/sandbox/entities/sandbox-last-activity.entity'
 import { Runner } from '@api/sandbox/entities/runner.entity'
+import { SandboxSecret } from '@api/sandbox/entities/sandbox-secret.entity'
+import { Secret } from '@api/secret/entities/secret.entity'
 import {
   SandboxesController,
   SandboxesBulkController,
@@ -26,7 +28,11 @@ import { SettingsModule } from '../chat/settings.module'
 import { OpensearchService } from '../tools/opensearch/opensearch.service'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Sandbox, SandboxLastActivity, Runner]), AuthModule, SettingsModule],
+  imports: [
+    TypeOrmModule.forFeature([Sandbox, SandboxLastActivity, Runner, SandboxSecret, Secret]),
+    AuthModule,
+    SettingsModule,
+  ],
   controllers: [SandboxesController, SandboxesBulkController, SandboxesSearchController, SandboxSyncStatusController],
   providers: [
     SandboxesService,

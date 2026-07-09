@@ -8,6 +8,7 @@ import { Type } from 'class-transformer'
 import { IsOptional, IsString, IsArray, IsEnum, IsBoolean, ValidateNested } from 'class-validator'
 import { PaginationDto, SortDto, RangeDto } from '../../common/dto'
 import { SnapshotState } from '@api/sandbox/enums/snapshot-state.enum'
+import { SandboxClass } from '@api/sandbox/enums/sandbox-class.enum'
 
 export class SnapshotFiltersDto {
   @ApiPropertyOptional({ description: 'Filter by organization ID' })
@@ -24,6 +25,11 @@ export class SnapshotFiltersDto {
   @IsOptional()
   @IsEnum(SnapshotState, { each: true })
   state?: SnapshotState[]
+
+  @ApiPropertyOptional({ description: 'Filter by sandbox class', enum: SandboxClass, isArray: true })
+  @IsOptional()
+  @IsEnum(SandboxClass, { each: true })
+  sandboxClass?: SandboxClass[]
 
   @ApiPropertyOptional({ description: 'Filter by general snapshots' })
   @IsOptional()

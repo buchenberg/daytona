@@ -98,7 +98,7 @@ export class RunnersSearchService {
     }
 
     if (filters.region) {
-      queryBuilder.andWhere('runner.region = :region', { region: filters.region })
+      queryBuilder.andWhere('runner.region ILIKE :region', { region: `%${filters.region}%` })
     }
 
     if (filters.state && filters.state.length > 0) {

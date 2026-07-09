@@ -31,6 +31,10 @@ export interface SnapshotFiltersDto {
      */
     'state'?: Array<SnapshotFiltersDtoStateEnum>;
     /**
+     * Filter by sandbox class
+     */
+    'sandboxClass'?: Array<SnapshotFiltersDtoSandboxClassEnum>;
+    /**
      * Filter by general snapshots
      */
     'general'?: boolean;
@@ -76,5 +80,13 @@ export const SnapshotFiltersDtoStateEnum = {
 } as const;
 
 export type SnapshotFiltersDtoStateEnum = typeof SnapshotFiltersDtoStateEnum[keyof typeof SnapshotFiltersDtoStateEnum];
+export const SnapshotFiltersDtoSandboxClassEnum = {
+    LINUX_VM: 'linux-vm',
+    CONTAINER: 'container',
+    ANDROID: 'android',
+    WINDOWS: 'windows',
+} as const;
+
+export type SnapshotFiltersDtoSandboxClassEnum = typeof SnapshotFiltersDtoSandboxClassEnum[keyof typeof SnapshotFiltersDtoSandboxClassEnum];
 
 

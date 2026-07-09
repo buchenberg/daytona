@@ -8,6 +8,7 @@ import { Type } from 'class-transformer'
 import { IsOptional, IsString, IsArray, IsEnum, IsBoolean, ValidateNested } from 'class-validator'
 import { PaginationDto, SortDto, RangeDto } from '../../common/dto'
 import { SandboxState } from '@api/sandbox/enums/sandbox-state.enum'
+import { SandboxClass } from '@api/sandbox/enums/sandbox-class.enum'
 
 export class SandboxFiltersDto {
   @ApiPropertyOptional({ description: 'Filter by specific sandbox IDs', type: [String] })
@@ -26,10 +27,15 @@ export class SandboxFiltersDto {
   @IsString()
   search?: string
 
-  @ApiPropertyOptional({ description: 'Filter by region' })
+  @ApiPropertyOptional({ description: 'Filter by region (partial match)' })
   @IsOptional()
   @IsString()
   region?: string
+
+  @ApiPropertyOptional({ description: 'Filter by sandbox class', enum: SandboxClass, isArray: true })
+  @IsOptional()
+  @IsEnum(SandboxClass, { each: true })
+  sandboxClass?: SandboxClass[]
 
   @ApiPropertyOptional({ description: 'Filter by snapshot name (exact match)' })
   @IsOptional()

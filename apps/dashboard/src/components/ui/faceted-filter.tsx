@@ -99,7 +99,7 @@ export type FacetedFilterValue = {
   value: string
 }
 
-const defaultOperators = [{ label: 'is', value: 'is' }] satisfies readonly FacetedFilterOperator[]
+const defaultOperators: readonly FacetedFilterOperator[] = [{ label: 'is', value: 'is' }]
 
 type FacetedFilterContextValue = {
   open: boolean

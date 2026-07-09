@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Expose } from 'class-transformer'
 import { Snapshot } from '@api/sandbox/entities/snapshot.entity'
 import { SnapshotState } from '@api/sandbox/enums/snapshot-state.enum'
+import { SandboxClass } from '@api/sandbox/enums/sandbox-class.enum'
 import { PaginationResponseDto } from '../../common/dto/pagination.dto'
 
 export class SnapshotResponseDto implements Partial<Snapshot> {
@@ -11,6 +12,7 @@ export class SnapshotResponseDto implements Partial<Snapshot> {
   @Expose() @ApiProperty() organizationId: string
   @Expose() @ApiProperty() imageName: string
   @Expose() @ApiProperty({ enum: SnapshotState }) state: SnapshotState
+  @Expose() @ApiProperty({ enum: SandboxClass }) sandboxClass: SandboxClass
   @Expose() @ApiProperty() general: boolean
   @Expose() @ApiProperty() hideFromUsers: boolean
   @Expose() @ApiPropertyOptional() size?: number

@@ -10,6 +10,8 @@ import { Input } from '@dashboard/ui/input'
 import { DataTable, Column } from '@backoffice/components/DataTable'
 import { TruncatedText } from '@backoffice/components/TruncatedText'
 import { useHasPermission } from '../../providers/ApiProvider'
+import { getGpuTypeLabel } from '@dashboard/lib/gpu-types'
+import { GpuType } from '@daytona/api-client'
 import { Runner, RunnerState } from '../../types'
 import dayjs from 'dayjs'
 import { cn } from '@backoffice/lib/utils'
@@ -152,22 +154,30 @@ export const TableView = ({
     {
       key: 'resources',
       title: 'Resources',
-      width: '190px',
-      render: (runner) => (
-        <div className="flex items-center gap-2 w-full truncate">
-          <div className="whitespace-nowrap">
-            {runner.cpu} <span className="text-muted-foreground">vCPU</span>
+      width: '280px',
+      render: (runner) => {
+        const gpuTypeLabel = getGpuTypeLabel(runner.gpuType as GpuType | null | undefined)
+        return (
+          <div className="flex items-center gap-2 w-full truncate">
+            <div className="whitespace-nowrap">
+              {runner.cpu} <span className="text-muted-foreground">vCPU</span>
+            </div>
+            <div className="w-[1px] h-6 bg-muted-foreground/20 rounded-full inline-block"></div>
+            <div className="whitespace-nowrap">
+              {runner.memoryGiB} <span className="text-muted-foreground">GiB</span>
+            </div>
+            <div className="w-[1px] h-6 bg-muted-foreground/20 rounded-full inline-block"></div>
+            <div className="whitespace-nowrap">
+              {runner.diskGiB} <span className="text-muted-foreground">GiB</span>
+            </div>
+            <div className="w-[1px] h-6 bg-muted-foreground/20 rounded-full inline-block"></div>
+            <div className="whitespace-nowrap">
+              {runner.gpu ?? 0}{' '}
+              <span className="text-muted-foreground">GPU{gpuTypeLabel ? ` · ${gpuTypeLabel}` : ''}</span>
+            </div>
           </div>
-          <div className="w-[1px] h-6 bg-muted-foreground/20 rounded-full inline-block"></div>
-          <div className="whitespace-nowrap">
-            {runner.memoryGiB} <span className="text-muted-foreground">GiB</span>
-          </div>
-          <div className="w-[1px] h-6 bg-muted-foreground/20 rounded-full inline-block"></div>
-          <div className="whitespace-nowrap">
-            {runner.diskGiB} <span className="text-muted-foreground">GiB</span>
-          </div>
-        </div>
-      ),
+        )
+      },
     },
     {
       key: 'lastChecked',

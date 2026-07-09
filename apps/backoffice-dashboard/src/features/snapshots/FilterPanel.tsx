@@ -8,6 +8,7 @@ import { FilterDrawer } from '@backoffice/components/FilterDrawer'
 import { Input } from '@dashboard/ui/input'
 import { Label } from '@dashboard/ui/label'
 import { Checkbox } from '@dashboard/ui/checkbox'
+import { SandboxClassFilter } from '@backoffice/components/SandboxClassFilter'
 import { SnapshotFiltersDto } from '../../types'
 
 interface FilterPanelProps {
@@ -66,6 +67,13 @@ export const FilterPanel = ({ open, onClose, filters, onApply, onReset }: Filter
             onChange={(e) => setLocalFilters((prev) => ({ ...prev, organizationId: e.target.value || undefined }))}
           />
         </div>
+
+        <SandboxClassFilter
+          value={localFilters.sandboxClass}
+          onChange={(value) =>
+            setLocalFilters((prev) => ({ ...prev, sandboxClass: value as SnapshotFiltersDto['sandboxClass'] }))
+          }
+        />
 
         <div className="flex items-center space-x-2">
           <Checkbox

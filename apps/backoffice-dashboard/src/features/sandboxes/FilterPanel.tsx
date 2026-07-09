@@ -7,11 +7,11 @@ import { useState, useEffect } from 'react'
 import { FilterDrawer } from '@backoffice/components/FilterDrawer'
 import { Input } from '@dashboard/ui/input'
 import { Label } from '@dashboard/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@dashboard/ui/select'
 import { Switch } from '@dashboard/ui/switch'
 import { Checkbox } from '@dashboard/ui/checkbox'
 import { Textarea } from '@dashboard/ui/textarea'
 import { Separator } from '@dashboard/ui/separator'
+import { SandboxClassFilter } from '@backoffice/components/SandboxClassFilter'
 import { SandboxFiltersDto, SandboxState } from '../../types'
 
 interface FilterPanelProps {
@@ -130,20 +130,20 @@ export const FilterPanel = ({ open, onClose, filters, onApply, onReset }: Filter
 
         <div className="space-y-2">
           <Label htmlFor="region">Region</Label>
-          <Select
+          <Input
+            id="region"
+            placeholder="Filter by region"
             value={localFilters.region || ''}
-            onValueChange={(value) => setLocalFilters((prev) => ({ ...prev, region: value || undefined }))}
-          >
-            <SelectTrigger id="region">
-              <SelectValue placeholder="Select region" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="us">US</SelectItem>
-              <SelectItem value="eu">EU</SelectItem>
-              <SelectItem value="asia">Asia</SelectItem>
-            </SelectContent>
-          </Select>
+            onChange={(e) => setLocalFilters((prev) => ({ ...prev, region: e.target.value || undefined }))}
+          />
         </div>
+
+        <SandboxClassFilter
+          value={localFilters.sandboxClass}
+          onChange={(value) =>
+            setLocalFilters((prev) => ({ ...prev, sandboxClass: value as SandboxFiltersDto['sandboxClass'] }))
+          }
+        />
 
         <div className="space-y-2">
           <Label htmlFor="runnerId">Runner ID</Label>

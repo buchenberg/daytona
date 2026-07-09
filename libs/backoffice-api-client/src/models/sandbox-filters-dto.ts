@@ -31,9 +31,13 @@ export interface SandboxFiltersDto {
      */
     'search'?: string;
     /**
-     * Filter by region
+     * Filter by region (partial match)
      */
     'region'?: string;
+    /**
+     * Filter by sandbox class
+     */
+    'sandboxClass'?: Array<SandboxFiltersDtoSandboxClassEnum>;
     /**
      * Filter by snapshot name (exact match)
      */
@@ -84,6 +88,14 @@ export interface SandboxFiltersDto {
     'createdBefore'?: Date;
 }
 
+export const SandboxFiltersDtoSandboxClassEnum = {
+    LINUX_VM: 'linux-vm',
+    CONTAINER: 'container',
+    ANDROID: 'android',
+    WINDOWS: 'windows',
+} as const;
+
+export type SandboxFiltersDtoSandboxClassEnum = typeof SandboxFiltersDtoSandboxClassEnum[keyof typeof SandboxFiltersDtoSandboxClassEnum];
 export const SandboxFiltersDtoStateEnum = {
     CREATING: 'creating',
     RESTORING: 'restoring',

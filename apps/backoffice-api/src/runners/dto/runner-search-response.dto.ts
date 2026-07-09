@@ -3,6 +3,7 @@ import { Expose } from 'class-transformer'
 import { Runner } from '@api/sandbox/entities/runner.entity'
 import { RunnerState } from '@api/sandbox/enums/runner-state.enum'
 import { SandboxClass } from '@api/sandbox/enums/sandbox-class.enum'
+import { GpuType } from '@api/sandbox/enums/gpu-type.enum'
 import { PaginationResponseDto } from '../../common/dto/pagination.dto'
 
 export class RunnerResponseDto implements Partial<Runner> {
@@ -18,6 +19,8 @@ export class RunnerResponseDto implements Partial<Runner> {
   @Expose() @ApiProperty() cpu: number
   @Expose() @ApiProperty() memoryGiB: number
   @Expose() @ApiProperty() diskGiB: number
+  @Expose() @ApiPropertyOptional({ nullable: true, type: Number }) gpu?: number | null
+  @Expose() @ApiPropertyOptional({ nullable: true, enum: GpuType }) gpuType?: GpuType | null
   @Expose() @ApiPropertyOptional() lastChecked?: Date
   @Expose() @ApiProperty() unschedulable: boolean
   @Expose() @ApiProperty() draining: boolean

@@ -11,6 +11,8 @@ import { DataTable, Column } from '@backoffice/components/DataTable'
 import { TruncatedText } from '@backoffice/components/TruncatedText'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@dashboard/ui/tooltip'
 import { useHasPermission } from '../../providers/ApiProvider'
+import { getSandboxClassIcon, getSandboxClassLabel } from '@dashboard/components/SandboxTable/constants'
+import { SandboxClass } from '@daytona/api-client'
 import { Snapshot, SnapshotState } from '../../types'
 import dayjs from 'dayjs'
 import { cn } from '@backoffice/lib/utils'
@@ -113,6 +115,28 @@ export const TableView = ({
       render: (snapshot) => (
         <Badge className={cn('font-normal', getStateColor(snapshot.state))}>{snapshot.state.toUpperCase()}</Badge>
       ),
+    },
+    {
+      key: 'sandboxClass',
+      title: 'Class',
+      width: '80px',
+      render: (snapshot) => {
+        const sandboxClass = snapshot.sandboxClass as unknown as SandboxClass
+        const Icon = getSandboxClassIcon(sandboxClass)
+        const label = getSandboxClassLabel(sandboxClass)
+        return (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span className="inline-flex items-center" aria-label={label}>
+                  <Icon className="size-4 text-muted-foreground shrink-0" />
+                </span>
+              }
+            />
+            <TooltipContent>{label}</TooltipContent>
+          </Tooltip>
+        )
+      },
     },
     {
       key: 'type',

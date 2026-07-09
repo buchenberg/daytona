@@ -27,6 +27,8 @@ export interface RunnerResponseDto {
     'cpu': number;
     'memoryGiB': number;
     'diskGiB': number;
+    'gpu'?: number | null;
+    'gpuType'?: RunnerResponseDtoGpuTypeEnum | null;
     'lastChecked'?: Date;
     'unschedulable': boolean;
     'draining': boolean;
@@ -51,5 +53,14 @@ export const RunnerResponseDtoSandboxClassEnum = {
 } as const;
 
 export type RunnerResponseDtoSandboxClassEnum = typeof RunnerResponseDtoSandboxClassEnum[keyof typeof RunnerResponseDtoSandboxClassEnum];
+export const RunnerResponseDtoGpuTypeEnum = {
+    H100: 'H100',
+    H200: 'H200',
+    RTX_PRO_6000: 'RTX-PRO-6000',
+    RTX_4090: 'RTX-4090',
+    RTX_5090: 'RTX-5090',
+} as const;
+
+export type RunnerResponseDtoGpuTypeEnum = typeof RunnerResponseDtoGpuTypeEnum[keyof typeof RunnerResponseDtoGpuTypeEnum];
 
 

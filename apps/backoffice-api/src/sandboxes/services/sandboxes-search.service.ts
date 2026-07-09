@@ -106,11 +106,15 @@ export class SandboxesSearchService {
     }
 
     if (filters.region) {
-      queryBuilder.andWhere('sandbox.region = :region', { region: filters.region })
+      queryBuilder.andWhere('sandbox.region ILIKE :region', { region: `%${filters.region}%` })
     }
 
     if (filters.snapshot) {
       queryBuilder.andWhere('sandbox.snapshot = :snapshot', { snapshot: filters.snapshot })
+    }
+
+    if (filters.sandboxClass && filters.sandboxClass.length > 0) {
+      queryBuilder.andWhere('sandbox.sandboxClass IN (:...sandboxClasses)', { sandboxClasses: filters.sandboxClass })
     }
 
     if (filters.state && filters.state.length > 0) {

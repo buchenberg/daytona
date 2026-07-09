@@ -106,6 +106,10 @@ export class SnapshotsSearchService {
       queryBuilder.andWhere('snapshot.state IN (:...states)', { states: filters.state })
     }
 
+    if (filters.sandboxClass && filters.sandboxClass.length > 0) {
+      queryBuilder.andWhere('snapshot.sandboxClass IN (:...sandboxClasses)', { sandboxClasses: filters.sandboxClass })
+    }
+
     if (filters.general !== undefined) {
       queryBuilder.andWhere('snapshot.general = :general', { general: filters.general })
     }

@@ -21,6 +21,7 @@ export interface SnapshotResponseDto {
     'organizationId': string;
     'imageName': string;
     'state': SnapshotResponseDtoStateEnum;
+    'sandboxClass': SnapshotResponseDtoSandboxClassEnum;
     'general': boolean;
     'hideFromUsers': boolean;
     'size'?: number;
@@ -44,5 +45,13 @@ export const SnapshotResponseDtoStateEnum = {
 } as const;
 
 export type SnapshotResponseDtoStateEnum = typeof SnapshotResponseDtoStateEnum[keyof typeof SnapshotResponseDtoStateEnum];
+export const SnapshotResponseDtoSandboxClassEnum = {
+    LINUX_VM: 'linux-vm',
+    CONTAINER: 'container',
+    ANDROID: 'android',
+    WINDOWS: 'windows',
+} as const;
+
+export type SnapshotResponseDtoSandboxClassEnum = typeof SnapshotResponseDtoSandboxClassEnum[keyof typeof SnapshotResponseDtoSandboxClassEnum];
 
 
