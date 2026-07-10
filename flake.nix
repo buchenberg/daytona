@@ -120,7 +120,7 @@
         # ──────────────────────────────────────────────
         # Node.js / TypeScript toolchain
         # Covers: apps/{api,dashboard,docs}
-        #         libs/{api-client,toolbox-api-client,analytics-api-client,runner-api-client,backoffice-api-client,billing-api-client,opencode-plugin,pi-extension}
+        #         libs/{api-client,toolbox-api-client,analytics-api-client,runner-api-client,backoffice-api-client,billing-api-client}
         # ──────────────────────────────────────────────
         nodePkgs = [
           pkgs.nodejs_22

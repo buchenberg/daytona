@@ -75,8 +75,6 @@ All Go modules are coordinated via `go.work` at the repo root.
 | `libs/runner-api-client` | Runner API client | `npx nx build runner-api-client` |
 | `libs/backoffice-api-client` | Backoffice API client | `npx nx build backoffice-api-client` |
 | `libs/billing-api-client` | Billing API client | `npx nx build billing-api-client` |
-| `libs/opencode-plugin` | OpenCode plugin | `npx nx build opencode-plugin` |
-| `libs/pi-extension` | PI extension | `npx nx build pi-extension` |
 
 All TS/Node projects are managed via **Nx** with **Yarn 4** workspaces.
 

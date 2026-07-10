@@ -105,7 +105,7 @@ Scan all first-party code, including everything under `libs/` EXCEPT the generat
   `libs/analytics-api-client`, `libs/backoffice-api-client`, `libs/billing-api-client`,
   `libs/toolbox-api-client*`, `libs/runner-proto/gen`.
 - DO scan the rest of `libs/`, especially `libs/common-go` (proxy/runner request-forwarding core),
-  `libs/computer-use`, the hand-written SDKs (`libs/sdk-*`), and `libs/opencode-plugin`. These are
+  `libs/computer-use`, and the hand-written SDKs (`libs/sdk-*`). These are
   first-party production code, not external dependencies.
 
 Down-rate findings in non-production paths: `docker/` compose (explicitly not for production),
