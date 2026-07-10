@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Spinner } from '@/components/ui/spinner'
-import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '@/constants/Pagination'
+import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '@/constants/TableDefaults'
 import { useActivateSnapshotMutation } from '@/hooks/mutations/useActivateSnapshotMutation'
 import { useDeactivateSnapshotMutation } from '@/hooks/mutations/useDeactivateSnapshotMutation'
 import { useDeleteSnapshotMutation } from '@/hooks/mutations/useDeleteSnapshotMutation'

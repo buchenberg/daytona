@@ -4,7 +4,7 @@
  */
 
 import { CREATE_API_KEY_PERMISSIONS_GROUPS } from '@/constants/CreateApiKeyPermissionsGroups'
-import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
+import { buildTableInitialState, DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
 import { cn, getRelativeTimeString } from '@/lib/utils'
 import { DEFAULT_TABLE_COLUMN, getColumnSizeStyles, getTableSizeStyles } from '@/lib/utils/table'
 import { ApiKeyList, ApiKeyListPermissionsEnum, CreateApiKeyPermissionsEnum } from '@daytona/api-client'
@@ -95,15 +95,12 @@ export function ApiKeyTable({ data, loading, isLoadingKey, onRevokeRequest }: Da
       globalFilter,
       sorting,
     },
-    initialState: {
+    initialState: buildTableInitialState({
       columnPinning: {
         left: ['name'],
         right: ['actions'],
       },
-      pagination: {
-        pageSize: DEFAULT_PAGE_SIZE,
-      },
-    },
+    }),
   })
 
   const isEmpty = !loading && table.getRowModel().rows.length === 0

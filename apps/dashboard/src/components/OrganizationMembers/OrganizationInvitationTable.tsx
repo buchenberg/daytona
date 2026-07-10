@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
+import { buildTableInitialState, DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
 import { cn, getRelativeTimeString } from '@/lib/utils'
 import { DEFAULT_TABLE_COLUMN, getColumnSizeStyles, getTableSizeStyles } from '@/lib/utils/table'
 import { OrganizationInvitation, UpdateOrganizationInvitationRoleEnum } from '@daytona/api-client'
@@ -159,14 +159,11 @@ export function OrganizationInvitationTable({
       globalFilter,
       sorting,
     },
-    initialState: {
-      pagination: {
-        pageSize: DEFAULT_PAGE_SIZE,
-      },
+    initialState: buildTableInitialState({
       columnPinning: {
         right: ['actions'],
       },
-    },
+    }),
   })
 
   const isEmpty = !loadingData && table.getRowModel().rows.length === 0

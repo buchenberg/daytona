@@ -5,7 +5,7 @@
 
 import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { PAGE_SIZE_OPTIONS } from '../constants/Pagination'
+import { PAGE_SIZE_OPTIONS } from '../constants/TableDefaults'
 import { Button } from './ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 

@@ -22,7 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
+import { buildTableInitialState, DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
 import { cn } from '@/lib/utils'
 import { DEFAULT_TABLE_COLUMN, getColumnSizeStyles, getTableSizeStyles } from '@/lib/utils/table'
 import { OrganizationRole, OrganizationRolePermissionsEnum } from '@daytona/api-client'
@@ -119,14 +119,11 @@ export function OrganizationRoleTable({
       globalFilter,
       sorting,
     },
-    initialState: {
-      pagination: {
-        pageSize: DEFAULT_PAGE_SIZE,
-      },
+    initialState: buildTableInitialState({
       columnPinning: {
         right: ['actions'],
       },
-    },
+    }),
   })
 
   const isEmpty = !loadingData && table.getRowModel().rows.length === 0

@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/dropdown-menu-panel'
 import { FacetedFilter, type FacetedFilterOption } from '@/components/ui/faceted-filter'
 import { Skeleton } from '@/components/ui/skeleton'
-import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
+import { DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
 import { SnapshotSorting } from '@/hooks/queries/useSnapshotsQuery'
 import { useCommandPaletteAnalytics } from '@/hooks/useCommandPaletteAnalytics'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'

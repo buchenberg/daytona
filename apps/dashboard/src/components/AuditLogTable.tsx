@@ -23,7 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
+import { DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
 import { cn, getMaskedTokenFromParts, getRelativeTimeString } from '@/lib/utils'
 import { DEFAULT_TABLE_COLUMN, getColumnSizeStyles, getTableSizeStyles } from '@/lib/utils/table'
 import { AuditLog } from '@daytona/api-client'

@@ -43,7 +43,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
+import { buildTableInitialState, DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import { cn, getRelativeTimeString } from '@/lib/utils'
 import {
@@ -202,15 +202,12 @@ export function VolumeTable({
     },
     enableRowSelection: deletePermitted,
     getRowId: (row) => row.id,
-    initialState: {
-      pagination: {
-        pageSize: DEFAULT_PAGE_SIZE,
-      },
+    initialState: buildTableInitialState({
       columnPinning: {
         left: ['select'],
         right: ['actions'],
       },
-    },
+    }),
   })
   const isEmpty = !loading && table.getRowModel().rows.length === 0
   const hasFilters = table.getState().columnFilters.length > 0

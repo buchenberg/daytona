@@ -9,7 +9,7 @@ import { type AuditFilterRule } from '@/components/audit-logs/auditLogFilterConf
 import { buildAuditLogFilterParams, parseAsAuditFilters } from '@/components/audit-logs/auditLogFilterParams'
 import { PageContent, PageFooter, PageHeader, PageIntro, PageLayout } from '@/components/PageLayout'
 import { RefreshSegmentedButton } from '@/components/RefreshSegmentedButton'
-import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
+import { DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
 import { useAuditLogsQuery, type AuditLogsQueryParams } from '@/hooks/queries/useAuditLogsQuery'
 import { handleApiError } from '@/lib/error-handling'
 import { AuditLog, PaginatedAuditLogs } from '@daytona/api-client'

@@ -28,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
+import { buildTableInitialState, DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
 import { RoutePath } from '@/enums/RoutePath'
 import { cn } from '@/lib/utils'
 import { DEFAULT_TABLE_COLUMN, getColumnSizeStyles, getTableSizeStyles } from '@/lib/utils/table'
@@ -105,14 +105,11 @@ export function WebhooksEndpointTable({
       sorting,
       globalFilter,
     },
-    initialState: {
-      pagination: {
-        pageSize: DEFAULT_PAGE_SIZE,
-      },
+    initialState: buildTableInitialState({
       columnPinning: {
         right: ['actions'],
       },
-    },
+    }),
     meta: {
       webhookEndpoints: {
         onDisable: setDisableEndpoint,

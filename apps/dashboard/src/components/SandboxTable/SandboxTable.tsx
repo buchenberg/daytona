@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
+import { DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
 import { RoutePath } from '@/enums/RoutePath'
 import { useCommandPaletteAnalytics } from '@/hooks/useCommandPaletteAnalytics'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'

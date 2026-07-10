@@ -9,7 +9,7 @@ import { DeleteSecretDialog } from '@/components/DeleteSecretDialog'
 import { PageContent, PageFooter, PageHeader, PageIntro, PageLayout } from '@/components/PageLayout'
 import { SecretTable } from '@/components/SecretTable'
 import { UpdateSecretDialog } from '@/components/UpdateSecretDialog'
-import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '@/constants/Pagination'
+import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '@/constants/TableDefaults'
 import {
   DEFAULT_SECRET_SORTING,
   SecretQueryParams,

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { DEFAULT_PAGE_SIZE } from '@/constants/Pagination'
+import { buildTableInitialState, DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import { cn } from '@/lib/utils'
 import { DEFAULT_TABLE_COLUMN, getColumnSizeStyles, getTableSizeStyles } from '@/lib/utils/table'
@@ -114,14 +114,11 @@ export function RegistryTable({ data, loading, onDelete, onEdit }: DataTableProp
       sorting,
       globalFilter,
     },
-    initialState: {
-      pagination: {
-        pageSize: DEFAULT_PAGE_SIZE,
-      },
+    initialState: buildTableInitialState({
       columnPinning: {
         right: ['actions'],
       },
-    },
+    }),
   })
 
   const isEmpty = !loading && table.getRowModel().rows.length === 0
