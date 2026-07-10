@@ -32,6 +32,7 @@ models/announcement.ts
 models/api-key-list.ts
 models/api-key-response.ts
 models/audit-log.ts
+models/available-sandbox-class.ts
 models/build-info.ts
 models/command.ts
 models/completion-context.ts

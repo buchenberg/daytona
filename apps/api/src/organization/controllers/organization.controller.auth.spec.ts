@@ -5,6 +5,7 @@
 
 import { OrganizationController } from './organization.controller'
 import { OrganizationMemberRole } from '../enums/organization-member-role.enum'
+import { OrganizationResourcePermission } from '../enums/organization-resource-permission.enum'
 import { OrganizationAuthContextGuard } from '../guards/organization-auth-context.guard'
 import { BillingAuthContextGuard } from '../guards/billing-auth-context.guard'
 import { OtelCollectorAuthContextGuard } from '../guards/otel-collector-auth-context.guard'
@@ -93,7 +94,24 @@ describe('[AUTH] OrganizationController', () => {
   it('getUsageOverview', () => {
     const methodName = trackMethod('getUsageOverview')
     expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
-    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [
+      AuthStrategyType.JWT,
+      AuthStrategyType.API_KEY,
+    ])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
+    expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBeUndefined()
+    expect(getRequiredOrganizationResourcePermissions(OrganizationController, methodName)).toEqual([
+      OrganizationResourcePermission.READ_LIMITS,
+    ])
+  })
+
+  it('listAvailableSandboxClasses', () => {
+    const methodName = trackMethod('listAvailableSandboxClasses')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [
+      AuthStrategyType.JWT,
+      AuthStrategyType.API_KEY,
+    ])
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
     expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBeUndefined()
     expect(getRequiredOrganizationResourcePermissions(OrganizationController, methodName)).toBeUndefined()

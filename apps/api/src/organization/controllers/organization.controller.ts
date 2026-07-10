@@ -21,12 +21,15 @@ import { ApiOAuth2, ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBe
 import { AuthStrategy } from '../../auth/decorators/auth-strategy.decorator'
 import { AuthStrategyType } from '../../auth/enums/auth-strategy-type.enum'
 import { RequiredOrganizationMemberRole } from '../decorators/required-organization-member-role.decorator'
+import { RequiredOrganizationResourcePermissions } from '../decorators/required-organization-resource-permissions.decorator'
 import { CreateOrganizationDto } from '../dto/create-organization.dto'
 import { OrganizationDto } from '../dto/organization.dto'
 import { OrganizationInvitationDto } from '../dto/organization-invitation.dto'
 import { OrganizationUsageOverviewDto } from '../dto/organization-usage-overview.dto'
+import { AvailableSandboxClassDto } from '../dto/available-sandbox-class.dto'
 import { UpdateOrganizationQuotaDto } from '../dto/update-organization-quota.dto'
 import { OrganizationMemberRole } from '../enums/organization-member-role.enum'
+import { OrganizationResourcePermission } from '../enums/organization-resource-permission.enum'
 import { OrganizationAuthContextGuard } from '../guards/organization-auth-context.guard'
 import { OrganizationService } from '../services/organization.service'
 import { OrganizationUserService } from '../services/organization-user.service'
@@ -338,9 +341,34 @@ export class OrganizationController {
     description: 'Current usage overview',
     type: OrganizationUsageOverviewDto,
   })
+  @AuthStrategy([AuthStrategyType.JWT, AuthStrategyType.API_KEY])
   @UseGuards(OrganizationAuthContextGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.READ_LIMITS])
   async getUsageOverview(@Param('organizationId') organizationId: string): Promise<OrganizationUsageOverviewDto> {
     return this.organizationUsageService.getUsageOverview(organizationId)
+  }
+
+  @Get('/:organizationId/available-sandbox-classes')
+  @ApiOperation({
+    summary: 'List available sandbox classes for organization',
+    operationId: 'listAvailableSandboxClasses',
+  })
+  @ApiParam({
+    name: 'organizationId',
+    description: 'Organization ID',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Available sandbox classes',
+    type: [AvailableSandboxClassDto],
+  })
+  @AuthStrategy([AuthStrategyType.JWT, AuthStrategyType.API_KEY])
+  @UseGuards(OrganizationAuthContextGuard)
+  async listAvailableSandboxClasses(
+    @Param('organizationId') organizationId: string,
+  ): Promise<AvailableSandboxClassDto[]> {
+    return this.organizationService.getAvailableSandboxClasses(organizationId)
   }
 
   @Patch('/:organizationId/quota')

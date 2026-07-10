@@ -24,7 +24,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useCreateSandboxMutation } from '@/hooks/mutations/useCreateSandboxMutation'
 import { useSetOrganizationDefaultRegionMutation } from '@/hooks/mutations/useSetOrganizationDefaultRegionMutation'
-import { useOrganizationUsageOverviewQuery } from '@/hooks/queries/useOrganizationUsageOverviewQuery'
+import { useAvailableSandboxClassesQuery } from '@/hooks/queries/useAvailableSandboxClassesQuery'
 import { useAvailableRegionsQuery } from '@/hooks/queries/useRegionsQuery'
 import { useConfig } from '@/hooks/useConfig'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
@@ -212,7 +212,7 @@ export const CreateSandboxSheet = ({
     !selectedOrganization?.defaultRegionId &&
     authenticatedUserOrganizationMember?.role === OrganizationUserRoleEnum.OWNER
 
-  const { data: usageOverview } = useOrganizationUsageOverviewQuery({
+  const { data: availableSandboxClasses } = useAvailableSandboxClassesQuery({
     organizationId: selectedOrganization?.id || '',
   })
 
@@ -714,9 +714,11 @@ export const CreateSandboxSheet = ({
                         </form.Field>
                         <form.Subscribe selector={(state) => state.values.regionId}>
                           {(regionId) => {
-                            const region = usageOverview?.regionUsage.find((r) => r.regionId === regionId)
-                            if ((region?.totalGpuQuota ?? 0) <= 0) return null
-                            const allowedGpuTypes = resolveAllowedGpuTypes(region?.allowedGpuTypes)
+                            const sandboxClassWithGpuAvailable = availableSandboxClasses?.find(
+                              (rq) => rq.regionId === regionId && rq.gpuAvailable,
+                            )
+                            if (!sandboxClassWithGpuAvailable) return null
+                            const allowedGpuTypes = resolveAllowedGpuTypes(sandboxClassWithGpuAvailable.allowedGpuTypes)
                             return (
                               <div className="flex flex-col gap-3">
                                 <form.Field name="gpu">

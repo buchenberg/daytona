@@ -5,36 +5,35 @@
 
 import { useMemo } from 'react'
 import { SandboxClass } from '@daytona/api-client'
-import { useOrganizationUsageOverviewQuery } from '@/hooks/queries/useOrganizationUsageOverviewQuery'
+import { useAvailableSandboxClassesQuery } from '@/hooks/queries/useAvailableSandboxClassesQuery'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 
 export function useAvailableSandboxClasses(regionId: string | undefined): SandboxClass[] {
   const { selectedOrganization } = useSelectedOrganization()
-  const { data: usageOverview, isPending } = useOrganizationUsageOverviewQuery({
+  const { data: availableClasses, isPending } = useAvailableSandboxClassesQuery({
     organizationId: selectedOrganization?.id ?? '',
   })
 
   return useMemo<SandboxClass[]>(() => {
     if (!regionId) return []
-    if (isPending || !usageOverview) return []
-    const quotasForRegion = usageOverview.regionUsage?.filter((r) => r.regionId === regionId) ?? []
-    if (quotasForRegion.length > 0) {
-      return [...new Set(quotasForRegion.map((q) => q.sandboxClass))]
+    if (isPending || !availableClasses) return []
+    const classesForRegion = availableClasses.filter((c) => c.regionId === regionId)
+    if (classesForRegion.length > 0) {
+      return [...new Set(classesForRegion.map((c) => c.sandboxClass))]
     }
     return Object.values(SandboxClass)
-  }, [usageOverview, isPending, regionId])
+  }, [availableClasses, isPending, regionId])
 }
 
 export function useAvailableSandboxClassesForOrganization(): SandboxClass[] {
   const { selectedOrganization } = useSelectedOrganization()
-  const { data: usageOverview, isPending } = useOrganizationUsageOverviewQuery({
+  const { data: availableClasses, isPending } = useAvailableSandboxClassesQuery({
     organizationId: selectedOrganization?.id ?? '',
   })
 
   return useMemo<SandboxClass[]>(() => {
-    if (isPending || !usageOverview) return []
-    const regionUsage = usageOverview.regionUsage ?? []
-    if (regionUsage.length === 0) return Object.values(SandboxClass)
-    return [...new Set(regionUsage.map((q) => q.sandboxClass))]
-  }, [usageOverview, isPending])
+    if (isPending || !availableClasses) return []
+    if (availableClasses.length === 0) return Object.values(SandboxClass)
+    return [...new Set(availableClasses.map((c) => c.sandboxClass))]
+  }, [availableClasses, isPending])
 }

@@ -49,6 +49,7 @@ import { SandboxClass } from '../../sandbox/enums/sandbox-class.enum'
 import { RegionService } from '../../region/services/region.service'
 import { Region } from '../../region/entities/region.entity'
 import { RegionQuotaDto } from '../dto/region-quota.dto'
+import { AvailableSandboxClassDto } from '../dto/available-sandbox-class.dto'
 import { RegionType } from '../../region/enums/region-type.enum'
 import { RegionDto } from '../../region/dto/region.dto'
 import { EncryptionService } from '../../encryption/encryption.service'
@@ -347,6 +348,11 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
   async getRegionQuotas(organizationId: string): Promise<RegionQuotaDto[]> {
     const regionQuotas = await this.regionQuotaRepository.find({ where: { organizationId } })
     return regionQuotas.map((regionQuota) => new RegionQuotaDto(regionQuota))
+  }
+
+  async getAvailableSandboxClasses(organizationId: string): Promise<AvailableSandboxClassDto[]> {
+    const regionQuotas = await this.regionQuotaRepository.find({ where: { organizationId } })
+    return regionQuotas.map((regionQuota) => new AvailableSandboxClassDto(regionQuota))
   }
 
   async getRegionQuota(

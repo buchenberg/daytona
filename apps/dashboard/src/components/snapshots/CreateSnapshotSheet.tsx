@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { useCreateSnapshotMutation } from '@/hooks/mutations/useCreateSnapshotMutation'
-import { useOrganizationUsageOverviewQuery } from '@/hooks/queries/useOrganizationUsageOverviewQuery'
+import { useAvailableSandboxClassesQuery } from '@/hooks/queries/useAvailableSandboxClassesQuery'
 import { useAvailableRegionsQuery } from '@/hooks/queries/useRegionsQuery'
 import { useAvailableSandboxClasses } from '@/hooks/useAvailableSandboxClasses'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
@@ -105,7 +105,7 @@ export const CreateSnapshotSheet = ({
   )
   const { reset: resetCreateSnapshotMutation, ...createSnapshotMutation } = useCreateSnapshotMutation()
   const formRef = useRef<HTMLFormElement>(null)
-  const { data: usageOverview } = useOrganizationUsageOverviewQuery({
+  const { data: availableClassEntries } = useAvailableSandboxClassesQuery({
     organizationId: selectedOrganization?.id || '',
   })
   const formDefaultValues = useMemo<FormValues>(
@@ -181,6 +181,7 @@ export const CreateSnapshotSheet = ({
   }, [open, resetState])
 
   const selectedRegionId = useStore(form.store, (state) => state.values.regionId)
+  const selectedSandboxClass = useStore(form.store, (state) => state.values.sandboxClass)
   const availableSandboxClasses = useAvailableSandboxClasses(selectedRegionId)
 
   useEffect(() => {
@@ -192,6 +193,20 @@ export const CreateSnapshotSheet = ({
       : availableSandboxClasses[0]
     form.setFieldValue('sandboxClass', preferred)
   }, [availableSandboxClasses, form])
+
+  useEffect(() => {
+    if (!availableClassEntries) return
+    const entry = availableClassEntries.find(
+      (r) => r.regionId === selectedRegionId && r.sandboxClass === selectedSandboxClass,
+    )
+    if (entry?.gpuAvailable) return
+    if (form.getFieldValue('gpu')) {
+      form.setFieldValue('gpu', false)
+    }
+    if (form.getFieldValue('gpuType')) {
+      form.setFieldValue('gpuType', undefined)
+    }
+  }, [availableClassEntries, selectedRegionId, selectedSandboxClass, form])
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -375,10 +390,14 @@ export const CreateSnapshotSheet = ({
                     </div>
                   )}
                 </form.Field>
-                <form.Subscribe selector={(state) => state.values.regionId}>
-                  {(regionId) => {
-                    const region = usageOverview?.regionUsage.find((r) => r.regionId === regionId)
-                    if ((region?.totalGpuQuota ?? 0) <= 0) return null
+                <form.Subscribe
+                  selector={(state) => ({ regionId: state.values.regionId, sandboxClass: state.values.sandboxClass })}
+                >
+                  {({ regionId, sandboxClass }) => {
+                    const region = availableClassEntries?.find(
+                      (r) => r.regionId === regionId && r.sandboxClass === sandboxClass,
+                    )
+                    if (!region?.gpuAvailable) return null
                     const allowedGpuTypes = resolveAllowedGpuTypes(region?.allowedGpuTypes)
                     return (
                       <div className="flex flex-col gap-3">

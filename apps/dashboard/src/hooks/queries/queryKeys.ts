@@ -48,6 +48,9 @@ export const queryKeys = {
     roles: (organizationId: string) => [...queryKeys.organization.all, organizationId, 'roles'] as const,
     invitations: (organizationId: string) => [...queryKeys.organization.all, organizationId, 'invitations'] as const,
 
+    availableSandboxClasses: (organizationId: string) =>
+      [...queryKeys.organization.all, organizationId, 'available-sandbox-classes'] as const,
+
     usage: {
       overview: (organizationId: string) =>
         [...queryKeys.organization.all, organizationId, 'usage', 'overview'] as const,

@@ -50,4 +50,8 @@ export const CREATE_API_KEY_PERMISSIONS_GROUPS: { name: string; permissions: Cre
     name: 'Secrets',
     permissions: ['manage:secrets' as CreateApiKeyPermissionsEnum],
   },
+  {
+    name: 'Limits',
+    permissions: [CreateApiKeyPermissionsEnum.READ_LIMITS],
+  },
 ]

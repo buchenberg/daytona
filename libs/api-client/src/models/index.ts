@@ -6,6 +6,7 @@ export * from './announcement';
 export * from './api-key-list';
 export * from './api-key-response';
 export * from './audit-log';
+export * from './available-sandbox-class';
 export * from './build-info';
 export * from './command';
 export * from './completion-context';

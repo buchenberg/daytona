@@ -22,6 +22,8 @@ import { DUMMY_BASE_URL, assertParamExists, setApiKeyToObject, setBasicAuthToObj
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS, type RequestArgs, BaseAPI, RequiredError, operationServerMap } from '../base';
 // @ts-ignore
+import type { AvailableSandboxClass } from '../models';
+// @ts-ignore
 import type { CreateOrganization } from '../models';
 // @ts-ignore
 import type { CreateOrganizationInvitation } from '../models';
@@ -889,6 +891,46 @@ export const OrganizationsApiAxiosParamCreator = function (configuration?: Confi
             if (xDaytonaOrganizationID != null) {
                 localVarHeaderParameter['X-Daytona-Organization-ID'] = String(xDaytonaOrganizationID);
             }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary List available sandbox classes for organization
+         * @param {string} organizationId Organization ID
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listAvailableSandboxClasses: async (organizationId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'organizationId' is not null or undefined
+            assertParamExists('listAvailableSandboxClasses', 'organizationId', organizationId)
+            const localVarPath = `/organizations/{organizationId}/available-sandbox-classes`
+                .replace(`{${"organizationId"}}`, encodeURIComponent(String(organizationId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearer required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            // authentication oauth2 required
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
@@ -2086,6 +2128,19 @@ export const OrganizationsApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
+         * @summary List available sandbox classes for organization
+         * @param {string} organizationId Organization ID
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listAvailableSandboxClasses(organizationId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<AvailableSandboxClass>>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listAvailableSandboxClasses(organizationId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['OrganizationsApi.listAvailableSandboxClasses']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
          * @summary List pending organization invitations
          * @param {string} organizationId Organization ID
          * @param {*} [options] Override http request option.
@@ -2593,6 +2648,16 @@ export const OrganizationsApiFactory = function (configuration?: Configuration, 
         },
         /**
          * 
+         * @summary List available sandbox classes for organization
+         * @param {string} organizationId Organization ID
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listAvailableSandboxClasses(organizationId: string, options?: RawAxiosRequestConfig): AxiosPromise<Array<AvailableSandboxClass>> {
+            return localVarFp.listAvailableSandboxClasses(organizationId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @summary List pending organization invitations
          * @param {string} organizationId Organization ID
          * @param {*} [options] Override http request option.
@@ -3051,6 +3116,17 @@ export class OrganizationsApi extends BaseAPI {
      */
     public listAvailableRegions(xDaytonaOrganizationID?: string, options?: RawAxiosRequestConfig) {
         return OrganizationsApiFp(this.configuration).listAvailableRegions(xDaytonaOrganizationID, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary List available sandbox classes for organization
+     * @param {string} organizationId Organization ID
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public listAvailableSandboxClasses(organizationId: string, options?: RawAxiosRequestConfig) {
+        return OrganizationsApiFp(this.configuration).listAvailableSandboxClasses(organizationId, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
