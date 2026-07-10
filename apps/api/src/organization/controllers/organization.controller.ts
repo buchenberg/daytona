@@ -42,6 +42,7 @@ import { AuditTarget } from '../../audit/enums/audit-target.enum'
 import { EmailUtils } from '../../common/utils/email.util'
 import { OrganizationUsageService } from '../services/organization-usage.service'
 import { OrganizationSandboxDefaultLimitedNetworkEgressDto } from '../dto/organization-sandbox-default-limited-network-egress.dto'
+import { OrganizationPreviewWarningDto } from '../dto/organization-preview-warning.dto'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { AuthenticatedRateLimitGuard } from '../../common/guards/authenticated-rate-limit.guard'
 import { UpdateOrganizationRegionQuotaDto } from '../dto/update-organization-region-quota.dto'
@@ -617,6 +618,40 @@ export class OrganizationController {
       organizationId,
       body.sandboxDefaultLimitedNetworkEgress,
     )
+  }
+
+  @Post('/:organizationId/preview-warning')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: 'Update organization preview warning',
+    operationId: 'updateOrganizationPreviewWarning',
+  })
+  @ApiParam({
+    name: 'organizationId',
+    description: 'Organization ID',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 204,
+    description: 'Preview warning updated successfully',
+  })
+  @AuthStrategy(AuthStrategyType.API_KEY)
+  @UseGuards(BillingAuthContextGuard)
+  @Audit({
+    action: AuditAction.UPDATE_PREVIEW_WARNING,
+    targetType: AuditTarget.ORGANIZATION,
+    targetIdFromRequest: (req) => req.params.organizationId,
+    requestMetadata: {
+      body: (req: TypedRequest<OrganizationPreviewWarningDto>) => ({
+        previewWarningEnabled: req.body?.previewWarningEnabled,
+      }),
+    },
+  })
+  async updatePreviewWarning(
+    @Param('organizationId') organizationId: string,
+    @Body() body: OrganizationPreviewWarningDto,
+  ): Promise<void> {
+    await this.organizationService.updatePreviewWarning(organizationId, body.previewWarningEnabled)
   }
 
   @Put('/:organizationId/otel-config')

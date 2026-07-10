@@ -465,6 +465,18 @@ type OrganizationsAPI interface {
 	UpdateOrganizationOtelConfigExecute(r OrganizationsAPIUpdateOrganizationOtelConfigRequest) (*http.Response, error)
 
 	/*
+	UpdateOrganizationPreviewWarning Update organization preview warning
+
+	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+	@param organizationId Organization ID
+	@return OrganizationsAPIUpdateOrganizationPreviewWarningRequest
+	*/
+	UpdateOrganizationPreviewWarning(ctx context.Context, organizationId string) OrganizationsAPIUpdateOrganizationPreviewWarningRequest
+
+	// UpdateOrganizationPreviewWarningExecute executes the request
+	UpdateOrganizationPreviewWarningExecute(r OrganizationsAPIUpdateOrganizationPreviewWarningRequest) (*http.Response, error)
+
+	/*
 	UpdateOrganizationQuota Update organization quota
 
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
@@ -4066,6 +4078,107 @@ func (a *OrganizationsAPIService) UpdateOrganizationOtelConfigExecute(r Organiza
 	}
 	// body params
 	localVarPostBody = r.otelConfig
+	req, err := a.client.prepareRequest(r.ctx, localVarPath, localVarHTTPMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, formFiles)
+	if err != nil {
+		return nil, err
+	}
+
+	localVarHTTPResponse, err := a.client.callAPI(req)
+	if err != nil || localVarHTTPResponse == nil {
+		return localVarHTTPResponse, err
+	}
+
+	localVarBody, err := io.ReadAll(localVarHTTPResponse.Body)
+	localVarHTTPResponse.Body.Close()
+	localVarHTTPResponse.Body = io.NopCloser(bytes.NewBuffer(localVarBody))
+	if err != nil {
+		return localVarHTTPResponse, err
+	}
+
+	if localVarHTTPResponse.StatusCode >= 300 {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: localVarHTTPResponse.Status,
+		}
+		return localVarHTTPResponse, newErr
+	}
+
+	return localVarHTTPResponse, nil
+}
+
+type OrganizationsAPIUpdateOrganizationPreviewWarningRequest struct {
+	ctx context.Context
+	ApiService OrganizationsAPI
+	organizationId string
+	organizationPreviewWarning *OrganizationPreviewWarning
+}
+
+func (r OrganizationsAPIUpdateOrganizationPreviewWarningRequest) OrganizationPreviewWarning(organizationPreviewWarning OrganizationPreviewWarning) OrganizationsAPIUpdateOrganizationPreviewWarningRequest {
+	r.organizationPreviewWarning = &organizationPreviewWarning
+	return r
+}
+
+func (r OrganizationsAPIUpdateOrganizationPreviewWarningRequest) Execute() (*http.Response, error) {
+	return r.ApiService.UpdateOrganizationPreviewWarningExecute(r)
+}
+
+/*
+UpdateOrganizationPreviewWarning Update organization preview warning
+
+ @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+ @param organizationId Organization ID
+ @return OrganizationsAPIUpdateOrganizationPreviewWarningRequest
+*/
+func (a *OrganizationsAPIService) UpdateOrganizationPreviewWarning(ctx context.Context, organizationId string) OrganizationsAPIUpdateOrganizationPreviewWarningRequest {
+	return OrganizationsAPIUpdateOrganizationPreviewWarningRequest{
+		ApiService: a,
+		ctx: ctx,
+		organizationId: organizationId,
+	}
+}
+
+// Execute executes the request
+func (a *OrganizationsAPIService) UpdateOrganizationPreviewWarningExecute(r OrganizationsAPIUpdateOrganizationPreviewWarningRequest) (*http.Response, error) {
+	var (
+		localVarHTTPMethod   = http.MethodPost
+		localVarPostBody     interface{}
+		formFiles            []formFile
+	)
+
+	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "OrganizationsAPIService.UpdateOrganizationPreviewWarning")
+	if err != nil {
+		return nil, &GenericOpenAPIError{error: err.Error()}
+	}
+
+	localVarPath := localBasePath + "/organizations/{organizationId}/preview-warning"
+	localVarPath = strings.Replace(localVarPath, "{"+"organizationId"+"}", url.PathEscape(parameterValueToString(r.organizationId, "organizationId")), -1)
+
+	localVarHeaderParams := make(map[string]string)
+	localVarQueryParams := url.Values{}
+	localVarFormParams := url.Values{}
+	if r.organizationPreviewWarning == nil {
+		return nil, reportError("organizationPreviewWarning is required and must be specified")
+	}
+
+	// to determine the Content-Type header
+	localVarHTTPContentTypes := []string{"application/json"}
+
+	// set Content-Type header
+	localVarHTTPContentType := selectHeaderContentType(localVarHTTPContentTypes)
+	if localVarHTTPContentType != "" {
+		localVarHeaderParams["Content-Type"] = localVarHTTPContentType
+	}
+
+	// to determine the Accept header
+	localVarHTTPHeaderAccepts := []string{}
+
+	// set Accept header
+	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
+	if localVarHTTPHeaderAccept != "" {
+		localVarHeaderParams["Accept"] = localVarHTTPHeaderAccept
+	}
+	// body params
+	localVarPostBody = r.organizationPreviewWarning
 	req, err := a.client.prepareRequest(r.ctx, localVarPath, localVarHTTPMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, formFiles)
 	if err != nil {
 		return nil, err

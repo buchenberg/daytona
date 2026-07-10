@@ -173,6 +173,13 @@ describe('[AUTH] OrganizationController', () => {
     expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
   })
 
+  it('updatePreviewWarning', () => {
+    const methodName = trackMethod('updatePreviewWarning')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
+  })
+
   it('updateExperimentalConfig', () => {
     const methodName = trackMethod('updateExperimentalConfig')
     expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)

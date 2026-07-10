@@ -757,6 +757,36 @@ paths:
       summary: Update sandbox default limited network egress
       tags:
       - organizations
+  /organizations/{organizationId}/preview-warning:
+    post:
+      operationId: updateOrganizationPreviewWarning
+      parameters:
+      - description: Organization ID
+        explode: false
+        in: path
+        name: organizationId
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationPreviewWarning"
+        required: true
+      responses:
+        "204":
+          description: Preview warning updated successfully
+      security:
+      - bearer: []
+      - oauth2:
+        - openid
+        - profile
+        - email
+      summary: Update organization preview warning
+      tags:
+      - organizations
   /organizations/{organizationId}/experimental-config:
     put:
       operationId: updateExperimentalConfig
@@ -10840,6 +10870,17 @@ components:
       required:
       - sandboxDefaultLimitedNetworkEgress
       type: object
+    OrganizationPreviewWarning:
+      example:
+        previewWarningEnabled: true
+      properties:
+        previewWarningEnabled:
+          description: Whether the proxy shows the preview URL warning page for this
+            organization
+          type: boolean
+      required:
+      - previewWarningEnabled
+      type: object
     CreateOrganizationRole:
       example:
         permissions:
@@ -16001,17 +16042,6 @@ components:
       - totalDiskQuota
       - totalGpuQuota
       - totalMemoryQuota
-      type: object
-    OrganizationPreviewWarning:
-      example:
-        previewWarningEnabled: true
-      properties:
-        previewWarningEnabled:
-          description: Whether the proxy shows the preview URL warning page for this
-            organization
-          type: boolean
-      required:
-      - previewWarningEnabled
       type: object
     WebhookAppPortalAccess:
       example:
