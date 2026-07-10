@@ -685,6 +685,9 @@ export class OrganizationUsageService {
       .where('sandbox.organizationId = :organizationId', { organizationId })
       .andWhere('sandbox.region = :regionId', { regionId })
       .andWhere('sandbox."sandboxClass" = :sandboxClass', { sandboxClass })
+      .andWhere(
+        `sandbox.state <> ALL (ARRAY['destroyed'::sandbox_state_enum, 'error'::sandbox_state_enum, 'build_failed'::sandbox_state_enum, 'archived'::sandbox_state_enum])`,
+      )
       .setParameter('statesConsumingCompute', SANDBOX_STATES_CONSUMING_COMPUTE)
       .setParameter('statesConsumingDisk', SANDBOX_STATES_CONSUMING_DISK)
       .setParameter('statesConditionallyConsumingCompute', SANDBOX_STATES_CONDITIONALLY_CONSUMING_COMPUTE)

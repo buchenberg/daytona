@@ -38,6 +38,9 @@ import { SandboxSecret } from './sandbox-secret.entity'
 @Index('sandbox_runner_state_idx', ['runnerId', 'state'])
 @Index('sandbox_organizationid_idx', ['organizationId'])
 @Index('sandbox_region_idx', ['region'])
+@Index('sandbox_org_region_class_active_idx', ['organizationId', 'region', 'sandboxClass'], {
+  where: `"state" <> ALL (ARRAY['destroyed'::sandbox_state_enum, 'error'::sandbox_state_enum, 'build_failed'::sandbox_state_enum, 'archived'::sandbox_state_enum])`,
+})
 @Index('sandbox_resources_idx', ['cpu', 'mem', 'disk', 'gpu'])
 @Index('sandbox_backupstate_idx', ['backupState'])
 @Index('sandbox_runner_state_desired_idx', ['runnerId', 'state', 'desiredState'], {
