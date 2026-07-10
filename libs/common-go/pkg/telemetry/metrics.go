@@ -390,11 +390,19 @@ func registerUsageMetrics(name string, mp *sdk_metric.MeterProvider, limits *Res
 		return err
 	}
 
+	// Memory Cache (page cache, absolute)
+	memCacheGauge, err := meter.Int64ObservableGauge(
+		fmt.Sprintf("%s.memory.cache", name),
+		metric.WithDescription("Memory page cache in bytes"),
+		metric.WithUnit("bytes"),
+	)
+	if err != nil {
+		return err
+	}
+
 	_, err = meter.RegisterCallback(
 		func(ctx context.Context, observer metric.Observer) error {
 			memUsage, _ := readCgroupMemUsageBytes(limits.cgroupV2)
-			// memCache is folded into the store for the /system/metrics endpoint but is
-			// intentionally not emitted as an OTEL gauge for now.
 			memCache, _ := readCgroupMemCacheBytes(limits.cgroupV2)
 			cpuUsage, _ := readCgroupCPUUsageNanos(limits.cgroupV2)
 
@@ -406,6 +414,9 @@ func registerUsageMetrics(name string, mp *sdk_metric.MeterProvider, limits *Res
 					observer.ObserveFloat64(memUtilGauge, memPct)
 				}
 			}
+			if memCache > 0 {
+				observer.ObserveInt64(memCacheGauge, int64(memCache))
+			}
 			// Skip the cold-start reading (no prior sample) so we don't emit a spurious 0%.
 			if cpuValid {
 				observer.ObserveFloat64(cpuUtilGauge, cpuPct)
@@ -416,6 +427,7 @@ func registerUsageMetrics(name string, mp *sdk_metric.MeterProvider, limits *Res
 		cpuUtilGauge,
 		memUtilGauge,
 		memUsageGauge,
+		memCacheGauge,
 	)
 
 	return err
