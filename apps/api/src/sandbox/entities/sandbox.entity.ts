@@ -46,6 +46,9 @@ import { SandboxSecret } from './sandbox-secret.entity'
 @Index('sandbox_active_only_idx', ['id'], {
   where: `"state" <> ALL (ARRAY['destroyed'::sandbox_state_enum, 'archived'::sandbox_state_enum])`,
 })
+@Index('sandbox_destroyed_cleanup_idx', ['updatedAt'], {
+  where: `"state" = 'destroyed'::sandbox_state_enum`,
+})
 @Index('sandbox_pending_idx', ['id'], {
   where: `"pending" = true`,
 })
