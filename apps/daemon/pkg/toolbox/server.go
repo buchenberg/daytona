@@ -113,6 +113,16 @@ type Telemetry struct {
 	SystemMetricsStore *telemetry.SystemMetricsStore
 }
 
+// registerRoot registers h at both a group's exact path ("") and its
+// trailing-slash form ("/"). Gin treats those as distinct routes and would
+// otherwise 301-redirect between them, which drops the request body on methods
+// like DELETE; registering both serves each form directly. Use it for
+// group-root handlers that must accept e.g. /files and /files/ alike.
+func registerRoot(g *gin.RouterGroup, method string, h gin.HandlerFunc) {
+	g.Handle(method, "", h)
+	g.Handle(method, "/", h)
+}
+
 func (s *server) Start() error {
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	defer s.cancel()
@@ -171,8 +181,7 @@ func (s *server) Start() error {
 	fsController := r.Group("/files")
 	{
 		// read operations
-		fsController.GET("/", fs.ListFiles)
-		fsController.GET("", fs.ListFiles)
+		registerRoot(fsController, http.MethodGet, fs.ListFiles)
 		fsController.GET("/download", fs.DownloadFile)
 		fsController.POST("/bulk-download", fs.DownloadFiles)
 		fsController.GET("/find", fs.FindInFiles)
@@ -188,8 +197,7 @@ func (s *server) Start() error {
 		fsController.POST("/bulk-upload", fs.UploadFiles)
 
 		// delete operations
-		fsController.DELETE("/", fs.DeleteFile)
-		fsController.DELETE("", fs.DeleteFile)
+		registerRoot(fsController, http.MethodDelete, fs.DeleteFile)
 	}
 
 	processLogger := s.logger.With(slog.String("component", "process_controller"))
