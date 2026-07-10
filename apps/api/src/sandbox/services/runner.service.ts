@@ -952,21 +952,57 @@ export class RunnerService {
   }
 
   /**
-   * Returns the IDs of runners where placing a new sandbox with `requestedCpu`
-   * CPUs and `buildInfoSnapshotRef` would push the total allocated CPUs across
-   * active sandboxes with that same `buildInfoSnapshotRef` over `maxCpu`.
-   * Useful to avoid piling up too many resources for the same declarative build
-   * on the same runner.
+   * Returns the IDs of runners where placing one more sandbox (with the
+   * `requested` resources) for `buildInfoSnapshotRef` would exceed any of the
+   * configured per-runner limits for that build:
    *
-   * If `requestedCpu` is omitted, only runners whose current SUM already
-   * exceeds `maxCpu` are returned.
+   *  - `maxCpuUtilization`: fraction (0-1) of the runner's *actual* CPU
+   *    capacity (`runner.cpu`) the build's sandboxes may occupy.
+   *  - `maxMemUtilization`: fraction (0-1) of the runner's *actual* memory
+   *    (`runner.memoryGiB`) the build's sandboxes may occupy.
+   *  - `maxSandboxCount`: absolute cap on the number of the build's sandboxes
+   *    on a single runner.
+   *
+   * Scaling CPU/memory to each runner's real capacity (instead of a fixed
+   * value) lets larger runners host more of the same build. A runner is
+   * returned if it violates ANY enabled limit; limits <= 0 are skipped.
    */
-  async getRunnersWithMaxBuildInfoSnapshotRefCpu(
+  async getRunnersOverBuildInfoSnapshotRefLimits(
     buildInfoSnapshotRef: string,
-    maxCpu: number,
-    requestedCpu = 0,
+    limits: { maxCpuUtilization?: number; maxMemUtilization?: number; maxSandboxCount?: number },
+    requested: { cpu?: number; mem?: number } = {},
   ): Promise<string[]> {
-    if (!buildInfoSnapshotRef || maxCpu <= 0) {
+    if (!buildInfoSnapshotRef) {
+      return []
+    }
+
+    const havingClauses: string[] = []
+    const params: Record<string, number> = {}
+    const groupByColumns: string[] = []
+
+    if (limits.maxCpuUtilization && limits.maxCpuUtilization > 0) {
+      havingClauses.push('(runner.cpu > 0 AND SUM(sandbox.cpu) + :requestedCpu > runner.cpu * :maxCpuUtilization)')
+      params.requestedCpu = Math.max(0, requested.cpu ?? 0)
+      params.maxCpuUtilization = limits.maxCpuUtilization
+      groupByColumns.push('runner.cpu')
+    }
+
+    if (limits.maxMemUtilization && limits.maxMemUtilization > 0) {
+      havingClauses.push(
+        '(runner.memoryGiB > 0 AND SUM(sandbox.mem) + :requestedMem > runner.memoryGiB * :maxMemUtilization)',
+      )
+      params.requestedMem = Math.max(0, requested.mem ?? 0)
+      params.maxMemUtilization = limits.maxMemUtilization
+      groupByColumns.push('runner.memoryGiB')
+    }
+
+    if (limits.maxSandboxCount && limits.maxSandboxCount > 0) {
+      // +1 accounts for the sandbox about to be placed.
+      havingClauses.push('COUNT(*) + 1 > :maxSandboxCount')
+      params.maxSandboxCount = limits.maxSandboxCount
+    }
+
+    if (havingClauses.length === 0) {
       return []
     }
 
@@ -984,20 +1020,25 @@ export class RunnerService {
       SandboxState.FORKING,
     ]
 
-    const normalizedRequestedCpu = Math.max(0, requestedCpu)
-
-    const runners = await this.sandboxRepository
+    const query = this.sandboxRepository
       .createQueryBuilder('sandbox')
       .select('sandbox.runnerId', 'runnerId')
       .where('sandbox.buildInfoSnapshotRef = :ref', { ref: buildInfoSnapshotRef })
       .andWhere('sandbox.runnerId IS NOT NULL')
       .andWhere('sandbox.state IN (:...states)', { states: activeStates })
       .groupBy('sandbox.runnerId')
-      .having('SUM(sandbox.cpu) + :requestedCpu > :maxCpu', {
-        requestedCpu: normalizedRequestedCpu,
-        maxCpu,
-      })
-      .getRawMany()
+      .having(havingClauses.join(' OR '), params)
+
+    // The Runner join is only needed to read the runner's real CPU/memory
+    // capacity; a count-only check never touches it.
+    if (groupByColumns.length > 0) {
+      query.innerJoin(Runner, 'runner', 'runner.id = sandbox.runnerId')
+      for (const column of groupByColumns) {
+        query.addGroupBy(column)
+      }
+    }
+
+    const runners = await query.getRawMany()
 
     return runners.map((item) => item.runnerId).filter((id): id is string => !!id)
   }

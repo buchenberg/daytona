@@ -334,7 +334,13 @@ const configuration = {
     name: process.env.DEFAULT_RUNNER_NAME,
   },
   buildInfo: {
-    maxCpuPerRunner: parseInt(process.env.BUILD_INFO_MAX_CPU_PER_RUNNER || '40', 10),
+    // Per-runner caps on how much of a single declarative build may pile up on
+    // one runner. CPU/memory are fractions (0-1) of the runner's real capacity;
+    // envs are percentages (e.g. 75 => 75% of runner.cpu). 0 disables a limit.
+    maxCpuUtilizationPerRunner: parseFloat(process.env.BUILD_INFO_MAX_CPU_PERCENTAGE_PER_RUNNER || '75') / 100,
+    maxMemUtilizationPerRunner: parseFloat(process.env.BUILD_INFO_MAX_MEMORY_PERCENTAGE_PER_RUNNER || '75') / 100,
+    // Absolute cap on the build's sandbox count per runner; 0 disables it.
+    maxSandboxesPerRunner: parseInt(process.env.BUILD_INFO_MAX_SANDBOXES_PER_RUNNER || '0', 10),
   },
   runnerScore: {
     thresholds: {

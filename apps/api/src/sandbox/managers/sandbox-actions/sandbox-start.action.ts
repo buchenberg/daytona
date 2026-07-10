@@ -231,9 +231,7 @@ export class SandboxStartAction extends SandboxAction {
 
     const declarativeBuildScoreThreshold = this.configService.get('runnerScore.thresholds.declarativeBuild')
 
-    const buildInfoOverloadedRunnerIds = isBuild
-      ? await this.getBuildInfoOverloadedRunnerIds(snapshotRef, sandbox.cpu)
-      : []
+    const buildInfoOverloadedRunnerIds = isBuild ? await this.getBuildInfoOverloadedRunnerIds(snapshotRef, sandbox) : []
 
     // GPU type to enforce during runner selection. When the sandbox already has a
     // concrete `gpuType` (snapshot-based, or a previously pinned build), that wins.
@@ -418,12 +416,19 @@ export class SandboxStartAction extends SandboxAction {
     return SYNC_AGAIN
   }
 
-  private async getBuildInfoOverloadedRunnerIds(snapshotRef: string, requestedCpu: number): Promise<string[]> {
-    const maxCpuPerRunner = this.configService.getOrThrow('buildInfo.maxCpuPerRunner')
-    if (!(maxCpuPerRunner > 0) || !snapshotRef) {
+  private async getBuildInfoOverloadedRunnerIds(snapshotRef: string, sandbox: Sandbox): Promise<string[]> {
+    if (!snapshotRef) {
       return []
     }
-    return this.runnerService.getRunnersWithMaxBuildInfoSnapshotRefCpu(snapshotRef, maxCpuPerRunner, requestedCpu)
+    return this.runnerService.getRunnersOverBuildInfoSnapshotRefLimits(
+      snapshotRef,
+      {
+        maxCpuUtilization: this.configService.getOrThrow('buildInfo.maxCpuUtilizationPerRunner'),
+        maxMemUtilization: this.configService.getOrThrow('buildInfo.maxMemUtilizationPerRunner'),
+        maxSandboxCount: this.configService.getOrThrow('buildInfo.maxSandboxesPerRunner'),
+      },
+      { cpu: sandbox.cpu, mem: sandbox.mem },
+    )
   }
 
   async pullSnapshotToRunner(snapshot: Snapshot, runner: Runner) {
