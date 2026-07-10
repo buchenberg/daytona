@@ -52,10 +52,6 @@ const TOOLBOX_PORT = "2280"
 const RECORDING_DASHBOARD_PORT = "33333"
 const IS_TOOLBOX_REQUEST_KEY = "is-toolbox-request"
 
-func getCPUQuotaCacheKey(orgId, regionId string) string {
-	return fmt.Sprintf("%s:%s", orgId, regionId)
-}
-
 // stopActivityPoll retrieves and calls the activity poll stop function from the gin context.
 // This ensures the polling goroutine is stopped when the request (including WebSocket) finishes.
 func stopActivityPoll(ctx *gin.Context) {
@@ -76,10 +72,8 @@ type Proxy struct {
 	runnerCache                    common_cache.ICache[RunnerInfo]
 	sandboxRunnerCache             common_cache.ICache[RunnerInfo]
 	sandboxPublicCache             common_cache.ICache[bool]
+	sandboxPreviewWarningCache     common_cache.ICache[bool]
 	sandboxAuthKeyValidCache       common_cache.ICache[bool]
-	sandboxOrgIdCache              common_cache.ICache[string]
-	sandboxRegionIdCache           common_cache.ICache[string]
-	CPUQuotaCache                  common_cache.ICache[int]
 	sandboxLastActivityUpdateCache common_cache.ICache[bool]
 }
 
@@ -118,19 +112,11 @@ func StartProxy(ctx context.Context, config *config.Config) error {
 		if err != nil {
 			return err
 		}
+		proxy.sandboxPreviewWarningCache, err = common_cache.NewRedisCache[bool](config.Redis, "proxy:sandbox-preview-warning:")
+		if err != nil {
+			return err
+		}
 		proxy.sandboxAuthKeyValidCache, err = common_cache.NewRedisCache[bool](config.Redis, "proxy:sandbox-auth-key-valid:")
-		if err != nil {
-			return err
-		}
-		proxy.sandboxOrgIdCache, err = common_cache.NewRedisCache[string](config.Redis, "proxy:sandbox-org-id:")
-		if err != nil {
-			return err
-		}
-		proxy.sandboxRegionIdCache, err = common_cache.NewRedisCache[string](config.Redis, "proxy:sandbox-region-id:")
-		if err != nil {
-			return err
-		}
-		proxy.CPUQuotaCache, err = common_cache.NewRedisCache[int](config.Redis, "proxy:cpu-quota:")
 		if err != nil {
 			return err
 		}
@@ -142,10 +128,8 @@ func StartProxy(ctx context.Context, config *config.Config) error {
 		proxy.sandboxRunnerCache = common_cache.NewMapCache[RunnerInfo](ctx)
 		proxy.runnerCache = common_cache.NewMapCache[RunnerInfo](ctx)
 		proxy.sandboxPublicCache = common_cache.NewMapCache[bool](ctx)
+		proxy.sandboxPreviewWarningCache = common_cache.NewMapCache[bool](ctx)
 		proxy.sandboxAuthKeyValidCache = common_cache.NewMapCache[bool](ctx)
-		proxy.sandboxOrgIdCache = common_cache.NewMapCache[string](ctx)
-		proxy.sandboxRegionIdCache = common_cache.NewMapCache[string](ctx)
-		proxy.CPUQuotaCache = common_cache.NewMapCache[int](ctx)
 		proxy.sandboxLastActivityUpdateCache = common_cache.NewMapCache[bool](ctx)
 	}
 

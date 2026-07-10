@@ -317,6 +317,7 @@ const configuration = {
   },
   organizationSandboxDefaultLimitedNetworkEgress:
     process.env.ORGANIZATION_SANDBOX_DEFAULT_LIMITED_NETWORK_EGRESS === 'true',
+  organizationDefaultPreviewWarningEnabled: process.env.ORGANIZATION_DEFAULT_PREVIEW_WARNING_ENABLED === 'true',
   pylonAppId: process.env.PYLON_APP_ID,
   billingApiUrl: process.env.BILLING_API_URL,
   stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY,

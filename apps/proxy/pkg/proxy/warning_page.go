@@ -9,13 +9,11 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
-	"strconv"
 	"strings"
-	"time"
 
-	common_errors "github.com/daytonaio/common-go/pkg/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/mssola/useragent"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -74,7 +72,27 @@ func handleAcceptProxyWarning(ctx *gin.Context, secure bool) {
 		redirectURL = "/"
 	}
 
-	ctx.Redirect(http.StatusFound, redirectURL)
+	// Complete the consent POST on this origin and let the browser start a fresh
+	// navigation via meta refresh, instead of issuing an HTTP redirect. The warning
+	// page pins the consent form to `form-action 'self'`, and that CSP follows the
+	// entire redirect chain of a form submission. For private sandboxes the chain
+	// continues into the (cross-origin) auth provider, which form-action would block.
+	// A meta-refresh navigation is not a form submission, so the auth redirect runs
+	// free of the form-action constraint.
+	ctx.Header("Content-Security-Policy", "default-src 'none'")
+	ctx.Header("X-Content-Type-Options", "nosniff")
+	ctx.Header("Content-Type", "text/html; charset=utf-8")
+	// redirectURL is escaped for the double-quoted HTML attribute context; this
+	// matches the open-redirect posture of the previous Location-header behavior.
+	ctx.String(http.StatusOK, fmt.Sprintf(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="refresh" content="0; url=%s" />
+    <title>Redirecting…</title>
+  </head>
+  <body>Redirecting…</body>
+</html>`, html.EscapeString(redirectURL)))
 }
 
 // browserWarningMiddleware is the middleware that checks for browsers and shows warning
@@ -106,7 +124,7 @@ func (p *Proxy) browserWarningMiddleware() gin.HandlerFunc {
 		}
 
 		// Skip warning for the acceptance endpoint itself or auth callbacks
-		targetPort, sandboxId, _, err := p.parseHost(ctx.Request.Host)
+		targetPort, sandboxIdOrSignedToken, _, err := p.parseHost(ctx.Request.Host)
 		if err != nil {
 			switch ctx.Request.Method {
 			case "GET":
@@ -123,19 +141,13 @@ func (p *Proxy) browserWarningMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		if sandboxId != "" {
-			portFloat, err := strconv.ParseFloat(targetPort, 64)
+		// Skip the warning if the sandbox's organization has disabled it.
+		// On any lookup error we fail open and still show the warning.
+		if sandboxIdOrSignedToken != "" {
+			enabled, err := p.getSandboxPreviewWarningEnabled(ctx.Request.Context(), sandboxIdOrSignedToken, targetPort)
 			if err != nil {
-				ctx.Error(common_errors.NewBadRequestError(fmt.Errorf("failed to parse target port: %w", err)))
-				return
-			}
-
-			exempt, err := p.sandboxIsExempt(ctx, sandboxId, float32(portFloat), true)
-			if err != nil {
-				ctx.Error(common_errors.NewBadRequestError(err))
-				return
-			}
-			if exempt {
+				log.Errorf("Failed to get sandbox preview warning status: %v", err)
+			} else if !enabled {
 				ctx.Next()
 				return
 			}
@@ -344,6 +356,9 @@ func serveWarningPage(c *gin.Context, https bool) {
 	// Defense-in-depth: this page has no inline scripts and loads no external
 	// resources, so deny everything by default. style-src 'unsafe-inline' keeps
 	// the embedded <style> block working; form-action 'self' pins the consent POST.
+	// The consent POST completes on this origin (the accept handler responds 200 and
+	// the browser then navigates on via meta refresh), so the cross-origin auth
+	// redirect happens outside the form submission and isn't subject to form-action.
 	// Any future contributor adding scripts/images/fonts/external CSS to this page
 	// must extend this policy.
 	c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'")
@@ -380,96 +395,4 @@ func isWebSocketRequest(req *http.Request) bool {
 	upgrade := strings.ToLower(req.Header.Get("Upgrade"))
 
 	return upgrade == "websocket" && connection == "upgrade"
-}
-
-// sandboxIsExempt checks if the sandbox is exempt from the preview warning by checking if its organization is in the exceptions list or if the CPU quota allocated in the sandbox region is above the threshold
-func (p *Proxy) sandboxIsExempt(ctx *gin.Context, sandboxId string, port float32, retryAsSignedUrl bool) (bool, error) {
-	orgId := ""
-	regionId := ""
-	CPUQuotaCacheKey := ""
-	CPUQuota := 0
-
-	hasOrgId, err := p.sandboxOrgIdCache.Has(ctx, sandboxId)
-	if err != nil {
-		return false, err
-	}
-
-	hasRegionId, err := p.sandboxRegionIdCache.Has(ctx, sandboxId)
-	if err != nil {
-		return false, err
-	}
-
-	if !hasOrgId || !hasRegionId {
-		regionQuota, res, err := p.apiclient.SandboxAPI.GetRegionQuotaBySandboxId(ctx, sandboxId).Execute()
-		if err != nil {
-			if retryAsSignedUrl && res != nil && res.StatusCode == http.StatusNotFound {
-				idFromToken, _, signedErr := p.apiclient.PreviewAPI.GetSandboxIdFromSignedPreviewUrlToken(ctx.Request.Context(), sandboxId, port).Execute()
-				if signedErr != nil {
-					// Return original error
-					return false, err
-				}
-
-				return p.sandboxIsExempt(ctx, idFromToken, port, false)
-			}
-			return false, err
-		}
-
-		orgId = regionQuota.OrganizationId
-		regionId = regionQuota.RegionId
-		CPUQuotaCacheKey = getCPUQuotaCacheKey(orgId, regionId)
-		CPUQuota = int(regionQuota.TotalCpuQuota)
-
-		_ = p.sandboxOrgIdCache.Set(ctx, sandboxId, orgId, 1*time.Hour)
-		_ = p.sandboxRegionIdCache.Set(ctx, sandboxId, regionId, 1*time.Hour)
-
-		// CPU quota should have lower ttl since it's more likely to change
-		_ = p.CPUQuotaCache.Set(ctx, CPUQuotaCacheKey, CPUQuota, 5*time.Minute)
-	} else {
-		orgIdCache, err := p.sandboxOrgIdCache.Get(ctx, sandboxId)
-		if err != nil {
-			return false, err
-		}
-		orgId = *orgIdCache
-
-		regionIdCache, err := p.sandboxRegionIdCache.Get(ctx, sandboxId)
-		if err != nil {
-			return false, err
-		}
-		regionId = *regionIdCache
-
-		CPUQuotaCacheKey = getCPUQuotaCacheKey(orgId, regionId)
-	}
-
-	if slices.Contains(p.config.PreviewWarningExceptions, orgId) {
-		return true, nil
-	}
-
-	if regionId == "experimental" {
-		return true, nil
-	}
-
-	if p.config.PreviewWarningCPUQuotaThreshold > 0 {
-		if CPUQuota == 0 {
-			// Fetch from cache first
-			if has, err := p.CPUQuotaCache.Has(ctx, CPUQuotaCacheKey); err == nil && has {
-				c, err := p.CPUQuotaCache.Get(ctx, CPUQuotaCacheKey)
-				if err != nil {
-					return false, err
-				}
-				CPUQuota = *c
-			} else {
-				// Fetch from API
-				regionQuota, _, err := p.apiclient.SandboxAPI.GetRegionQuotaBySandboxId(ctx, sandboxId).Execute()
-				if err != nil {
-					return false, err
-				}
-				CPUQuota = int(regionQuota.TotalCpuQuota)
-				_ = p.CPUQuotaCache.Set(ctx, CPUQuotaCacheKey, CPUQuota, 5*time.Minute)
-			}
-		}
-
-		return CPUQuota >= p.config.PreviewWarningCPUQuotaThreshold, nil
-	}
-
-	return false, nil
 }
