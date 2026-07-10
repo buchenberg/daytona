@@ -45,4 +45,14 @@ var (
 			Help: "Number of backups rejected due to host-shifted ownership in the committed layer",
 		},
 	)
+
+	// Counter for backups pushed despite out-of-namespace ownership because
+	// the corruption predates the commit and no retry could produce a clean
+	// backup; sizes the damaged sandbox population.
+	BackupOwnershipPreexistingAllowedCount = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "backup_ownership_preexisting_allowed_total",
+			Help: "Number of backups pushed despite out-of-namespace ownership that predates the commit (inherited or revert-wrapped)",
+		},
+	)
 )

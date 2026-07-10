@@ -5,10 +5,13 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"runtime"
+	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -23,38 +26,41 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// Sysbox runs sandboxes in a user namespace and, on hosts without full
-// ID-mapped-mount support, keeps the container's overlayfs upper layer chowned
-// into the namespace's host UID range (e.g. 231072+) while the container is
-// registered. It reverts ownership to 0-based (and syncs relocated dirs such as
-// the inner Docker's /var/lib/docker back into the rootfs) only inside
-// sysbox-mgr's pause and unregister handlers.
+// Sysbox fakes the sandbox's user namespace mapping by chowning the overlayfs
+// upper layer by +offset on start and -offset on stop/pause, with no per-file
+// bookkeeping. A commit that reads the layer while shifted bakes host UIDs
+// into the backup image; restored files map to nobody:nogroup and the sandbox
+// cannot boot. Two mechanisms keep that out of the registry:
 //
-// A docker commit that reads the rootfs outside those two windows bakes the
-// shifted UIDs into the backup image; restoring such an image maps the files to
-// nobody:nogroup and the sandbox cannot boot. The helpers here guarantee every
-// commit happens against a canonical (0-based) rootfs:
-//
-//   - running container: commit with pause=true — sysbox-runc's pause freezes
-//     the container and synchronously reverts ownership before the commit
-//     reads the diff (see commitContainer).
-//   - stopped container: sysbox's revert runs inside `runc delete`, which the
-//     containerd task deletion blocks on. awaitSysboxRootfsSettled waits until
-//     containerd no longer has a task for the container, which by that call
-//     chain means the revert and sync-out have completed.
-//   - both: verifyBackupOwnership rejects any committed layer that still
-//     contains shifted IDs, so a poisoned backup can never be pushed even if
-//     the assumptions above are broken by a future sysbox/docker change.
+//   - awaitSysboxRootfsSettled: a stopped container is committed only once
+//     containerd has deleted its task — sysbox's revert runs inside
+//     `runc delete`, which the task deletion blocks on.
+//   - verifyBackupOwnership: a committed top layer still holding
+//     out-of-namespace IDs is rejected, unless the corruption provably
+//     predates the commit — then no retry can do better and it is pushed
+//     as-is.
 
 // containerd's gRPC namespace header; hardcoded to avoid depending on the full
 // containerd client module for a single metadata key.
 const containerdNamespaceHeader = "containerd-namespace"
 
-// shiftedIDThreshold is the first UID/GID that cannot legitimately exist inside
-// a sysbox sandbox: sysbox maps exactly 64K IDs (0-65535) into the container's
-// user namespace, so any on-disk ID at or above 65536 is leaked host-side
-// ownership from the uid-shifting machinery.
-const shiftedIDThreshold = 65536
+// Sysbox maps exactly 64K IDs (0-65535) into the sandbox, so any on-disk ID
+// at or above shiftedIDThreshold is corruption, in two non-overlapping bands
+// (subuid offsets sit far below 2^31; wraps land within one offset of 2^32):
+//
+//   - shifted [65536, 2^31): uid+offset — the commit raced sysbox's revert;
+//     a retry after the revert can produce a clean backup.
+//   - wrapped [2^31, 2^32): uid-offset underflowed uint32 — sysbox reverted
+//     a file it never shifted up; the damage is on the container's disk and
+//     no retry can fix it.
+const (
+	shiftedIDThreshold = 65536
+	wrappedIDFloor     = 1 << 31
+)
+
+func inShiftedBand(id uint32) bool {
+	return id >= shiftedIDThreshold && id < wrappedIDFloor
+}
 
 var containerdAddressCandidates = []string{
 	"/run/containerd/containerd.sock",        // standard docker-ce setup (dockerd --containerd=...)
@@ -172,6 +178,23 @@ func (d *DockerClient) awaitSysboxRootfsSettled(ctx context.Context, c *containe
 	}
 }
 
+// ownershipViolation is an entry owned by an out-of-namespace ID; a distinct
+// type so callers can tell a confirmed violation from a walk failure, which
+// must keep failing closed.
+type ownershipViolation struct {
+	path     string
+	uid, gid uint32
+	wrapped  bool // no ID in the shifted band
+}
+
+func (e *ownershipViolation) Error() string {
+	kind := "sysbox uid-shift not reverted"
+	if e.wrapped {
+		kind = "sysbox uid-shift revert wrapped below zero"
+	}
+	return fmt.Sprintf("%s is owned by %d:%d, which is outside the sandbox's user namespace (%s)", e.path, e.uid, e.gid, kind)
+}
+
 // checkOwnership fails when the entry is owned by an ID that cannot exist
 // inside a sysbox sandbox.
 func checkOwnership(path string, info fs.FileInfo) error {
@@ -179,10 +202,13 @@ func checkOwnership(path string, info fs.FileInfo) error {
 	if !ok {
 		return fmt.Errorf("failed to read ownership of %s", path)
 	}
-	if st.Uid >= shiftedIDThreshold || st.Gid >= shiftedIDThreshold {
-		return fmt.Errorf("%s is owned by %d:%d, which is outside the sandbox's user namespace (sysbox uid-shift not reverted)", path, st.Uid, st.Gid)
+	if st.Uid < shiftedIDThreshold && st.Gid < shiftedIDThreshold {
+		return nil
 	}
-	return nil
+	return &ownershipViolation{
+		path: path, uid: st.Uid, gid: st.Gid,
+		wrapped: !inShiftedBand(st.Uid) && !inShiftedBand(st.Gid),
+	}
 }
 
 // verifySlots caps full-parallelism verifications; without a free slot a verify
@@ -190,10 +216,13 @@ func checkOwnership(path string, info fs.FileInfo) error {
 // blocks on another container's scan.
 var verifySlots = make(chan struct{}, 2)
 
-// verifyNoShiftedIDs walks dir and fails on the first entry owned by an ID that
-// cannot exist inside a sysbox sandbox. Symlinks are checked but not followed.
-// Parallel walk: ~1.5s warm for a 1M-entry layer; violations early-exit.
-func verifyNoShiftedIDs(ctx context.Context, dir string) error {
+// verifyLayerOwnership walks dir (~1.5s warm per 1M entries) and returns an
+// *ownershipViolation for any entry owned by an out-of-namespace ID. A
+// shifted-band violation early-exits; a wrapped one is recorded and the walk
+// continues, so a wrapped result guarantees no shifted-band entry exists
+// anywhere in the layer (shifted is the stronger signal: it can mean a live
+// commit race, wrapped cannot).
+func verifyLayerOwnership(ctx context.Context, dir string) error {
 	workers := 1
 	select {
 	case verifySlots <- struct{}{}:
@@ -203,10 +232,13 @@ func verifyNoShiftedIDs(ctx context.Context, dir string) error {
 		// No slot free: degrade instead of waiting.
 	}
 
+	var mu sync.Mutex
+	var wrapped *ownershipViolation
+
 	conf := fastwalk.Config{NumWorkers: workers}
 	// Fail closed on any error — even ENOENT means an incomplete scan over an
 	// immutable committed layer. A returned error stops the walk.
-	return fastwalk.Walk(&conf, dir, func(path string, entry fs.DirEntry, err error) error {
+	err := fastwalk.Walk(&conf, dir, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -217,14 +249,29 @@ func verifyNoShiftedIDs(ctx context.Context, dir string) error {
 		if err != nil {
 			return err
 		}
-		return checkOwnership(path, info)
+		err = checkOwnership(path, info)
+		var viol *ownershipViolation
+		if errors.As(err, &viol) && viol.wrapped {
+			mu.Lock()
+			if wrapped == nil {
+				wrapped = viol
+			}
+			mu.Unlock()
+			return nil
+		}
+		return err
 	})
+	if err == nil && wrapped != nil {
+		return wrapped
+	}
+	return err
 }
 
 // verifyBackupOwnership checks the committed backup image's top layer for
-// leaked host-side ownership and fails (removing the image) if any is found.
-// This is the artifact-level gate: no poisoned backup can reach the registry
-// regardless of which mechanism above regressed.
+// out-of-namespace ownership and fails (removing the image) if any is found,
+// unless the corruption predates this commit — then the backup is pushed
+// as-is. No new poisoning reaches the registry regardless of which mechanism
+// above regressed.
 func (d *DockerClient) verifyBackupOwnership(ctx context.Context, containerId, imageName string) error {
 	startTime := time.Now()
 	defer func() {
@@ -244,7 +291,30 @@ func (d *DockerClient) verifyBackupOwnership(ctx context.Context, containerId, i
 		return fmt.Errorf("committed image %s has no top layer directory to verify (driver %s)", imageName, img.GraphDriver.Name)
 	}
 
-	if err := verifyNoShiftedIDs(ctx, upperDir); err != nil {
+	if err := verifyLayerOwnership(ctx, upperDir); err != nil {
+		// Reject only what a retry can fix. Wrapped IDs (a revert underflow
+		// from a previous run, never a commit race) and shifted IDs already
+		// present in the container's base layers (restored from a backup
+		// poisoned before verification existed) predate this commit — every
+		// retry would hit the same on-disk damage, so push those as-is.
+		// Shifted IDs over a clean base are a live commit race: fail closed.
+		var viol *ownershipViolation
+		if errors.As(err, &viol) {
+			if viol.wrapped {
+				common.BackupOwnershipPreexistingAllowedCount.Inc()
+				d.logger.WarnContext(ctx, "Backup layer contains revert-wrapped ownership from a previous sandbox run; pushing as-is", "containerId", containerId, "image", imageName, "violation", err.Error())
+				return nil
+			}
+			basePath, baseErr := d.poisonedBaseLayerPath(ctx, containerId)
+			if baseErr != nil {
+				d.logger.ErrorContext(ctx, "Failed to scan base layers for pre-existing shifted ownership; failing closed", "containerId", containerId, "image", imageName, "error", baseErr)
+			} else if basePath != "" {
+				common.BackupOwnershipPreexistingAllowedCount.Inc()
+				d.logger.WarnContext(ctx, "Backup layer contains shifted ownership inherited from a pre-verification backup; pushing as-is", "containerId", containerId, "image", imageName, "violation", err.Error(), "baseLayerEvidence", basePath)
+				return nil
+			}
+		}
+
 		// The counter is the alert signal; the log carries the affected container.
 		common.BackupOwnershipRejectedCount.Inc()
 		d.logger.ErrorContext(ctx, "Backup rejected: committed layer contains host-shifted ownership", "containerId", containerId, "image", imageName, "error", err)
@@ -255,4 +325,39 @@ func (d *DockerClient) verifyBackupOwnership(ctx context.Context, containerId, i
 	}
 
 	return nil
+}
+
+// poisonedBaseLayerPath walks the container's lower layers (its original
+// rootfs — also correct for the export/import fallback, whose committed image
+// has no lowers) and returns the first out-of-namespace-owned path, or "" if
+// they are clean. Only called after the top layer failed verification; a
+// poisoned base typically early-exits in milliseconds. Errors other than a
+// confirmed violation are returned so the caller fails closed.
+func (d *DockerClient) poisonedBaseLayerPath(ctx context.Context, containerId string) (string, error) {
+	// Generous cap — a timeout fails closed and would misclassify a poisoned
+	// base as new corruption, so it only guards against a pathological image
+	// or stuck I/O eating the backup window.
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	c, err := d.ContainerInspect(ctx, containerId)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect container %s for base layer scan: %w", containerId, err)
+	}
+	lowerDirs := c.GraphDriver.Data["LowerDir"]
+	if lowerDirs == "" {
+		return "", nil
+	}
+	for _, dir := range strings.Split(lowerDirs, ":") {
+		err := verifyLayerOwnership(ctx, dir)
+		if err == nil {
+			continue
+		}
+		var viol *ownershipViolation
+		if errors.As(err, &viol) {
+			return viol.path, nil
+		}
+		return "", fmt.Errorf("failed to scan base layer %s: %w", dir, err)
+	}
+	return "", nil
 }
