@@ -18,7 +18,7 @@ export const META_LARGE_SANDBOX_REGION = 'us-central-1'
  */
 const META_LARGE_SANDBOX_MEMORY_GB = 16
 const META_LARGE_SANDBOX_DISK_GB = 32
-export const DEEPTUNE_AND_HUD_DEDICATED_REGION = 'deeptune-dedicated'
+export const DEEPTUNE_AND_MILLION_DEDICATED_REGION = 'deeptune-dedicated'
 export const LARGE_SANDBOX_SHARED_REGION = 'large-sandbox-shared'
 export const ELEMENTOR_DEDICATED_REGION = 'elementor-dedicated'
 export const RL_REGION = 'RL'
@@ -81,7 +81,7 @@ export const hasFallbackRegion = (region: string): boolean => {
     case WRITER_DEDICATED_US:
     case WRITER_DEDICATED_EU:
     case META_DEDICATED_REGION:
-    case DEEPTUNE_AND_HUD_DEDICATED_REGION:
+    case DEEPTUNE_AND_MILLION_DEDICATED_REGION:
       return true
     default:
       return false
@@ -99,7 +99,7 @@ export function getFallbackRegion(region: string): string | null {
       return 'eu'
     case META_DEDICATED_REGION:
       return 'us'
-    case DEEPTUNE_AND_HUD_DEDICATED_REGION:
+    case DEEPTUNE_AND_MILLION_DEDICATED_REGION:
       return 'us'
     default:
       return null
@@ -161,9 +161,9 @@ export function isSpilloverOnErrorOrg(organizationId: string): boolean {
   return SPILLOVER_ON_ERROR_ORGS.has(organizationId)
 }
 
-const DEEPTUNE_AND_HUD_ORGS = new Set([
+const DEEPTUNE_AND_MILLION_ORGS = new Set([
   'c0a5d258-844b-44da-aac0-706f31c3027f', // deeptune
-  '6748f7e2-93b7-4d51-8341-b1ae2f64072d', // hud
+  'c543c338-b39a-4abf-a07a-095c0b23a380', // million
 ])
 
 /*
@@ -203,7 +203,7 @@ export const DEDICATED_REGIONS_PER_ORGANIZATION: Record<string, string[]> = (() 
   const orgRegionMappings = [
     { orgs: WRITER_ORGS, regions: [WRITER_DEDICATED_US, WRITER_DEDICATED_EU] },
     { orgs: META_ORGS, regions: [META_DEDICATED_REGION] },
-    { orgs: DEEPTUNE_AND_HUD_ORGS, regions: [DEEPTUNE_AND_HUD_DEDICATED_REGION] },
+    { orgs: DEEPTUNE_AND_MILLION_ORGS, regions: [DEEPTUNE_AND_MILLION_DEDICATED_REGION] },
     { orgs: LARGE_SANDBOX_ORGS, regions: [LARGE_SANDBOX_SHARED_REGION] },
     { orgs: LG_ORGS, regions: [ELEMENTOR_DEDICATED_REGION] },
     { orgs: ['9f4f4bb5-a521-47a2-9263-462dc409db1d'], regions: [WRITER_DEDICATED_US] },
@@ -275,8 +275,8 @@ export function resolveEffectiveRegion(
     return META_DEDICATED_REGION
   }
 
-  if (DEEPTUNE_AND_HUD_ORGS.has(organizationId) && baseRegionId === 'us') {
-    return DEEPTUNE_AND_HUD_DEDICATED_REGION
+  if (DEEPTUNE_AND_MILLION_ORGS.has(organizationId) && baseRegionId === 'us') {
+    return DEEPTUNE_AND_MILLION_DEDICATED_REGION
   }
 
   if (LG_ORGS.has(organizationId)) {

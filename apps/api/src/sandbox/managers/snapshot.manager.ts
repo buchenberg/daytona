@@ -37,7 +37,7 @@ import {
   RL_REGION,
   ELEMENTOR_DEDICATED_REGION,
   META_DEDICATED_REGION,
-  DEEPTUNE_AND_HUD_DEDICATED_REGION,
+  DEEPTUNE_AND_MILLION_DEDICATED_REGION,
   getFallbackRegion,
 } from '../constants/dedicated-regions.constant'
 import { areResourcesLargerThanDefault } from '../utils/resources'
@@ -2083,7 +2083,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       // Dedicated regions get a much shorter staleness window so we don't pin disk space
       // on small fleets when an org stops using a snapshot.
       const stalenessDays = this.configService.getOrThrow('buildInfoSnapshotRunnerStalenessDays')
-      const stalenessInterval = `(CASE WHEN r.region IN (:dedicatedMeta, :dedicatedDeeptuneAndHud) THEN interval '3 hours' WHEN r.region IN (:dedicatedElementor, :dedicatedRL) THEN interval '10 hours' ELSE interval '${stalenessDays} days' END)`
+      const stalenessInterval = `(CASE WHEN r.region IN (:dedicatedMeta) THEN interval '3 hours' WHEN r.region IN (:dedicatedElementor, :dedicatedRL, :dedicatedDeeptuneAndMillion) THEN interval '10 hours' ELSE interval '${stalenessDays} days' END)`
 
       const staleEntries = await this.snapshotRunnerRepository
         .createQueryBuilder('sr')
@@ -2098,7 +2098,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
           dedicatedElementor: ELEMENTOR_DEDICATED_REGION,
           dedicatedRL: RL_REGION,
           dedicatedMeta: META_DEDICATED_REGION,
-          dedicatedDeeptuneAndHud: DEEPTUNE_AND_HUD_DEDICATED_REGION,
+          dedicatedDeeptuneAndMillion: DEEPTUNE_AND_MILLION_DEDICATED_REGION,
         })
         .limit(500)
         .getMany()

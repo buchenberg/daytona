@@ -33,11 +33,11 @@ export const ORGANIZATION_PROPAGATION_OVERRIDES: Record<
   { threshold: number; percentage: number; minimum: number }[]
 > = {
   '8c0f7497-8037-4515-89a3-992bb9230cbc': [{ threshold: 0, percentage: 13, minimum: 0 }],
-  '6748f7e2-93b7-4d51-8341-b1ae2f64072d': [{ threshold: 0, percentage: 5, minimum: 0 }], // hud — cap shared (US) propagation at 5%
+  'c543c338-b39a-4abf-a07a-095c0b23a380': [{ threshold: 0, percentage: 5, minimum: 0 }], // million — cap shared (US) propagation at 5%
 }
 
 export const DEDICATED_REGION_PROPAGATION_OVERRIDES: Record<string, { percentage: number; minimum: number }> = {
-  '6748f7e2-93b7-4d51-8341-b1ae2f64072d': { percentage: 10, minimum: 1 }, // hud — cap dedicated propagation at 10%
+  'c543c338-b39a-4abf-a07a-095c0b23a380': { percentage: 10, minimum: 1 }, // million — cap dedicated propagation at 10%
 }
 
 export const FROM_SANDBOX_PROPAGATION_OVERRIDES: Record<
