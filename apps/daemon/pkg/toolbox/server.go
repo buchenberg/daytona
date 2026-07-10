@@ -68,9 +68,7 @@ type ServerConfig struct {
 	OtelEndpoint          *string
 	SessionService        *session_svc.SessionService
 	RecordingService      *recording.RecordingService
-	OrganizationId        *string
-	RegionId              *string
-	Snapshot              *string
+	Labels                ResourceLabels
 	EntrypointLogFilePath string
 }
 
@@ -84,9 +82,7 @@ func NewServer(config ServerConfig) *server {
 		sessionService:        config.SessionService,
 		configDir:             config.ConfigDir,
 		recordingService:      config.RecordingService,
-		organizationId:        config.OrganizationId,
-		regionId:              config.RegionId,
-		snapshot:              config.Snapshot,
+		labels:                config.Labels,
 		entrypointLogFilePath: config.EntrypointLogFilePath,
 	}
 }
@@ -105,9 +101,7 @@ type server struct {
 	entrypointLogFilePath string
 	entrypointLogCancel   context.CancelFunc
 	httpServer            *http.Server
-	organizationId        *string
-	regionId              *string
-	snapshot              *string
+	labels                ResourceLabels
 	ctx                   context.Context
 	cancel                context.CancelFunc
 }
@@ -165,7 +159,7 @@ func (s *server) Start() error {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
 	}
 
-	r.POST("/init", s.Initialize(otelServiceName, s.entrypointLogFilePath, s.organizationId, s.regionId, s.snapshot))
+	r.POST("/init", s.Initialize(otelServiceName, s.entrypointLogFilePath, s.labels))
 
 	r.GET("/version", s.GetVersion)
 

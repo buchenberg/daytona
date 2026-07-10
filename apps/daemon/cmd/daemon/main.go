@@ -179,16 +179,18 @@ func run() int {
 	recordingService := recording.NewRecordingService(logger, recordingsDir)
 
 	toolBoxServer := toolbox.NewServer(toolbox.ServerConfig{
-		Logger:                logger,
-		WorkDir:               workDir,
-		ConfigDir:             configDir,
-		OtelEndpoint:          c.OtelEndpoint,
-		SandboxId:             c.SandboxId,
-		SessionService:        sessionService,
-		RecordingService:      recordingService,
-		OrganizationId:        c.OrganizationId,
-		RegionId:              c.RegionId,
-		Snapshot:              c.Snapshot,
+		Logger:           logger,
+		WorkDir:          workDir,
+		ConfigDir:        configDir,
+		OtelEndpoint:     c.OtelEndpoint,
+		SandboxId:        c.SandboxId,
+		SessionService:   sessionService,
+		RecordingService: recordingService,
+		Labels: toolbox.ResourceLabels{
+			OrganizationID: c.OrganizationId,
+			RegionID:       c.RegionId,
+			Snapshot:       c.Snapshot,
+		},
 		EntrypointLogFilePath: entrypointLogFilePath,
 	})
 

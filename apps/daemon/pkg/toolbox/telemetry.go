@@ -14,7 +14,34 @@ import (
 	"github.com/daytonaio/daemon/internal"
 )
 
-func (s *server) initTelemetry(ctx context.Context, serviceName, entrypointLogFilePath string, organizationId, regionId, snapshot *string) error {
+// ResourceLabels are the optional daytona_* OpenTelemetry resource labels that
+// are attached to sandbox telemetry when set. They are always supplied together,
+// so they travel as one value rather than as separate parameters.
+type ResourceLabels struct {
+	OrganizationID *string
+	RegionID       *string
+	Snapshot       *string
+}
+
+// nonEmpty returns the label key/value pairs whose pointers are set and non-empty.
+func (l ResourceLabels) nonEmpty() map[string]string {
+	out := make(map[string]string)
+	for _, p := range []struct {
+		key string
+		val *string
+	}{
+		{"daytona_organization_id", l.OrganizationID},
+		{"daytona_region_id", l.RegionID},
+		{"daytona_snapshot", l.Snapshot},
+	} {
+		if p.val != nil && *p.val != "" {
+			out[p.key] = *p.val
+		}
+	}
+	return out
+}
+
+func (s *server) initTelemetry(ctx context.Context, serviceName, entrypointLogFilePath string, labels ResourceLabels) error {
 	if s.otelEndpoint == nil {
 		s.logger.InfoContext(ctx, "Otel endpoint not provided, skipping telemetry initialization")
 		return nil
@@ -62,16 +89,8 @@ func (s *server) initTelemetry(ctx context.Context, serviceName, entrypointLogFi
 		}
 	}
 
-	if organizationId != nil && *organizationId != "" {
-		extraLabels["daytona_organization_id"] = *organizationId
-	}
-
-	if regionId != nil && *regionId != "" {
-		extraLabels["daytona_region_id"] = *regionId
-	}
-
-	if snapshot != nil && *snapshot != "" {
-		extraLabels["daytona_snapshot"] = *snapshot
+	for key, value := range labels.nonEmpty() {
+		extraLabels[key] = value
 	}
 
 	if len(extraLabels) > 0 {
