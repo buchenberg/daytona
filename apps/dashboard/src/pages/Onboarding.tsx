@@ -7,6 +7,7 @@ import pythonIcon from '@/assets/python.svg'
 import typescriptIcon from '@/assets/typescript.svg'
 import CodeBlock from '@/components/CodeBlock'
 import { Button } from '@/components/ui/button'
+import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DAYTONA_DOCS_URL } from '@/constants/ExternalLinks'
@@ -215,11 +216,10 @@ const Onboarding: React.FC = () => {
                         await handleCreateApiKey()
                       }}
                     >
-                      <div className="mb-6">
-                        <label htmlFor="key-name" className="block mb-1 text-sm font-medium text-muted-foreground">
+                      <Field className="mb-6 gap-1">
+                        <FieldLabel htmlFor="key-name" className="text-muted-foreground">
                           API Key Name
-                        </label>
-
+                        </FieldLabel>
                         <Input
                           id="key-name"
                           type="text"
@@ -230,7 +230,7 @@ const Onboarding: React.FC = () => {
                           className="md:text-base px-4 h-10.5"
                           disabled={!hasSufficientPermissions}
                         />
-                      </div>
+                      </Field>
                       <Button
                         type="submit"
                         disabled={isLoadingCreateKey || !hasSufficientPermissions}

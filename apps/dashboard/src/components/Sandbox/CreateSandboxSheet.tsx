@@ -1074,13 +1074,13 @@ export const CreateSandboxSheet = ({
                             onChange={handleEnvFileImport}
                             id="env-file-input"
                           />
-                          <label
-                            className="inline-flex items-center gap-1 underline hover:text-foreground cursor-pointer peer-focus-visible:text-primary"
+                          <Label
+                            className="inline-flex items-center gap-1 font-normal leading-normal underline hover:text-foreground cursor-pointer peer-focus-visible:text-primary"
                             htmlFor="env-file-input"
                           >
                             <Upload className="size-3" />
                             Import .env file
-                          </label>{' '}
+                          </Label>{' '}
                           or paste .env contents into any key field.
                         </div>
                       }
