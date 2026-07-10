@@ -379,8 +379,13 @@ const allKnownPermissions = Object.values(CreateApiKeyPermissionsEnum).filter(
 
 // Mirrors OPT_IN_PERMISSIONS in CreateApiKeySheet.tsx. These are not part of the "Full Access"
 // preset, so a key without them should still qualify as Full Access.
+const FULL_ACCESS_EXCLUDED_PERMISSIONS: CreateApiKeyPermissionsEnum[] = [
+  CreateApiKeyPermissionsEnum.MANAGE_API_KEYS,
+  CreateApiKeyPermissionsEnum.READ_LIMITS,
+]
+
 const FULL_ACCESS_REQUIRED_PERMISSIONS = allKnownPermissions.filter(
-  (permission) => permission !== CreateApiKeyPermissionsEnum.MANAGE_API_KEYS,
+  (permission) => !FULL_ACCESS_EXCLUDED_PERMISSIONS.includes(permission),
 )
 
 const IMPLICIT_READ_RESOURCES = ['Sandboxes', 'Snapshots', 'Registries', 'Regions']
@@ -393,7 +398,9 @@ function PermissionsTooltip({
   availablePermissions: CreateApiKeyPermissionsEnum[]
 }) {
   const knownPermissions = permissions.filter(
-    (permission) => permission !== ApiKeyListPermissionsEnum.UNKNOWN_DEFAULT_OPEN_API,
+    (permission) =>
+      permission !== ApiKeyListPermissionsEnum.UNKNOWN_DEFAULT_OPEN_API &&
+      permission !== ApiKeyListPermissionsEnum.READ_LIMITS,
   )
   const knownPermissionSet = new Set<string>(knownPermissions)
   const isFullAccess = FULL_ACCESS_REQUIRED_PERMISSIONS.every((p) => knownPermissionSet.has(p))
