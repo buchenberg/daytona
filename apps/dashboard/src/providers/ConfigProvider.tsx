@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { queryKeys } from '@/hooks/queries/queryKeys'
 import { DaytonaConfiguration } from '@daytona/api-client'
 import { initStripe } from '@/hooks/useStripe'
@@ -55,7 +55,7 @@ export function ConfigProvider(props: Props) {
       userStore: new WebStorageStateStore({ store: stateStore }),
       onSigninCallback: (user) => {
         const state = user?.state as { returnTo?: string } | undefined
-        const targetUrl = state?.returnTo || RoutePath.DASHBOARD
+        const targetUrl = state?.returnTo || routes.dashboard.path
         window.history.replaceState({}, '', targetUrl)
         window.dispatchEvent(new PopStateEvent('popstate'))
       },

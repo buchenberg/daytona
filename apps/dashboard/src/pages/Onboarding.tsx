@@ -11,7 +11,7 @@ import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DAYTONA_DOCS_URL } from '@/constants/Links'
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { useApi } from '@/hooks/useApi'
 import { useOrganizations } from '@/hooks/useOrganizations'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
@@ -175,7 +175,7 @@ const Onboarding: React.FC = () => {
                     {apiKeyPermissions.includes(CreateApiKeyPermissionsEnum.DELETE_SANDBOXES) ? 'manage' : 'create'}{' '}
                     Sandboxes. For full API permissions, head to the{' '}
                     <button
-                      onClick={() => navigate(RoutePath.KEYS)}
+                      onClick={() => navigate(routes.keys.path)}
                       className="underline cursor-pointer hover:text-muted-foreground"
                     >
                       Keys

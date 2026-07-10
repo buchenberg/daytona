@@ -4,7 +4,7 @@
  */
 
 import { useBanner } from '@/components/Banner'
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { useUserOrganizationInvitationsQuery } from '@/hooks/queries/useUserOrganizationInvitationsQuery'
 import { MailIcon } from 'lucide-react'
 import { useEffect } from 'react'
@@ -37,10 +37,10 @@ export function useUserOrganizationInvitationsBanner() {
         : 'You have an organization invitation waiting for your response.',
       icon: <MailIcon className="h-4 w-4 flex-shrink-0 text-current" />,
       action:
-        path !== RoutePath.USER_INVITATIONS
+        path !== routes.userInvitations.path
           ? {
               label: 'Review',
-              onClick: () => navigate(RoutePath.USER_INVITATIONS),
+              onClick: () => navigate(routes.userInvitations.path),
             }
           : undefined,
       isDismissible: false,

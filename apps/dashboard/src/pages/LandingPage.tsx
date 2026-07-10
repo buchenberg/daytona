@@ -4,7 +4,7 @@
  */
 
 import LoadingFallback from '@/components/LoadingFallback'
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import React from 'react'
 import { useAuth } from 'react-oidc-context'
 import { Navigate, useLocation } from 'react-router'
@@ -18,7 +18,7 @@ const LandingPage: React.FC = () => {
   }
 
   if (isAuthenticated) {
-    return <Navigate to={`${RoutePath.DASHBOARD}${location.search}`} replace />
+    return <Navigate to={`${routes.dashboard.path}${location.search}`} replace />
   } else {
     void signinRedirect({
       state: {

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { cn } from '@/lib/utils'
 import { SandboxClass, type RegionUsageOverview } from '@daytona/api-client'
 import { Lock } from 'lucide-react'
@@ -79,7 +79,7 @@ export function UsageOverview({
         {showGpuLock && (
           <div className="text-xs text-warning-foreground">
             <Link
-              to={RoutePath.BILLING_WALLET}
+              to={routes.billingWallet.path}
               className="font-medium underline underline-offset-2 hover:text-foreground"
             >
               Top up

@@ -33,7 +33,7 @@ import DeliveryStatsLine from '@/components/Webhooks/DeliveryStatsLine'
 import { EndpointEventsTable } from '@/components/Webhooks/EndpointEventsTable'
 import { UpsertEndpointSheet } from '@/components/Webhooks/UpsertEndpointSheet'
 import { WebhookEndpointDetailsSkeleton } from '@/components/Webhooks/WebhookEndpointDetailsSkeleton'
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { useDeleteWebhookEndpointMutation } from '@/hooks/mutations/useDeleteWebhookEndpointMutation'
 import { useReplayWebhookEventMutation } from '@/hooks/mutations/useReplayWebhookEventMutation'
 import { useRotateWebhookSecretMutation } from '@/hooks/mutations/useRotateWebhookSecretMutation'
@@ -100,7 +100,7 @@ const WebhookEndpointDetails: React.FC = () => {
       await deleteMutation.mutateAsync({ endpointId: endpoint.data.id })
       toast.success('Endpoint deleted')
       setDeleteDialogOpen(false)
-      navigate(RoutePath.WEBHOOKS)
+      navigate(routes.webhooks.path)
     } catch (error) {
       handleApiError(error, 'Failed to delete endpoint')
     }
@@ -144,11 +144,16 @@ const WebhookEndpointDetails: React.FC = () => {
       <PageContent className="gap-6">
         <PageIntro title="Webhooks" />
         {endpoint.loading ? (
-          <WebhookEndpointDetailsSkeleton onBack={() => navigate(RoutePath.WEBHOOKS)} />
+          <WebhookEndpointDetailsSkeleton onBack={() => navigate(routes.webhooks.path)} />
         ) : (
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <Button variant="ghost" size="icon-sm" className="shrink-0" onClick={() => navigate(RoutePath.WEBHOOKS)}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="shrink-0"
+                onClick={() => navigate(routes.webhooks.path)}
+              >
                 <ArrowLeft className="w-4 h-4" />
               </Button>
               {endpointData ? (

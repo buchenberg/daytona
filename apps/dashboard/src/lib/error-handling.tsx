@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import LinkifyIt from 'linkify-it'
 import { type ReactNode } from 'react'
 import { Link } from 'react-router'
@@ -62,7 +62,7 @@ function getInternalLinkTo(url: string): string | undefined {
   }
 
   const parsedUrl = new URL(url)
-  const isDashboardPath = `${parsedUrl.pathname}/`.startsWith(`${RoutePath.DASHBOARD}/`)
+  const isDashboardPath = `${parsedUrl.pathname}/`.startsWith(`${routes.dashboard.path}/`)
 
   if (parsedUrl.origin !== window.location.origin || !isDashboardPath) {
     return undefined

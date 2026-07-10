@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { WebhookEndpointDetailsPageSkeleton } from '@/components/Webhooks/WebhookEndpointDetailsSkeleton'
 import { WebhooksGetStarted } from '@/components/Webhooks/WebhooksGetStarted'
 import { WebhooksPageSkeleton } from '@/components/Webhooks/WebhooksPageSkeleton'
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { useWebhookAppPortalAccessQuery } from '@/hooks/queries/useWebhookAppPortalAccessQuery'
 import { useWebhookInitializationStatusQuery } from '@/hooks/queries/useWebhookInitializationStatusQuery'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
@@ -26,7 +26,7 @@ interface SvixProviderProps {
 export function SvixProvider({ children }: SvixProviderProps) {
   const { selectedOrganization } = useSelectedOrganization()
   const location = useLocation()
-  const isWebhooksListPage = location.pathname === RoutePath.WEBHOOKS
+  const isWebhooksListPage = location.pathname === routes.webhooks.path
   const {
     data: appPortalAccess,
     isLoading: isLoadingAppPortalAccess,

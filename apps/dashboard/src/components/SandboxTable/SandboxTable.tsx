@@ -4,7 +4,7 @@
  */
 
 import { DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { useCommandPaletteAnalytics } from '@/hooks/useCommandPaletteAnalytics'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import { cn, getRegionFullDisplayName } from '@/lib/utils'
@@ -308,7 +308,7 @@ export function SandboxTable({
                     <p>Use the Daytona SDK or CLI to create one.</p>
                     <p>
                       <button
-                        onClick={() => navigate(RoutePath.ONBOARDING)}
+                        onClick={() => navigate(routes.onboarding.path)}
                         className="text-primary hover:underline font-medium"
                       >
                         Check out the Onboarding guide

@@ -4,7 +4,7 @@
  */
 
 import { useBanner } from '@/components/Banner'
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { usePaymentMethodsQuery } from '@/hooks/queries/usePaymentMethodsQuery'
 import { Organization } from '@daytona/api-client'
 import { addHours, formatDistanceToNow } from 'date-fns'
@@ -78,10 +78,10 @@ export function useSuspensionBanner(suspension?: Suspension | null) {
             description: 'Top up your wallet to continue creating sandboxes.',
             icon: <CreditCardIcon className="h-4 w-4 flex-shrink-0 text-current" />,
             action:
-              path !== RoutePath.BILLING_WALLET
+              path !== routes.billingWallet.path
                 ? {
                     label: 'Go to Billing',
-                    onClick: () => navigate(RoutePath.BILLING_WALLET),
+                    onClick: () => navigate(routes.billingWallet.path),
                   }
                 : undefined,
             isDismissible: false,
@@ -96,10 +96,10 @@ export function useSuspensionBanner(suspension?: Suspension | null) {
           description: 'Add a payment method to start creating sandboxes.',
           icon: <CreditCardIcon className="h-4 w-4 flex-shrink-0 text-current" />,
           action:
-            path !== RoutePath.BILLING_WALLET
+            path !== routes.billingWallet.path
               ? {
                   label: 'Go to Billing',
-                  onClick: () => navigate(RoutePath.BILLING_WALLET),
+                  onClick: () => navigate(routes.billingWallet.path),
                 }
               : undefined,
           isDismissible: false,
@@ -137,10 +137,10 @@ export function useSuspensionBanner(suspension?: Suspension | null) {
         title: 'Credits depleted',
         description: cleanupText,
         action:
-          path !== RoutePath.BILLING_WALLET
+          path !== routes.billingWallet.path
             ? {
                 label: 'Go to Billing',
-                onClick: () => navigate(RoutePath.BILLING_WALLET),
+                onClick: () => navigate(routes.billingWallet.path),
               }
             : undefined,
         isDismissible: false,

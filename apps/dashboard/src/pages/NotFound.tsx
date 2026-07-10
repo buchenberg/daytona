@@ -4,7 +4,7 @@
  */
 
 import { Button } from '@/components/ui/button'
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { Home } from 'lucide-react'
 import React from 'react'
 import { useNavigate } from 'react-router'
@@ -17,7 +17,7 @@ const NotFound: React.FC = () => {
       <div className="text-center space-y-6 max-w-lg">
         <h1 className="text-4xl font-bold text-foreground animate-bounce">404</h1>
         <p className="text-base text-muted-foreground">The page you're looking for doesn't exist or has been moved.</p>
-        <Button onClick={() => navigate(RoutePath.DASHBOARD)} className="flex items-center gap-2 mx-auto">
+        <Button onClick={() => navigate(routes.dashboard.path)} className="flex items-center gap-2 mx-auto">
           <Home className="w-4 h-4" />
           Go to Dashboard
         </Button>

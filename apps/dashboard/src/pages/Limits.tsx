@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { DAYTONA_DOCS_NETWORK_LIMITS_URL, DAYTONA_DOCS_PREVIEW_AUTH_URL } from '@/constants/Links'
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { useOwnerTierQuery } from '@/hooks/queries/billingQueries'
 import { useGpuAccessQuery } from '@/hooks/queries/useGpuAccessQuery'
 import { usePaymentMethodsQuery } from '@/hooks/queries/usePaymentMethodsQuery'
@@ -54,7 +54,7 @@ export default function Limits() {
 
   useEffect(() => {
     if (selectedOrganization && !selectedOrganization.defaultRegionId) {
-      navigate(RoutePath.SETTINGS)
+      navigate(routes.settings.path)
     }
   }, [navigate, selectedOrganization])
 

@@ -6,7 +6,7 @@
 import { Logo } from '@/assets/Logo'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { useApi } from '@/hooks/useApi'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import { useEffect, useState } from 'react'
@@ -37,7 +37,7 @@ export default function EmailVerify() {
         setVerificationStatus('success')
         onSelectOrganization(organizationId)
         setTimeout(() => {
-          navigate(RoutePath.BILLING_WALLET)
+          navigate(routes.billingWallet.path)
         }, 1000)
       } catch (error) {
         setVerificationStatus('error')
@@ -73,7 +73,7 @@ export default function EmailVerify() {
             <>
               <CardTitle className="text-red-600">Verification Failed</CardTitle>
               <p className="text-muted-foreground">{errorMessage}</p>
-              <Button onClick={() => navigate(RoutePath.BILLING_WALLET)} className="mt-4">
+              <Button onClick={() => navigate(routes.billingWallet.path)} className="mt-4">
                 Go to Wallet
               </Button>
             </>

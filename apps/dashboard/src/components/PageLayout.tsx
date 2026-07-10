@@ -5,7 +5,7 @@
 
 import { DAYTONA_DOCS_URL } from '@/constants/Links'
 import { useTheme } from '@/contexts/ThemeContext'
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { useUserOrganizationInvitationsQuery } from '@/hooks/queries/useUserOrganizationInvitationsQuery'
 import { cn } from '@/lib/utils'
 import { usePylon } from '@/vendor/pylon'
@@ -191,7 +191,7 @@ function PageHeaderProfileMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           render={
-            <Link to={RoutePath.ACCOUNT_SETTINGS}>
+            <Link to={routes.accountSettings.path}>
               <Settings className="size-4" />
               Account Settings
             </Link>
@@ -204,7 +204,7 @@ function PageHeaderProfileMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           render={
-            <Link to={RoutePath.USER_INVITATIONS}>
+            <Link to={routes.userInvitations.path}>
               <Mail className="size-4" />
               Invitations
               {organizationInvitationsCount > 0 && (
@@ -217,7 +217,7 @@ function PageHeaderProfileMenu() {
         />
         <DropdownMenuItem
           render={
-            <Link to={RoutePath.ONBOARDING}>
+            <Link to={routes.onboarding.path}>
               <ListChecks className="size-4" />
               Onboarding
             </Link>

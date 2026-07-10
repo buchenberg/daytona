@@ -42,7 +42,7 @@ import {
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from './components/ui/empty'
 import { DAYTONA_DOCS_URL, DAYTONA_SLACK_URL } from './constants/Links'
 import { FeatureFlags } from './enums/FeatureFlags'
-import { getRouteSubPath, RoutePath, trimLeadingSlash } from './enums/RoutePath'
+import { routes } from './routes/paths'
 import { useConfig } from './hooks/useConfig'
 import Dashboard from './pages/Dashboard'
 import LandingPage from './pages/LandingPage'
@@ -163,7 +163,7 @@ function DashboardOutlet() {
 function DashboardIndexRedirect() {
   const location = useLocation()
 
-  return <Navigate to={`${getRouteSubPath(RoutePath.SANDBOXES)}${location.search}`} replace />
+  return <Navigate to={`${routes.sandboxes.segment}${location.search}`} replace />
 }
 
 function getAccessLabel(access: string) {
@@ -235,7 +235,7 @@ function RequiredFeatureFlagWrapper({ children, flagKey }: { children: ReactNode
   const flagEnabled = useFeatureFlagEnabled(flagKey)
 
   if (!flagEnabled) {
-    return <Navigate to={RoutePath.DASHBOARD} replace />
+    return <Navigate to={routes.dashboard.path} replace />
   }
 
   return children
@@ -275,7 +275,7 @@ function BillingEnabledOutlet() {
   const config = useConfig()
 
   if (!config.billingApiUrl) {
-    return <Navigate to={RoutePath.DASHBOARD} replace />
+    return <Navigate to={routes.dashboard.path} replace />
   }
 
   return <Outlet />
@@ -285,7 +285,7 @@ function BillingOwnerAccessOutlet({ pageTitle }: { pageTitle: ReactNode }) {
   const config = useConfig()
 
   if (!config.billingApiUrl) {
-    return <Navigate to={RoutePath.DASHBOARD} replace />
+    return <Navigate to={routes.dashboard.path} replace />
   }
 
   return (
@@ -318,23 +318,23 @@ function WebhooksOutlet() {
 
 const router = createBrowserRouter([
   {
-    path: RoutePath.LANDING,
+    path: routes.landing.path,
     element: <AppRoot />,
     hydrateFallbackElement: <LoadingFallback source="app-root-hydrate" />,
     errorElement: <RouteErrorFallback />,
     children: [
       { index: true, element: <LandingPage /> },
-      { path: trimLeadingSlash(RoutePath.LOGOUT), element: <Logout /> },
-      { path: trimLeadingSlash(RoutePath.DOCS), loader: () => redirect(DAYTONA_DOCS_URL) },
-      { path: trimLeadingSlash(RoutePath.SLACK), loader: () => redirect(DAYTONA_SLACK_URL) },
+      { path: routes.logout.segment, element: <Logout /> },
+      { path: routes.docs.segment, loader: () => redirect(DAYTONA_DOCS_URL) },
+      { path: routes.slack.segment, loader: () => redirect(DAYTONA_SLACK_URL) },
       {
-        path: trimLeadingSlash(RoutePath.DASHBOARD),
+        path: routes.dashboard.segment,
         element: <DashboardOutlet />,
         children: [
           { index: true, element: <DashboardIndexRedirect /> },
-          { path: getRouteSubPath(RoutePath.KEYS), lazy: lazyRoutes.Keys },
+          { path: routes.keys.segment, lazy: lazyRoutes.Keys },
           {
-            path: getRouteSubPath(RoutePath.SECRETS),
+            path: routes.secrets.segment,
             element: (
               <RequiredPermissionsOrganizationOutlet
                 pageTitle="Secrets"
@@ -343,12 +343,12 @@ const router = createBrowserRouter([
             ),
             children: [{ index: true, lazy: lazyRoutes.Secrets }],
           },
-          { path: getRouteSubPath(RoutePath.SANDBOXES), lazy: lazyRoutes.Sandboxes },
-          { path: getRouteSubPath(RoutePath.SANDBOX_DETAILS), lazy: lazyRoutes.SandboxDetails },
-          { path: getRouteSubPath(RoutePath.SNAPSHOTS), lazy: lazyRoutes.Snapshots },
-          { path: getRouteSubPath(RoutePath.REGISTRIES), lazy: lazyRoutes.Registries },
+          { path: routes.sandboxes.segment, lazy: lazyRoutes.Sandboxes },
+          { path: routes.sandboxDetails.segment, lazy: lazyRoutes.SandboxDetails },
+          { path: routes.snapshots.segment, lazy: lazyRoutes.Snapshots },
+          { path: routes.registries.segment, lazy: lazyRoutes.Registries },
           {
-            path: getRouteSubPath(RoutePath.VOLUMES),
+            path: routes.volumes.segment,
             element: (
               <RequiredPermissionsOrganizationOutlet
                 pageTitle="Volumes"
@@ -358,7 +358,7 @@ const router = createBrowserRouter([
             children: [{ index: true, lazy: lazyRoutes.Volumes }],
           },
           {
-            path: getRouteSubPath(RoutePath.LIMITS),
+            path: routes.limits.segment,
             element: (
               <RequiredPermissionsOrganizationOutlet
                 pageTitle="Limits"
@@ -368,23 +368,23 @@ const router = createBrowserRouter([
             children: [{ index: true, lazy: lazyRoutes.Limits }],
           },
           {
-            path: getRouteSubPath(RoutePath.BILLING_SPENDING),
+            path: routes.billingSpending.segment,
             element: <BillingOwnerAccessOutlet pageTitle="Spending" />,
             children: [{ index: true, lazy: lazyRoutes.Spending }],
           },
           {
-            path: getRouteSubPath(RoutePath.BILLING_WALLET),
+            path: routes.billingWallet.segment,
             element: <BillingOwnerAccessOutlet pageTitle="Wallet" />,
             children: [{ index: true, lazy: lazyRoutes.Wallet }],
           },
           {
-            path: getRouteSubPath(RoutePath.EMAIL_VERIFY),
+            path: routes.emailVerify.segment,
             element: <BillingEnabledOutlet />,
             children: [{ index: true, lazy: lazyRoutes.EmailVerify }],
           },
-          { path: getRouteSubPath(RoutePath.MEMBERS), lazy: lazyRoutes.OrganizationMembers },
+          { path: routes.members.segment, lazy: lazyRoutes.OrganizationMembers },
           {
-            path: getRouteSubPath(RoutePath.AUDIT_LOGS),
+            path: routes.auditLogs.segment,
             element: (
               <RequiredPermissionsOrganizationOutlet
                 pageTitle="Audit Logs"
@@ -393,27 +393,27 @@ const router = createBrowserRouter([
             ),
             children: [{ index: true, lazy: lazyRoutes.AuditLogs }],
           },
-          { path: getRouteSubPath(RoutePath.SETTINGS), lazy: lazyRoutes.OrganizationSettings },
+          { path: routes.settings.segment, lazy: lazyRoutes.OrganizationSettings },
           {
-            path: getRouteSubPath(RoutePath.REGIONS),
+            path: routes.regions.segment,
             element: <RequiredFeatureFlagOutlet flagKey={FeatureFlags.ORGANIZATION_INFRASTRUCTURE} />,
             children: [{ index: true, lazy: lazyRoutes.Regions }],
           },
           {
-            path: getRouteSubPath(RoutePath.RUNNERS),
+            path: routes.runners.segment,
             element: <RunnersAccessOutlet />,
             children: [{ index: true, lazy: lazyRoutes.Runners }],
           },
-          { path: getRouteSubPath(RoutePath.ACCOUNT_SETTINGS), lazy: lazyRoutes.AccountSettings },
-          { path: getRouteSubPath(RoutePath.USER_INVITATIONS), lazy: lazyRoutes.UserOrganizationInvitations },
-          { path: getRouteSubPath(RoutePath.ONBOARDING), lazy: lazyRoutes.Onboarding },
-          { path: getRouteSubPath(RoutePath.PLAYGROUND), lazy: lazyRoutes.Playground },
+          { path: routes.accountSettings.segment, lazy: lazyRoutes.AccountSettings },
+          { path: routes.userInvitations.segment, lazy: lazyRoutes.UserOrganizationInvitations },
+          { path: routes.onboarding.segment, lazy: lazyRoutes.Onboarding },
+          { path: routes.playground.segment, lazy: lazyRoutes.Playground },
           {
-            path: getRouteSubPath(RoutePath.WEBHOOKS),
+            path: routes.webhooks.segment,
             element: <WebhooksOutlet />,
             children: [
               { index: true, lazy: lazyRoutes.Webhooks },
-              { path: ':endpointId', lazy: lazyRoutes.WebhookEndpointDetails },
+              { path: routes.webhookEndpointDetails.segment, lazy: lazyRoutes.WebhookEndpointDetails },
             ],
           },
         ],

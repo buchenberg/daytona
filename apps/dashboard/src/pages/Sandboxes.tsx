@@ -37,7 +37,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { DAYTONA_DOCS_URL } from '@/constants/Links'
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '@/constants/TableDefaults'
 import { LocalStorageKey } from '@/enums/LocalStorageKey'
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { mutationKeys } from '@/hooks/mutations/mutationKeys'
 import { useArchiveSandboxMutation } from '@/hooks/mutations/useArchiveSandboxMutation'
 import { useDeleteSandboxMutation } from '@/hooks/mutations/useDeleteSandboxMutation'
@@ -872,7 +872,7 @@ const Sandboxes: React.FC = () => {
           error instanceof OrganizationSuspendedError &&
           config.billingApiUrl &&
           authenticatedUserOrganizationMember?.role === OrganizationUserRoleEnum.OWNER ? (
-            <Button variant="secondary" onClick={() => navigate(RoutePath.BILLING_WALLET)}>
+            <Button variant="secondary" onClick={() => navigate(routes.billingWallet.path)}>
               Go to billing
             </Button>
           ) : null,
@@ -1243,7 +1243,7 @@ const Sandboxes: React.FC = () => {
         const keys = (await apiKeyApi.listApiKeys(selectedOrganization.id)).data
         if (keys.length === 0) {
           setLocalStorageItem(skipOnboardingKey, 'true')
-          navigate(RoutePath.ONBOARDING)
+          navigate(routes.onboarding.path)
         } else {
           setLocalStorageItem(skipOnboardingKey, 'true')
         }
@@ -1285,7 +1285,7 @@ const Sandboxes: React.FC = () => {
               {!sandboxesDataIsLoading && sandboxes.length === 0 && (
                 <Button
                   variant="link"
-                  onClick={() => navigate(RoutePath.ONBOARDING)}
+                  onClick={() => navigate(routes.onboarding.path)}
                   size="sm"
                   className="text-muted-foreground"
                 >

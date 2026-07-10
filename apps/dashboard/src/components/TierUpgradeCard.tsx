@@ -5,7 +5,7 @@
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { useDowngradeTierMutation } from '@/hooks/mutations/useDowngradeTierMutation'
 import { useUpgradeTierMutation } from '@/hooks/mutations/useUpgradeTierMutation'
 import { handleApiError } from '@/lib/error-handling'
@@ -234,14 +234,14 @@ function getTierRequirementItems(
     items.push({
       label: 'Email verification',
       isChecked: requirementsState.emailVerified,
-      link: RoutePath.ACCOUNT_SETTINGS,
+      link: routes.accountSettings.path,
     })
   }
   if (tierNumber === 2) {
     items.push({
       label: 'Credit card linked',
       isChecked: requirementsState.creditCardLinked,
-      link: RoutePath.BILLING_WALLET,
+      link: routes.billingWallet.path,
     })
   }
 
@@ -251,7 +251,7 @@ function getTierRequirementItems(
         tier.topUpIntervalDays ? `every ${tier.topUpIntervalDays} days` : 'one time'
       })`,
       isChecked: checkTopUpRequirementStatus(currentTier, tier),
-      link: RoutePath.BILLING_WALLET,
+      link: routes.billingWallet.path,
     })
   }
 

@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { useArchiveSandboxMutation } from '@/hooks/mutations/useArchiveSandboxMutation'
 import { useDeleteSandboxMutation } from '@/hooks/mutations/useDeleteSandboxMutation'
 import { useRecoverSandboxMutation } from '@/hooks/mutations/useRecoverSandboxMutation'
@@ -116,7 +116,7 @@ export default function SandboxDetails() {
           error instanceof OrganizationSuspendedError &&
           config.billingApiUrl &&
           authenticatedUserOrganizationMember?.role === OrganizationUserRoleEnum.OWNER ? (
-            <Button variant="secondary" onClick={() => navigate(RoutePath.BILLING_WALLET)}>
+            <Button variant="secondary" onClick={() => navigate(routes.billingWallet.path)}>
               Go to billing
             </Button>
           ) : null,
@@ -170,7 +170,7 @@ export default function SandboxDetails() {
       await deleteMutation.mutateAsync({ sandboxId: sandbox.id })
       toast.success('Sandbox deleted')
       setDeleteDialogOpen(false)
-      navigate(RoutePath.SANDBOXES)
+      navigate(routes.sandboxes.path)
     } catch (error) {
       handleApiError(error, 'Failed to delete sandbox')
     }
@@ -211,7 +211,7 @@ export default function SandboxDetails() {
           onRecover={handleRecover}
           onDelete={() => setDeleteDialogOpen(true)}
           onRefresh={() => refetch()}
-          onBack={() => navigate(RoutePath.SANDBOXES)}
+          onBack={() => navigate(routes.sandboxes.path)}
           onCreateSshAccess={() => setCreateSshDialogOpen(true)}
           onRevokeSshAccess={() => setRevokeSshDialogOpen(true)}
           onScreenRecordings={handleScreenRecordings}
@@ -227,7 +227,7 @@ export default function SandboxDetails() {
                 <EmptyTitle>Sandbox not found</EmptyTitle>
                 <EmptyDescription>Are you sure you're in the right organization?</EmptyDescription>
               </EmptyHeader>
-              <Button variant="outline" size="sm" onClick={() => navigate(RoutePath.SANDBOXES)}>
+              <Button variant="outline" size="sm" onClick={() => navigate(routes.sandboxes.path)}>
                 Back to Sandboxes
               </Button>
             </Empty>

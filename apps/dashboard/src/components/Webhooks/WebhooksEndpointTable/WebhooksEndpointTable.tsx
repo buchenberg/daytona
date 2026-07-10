@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/table'
 import { DAYTONA_DOCS_WEBHOOKS_URL } from '@/constants/Links'
 import { buildTableInitialState, DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { cn } from '@/lib/utils'
 import { DEFAULT_TABLE_COLUMN, getColumnSizeStyles, getTableSizeStyles } from '@/lib/utils/table'
 import {
@@ -124,7 +124,7 @@ export function WebhooksEndpointTable({
   const hasSearch = globalFilter.trim().length > 0
 
   const handleRowClick = (endpoint: EndpointOut) => {
-    navigate(RoutePath.WEBHOOK_ENDPOINT_DETAILS.replace(':endpointId', endpoint.id))
+    navigate(routes.webhookEndpointDetails.path.replace(':endpointId', endpoint.id))
   }
 
   const handleChangeFilter = (value: string) => {

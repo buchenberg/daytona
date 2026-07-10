@@ -18,7 +18,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar'
 import { FeatureFlags } from '@/enums/FeatureFlags'
-import { RoutePath } from '@/enums/RoutePath'
+import { routes } from '@/routes/paths'
 import { useCommandPaletteAnalytics } from '@/hooks/useCommandPaletteAnalytics'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import { cn, getMetaKey } from '@/lib/utils'
@@ -66,7 +66,7 @@ interface SidebarProps {
 interface SidebarItem {
   icon: React.ReactElement
   label: string
-  path: RoutePath | string
+  path: string
   onClick?: () => void
   preload?: () => Promise<unknown>
 }
@@ -112,19 +112,19 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
       {
         icon: <Container size={16} strokeWidth={1.5} />,
         label: 'Sandboxes',
-        path: RoutePath.SANDBOXES,
+        path: routes.sandboxes.path,
         preload: lazyRoutes.Sandboxes,
       },
       {
         icon: <Box size={16} strokeWidth={1.5} />,
         label: 'Snapshots',
-        path: RoutePath.SNAPSHOTS,
+        path: routes.snapshots.path,
         preload: lazyRoutes.Snapshots,
       },
       {
         icon: <PackageOpen size={16} strokeWidth={1.5} />,
         label: 'Registries',
-        path: RoutePath.REGISTRIES,
+        path: routes.registries.path,
         preload: lazyRoutes.Registries,
       },
     ]
@@ -132,7 +132,7 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
       arr.push({
         icon: <HardDrive size={16} strokeWidth={1.5} />,
         label: 'Volumes',
-        path: RoutePath.VOLUMES,
+        path: routes.volumes.path,
         preload: lazyRoutes.Volumes,
       })
     }
@@ -141,7 +141,7 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
       arr.push({
         icon: <TextSearch size={16} strokeWidth={1.5} />,
         label: 'Audit Logs',
-        path: RoutePath.AUDIT_LOGS,
+        path: routes.auditLogs.path,
         preload: lazyRoutes.AuditLogs,
       })
     }
@@ -154,13 +154,13 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
       {
         icon: <KeyRound size={16} strokeWidth={1.5} />,
         label: 'API Keys',
-        path: RoutePath.KEYS,
+        path: routes.keys.path,
         preload: lazyRoutes.Keys,
       },
       {
         icon: <ShieldCheck size={16} strokeWidth={1.5} />,
         label: 'Secrets',
-        path: RoutePath.SECRETS,
+        path: routes.secrets.path,
         preload: lazyRoutes.Secrets,
       },
     ]
@@ -168,7 +168,7 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
     arr.push({
       icon: <Mail size={16} strokeWidth={1.5} />,
       label: 'Webhooks',
-      path: RoutePath.WEBHOOKS,
+      path: routes.webhooks.path,
       preload: lazyRoutes.Webhooks,
     })
 
@@ -176,7 +176,7 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
       arr.push({
         icon: <LockKeyhole size={16} strokeWidth={1.5} />,
         label: 'Limits',
-        path: RoutePath.LIMITS,
+        path: routes.limits.path,
         preload: lazyRoutes.Limits,
       })
     }
@@ -184,18 +184,18 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
     arr.push({
       icon: <Users size={16} strokeWidth={1.5} />,
       label: 'Members',
-      path: RoutePath.MEMBERS,
+      path: routes.members.path,
       preload: lazyRoutes.OrganizationMembers,
     })
     // TODO: uncomment when we allow creating custom roles
     // if (authenticatedUserOrganizationMember?.role === OrganizationUserRoleEnum.OWNER) {
-    //   arr.push({ icon: <UserCog className="w-5 h-5" />, label: 'Roles', path: RoutePath.ROLES })
+    //   arr.push({ icon: <UserCog className="w-5 h-5" />, label: 'Roles', path: routes.roles.path })
     // }
 
     arr.push({
       icon: <Settings size={16} strokeWidth={1.5} />,
       label: 'Settings',
-      path: RoutePath.SETTINGS,
+      path: routes.settings.path,
       preload: lazyRoutes.OrganizationSettings,
     })
 
@@ -211,13 +211,13 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
       {
         icon: <ChartColumn size={16} strokeWidth={1.5} />,
         label: 'Spending',
-        path: RoutePath.BILLING_SPENDING,
+        path: routes.billingSpending.path,
         preload: lazyRoutes.Spending,
       },
       {
         icon: <CreditCard size={16} strokeWidth={1.5} />,
         label: 'Wallet',
-        path: RoutePath.BILLING_WALLET,
+        path: routes.billingWallet.path,
         preload: lazyRoutes.Wallet,
       },
     ]
@@ -232,7 +232,7 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
       {
         icon: <MapPinned size={16} strokeWidth={1.5} />,
         label: 'Regions',
-        path: RoutePath.REGIONS,
+        path: routes.regions.path,
         preload: lazyRoutes.Regions,
       },
     ]
@@ -241,7 +241,7 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
       arr.push({
         icon: <Server size={16} strokeWidth={1.5} />,
         label: 'Runners',
-        path: RoutePath.RUNNERS,
+        path: routes.runners.path,
         preload: lazyRoutes.Runners,
       })
     }
@@ -254,7 +254,7 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
       {
         icon: <Joystick size={16} strokeWidth={1.5} />,
         label: 'Playground',
-        path: RoutePath.PLAYGROUND,
+        path: routes.playground.path,
         preload: lazyRoutes.Playground,
       },
     ]
@@ -278,19 +278,19 @@ export function Sidebar({ isBannerVisible, billingEnabled, version }: SidebarPro
       .flatMap((group) => group.items)
       .concat(
         {
-          path: RoutePath.ACCOUNT_SETTINGS,
+          path: routes.accountSettings.path,
           label: 'Account Settings',
           icon: <Settings size={16} strokeWidth={1.5} />,
           preload: lazyRoutes.AccountSettings,
         },
         {
-          path: RoutePath.USER_INVITATIONS,
+          path: routes.userInvitations.path,
           label: 'Invitations',
           icon: <Mail size={16} strokeWidth={1.5} />,
           preload: lazyRoutes.UserOrganizationInvitations,
         },
         {
-          path: RoutePath.ONBOARDING,
+          path: routes.onboarding.path,
           label: 'Onboarding',
           icon: <ListChecks size={16} strokeWidth={1.5} />,
           preload: lazyRoutes.Onboarding,
