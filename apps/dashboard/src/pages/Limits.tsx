@@ -11,6 +11,7 @@ import { TierUpgradeCard } from '@/components/TierUpgradeCard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
+import { DAYTONA_DOCS_NETWORK_LIMITS_URL, DAYTONA_DOCS_PREVIEW_AUTH_URL } from '@/constants/Links'
 import { RoutePath } from '@/enums/RoutePath'
 import { useOwnerTierQuery } from '@/hooks/queries/billingQueries'
 import { useGpuAccessQuery } from '@/hooks/queries/useGpuAccessQuery'
@@ -176,7 +177,7 @@ function AdditionalFeatures({ className }: { className?: string }) {
         Shown on <span className="text-foreground">Tier 1 & 2</span>. Removed for{' '}
         <span className="text-foreground">Tier 3+</span>.{' '}
         <a
-          href="https://www.daytona.io/docs/en/preview-and-authentication"
+          href={DAYTONA_DOCS_PREVIEW_AUTH_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="underline inline-flex items-center gap-1 hover:text-foreground"
@@ -194,7 +195,7 @@ function AdditionalFeatures({ className }: { className?: string }) {
         Restricted on <span className="text-foreground">Tier 1 & 2</span>. Full access for{' '}
         <span className="text-foreground">Tier 3+</span>.{' '}
         <a
-          href="https://www.daytona.io/docs/en/network-limits"
+          href={DAYTONA_DOCS_NETWORK_LIMITS_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="underline inline-flex items-center gap-1 hover:text-foreground"

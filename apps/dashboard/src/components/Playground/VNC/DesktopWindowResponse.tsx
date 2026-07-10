@@ -6,7 +6,7 @@
 import TooltipButton from '@/components/TooltipButton'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-import { DAYTONA_DOCS_URL } from '@/constants/ExternalLinks'
+import { DAYTONA_DOCS_URL } from '@/constants/Links'
 import { usePlayground } from '@/hooks/usePlayground'
 import { usePlaygroundSandbox } from '@/hooks/usePlaygroundSandbox'
 import { AnimatePresence, motion } from 'framer-motion'

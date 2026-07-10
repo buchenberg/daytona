@@ -43,6 +43,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { DAYTONA_DOCS_VOLUMES_URL } from '@/constants/Links'
 import { buildTableInitialState, DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import { cn, getRelativeTimeString } from '@/lib/utils'
@@ -338,7 +339,7 @@ export function VolumeTable({
                     <p>
                       Create one via the SDK or CLI.{' '}
                       <a
-                        href="https://www.daytona.io/docs/volumes"
+                        href={DAYTONA_DOCS_VOLUMES_URL}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-foreground hover:underline"

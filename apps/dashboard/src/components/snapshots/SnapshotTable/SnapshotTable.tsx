@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dropdown-menu-panel'
 import { FacetedFilter, type FacetedFilterOption } from '@/components/ui/faceted-filter'
 import { Skeleton } from '@/components/ui/skeleton'
+import { DAYTONA_DOCS_SNAPSHOTS_URL } from '@/constants/Links'
 import { DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
 import { SnapshotSorting } from '@/hooks/queries/useSnapshotsQuery'
 import { useCommandPaletteAnalytics } from '@/hooks/useCommandPaletteAnalytics'
@@ -566,7 +567,7 @@ export function SnapshotTable({
                     <p>
                       Create one from the Dashboard, CLI, or SDK to get started. <br />
                       <a
-                        href="https://www.daytona.io/docs/snapshots"
+                        href={DAYTONA_DOCS_SNAPSHOTS_URL}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary hover:underline font-medium"

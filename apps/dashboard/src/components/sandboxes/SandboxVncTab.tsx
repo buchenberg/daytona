@@ -6,7 +6,7 @@
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { DAYTONA_DOCS_URL } from '@/constants/ExternalLinks'
+import { DAYTONA_DOCS_URL } from '@/constants/Links'
 import { useStartVncMutation } from '@/hooks/mutations/useStartVncMutation'
 import { useVncInitialStatusQuery, useVncPollStatusQuery } from '@/hooks/queries/useVncStatusQuery'
 import { useVncSessionQuery } from '@/hooks/queries/useVncSessionQuery'

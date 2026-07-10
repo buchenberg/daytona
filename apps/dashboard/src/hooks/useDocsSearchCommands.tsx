@@ -11,6 +11,7 @@ import {
   useRegisterPage,
   type CommandConfig,
 } from '@/components/CommandPalette'
+import { DAYTONA_DOCS_URL, DAYTONA_URL } from '@/constants/Links'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { cn } from '@/lib/utils'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
@@ -87,7 +88,7 @@ export const useDocsSearchQuery = ({ search, enabled }: { search: string; enable
 }
 
 const openDocs = (path = '') => {
-  window.open(`https://www.daytona.io/docs${path}`, '_blank')
+  window.open(`${DAYTONA_DOCS_URL}${path}`, '_blank')
 }
 
 const SearchSnippet = ({
@@ -138,7 +139,7 @@ const parseSDKLanguage = (hit: AlgoliaHit) => {
 }
 
 const handleSelect = (hit: AlgoliaHit) => {
-  const url = `https://www.daytona.io${hit.url}`
+  const url = `${DAYTONA_URL}${hit.url}`
   window.open(url, '_blank')
 }
 

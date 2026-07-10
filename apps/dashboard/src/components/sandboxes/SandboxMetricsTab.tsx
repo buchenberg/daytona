@@ -10,7 +10,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { DAYTONA_DOCS_URL } from '@/constants/ExternalLinks'
+import { DAYTONA_DOCS_URL } from '@/constants/Links'
 import { getMetricDisplayName } from '@/constants/metrics'
 import { MetricsQueryParams, useSandboxMetrics } from '@/hooks/useSandboxMetrics'
 import { MetricSeries } from '@daytona/api-client'

@@ -4,6 +4,7 @@
  */
 
 import { CREATE_API_KEY_PERMISSIONS_GROUPS } from '@/constants/CreateApiKeyPermissionsGroups'
+import { DAYTONA_DOCS_API_KEYS_URL } from '@/constants/Links'
 import { buildTableInitialState, DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
 import { cn, getRelativeTimeString } from '@/lib/utils'
 import { DEFAULT_TABLE_COLUMN, getColumnSizeStyles, getTableSizeStyles } from '@/lib/utils/table'
@@ -140,7 +141,7 @@ export function ApiKeyTable({ data, loading, isLoadingKey, onRevokeRequest }: Da
                     <p>
                       Generate one and{' '}
                       <a
-                        href="https://www.daytona.io/docs/api-keys"
+                        href={DAYTONA_DOCS_API_KEYS_URL}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-foreground hover:underline"

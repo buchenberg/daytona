@@ -9,7 +9,7 @@ import dockerIcon from '@/assets/docker.svg'
 import githubIcon from '@/assets/github.svg'
 import googleIcon from '@/assets/google.svg'
 import { cn } from '@/lib/utils'
-import { DAYTONA_DOCS_URL } from './ExternalLinks'
+import { DAYTONA_DOCS_URL } from './Links'
 
 export type RegistryProvider = 'generic' | 'dockerhub' | 'gcp' | 'ghcr' | 'ecr'
 

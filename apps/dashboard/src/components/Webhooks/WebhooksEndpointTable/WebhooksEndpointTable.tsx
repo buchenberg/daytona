@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { DAYTONA_DOCS_WEBHOOKS_URL } from '@/constants/Links'
 import { buildTableInitialState, DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
 import { RoutePath } from '@/enums/RoutePath'
 import { cn } from '@/lib/utils'
@@ -159,7 +160,7 @@ export function WebhooksEndpointTable({
                     <p>Create an endpoint to start receiving webhook events.</p>
                     <p>
                       <a
-                        href="https://www.daytona.io/docs/en/tools/api/#daytona/webhook/undefined/"
+                        href={DAYTONA_DOCS_WEBHOOKS_URL}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary hover:underline font-medium"

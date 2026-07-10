@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { DAYTONA_DOCS_URL } from '@/constants/ExternalLinks'
+import { DAYTONA_DOCS_URL } from '@/constants/Links'
 import { useTheme } from '@/contexts/ThemeContext'
 import { RoutePath } from '@/enums/RoutePath'
 import { useUserOrganizationInvitationsQuery } from '@/hooks/queries/useUserOrganizationInvitationsQuery'

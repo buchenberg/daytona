@@ -40,7 +40,7 @@ import {
   DialogTitle,
 } from './components/ui/dialog'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from './components/ui/empty'
-import { DAYTONA_DOCS_URL, DAYTONA_SLACK_URL } from './constants/ExternalLinks'
+import { DAYTONA_DOCS_URL, DAYTONA_SLACK_URL } from './constants/Links'
 import { FeatureFlags } from './enums/FeatureFlags'
 import { getRouteSubPath, RoutePath, trimLeadingSlash } from './enums/RoutePath'
 import { useConfig } from './hooks/useConfig'
