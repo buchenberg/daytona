@@ -150,7 +150,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         .createQueryBuilder('sandbox')
         .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
         .where('sandbox.state IN (:...states)', {
-          states: [SandboxState.ARCHIVING, SandboxState.STARTED, SandboxState.STOPPED],
+          states: [SandboxState.ARCHIVING, SandboxState.STOPPED],
         })
         .andWhere('sandbox.backupState IN (:...backupStates)', {
           backupStates: [BackupState.PENDING],
@@ -166,13 +166,12 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         .andWhere('sandbox.organizationId != :dedicatedBackupOrgId', {
           dedicatedBackupOrgId: DEDICATED_BACKUP_ORG_ID,
         })
-        // Prioritize manual archival action, then auto-archive poller, then ad-hoc backup poller
+        // Prioritize manual archival action, then auto-archive poller
         .addSelect(
           `
           CASE sandbox.state
             WHEN :archiving THEN 1
             WHEN :stopped   THEN 2
-            WHEN :started   THEN 3
             ELSE 999
           END
           `,
@@ -191,7 +190,6 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
           in_progress: BackupState.IN_PROGRESS,
           archiving: SandboxState.ARCHIVING,
           stopped: SandboxState.STOPPED,
-          started: SandboxState.STARTED,
         })
         .distinctOn(['sandbox.runnerId'])
         .orderBy('sandbox.runnerId', 'ASC')
@@ -278,7 +276,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
         .where('sandbox.organizationId = :dedicatedBackupOrgId', { dedicatedBackupOrgId: DEDICATED_BACKUP_ORG_ID })
         .andWhere('sandbox.state IN (:...states)', {
-          states: [SandboxState.ARCHIVING, SandboxState.STARTED, SandboxState.STOPPED],
+          states: [SandboxState.ARCHIVING, SandboxState.STOPPED],
         })
         .andWhere('sandbox.backupState IN (:...backupStates)', {
           backupStates: [BackupState.PENDING],
@@ -291,13 +289,12 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         .andWhere('sandbox.sandboxClass NOT IN (:...backupDisabledClasses)', {
           backupDisabledClasses: BACKUP_DISABLED_SANDBOX_CLASSES,
         })
-        // Prioritize manual archival action, then auto-archive poller, then ad-hoc backup poller
+        // Prioritize manual archival action, then auto-archive poller
         .addSelect(
           `
           CASE sandbox.state
             WHEN :archiving THEN 1
             WHEN :stopped   THEN 2
-            WHEN :started   THEN 3
             ELSE 999
           END
           `,
@@ -306,7 +303,6 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         .setParameters({
           archiving: SandboxState.ARCHIVING,
           stopped: SandboxState.STOPPED,
-          started: SandboxState.STARTED,
         })
         .distinctOn(['sandbox.runnerId'])
         .orderBy('sandbox.runnerId', 'ASC')
@@ -401,7 +397,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
             .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
             .where('sandbox.runnerId = :runnerId', { runnerId: runner.id })
             .andWhere('sandbox.state IN (:...states)', {
-              states: [SandboxState.ARCHIVING, SandboxState.STARTED, SandboxState.STOPPED],
+              states: [SandboxState.ARCHIVING, SandboxState.STOPPED],
             })
             .andWhere('sandbox.backupState IN (:...backupStates)', {
               backupStates: [BackupState.PENDING],
@@ -417,13 +413,12 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
             .andWhere('sandbox.organizationId != :backupExcludedOrgId', {
               backupExcludedOrgId: DEDICATED_BACKUP_ORG_ID,
             })
-            // Prioritize manual archival action, then auto-archive poller, then ad-hoc backup poller.
+            // Prioritize manual archival action, then auto-archive poller.
             .addSelect(
               `
               CASE sandbox.state
                 WHEN :archiving THEN 1
                 WHEN :stopped   THEN 2
-                WHEN :started   THEN 3
                 ELSE 999
               END
               `,
@@ -440,7 +435,6 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
             .setParameters({
               archiving: SandboxState.ARCHIVING,
               stopped: SandboxState.STOPPED,
-              started: SandboxState.STARTED,
               backupDeprioritizedOrgId: '55717397-f840-4f5b-a829-77fd6f7cb2fc',
             })
             .orderBy('org_priority', 'ASC')
@@ -530,7 +524,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         .addSelect('RANDOM()', 'rand')
         .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
         .where('sandbox.state IN (:...states)', {
-          states: [SandboxState.ARCHIVING, SandboxState.STARTED, SandboxState.STOPPED],
+          states: [SandboxState.ARCHIVING, SandboxState.STOPPED],
         })
         .andWhere('sandbox.backupState IN (:...backupStates)', {
           backupStates: [BackupState.IN_PROGRESS],

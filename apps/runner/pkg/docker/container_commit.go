@@ -21,6 +21,15 @@ func (d *DockerClient) commitContainer(ctx context.Context, containerId, imageNa
 		return fmt.Errorf("failed to inspect container before commit: %w", err)
 	}
 
+	// Defense-in-depth: never back up a live container. ContainerCommit runs with Pause:false,
+	// so committing a running (non-paused) rootfs risks an inconsistent backup. The API is
+	// expected to only dispatch backups for stopped/archiving sandboxes, but state can drift
+	// (auto-start races, sync lag) or this endpoint can be called directly - so refuse here.
+	// A paused container is frozen and safe to commit.
+	if c.State != nil && c.State.Running && !c.State.Paused {
+		return fmt.Errorf("cannot back up sandbox %s: container is still running (must be stopped before backup)", containerId)
+	}
+
 	// The settle barrier and verify gate below are sysbox-specific.
 	isSysbox := isSysboxContainer(c)
 

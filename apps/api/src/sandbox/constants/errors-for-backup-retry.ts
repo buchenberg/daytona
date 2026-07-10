@@ -9,4 +9,6 @@ export const BACKUP_RETRY_ERROR_SUBSTRINGS: string[] = [
   'received unexpected HTTP status',
   'read: connection reset by peer',
   'Backup timed out after 2 hours',
+  // Runner refuses to commit a live container; retry once state drift settles (container stopped)
+  'container is still running',
 ]
