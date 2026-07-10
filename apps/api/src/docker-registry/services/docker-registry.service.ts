@@ -594,16 +594,15 @@ export class DockerRegistryService {
   }
 
   getRegistryUrl(registry: DockerRegistry): string {
-    // Dev mode
-    if (registry.url.startsWith('localhost:') || registry.url.startsWith('registry:')) {
-      return `http://${registry.url}`
+    const url = registry.url
+
+    // Local and in-cluster dev registries are served over plain HTTP.
+    if (url.startsWith('localhost') || url.startsWith('127.0.0.1') || url.startsWith('registry:')) {
+      return `http://${url}`
     }
 
-    if (registry.url.startsWith('localhost') || registry.url.startsWith('127.0.0.1')) {
-      return `http://${registry.url}`
-    }
-
-    return registry.url.startsWith('http') ? registry.url : `https://${registry.url}`
+    // Otherwise assume HTTPS, unless the URL already carries a scheme.
+    return url.startsWith('http') ? url : `https://${url}`
   }
 
   public async findRegistryByImageName(
