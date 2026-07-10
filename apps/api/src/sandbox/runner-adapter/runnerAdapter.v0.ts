@@ -37,6 +37,7 @@ import {
 import { Sandbox } from '../entities/sandbox.entity'
 import { BuildInfo } from '../entities/build-info.entity'
 import { DockerRegistry } from '../../docker-registry/entities/docker-registry.entity'
+import { stripRegistryScheme } from '../../common/utils/registry-url.util'
 import { SandboxState } from '../enums/sandbox-state.enum'
 import { SandboxClass } from '../enums/sandbox-class.enum'
 import { BackupState } from '../enums/backup-state.enum'
@@ -211,7 +212,7 @@ export class RunnerAdapterV0 implements RunnerAdapter {
       registry: registry
         ? {
             project: registry.project,
-            url: registry.url.replace(/^(https?:\/\/)/, ''),
+            url: stripRegistryScheme(registry.url),
             username: registry.username,
             password: registry.password,
           }
@@ -281,7 +282,7 @@ export class RunnerAdapterV0 implements RunnerAdapter {
     if (registry) {
       request.registry = {
         project: registry.project,
-        url: registry.url.replace(/^(https?:\/\/)/, ''),
+        url: stripRegistryScheme(registry.url),
         username: registry.username,
         password: registry.password,
       }
@@ -308,7 +309,7 @@ export class RunnerAdapterV0 implements RunnerAdapter {
     if (sourceRegistries) {
       request.sourceRegistries = sourceRegistries.map((sourceRegistry) => ({
         project: sourceRegistry.project,
-        url: sourceRegistry.url.replace(/^(https?:\/\/)/, ''),
+        url: stripRegistryScheme(sourceRegistry.url),
         username: sourceRegistry.username,
         password: sourceRegistry.password,
       }))
@@ -317,7 +318,7 @@ export class RunnerAdapterV0 implements RunnerAdapter {
     if (registry) {
       request.registry = {
         project: registry.project,
-        url: registry.url.replace(/^(https?:\/\/)/, ''),
+        url: stripRegistryScheme(registry.url),
         username: registry.username,
         password: registry.password,
       }
@@ -349,7 +350,7 @@ export class RunnerAdapterV0 implements RunnerAdapter {
     if (registry) {
       request.registry = {
         project: registry.project,
-        url: registry.url.replace(/^(https?:\/\/)/, ''),
+        url: stripRegistryScheme(registry.url),
         username: registry.username,
         password: registry.password,
       }
@@ -358,7 +359,7 @@ export class RunnerAdapterV0 implements RunnerAdapter {
     if (destinationRegistry) {
       request.destinationRegistry = {
         project: destinationRegistry.project,
-        url: destinationRegistry.url.replace(/^(https?:\/\/)/, ''),
+        url: stripRegistryScheme(destinationRegistry.url),
         username: destinationRegistry.username,
         password: destinationRegistry.password,
       }
@@ -401,7 +402,7 @@ export class RunnerAdapterV0 implements RunnerAdapter {
       registry: registry
         ? {
             project: registry.project,
-            url: registry.url.replace(/^(https?:\/\/)/, ''),
+            url: stripRegistryScheme(registry.url),
             username: registry.username,
             password: registry.password,
           }
@@ -455,7 +456,7 @@ export class RunnerAdapterV0 implements RunnerAdapter {
       organizationId,
       registry: {
         project: registry.project,
-        url: registry.url.replace(/^(https?:\/\/)/, ''),
+        url: stripRegistryScheme(registry.url),
         username: registry.username,
         password: registry.password,
       },
@@ -499,7 +500,7 @@ export class RunnerAdapterV0 implements RunnerAdapter {
       registry: registry
         ? {
             project: registry.project,
-            url: registry.url.replace(/^(https?:\/\/)/, ''),
+            url: stripRegistryScheme(registry.url),
             username: registry.username,
             password: registry.password,
           }
@@ -522,7 +523,7 @@ export class RunnerAdapterV0 implements RunnerAdapter {
       registry: registry
         ? {
             project: registry.project,
-            url: registry.url.replace(/^(https?:\/\/)/, ''),
+            url: stripRegistryScheme(registry.url),
             username: registry.username,
             password: registry.password,
           }
