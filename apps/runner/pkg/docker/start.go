@@ -78,6 +78,16 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, authToken 
 		}
 	}
 
+	// Apply secret changes made while the sandbox was not running (or applied only
+	// to the daemon env while it was): when the desired secret env differs from the
+	// container's, recreate it with matching placeholders and proxy wiring.
+	if secretEnvsJSON, ok := metadata["secretEnvs"]; ok && !isAndroidDeviceContainer(c) {
+		c, err = d.syncSecretEnvOnStart(ctx, containerId, c, secretEnvsJSON)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to apply updated sandbox secrets: %w", err)
+		}
+	}
+
 	// Re-establish FUSE mounts that may have died since the container was last running.
 	if volumesJSON, ok := metadata["volumes"]; ok {
 		var volumes []dto.VolumeDTO
@@ -167,7 +177,7 @@ func (d *DockerClient) Start(ctx context.Context, containerId string, authToken 
 // convertRuncToKata recreates a runc container under the kata-clh runtime.
 func (d *DockerClient) convertRuncToKata(ctx context.Context, containerId string, original *container.InspectResponse) (*container.InspectResponse, error) {
 	d.logger.InfoContext(ctx, "Converting runc container to kata-clh", "containerId", containerId)
-	return d.recreateContainerUnderSameID(ctx, containerId, "daytona-runc-to-kata", original, func(hc *container.HostConfig) {
+	return d.recreateContainerUnderSameID(ctx, containerId, "daytona-runc-to-kata", original, nil, func(hc *container.HostConfig) {
 		hc.Privileged = false
 		hc.Runtime = "kata-clh"
 		// Kata VM default size is 1vcpu and 2Gi RAM. Kata adds container resources on
@@ -186,10 +196,10 @@ func (d *DockerClient) convertRuncToKata(ctx context.Context, containerId string
 }
 
 // recreateContainerUnderSameID commits the stopped container to a throwaway image and
-// recreates it under the same ID, applying mutateHostConfig before create. The original
-// is renamed aside (so a create failure can roll back) then removed, which clears any
-// sysbox-mgr registration tied to it.
-func (d *DockerClient) recreateContainerUnderSameID(ctx context.Context, containerId, imagePrefix string, original *container.InspectResponse, mutateHostConfig func(*container.HostConfig)) (*container.InspectResponse, error) {
+// recreates it under the same ID, applying mutateConfig/mutateHostConfig before create.
+// The original is renamed aside (so a create failure can roll back) then removed, which
+// clears any sysbox-mgr registration tied to it.
+func (d *DockerClient) recreateContainerUnderSameID(ctx context.Context, containerId, imagePrefix string, original *container.InspectResponse, mutateConfig func(*container.Config), mutateHostConfig func(*container.HostConfig)) (*container.InspectResponse, error) {
 	timestamp := time.Now().Unix()
 	imageName := fmt.Sprintf("%s:%s-%d", imagePrefix, containerId, timestamp)
 	oldName := fmt.Sprintf("%s-old-%d", containerId, timestamp)
@@ -204,6 +214,9 @@ func (d *DockerClient) recreateContainerUnderSameID(ctx context.Context, contain
 
 	newContainerConfig := *original.Config
 	newContainerConfig.Image = imageName
+	if mutateConfig != nil {
+		mutateConfig(&newContainerConfig)
+	}
 
 	newHostConfig := *original.HostConfig
 	if mutateHostConfig != nil {

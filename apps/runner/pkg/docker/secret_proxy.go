@@ -172,7 +172,17 @@ func sandboxUsesSecrets(env map[string]string) bool {
 // through the shared proxy and trust its CA. Empty when secret injection is off
 // or the sandbox uses no secrets, so non-secret sandboxes are untouched.
 func (d *DockerClient) secretProxyEnvVars(env map[string]string) []string {
-	if d.secretProxyAddr == "" || !sandboxUsesSecrets(env) {
+	if !sandboxUsesSecrets(env) {
+		return nil
+	}
+	return d.secretProxyWiringEnvVars()
+}
+
+// secretProxyWiringEnvVars returns the wiring env entries injected into
+// secret-using sandboxes, regardless of whether a particular sandbox uses
+// secrets. Empty when secret injection is off.
+func (d *DockerClient) secretProxyWiringEnvVars() []string {
+	if d.secretProxyAddr == "" {
 		return nil
 	}
 	proxyURL := "http://" + d.secretProxyAddr
@@ -191,6 +201,13 @@ func (d *DockerClient) secretProxyEnvVars(env map[string]string) []string {
 		"REQUESTS_CA_BUNDLE=" + secretCAContainerPath,
 		"CURL_CA_BUNDLE=" + secretCAContainerPath,
 	}
+}
+
+// secretProxyWiringEnv is the map form of secretProxyWiringEnvVars, used to
+// identify (and strip) previously injected wiring entries when reconciling a
+// container's env.
+func (d *DockerClient) secretProxyWiringEnv() map[string]string {
+	return envSliceToMap(d.secretProxyWiringEnvVars())
 }
 
 // secretProxyCABind returns the bind mount (host CA bundle → in-container path,
@@ -412,6 +429,29 @@ func (d *DockerClient) updateSandboxSecretDomains(ctx context.Context, container
 		PlaceholderMarker: secrets.DaytonaPlaceholderPrefix,
 	}); err != nil {
 		d.logger.ErrorContext(ctx, "Failed to update sandbox secret domains", "containerId", containerID, "error", err)
+	}
+}
+
+// refreshSandboxSecretBinding re-registers an existing secret binding (same IP,
+// domains and token) so the shared proxy's injector drops its cached resolution
+// and re-fetches the sandbox's secrets immediately. No-op when secret injection
+// is off or the sandbox has no persisted binding.
+func (d *DockerClient) refreshSandboxSecretBinding(ctx context.Context, containerID, containerIP string) {
+	if d.secretProxyAddr == "" {
+		return
+	}
+	b, err := d.readSecretBinding(containerID)
+	if err != nil {
+		return
+	}
+	if err := d.netleashManager.RegisterSandboxSecrets(containerID, manager.SandboxSecretConfig{
+		ClientIP:          containerIP,
+		AllowAll:          b.AllowAll,
+		AllowedDomains:    b.Domains,
+		Resolver:          secrets.NewAPIResolver(d.daytonaApiUrl, b.SandboxID, b.SecretsToken),
+		PlaceholderMarker: secrets.DaytonaPlaceholderPrefix,
+	}); err != nil {
+		d.logger.ErrorContext(ctx, "Failed to refresh sandbox secret binding", "containerId", containerID, "error", err)
 	}
 }
 

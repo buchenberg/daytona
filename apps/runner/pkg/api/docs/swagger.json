@@ -573,6 +573,71 @@
         }
       }
     },
+    "/sandboxes/{sandboxId}/secrets": {
+      "post": {
+        "description": "Pushes the sandbox's desired secret env (env var name -\u003e placeholder) so newly spawned processes in a running sandbox see it. A sandbox without secret-proxy wiring picks the change up on its next start instead.",
+        "produces": ["application/json"],
+        "tags": ["sandbox"],
+        "summary": "Update sandbox secrets",
+        "operationId": "UpdateSandboxSecrets",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Sandbox ID",
+            "name": "sandboxId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "description": "Update sandbox secrets",
+            "name": "sandbox",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateSandboxSecretsDTO"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sandbox secrets updated",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
     "/sandboxes/{sandboxId}/snapshot-from-sandbox": {
       "post": {
         "description": "Commit the sandbox container filesystem and push the image to the supplied registry under the canonical daytona-{hash}:daytona tag.",
@@ -1944,6 +2009,18 @@
         },
         "networkLimitEgress": {
           "type": "boolean"
+        }
+      }
+    },
+    "UpdateSandboxSecretsDTO": {
+      "type": "object",
+      "properties": {
+        "env": {
+          "description": "Env is the sandbox's full desired secret env: env var names mapped to\nsecret placeholder values. Replace semantics — placeholder-valued env\nvars not present in the map are unset for newly spawned processes.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },

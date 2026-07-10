@@ -127,6 +127,48 @@ func (d *DockerClient) waitForDaemonRunning(ctx context.Context, containerIP str
 	}
 }
 
+type updateEnvRequest struct {
+	Set map[string]string `json:"set,omitempty"`
+	// UnsetValuePrefix removes every env var whose value has this prefix and
+	// whose name is not a key of Set, before Set is applied.
+	UnsetValuePrefix string `json:"unsetValuePrefix,omitempty"`
+}
+
+// updateDaemonEnv pushes env changes to the in-sandbox daemon so processes
+// spawned after the call inherit them. Daemons predating the /env endpoint
+// return 404; that is reported as a warning rather than an error because the
+// container env still reconciles on the next restart.
+func (d *DockerClient) updateDaemonEnv(ctx context.Context, containerIP string, set map[string]string, unsetValuePrefix string) error {
+	body, err := json.Marshal(updateEnvRequest{Set: set, UnsetValuePrefix: unsetValuePrefix})
+	if err != nil {
+		return fmt.Errorf("failed to marshal env update: %w", err)
+	}
+
+	url := fmt.Sprintf("http://%s:2280/env", containerIP)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
+	if err != nil {
+		return fmt.Errorf("failed to create env update request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to update daemon env: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		d.logger.WarnContext(ctx, "Daemon does not support env updates; new env vars appear after the sandbox restarts", "containerIP", containerIP)
+		return nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("daemon env update returned status %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
 type sandboxToken struct {
 	Token string `json:"token"`
 }

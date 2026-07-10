@@ -5,6 +5,7 @@
 
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm'
 import { nanoid } from 'nanoid'
+import { SECRET_PLACEHOLDER_PREFIX } from '../constants/secret.constants'
 
 @Entity()
 @Index(['organizationId', 'name'], { unique: true })
@@ -22,7 +23,7 @@ export class Secret {
   description?: string
 
   @Column({ type: 'character varying' })
-  placeholder: string = 'dtn_secret_' + nanoid(16).toLowerCase()
+  placeholder: string = SECRET_PLACEHOLDER_PREFIX + nanoid(16).toLowerCase()
 
   @Column({ type: 'uuid' })
   organizationId: string

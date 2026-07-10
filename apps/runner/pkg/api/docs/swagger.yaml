@@ -411,6 +411,17 @@ definitions:
       networkLimitEgress:
         type: boolean
     type: object
+  UpdateSandboxSecretsDTO:
+    properties:
+      env:
+        additionalProperties:
+          type: string
+        description: |-
+          Env is the sandbox's full desired secret env: env var names mapped to
+          secret placeholder values. Replace semantics — placeholder-valued env
+          vars not present in the map are unset for newly spawned processes.
+        type: object
+    type: object
   dto.VolumeDTO:
     properties:
       mountPath:
@@ -873,6 +884,54 @@ paths:
           schema:
             $ref: '#/definitions/ErrorResponse'
       summary: Resize sandbox
+      tags:
+        - sandbox
+  /sandboxes/{sandboxId}/secrets:
+    post:
+      description: Pushes the sandbox's desired secret env (env var name -> placeholder)
+        so newly spawned processes in a running sandbox see it. A sandbox without
+        secret-proxy wiring picks the change up on its next start instead.
+      operationId: UpdateSandboxSecrets
+      parameters:
+        - description: Sandbox ID
+          in: path
+          name: sandboxId
+          required: true
+          type: string
+        - description: Update sandbox secrets
+          in: body
+          name: sandbox
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateSandboxSecretsDTO'
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Sandbox secrets updated
+          schema:
+            type: string
+        '400':
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        '401':
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        '404':
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        '409':
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Update sandbox secrets
       tags:
         - sandbox
   /sandboxes/{sandboxId}/snapshot-from-sandbox:

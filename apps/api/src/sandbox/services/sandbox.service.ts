@@ -2080,6 +2080,83 @@ export class SandboxService {
     )
   }
 
+  async updateSecrets(
+    sandboxIdOrName: string,
+    secrets: Record<string, string>[],
+    organization: Organization,
+  ): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organization.id)
+
+    if (sandbox.state === SandboxState.DESTROYED || sandbox.state === SandboxState.DESTROYING) {
+      throw new BadRequestError('Sandbox is destroyed')
+    }
+
+    const resolvedSecretMounts = await this.validateSecrets(secrets, organization)
+
+    const existingMounts = await this.sandboxSecretRepository.find({
+      where: { sandboxId: sandbox.id },
+    })
+
+    // Replace semantics: env vars of previously mounted secrets are dropped, then
+    // the new placeholder mappings are applied on top of the user env.
+    const env = { ...(sandbox.env ?? {}) }
+    for (const mount of existingMounts) {
+      delete env[mount.envVar]
+    }
+    for (const mount of resolvedSecretMounts) {
+      env[mount.envVar] = mount.placeholder
+    }
+
+    const updatedSandbox = await this.sandboxRepository.updateWhere(
+      sandbox.id,
+      {
+        updateData: { env },
+        whereCondition: { organizationId: organization.id },
+      },
+      async (em) => {
+        await em.delete(SandboxSecret, { sandboxId: sandbox.id })
+        if (resolvedSecretMounts.length) {
+          await em.insert(
+            SandboxSecret,
+            resolvedSecretMounts.map((mount) => ({
+              sandboxId: sandbox.id,
+              envVar: mount.envVar,
+              secretId: mount.secretId,
+            })),
+          )
+        }
+      },
+    )
+
+    // Push the new placeholder env to a running sandbox so newly spawned
+    // processes see it. A sandbox created without any secrets has no proxy
+    // wiring in its container and must be restarted to pick the secrets up;
+    // the runner detects that case and applies the wiring on next start.
+    //
+    // Best-effort: the persisted state above is what the proxy resolves
+    // secrets from, so substitution is already correct at this point. A failed
+    // push only delays env visibility for new processes until the next
+    // restart, which reconciles the container from the persisted state.
+    if (sandbox.runnerId && sandbox.state === SandboxState.STARTED) {
+      try {
+        const runner = await this.runnerService.findOne(sandbox.runnerId)
+        if (runner) {
+          const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+          await runnerAdapter.updateSandboxSecrets(
+            sandbox.id,
+            Object.fromEntries(resolvedSecretMounts.map((mount) => [mount.envVar, mount.placeholder])),
+          )
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to push updated secrets to runner for sandbox ${sandbox.id}; they apply on next restart: ${error.message}`,
+        )
+      }
+    }
+
+    return updatedSandbox
+  }
+
   async getOrganizationId(sandboxIdOrName: string, organizationId?: string): Promise<string> {
     let sandbox = await this.sandboxRepository.findOne({
       where: {

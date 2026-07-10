@@ -66,6 +66,13 @@ type UpdateNetworkSettingsDTO struct {
 	NetworkLimitEgress *bool   `json:"networkLimitEgress,omitempty"`
 } //	@name	UpdateNetworkSettingsDTO
 
+type UpdateSandboxSecretsDTO struct {
+	// Env is the sandbox's full desired secret env: env var names mapped to
+	// secret placeholder values. Replace semantics — placeholder-valued env
+	// vars not present in the map are unset for newly spawned processes.
+	Env map[string]string `json:"env"`
+} //	@name	UpdateSandboxSecretsDTO
+
 type RecoverSandboxDTO struct {
 	FromVolumeId     string            `json:"fromVolumeId,omitempty"`
 	UserId           string            `json:"userId" validate:"required"`

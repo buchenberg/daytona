@@ -36,3 +36,4 @@ models/start-sandbox-response.ts
 models/stop-sandbox-dto.ts
 models/tag-image-request-dto.ts
 models/update-network-settings-dto.ts
+models/update-sandbox-secrets-dto.ts

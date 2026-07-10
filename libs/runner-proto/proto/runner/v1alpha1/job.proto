@@ -8,10 +8,11 @@ package runner.v1alpha1;
 option go_package = "github.com/daytonaio/daytona/gen/proto/runner/v1alpha1;runnerv1alpha1";
 
 enum JobType {
-  JOB_TYPE_UNSPECIFIED      = 0;
-  JOB_TYPE_SNAPSHOT_SANDBOX = 1;
-  JOB_TYPE_FORK_SANDBOX     = 2;
-  JOB_TYPE_PAUSE_SANDBOX    = 3;
+  JOB_TYPE_UNSPECIFIED            = 0;
+  JOB_TYPE_SNAPSHOT_SANDBOX       = 1;
+  JOB_TYPE_FORK_SANDBOX           = 2;
+  JOB_TYPE_PAUSE_SANDBOX          = 3;
+  JOB_TYPE_UPDATE_SANDBOX_SECRETS = 4;
 }
 
 message Registry {
@@ -48,3 +49,12 @@ message PauseSandboxPayload {
 }
 
 message PauseSandboxResult {}
+
+message UpdateSandboxSecretsPayload {
+  // The sandbox's full desired secret env: env var names mapped to secret
+  // placeholder values. Replace semantics — placeholder-valued env vars not
+  // present in the map are unset for newly spawned processes.
+  map<string, string> env = 1;
+}
+
+message UpdateSandboxSecretsResult {}

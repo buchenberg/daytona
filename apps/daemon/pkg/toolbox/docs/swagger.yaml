@@ -1291,6 +1291,27 @@ definitions:
         format: int64
         type: integer
     type: object
+  UpdateEnvRequest:
+    properties:
+      set:
+        additionalProperties:
+          type: string
+        description: |-
+          Set maps env var names to values applied to the daemon's process env, so
+          processes spawned after the call (exec, sessions, PTYs) inherit them.
+        type: object
+      unset:
+        description: Unset lists env var names to remove before Set is applied.
+        items:
+          type: string
+        type: array
+      unsetValuePrefix:
+        description: |-
+          UnsetValuePrefix removes every env var whose value has this prefix and
+          whose name is not a key of Set, before Set is applied. Used to reconcile
+          secret placeholder vars without the caller knowing the daemon's env.
+        type: string
+    type: object
   UserHomeDirResponse:
     properties:
       dir:
@@ -2276,6 +2297,31 @@ paths:
       summary: Stop computer use processes
       tags:
         - computer-use
+  /env:
+    post:
+      description: Update the daemon's process environment. Newly spawned processes,
+        sessions and PTYs inherit the change; already-running processes keep their
+        environment.
+      operationId: UpdateEnv
+      parameters:
+        - description: Environment update request
+          in: body
+          name: request
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateEnvRequest'
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update process environment
+      tags:
+        - server
   /files:
     delete:
       description: Delete a file or directory at the specified path

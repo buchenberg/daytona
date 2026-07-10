@@ -6,6 +6,7 @@ package toolbox
 import (
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/daytonaio/daemon/internal"
 	"github.com/gin-gonic/gin"
@@ -42,6 +43,59 @@ func (s *server) Initialize(otelServiceName string, entrypointLogFilePath string
 			"message": "Auth token set and telemetry initialized successfully",
 		})
 	}
+}
+
+// UpdateEnv godoc
+//
+//	@Summary		Update process environment
+//	@Description	Update the daemon's process environment. Newly spawned processes, sessions and PTYs inherit the change; already-running processes keep their environment.
+//	@Tags			server
+//	@Produce		json
+//	@Param			request	body		UpdateEnvRequest	true	"Environment update request"
+//	@Success		200		{object}	map[string]string
+//	@Router			/env [post]
+//
+//	@id				UpdateEnv
+func (s *server) UpdateEnv(ctx *gin.Context) {
+	var req UpdateEnvRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	if req.UnsetValuePrefix != "" {
+		for _, kv := range os.Environ() {
+			key, value, ok := strings.Cut(kv, "=")
+			if !ok || !strings.HasPrefix(value, req.UnsetValuePrefix) {
+				continue
+			}
+			if _, kept := req.Set[key]; kept {
+				continue
+			}
+			if err := os.Unsetenv(key); err != nil {
+				ctx.AbortWithError(http.StatusInternalServerError, err)
+				return
+			}
+		}
+	}
+
+	for _, key := range req.Unset {
+		if err := os.Unsetenv(key); err != nil {
+			ctx.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+	}
+
+	for key, value := range req.Set {
+		if err := os.Setenv(key, value); err != nil {
+			ctx.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "Environment updated successfully",
+	})
 }
 
 // GetWorkDir godoc

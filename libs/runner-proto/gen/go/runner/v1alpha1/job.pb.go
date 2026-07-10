@@ -27,10 +27,11 @@ const (
 type JobType int32
 
 const (
-	JobType_JOB_TYPE_UNSPECIFIED      JobType = 0
-	JobType_JOB_TYPE_SNAPSHOT_SANDBOX JobType = 1
-	JobType_JOB_TYPE_FORK_SANDBOX     JobType = 2
-	JobType_JOB_TYPE_PAUSE_SANDBOX    JobType = 3
+	JobType_JOB_TYPE_UNSPECIFIED            JobType = 0
+	JobType_JOB_TYPE_SNAPSHOT_SANDBOX       JobType = 1
+	JobType_JOB_TYPE_FORK_SANDBOX           JobType = 2
+	JobType_JOB_TYPE_PAUSE_SANDBOX          JobType = 3
+	JobType_JOB_TYPE_UPDATE_SANDBOX_SECRETS JobType = 4
 )
 
 // Enum value maps for JobType.
@@ -40,12 +41,14 @@ var (
 		1: "JOB_TYPE_SNAPSHOT_SANDBOX",
 		2: "JOB_TYPE_FORK_SANDBOX",
 		3: "JOB_TYPE_PAUSE_SANDBOX",
+		4: "JOB_TYPE_UPDATE_SANDBOX_SECRETS",
 	}
 	JobType_value = map[string]int32{
-		"JOB_TYPE_UNSPECIFIED":      0,
-		"JOB_TYPE_SNAPSHOT_SANDBOX": 1,
-		"JOB_TYPE_FORK_SANDBOX":     2,
-		"JOB_TYPE_PAUSE_SANDBOX":    3,
+		"JOB_TYPE_UNSPECIFIED":            0,
+		"JOB_TYPE_SNAPSHOT_SANDBOX":       1,
+		"JOB_TYPE_FORK_SANDBOX":           2,
+		"JOB_TYPE_PAUSE_SANDBOX":          3,
+		"JOB_TYPE_UPDATE_SANDBOX_SECRETS": 4,
 	}
 )
 
@@ -448,6 +451,89 @@ func (*PauseSandboxResult) Descriptor() ([]byte, []int) {
 	return file_runner_v1alpha1_job_proto_rawDescGZIP(), []int{6}
 }
 
+type UpdateSandboxSecretsPayload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The sandbox's full desired secret env: env var names mapped to secret
+	// placeholder values. Replace semantics — placeholder-valued env vars not
+	// present in the map are unset for newly spawned processes.
+	Env           map[string]string `protobuf:"bytes,1,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateSandboxSecretsPayload) Reset() {
+	*x = UpdateSandboxSecretsPayload{}
+	mi := &file_runner_v1alpha1_job_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateSandboxSecretsPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateSandboxSecretsPayload) ProtoMessage() {}
+
+func (x *UpdateSandboxSecretsPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_runner_v1alpha1_job_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateSandboxSecretsPayload.ProtoReflect.Descriptor instead.
+func (*UpdateSandboxSecretsPayload) Descriptor() ([]byte, []int) {
+	return file_runner_v1alpha1_job_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *UpdateSandboxSecretsPayload) GetEnv() map[string]string {
+	if x != nil {
+		return x.Env
+	}
+	return nil
+}
+
+type UpdateSandboxSecretsResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateSandboxSecretsResult) Reset() {
+	*x = UpdateSandboxSecretsResult{}
+	mi := &file_runner_v1alpha1_job_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateSandboxSecretsResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateSandboxSecretsResult) ProtoMessage() {}
+
+func (x *UpdateSandboxSecretsResult) ProtoReflect() protoreflect.Message {
+	mi := &file_runner_v1alpha1_job_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateSandboxSecretsResult.ProtoReflect.Descriptor instead.
+func (*UpdateSandboxSecretsResult) Descriptor() ([]byte, []int) {
+	return file_runner_v1alpha1_job_proto_rawDescGZIP(), []int{8}
+}
+
 var File_runner_v1alpha1_job_proto protoreflect.FileDescriptor
 
 const file_runner_v1alpha1_job_proto_rawDesc = "" +
@@ -483,12 +569,19 @@ const file_runner_v1alpha1_job_proto_rawDesc = "" +
 	"\x13PauseSandboxPayload\x12\x1d\n" +
 	"\n" +
 	"sandbox_id\x18\x01 \x01(\tR\tsandboxId\"\x14\n" +
-	"\x12PauseSandboxResult*y\n" +
+	"\x12PauseSandboxResult\"\x9e\x01\n" +
+	"\x1bUpdateSandboxSecretsPayload\x12G\n" +
+	"\x03env\x18\x01 \x03(\v25.runner.v1alpha1.UpdateSandboxSecretsPayload.EnvEntryR\x03env\x1a6\n" +
+	"\bEnvEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x1c\n" +
+	"\x1aUpdateSandboxSecretsResult*\x9e\x01\n" +
 	"\aJobType\x12\x18\n" +
 	"\x14JOB_TYPE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19JOB_TYPE_SNAPSHOT_SANDBOX\x10\x01\x12\x19\n" +
 	"\x15JOB_TYPE_FORK_SANDBOX\x10\x02\x12\x1a\n" +
-	"\x16JOB_TYPE_PAUSE_SANDBOX\x10\x03BGZEgithub.com/daytonaio/daytona/gen/proto/runner/v1alpha1;runnerv1alpha1b\x06proto3"
+	"\x16JOB_TYPE_PAUSE_SANDBOX\x10\x03\x12#\n" +
+	"\x1fJOB_TYPE_UPDATE_SANDBOX_SECRETS\x10\x04BGZEgithub.com/daytonaio/daytona/gen/proto/runner/v1alpha1;runnerv1alpha1b\x06proto3"
 
 var (
 	file_runner_v1alpha1_job_proto_rawDescOnce sync.Once
@@ -503,24 +596,28 @@ func file_runner_v1alpha1_job_proto_rawDescGZIP() []byte {
 }
 
 var file_runner_v1alpha1_job_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_runner_v1alpha1_job_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_runner_v1alpha1_job_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_runner_v1alpha1_job_proto_goTypes = []any{
-	(JobType)(0),                   // 0: runner.v1alpha1.JobType
-	(*Registry)(nil),               // 1: runner.v1alpha1.Registry
-	(*SnapshotSandboxPayload)(nil), // 2: runner.v1alpha1.SnapshotSandboxPayload
-	(*ForkSandboxPayload)(nil),     // 3: runner.v1alpha1.ForkSandboxPayload
-	(*SnapshotSandboxResult)(nil),  // 4: runner.v1alpha1.SnapshotSandboxResult
-	(*ForkSandboxResult)(nil),      // 5: runner.v1alpha1.ForkSandboxResult
-	(*PauseSandboxPayload)(nil),    // 6: runner.v1alpha1.PauseSandboxPayload
-	(*PauseSandboxResult)(nil),     // 7: runner.v1alpha1.PauseSandboxResult
+	(JobType)(0),                        // 0: runner.v1alpha1.JobType
+	(*Registry)(nil),                    // 1: runner.v1alpha1.Registry
+	(*SnapshotSandboxPayload)(nil),      // 2: runner.v1alpha1.SnapshotSandboxPayload
+	(*ForkSandboxPayload)(nil),          // 3: runner.v1alpha1.ForkSandboxPayload
+	(*SnapshotSandboxResult)(nil),       // 4: runner.v1alpha1.SnapshotSandboxResult
+	(*ForkSandboxResult)(nil),           // 5: runner.v1alpha1.ForkSandboxResult
+	(*PauseSandboxPayload)(nil),         // 6: runner.v1alpha1.PauseSandboxPayload
+	(*PauseSandboxResult)(nil),          // 7: runner.v1alpha1.PauseSandboxResult
+	(*UpdateSandboxSecretsPayload)(nil), // 8: runner.v1alpha1.UpdateSandboxSecretsPayload
+	(*UpdateSandboxSecretsResult)(nil),  // 9: runner.v1alpha1.UpdateSandboxSecretsResult
+	nil,                                 // 10: runner.v1alpha1.UpdateSandboxSecretsPayload.EnvEntry
 }
 var file_runner_v1alpha1_job_proto_depIdxs = []int32{
-	1, // 0: runner.v1alpha1.SnapshotSandboxPayload.registry:type_name -> runner.v1alpha1.Registry
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1,  // 0: runner.v1alpha1.SnapshotSandboxPayload.registry:type_name -> runner.v1alpha1.Registry
+	10, // 1: runner.v1alpha1.UpdateSandboxSecretsPayload.env:type_name -> runner.v1alpha1.UpdateSandboxSecretsPayload.EnvEntry
+	2,  // [2:2] is the sub-list for method output_type
+	2,  // [2:2] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_runner_v1alpha1_job_proto_init() }
@@ -537,7 +634,7 @@ func file_runner_v1alpha1_job_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_runner_v1alpha1_job_proto_rawDesc), len(file_runner_v1alpha1_job_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   7,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

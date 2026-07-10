@@ -32,6 +32,7 @@ import {
   PullSnapshotRequestDTO,
   ToolboxApi,
   UpdateNetworkSettingsDTO,
+  UpdateSandboxSecretsDTO,
   RecoverSandboxDTO,
 } from '@daytona/runner-api-client'
 import { Sandbox } from '../entities/sandbox.entity'
@@ -430,6 +431,14 @@ export class RunnerAdapterV0 implements RunnerAdapter {
     }
 
     await this.sandboxApiClient.updateNetworkSettings(sandboxId, updateNetworkSettingsDto)
+  }
+
+  async updateSandboxSecrets(sandboxId: string, secretEnvs: { [key: string]: string }): Promise<void> {
+    const updateSandboxSecretsDto: UpdateSandboxSecretsDTO = {
+      env: secretEnvs,
+    }
+
+    await this.sandboxApiClient.updateSandboxSecrets(sandboxId, updateSandboxSecretsDto)
   }
 
   async forkSandbox(_sourceSandboxId: string, _newSandboxId: string): Promise<void> {

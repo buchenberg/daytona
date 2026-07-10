@@ -24,3 +24,4 @@ export * from './start-sandbox-response';
 export * from './stop-sandbox-dto';
 export * from './tag-image-request-dto';
 export * from './update-network-settings-dto';
+export * from './update-sandbox-secrets-dto';

@@ -171,6 +171,8 @@ func (s *server) Start() error {
 
 	r.POST("/init", s.Initialize(otelServiceName, s.entrypointLogFilePath, s.labels))
 
+	r.POST("/env", s.UpdateEnv)
+
 	r.GET("/version", s.GetVersion)
 
 	// keep /project-dir old behavior for backward compatibility

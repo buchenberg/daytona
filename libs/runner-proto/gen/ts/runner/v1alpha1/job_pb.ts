@@ -14,7 +14,7 @@ import type { Message } from '@bufbuild/protobuf'
 export const file_runner_v1alpha1_job: GenFile =
   /*@__PURE__*/
   fileDesc(
-    'ChlydW5uZXIvdjFhbHBoYTEvam9iLnByb3RvEg9ydW5uZXIudjFhbHBoYTEigQEKCFJlZ2lzdHJ5EgsKA3VybBgBIAEoCRIVCgh1c2VybmFtZRgCIAEoCUgAiAEBEhUKCHBhc3N3b3JkGAMgASgJSAGIAQESFAoHcHJvamVjdBgEIAEoCUgCiAEBQgsKCV91c2VybmFtZUILCglfcGFzc3dvcmRCCgoIX3Byb2plY3QiqgEKFlNuYXBzaG90U2FuZGJveFBheWxvYWQSEgoKc2FuZGJveF9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEhcKD29yZ2FuaXphdGlvbl9pZBgDIAEoCRIwCghyZWdpc3RyeRgEIAEoCzIZLnJ1bm5lci52MWFscGhhMS5SZWdpc3RyeUgAiAEBEhYKDmluY2x1ZGVfbWVtb3J5GAUgASgIQgsKCV9yZWdpc3RyeSJHChJGb3JrU2FuZGJveFBheWxvYWQSGQoRc291cmNlX3NhbmRib3hfaWQYASABKAkSFgoObmV3X3NhbmRib3hfaWQYAiABKAkiOQoVU25hcHNob3RTYW5kYm94UmVzdWx0EhIKCnNpemVfYnl0ZXMYASABKAMSDAoEaGFzaBgCIAEoCSJDChFGb3JrU2FuZGJveFJlc3VsdBIbCg5kYWVtb25fdmVyc2lvbhgBIAEoCUgAiAEBQhEKD19kYWVtb25fdmVyc2lvbiIpChNQYXVzZVNhbmRib3hQYXlsb2FkEhIKCnNhbmRib3hfaWQYASABKAkiFAoSUGF1c2VTYW5kYm94UmVzdWx0KnkKB0pvYlR5cGUSGAoUSk9CX1RZUEVfVU5TUEVDSUZJRUQQABIdChlKT0JfVFlQRV9TTkFQU0hPVF9TQU5EQk9YEAESGQoVSk9CX1RZUEVfRk9SS19TQU5EQk9YEAISGgoWSk9CX1RZUEVfUEFVU0VfU0FOREJPWBADQkdaRWdpdGh1Yi5jb20vZGF5dG9uYWlvL2RheXRvbmEvZ2VuL3Byb3RvL3J1bm5lci92MWFscGhhMTtydW5uZXJ2MWFscGhhMWIGcHJvdG8z',
+    'ChlydW5uZXIvdjFhbHBoYTEvam9iLnByb3RvEg9ydW5uZXIudjFhbHBoYTEigQEKCFJlZ2lzdHJ5EgsKA3VybBgBIAEoCRIVCgh1c2VybmFtZRgCIAEoCUgAiAEBEhUKCHBhc3N3b3JkGAMgASgJSAGIAQESFAoHcHJvamVjdBgEIAEoCUgCiAEBQgsKCV91c2VybmFtZUILCglfcGFzc3dvcmRCCgoIX3Byb2plY3QiqgEKFlNuYXBzaG90U2FuZGJveFBheWxvYWQSEgoKc2FuZGJveF9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEhcKD29yZ2FuaXphdGlvbl9pZBgDIAEoCRIwCghyZWdpc3RyeRgEIAEoCzIZLnJ1bm5lci52MWFscGhhMS5SZWdpc3RyeUgAiAEBEhYKDmluY2x1ZGVfbWVtb3J5GAUgASgIQgsKCV9yZWdpc3RyeSJHChJGb3JrU2FuZGJveFBheWxvYWQSGQoRc291cmNlX3NhbmRib3hfaWQYASABKAkSFgoObmV3X3NhbmRib3hfaWQYAiABKAkiOQoVU25hcHNob3RTYW5kYm94UmVzdWx0EhIKCnNpemVfYnl0ZXMYASABKAMSDAoEaGFzaBgCIAEoCSJDChFGb3JrU2FuZGJveFJlc3VsdBIbCg5kYWVtb25fdmVyc2lvbhgBIAEoCUgAiAEBQhEKD19kYWVtb25fdmVyc2lvbiIpChNQYXVzZVNhbmRib3hQYXlsb2FkEhIKCnNhbmRib3hfaWQYASABKAkiFAoSUGF1c2VTYW5kYm94UmVzdWx0Io0BChtVcGRhdGVTYW5kYm94U2VjcmV0c1BheWxvYWQSQgoDZW52GAEgAygLMjUucnVubmVyLnYxYWxwaGExLlVwZGF0ZVNhbmRib3hTZWNyZXRzUGF5bG9hZC5FbnZFbnRyeRoqCghFbnZFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIhwKGlVwZGF0ZVNhbmRib3hTZWNyZXRzUmVzdWx0Kp4BCgdKb2JUeXBlEhgKFEpPQl9UWVBFX1VOU1BFQ0lGSUVEEAASHQoZSk9CX1RZUEVfU05BUFNIT1RfU0FOREJPWBABEhkKFUpPQl9UWVBFX0ZPUktfU0FOREJPWBACEhoKFkpPQl9UWVBFX1BBVVNFX1NBTkRCT1gQAxIjCh9KT0JfVFlQRV9VUERBVEVfU0FOREJPWF9TRUNSRVRTEARCR1pFZ2l0aHViLmNvbS9kYXl0b25haW8vZGF5dG9uYS9nZW4vcHJvdG8vcnVubmVyL3YxYWxwaGExO3J1bm5lcnYxYWxwaGExYgZwcm90bzM',
   )
 
 /**
@@ -182,6 +182,41 @@ export const PauseSandboxResultSchema: GenMessage<PauseSandboxResult> =
   messageDesc(file_runner_v1alpha1_job, 6)
 
 /**
+ * @generated from message runner.v1alpha1.UpdateSandboxSecretsPayload
+ */
+export type UpdateSandboxSecretsPayload = Message<'runner.v1alpha1.UpdateSandboxSecretsPayload'> & {
+  /**
+   * The sandbox's full desired secret env: env var names mapped to secret
+   * placeholder values. Replace semantics — placeholder-valued env vars not
+   * present in the map are unset for newly spawned processes.
+   *
+   * @generated from field: map<string, string> env = 1;
+   */
+  env: { [key: string]: string }
+}
+
+/**
+ * Describes the message runner.v1alpha1.UpdateSandboxSecretsPayload.
+ * Use `create(UpdateSandboxSecretsPayloadSchema)` to create a new message.
+ */
+export const UpdateSandboxSecretsPayloadSchema: GenMessage<UpdateSandboxSecretsPayload> =
+  /*@__PURE__*/
+  messageDesc(file_runner_v1alpha1_job, 7)
+
+/**
+ * @generated from message runner.v1alpha1.UpdateSandboxSecretsResult
+ */
+export type UpdateSandboxSecretsResult = Message<'runner.v1alpha1.UpdateSandboxSecretsResult'> & {}
+
+/**
+ * Describes the message runner.v1alpha1.UpdateSandboxSecretsResult.
+ * Use `create(UpdateSandboxSecretsResultSchema)` to create a new message.
+ */
+export const UpdateSandboxSecretsResultSchema: GenMessage<UpdateSandboxSecretsResult> =
+  /*@__PURE__*/
+  messageDesc(file_runner_v1alpha1_job, 8)
+
+/**
  * @generated from enum runner.v1alpha1.JobType
  */
 export enum JobType {
@@ -204,6 +239,11 @@ export enum JobType {
    * @generated from enum value: JOB_TYPE_PAUSE_SANDBOX = 3;
    */
   PAUSE_SANDBOX = 3,
+
+  /**
+   * @generated from enum value: JOB_TYPE_UPDATE_SANDBOX_SECRETS = 4;
+   */
+  UPDATE_SANDBOX_SECRETS = 4,
 }
 
 /**

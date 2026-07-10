@@ -149,6 +149,8 @@ func (e *Executor) executeJob(ctx context.Context, job *apiclient.Job) (any, err
 		resultMetadata, err = e.removeSnapshot(ctx, job)
 	case apiclient.JOBTYPE_UPDATE_SANDBOX_NETWORK_SETTINGS:
 		resultMetadata, err = e.updateNetworkSettings(ctx, job)
+	case apiclient.JOBTYPE_UPDATE_SANDBOX_SECRETS:
+		resultMetadata, err = e.updateSandboxSecrets(ctx, job)
 	case apiclient.JOBTYPE_INSPECT_SNAPSHOT_IN_REGISTRY:
 		resultMetadata, err = e.inspectSnapshotInRegistry(ctx, job)
 	case apiclient.JOBTYPE_RECOVER_SANDBOX:

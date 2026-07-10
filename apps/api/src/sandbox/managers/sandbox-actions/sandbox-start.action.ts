@@ -37,6 +37,7 @@ import Redis from 'ioredis'
 import { WithSpan } from '../../../common/decorators/otel.decorator'
 import { SandboxActivityService } from '../../services/sandbox-activity.service'
 import { getRunnerSandboxClass, isRegistryBasedSandboxClass } from '../../utils/sandbox-class.util'
+import { SECRET_PLACEHOLDER_PREFIX } from '../../../secret/constants/secret.constants'
 import {
   resolveGpuTypeSelector,
   runnerMatchesGpuTypeSelector,
@@ -722,6 +723,18 @@ export class SandboxStartAction extends SandboxAction {
       if (sandbox.domainAllowList) {
         metadata['domainAllowList'] = sandbox.domainAllowList
       }
+
+      // The full desired secret env (env var -> placeholder). The runner diffs this
+      // against the container's env on start and recreates the container when secrets
+      // were attached or detached while it was stopped (or while running, where only
+      // the daemon env could be updated in place).
+      metadata['secretEnvs'] = JSON.stringify(
+        Object.fromEntries(
+          Object.entries(sandbox.env ?? {}).filter(
+            ([, value]) => typeof value === 'string' && value.startsWith(SECRET_PLACEHOLDER_PREFIX),
+          ),
+        ),
+      )
 
       try {
         await runnerAdapter.startSandbox(sandbox.id, sandbox.authToken, sandbox.secretsToken, metadata)

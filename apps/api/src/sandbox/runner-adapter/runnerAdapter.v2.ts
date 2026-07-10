@@ -9,6 +9,7 @@ import {
   SnapshotSandboxPayloadSchema,
   ForkSandboxPayloadSchema,
   PauseSandboxPayloadSchema,
+  UpdateSandboxSecretsPayloadSchema,
   RegistrySchema,
 } from '@daytona/runner-proto'
 import { InjectRepository } from '@nestjs/typeorm'
@@ -559,6 +560,26 @@ export class RunnerAdapterV2 implements RunnerAdapter {
     this.logger.debug(
       `Created UPDATE_SANDBOX_NETWORK_SETTINGS job for sandbox ${sandboxId} on runner ${this.runner.id}`,
     )
+  }
+
+  async updateSandboxSecrets(sandboxId: string, secretEnvs: { [key: string]: string }): Promise<void> {
+    const payload = toJson(
+      UpdateSandboxSecretsPayloadSchema,
+      create(UpdateSandboxSecretsPayloadSchema, {
+        env: secretEnvs,
+      }),
+    ) as Record<string, unknown>
+
+    await this.jobService.createJob(
+      null,
+      JobType.UPDATE_SANDBOX_SECRETS,
+      this.runner.id,
+      ResourceType.SANDBOX,
+      sandboxId,
+      payload,
+    )
+
+    this.logger.debug(`Created UPDATE_SANDBOX_SECRETS job for sandbox ${sandboxId} on runner ${this.runner.id}`)
   }
 
   async pauseSandbox(sandboxId: string): Promise<void> {

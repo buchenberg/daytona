@@ -3029,6 +3029,53 @@ paths:
       summary: Update sandbox network settings
       tags:
       - sandbox
+  /sandbox/{sandboxIdOrName}/secrets:
+    put:
+      description: "Replaces the set of vault secrets mounted in the sandbox. Attached,\
+        \ detached and rotated secrets take effect for outbound requests within seconds.\
+        \ New env vars become visible to processes spawned after the update; a sandbox\
+        \ created without any secrets must be restarted for newly attached secrets\
+        \ to work."
+      operationId: updateSandboxSecrets
+      parameters:
+      - description: Use with JWT to specify the organization ID
+        explode: false
+        in: header
+        name: X-Daytona-Organization-ID
+        required: false
+        schema:
+          type: string
+        style: simple
+      - description: ID or name of the sandbox
+        explode: false
+        in: path
+        name: sandboxIdOrName
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSandboxSecrets"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sandbox"
+          description: Sandbox secrets have been updated
+      security:
+      - bearer: []
+      - oauth2:
+        - openid
+        - profile
+        - email
+      summary: Update sandbox secrets
+      tags:
+      - sandbox
   /sandbox/{sandboxIdOrName}/archive:
     post:
       operationId: archiveSandbox
@@ -12438,6 +12485,27 @@ components:
           example: "example.com,*.daytona.io"
           type: string
       type: object
+    UpdateSandboxSecrets:
+      example:
+        secrets:
+        - ANTHROPIC_API_KEY: anthropic-prod
+        - DB_PASSWORD: DB_PASSWORD
+      properties:
+        secrets:
+          description: "Secrets to mount in this sandbox, replacing the previously\
+            \ mounted set. Each entry maps an env var name to a vault secret name.\
+            \ Pass an empty array to detach all secrets."
+          example:
+          - ANTHROPIC_API_KEY: anthropic-prod
+          - DB_PASSWORD: DB_PASSWORD
+          items:
+            additionalProperties:
+              type: string
+            type: object
+          type: array
+      required:
+      - secrets
+      type: object
     PortPreviewUrl:
       example:
         sandboxId: "123456"
@@ -15086,6 +15154,7 @@ components:
       - INSPECT_SNAPSHOT_IN_REGISTRY
       - REMOVE_SNAPSHOT
       - UPDATE_SANDBOX_NETWORK_SETTINGS
+      - UPDATE_SANDBOX_SECRETS
       - SNAPSHOT_SANDBOX
       - FORK_SANDBOX
       - PAUSE_SANDBOX

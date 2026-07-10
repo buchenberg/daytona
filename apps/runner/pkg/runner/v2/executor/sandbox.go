@@ -87,6 +87,16 @@ func (e *Executor) updateNetworkSettings(ctx context.Context, job *apiclient.Job
 	return nil, e.docker.UpdateNetworkSettings(ctx, job.ResourceId, updateNetworkSettingsDto)
 }
 
+func (e *Executor) updateSandboxSecrets(ctx context.Context, job *apiclient.Job) (any, error) {
+	var updateSandboxSecretsDto dto.UpdateSandboxSecretsDTO
+	err := e.parsePayload(job.Payload, &updateSandboxSecretsDto)
+	if err != nil {
+		return nil, common.FormatRecoverableError(fmt.Errorf("failed to unmarshal payload: %w", err))
+	}
+
+	return nil, e.docker.UpdateSandboxSecrets(ctx, job.ResourceId, updateSandboxSecretsDto)
+}
+
 func (e *Executor) recoverSandbox(ctx context.Context, job *apiclient.Job) (any, error) {
 	var recoverSandboxDto dto.RecoverSandboxDTO
 	err := e.parsePayload(job.Payload, &recoverSandboxDto)

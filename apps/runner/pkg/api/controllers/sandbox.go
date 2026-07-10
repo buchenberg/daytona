@@ -281,6 +281,47 @@ func UpdateNetworkSettings(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, "Network settings updated")
 }
 
+// UpdateSandboxSecrets godoc
+//
+//	@Tags			sandbox
+//	@Summary		Update sandbox secrets
+//	@Description	Pushes the sandbox's desired secret env (env var name -> placeholder) so newly spawned processes in a running sandbox see it. A sandbox without secret-proxy wiring picks the change up on its next start instead.
+//	@Produce		json
+//	@Param			sandboxId	path		string						true	"Sandbox ID"
+//	@Param			sandbox		body		dto.UpdateSandboxSecretsDTO	true	"Update sandbox secrets"
+//	@Success		200			{string}	string						"Sandbox secrets updated"
+//	@Failure		400			{object}	common_errors.ErrorResponse
+//	@Failure		401			{object}	common_errors.ErrorResponse
+//	@Failure		404			{object}	common_errors.ErrorResponse
+//	@Failure		409			{object}	common_errors.ErrorResponse
+//	@Failure		500			{object}	common_errors.ErrorResponse
+//	@Router			/sandboxes/{sandboxId}/secrets [post]
+//
+//	@id				UpdateSandboxSecrets
+func UpdateSandboxSecrets(ctx *gin.Context) {
+	var updateSandboxSecretsDto dto.UpdateSandboxSecretsDTO
+	err := ctx.ShouldBindJSON(&updateSandboxSecretsDto)
+	if err != nil {
+		ctx.Error(common_errors.NewInvalidBodyRequestError(err))
+		return
+	}
+
+	sandboxId := ctx.Param("sandboxId")
+	runner, err := runner.GetInstance(nil)
+	if err != nil {
+		ctx.Error(err)
+		return
+	}
+
+	err = runner.Docker.UpdateSandboxSecrets(ctx.Request.Context(), sandboxId, updateSandboxSecretsDto)
+	if err != nil {
+		ctx.Error(err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, "Sandbox secrets updated")
+}
+
 // GetNetworkSettings godoc
 //
 //	@Tags			sandbox

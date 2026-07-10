@@ -47,6 +47,8 @@ import type { StartSandboxResponse } from '../models';
 import type { StopSandboxDTO } from '../models';
 // @ts-ignore
 import type { UpdateNetworkSettingsDTO } from '../models';
+// @ts-ignore
+import type { UpdateSandboxSecretsDTO } from '../models';
 /**
  * SandboxApi - axios parameter creator
  */
@@ -543,6 +545,48 @@ export const SandboxApiAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * Pushes the sandbox\'s desired secret env (env var name -> placeholder) so newly spawned processes in a running sandbox see it. A sandbox without secret-proxy wiring picks the change up on its next start instead.
+         * @summary Update sandbox secrets
+         * @param {string} sandboxId Sandbox ID
+         * @param {UpdateSandboxSecretsDTO} sandbox Update sandbox secrets
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateSandboxSecrets: async (sandboxId: string, sandbox: UpdateSandboxSecretsDTO, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'sandboxId' is not null or undefined
+            assertParamExists('updateSandboxSecrets', 'sandboxId', sandboxId)
+            // verify required parameter 'sandbox' is not null or undefined
+            assertParamExists('updateSandboxSecrets', 'sandbox', sandbox)
+            const localVarPath = `/sandboxes/{sandboxId}/secrets`
+                .replace(`{${"sandboxId"}}`, encodeURIComponent(String(sandboxId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication Bearer required
+            await setApiKeyToObject(localVarHeaderParameter, "Authorization", configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(sandbox, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -718,6 +762,20 @@ export const SandboxApiFp = function(configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['SandboxApi.updateNetworkSettings']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
+        /**
+         * Pushes the sandbox\'s desired secret env (env var name -> placeholder) so newly spawned processes in a running sandbox see it. A sandbox without secret-proxy wiring picks the change up on its next start instead.
+         * @summary Update sandbox secrets
+         * @param {string} sandboxId Sandbox ID
+         * @param {UpdateSandboxSecretsDTO} sandbox Update sandbox secrets
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async updateSandboxSecrets(sandboxId: string, sandbox: UpdateSandboxSecretsDTO, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<string>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.updateSandboxSecrets(sandboxId, sandbox, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['SandboxApi.updateSandboxSecrets']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
     }
 };
 
@@ -856,6 +914,17 @@ export const SandboxApiFactory = function (configuration?: Configuration, basePa
          */
         updateNetworkSettings(sandboxId: string, sandbox: UpdateNetworkSettingsDTO, options?: RawAxiosRequestConfig): AxiosPromise<string> {
             return localVarFp.updateNetworkSettings(sandboxId, sandbox, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Pushes the sandbox\'s desired secret env (env var name -> placeholder) so newly spawned processes in a running sandbox see it. A sandbox without secret-proxy wiring picks the change up on its next start instead.
+         * @summary Update sandbox secrets
+         * @param {string} sandboxId Sandbox ID
+         * @param {UpdateSandboxSecretsDTO} sandbox Update sandbox secrets
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateSandboxSecrets(sandboxId: string, sandbox: UpdateSandboxSecretsDTO, options?: RawAxiosRequestConfig): AxiosPromise<string> {
+            return localVarFp.updateSandboxSecrets(sandboxId, sandbox, options).then((request) => request(axios, basePath));
         },
     };
 };
@@ -1004,6 +1073,18 @@ export class SandboxApi extends BaseAPI {
      */
     public updateNetworkSettings(sandboxId: string, sandbox: UpdateNetworkSettingsDTO, options?: RawAxiosRequestConfig) {
         return SandboxApiFp(this.configuration).updateNetworkSettings(sandboxId, sandbox, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Pushes the sandbox\'s desired secret env (env var name -> placeholder) so newly spawned processes in a running sandbox see it. A sandbox without secret-proxy wiring picks the change up on its next start instead.
+     * @summary Update sandbox secrets
+     * @param {string} sandboxId Sandbox ID
+     * @param {UpdateSandboxSecretsDTO} sandbox Update sandbox secrets
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public updateSandboxSecrets(sandboxId: string, sandbox: UpdateSandboxSecretsDTO, options?: RawAxiosRequestConfig) {
+        return SandboxApiFp(this.configuration).updateSandboxSecrets(sandboxId, sandbox, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

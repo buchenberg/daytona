@@ -127,6 +127,13 @@ export interface RunnerAdapter {
     domainAllowList?: string,
   ): Promise<void>
 
+  /**
+   * Pushes the sandbox's full desired secret env (env var name -> placeholder) to the
+   * runner so a running sandbox's daemon can expose it to newly spawned processes.
+   * Placeholders absent from the map are unset. Replace semantics, idempotent.
+   */
+  updateSandboxSecrets(sandboxId: string, secretEnvs: { [key: string]: string }): Promise<void>
+
   forkSandbox(sourceSandboxId: string, newSandboxId: string): Promise<void>
 
   pauseSandbox(sandboxId: string): Promise<void>

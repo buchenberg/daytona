@@ -71,6 +71,7 @@ import { Audit, MASKED_AUDIT_VALUE, TypedRequest } from '../../audit/decorators/
 import { AuditAction } from '../../audit/enums/audit-action.enum'
 import { AuditTarget } from '../../audit/enums/audit-target.enum'
 import { UpdateSandboxNetworkSettingsDto } from '../dto/update-sandbox-network-settings.dto'
+import { UpdateSandboxSecretsDto } from '../dto/update-sandbox-secrets.dto'
 import { SshAccessDto, SshAccessValidationDto } from '../dto/ssh-access.dto'
 import { KEPLER_DEDICATED_LARGE, KEPLER_DEDICATED_REGULAR, KEPLER_ORG_ID } from '../constants/kepler.constant'
 import { RESTRICTED_REGIONS } from '../constants/dedicated-regions.constant'
@@ -1178,6 +1179,51 @@ export class SandboxController {
       networkSettings.networkAllowList,
       networkSettings.domainAllowList,
       authContext.organizationId,
+    )
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Put(':sandboxIdOrName/secrets')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Update sandbox secrets',
+    operationId: 'updateSandboxSecrets',
+    description:
+      'Replaces the set of vault secrets mounted in the sandbox. Attached, detached and rotated secrets take effect for outbound requests within seconds. New env vars become visible to processes spawned after the update; a sandbox created without any secrets must be restarted for newly attached secrets to work.',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sandbox secrets have been updated',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.UPDATE_SECRETS,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      // Entries map env var names to vault secret names; no secret values pass through here.
+      body: (req: TypedRequest<UpdateSandboxSecretsDto>) => ({
+        secrets: req.body?.secrets,
+      }),
+    },
+  })
+  async updateSandboxSecrets(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Body() updateSandboxSecretsDto: UpdateSandboxSecretsDto,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.updateSecrets(
+      sandboxIdOrName,
+      updateSandboxSecretsDto.secrets ?? [],
+      authContext.organization,
     )
     return this.sandboxService.toSandboxDto(sandbox)
   }
