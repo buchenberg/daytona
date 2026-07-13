@@ -6,39 +6,16 @@
 import { formatAmount } from '@/lib/utils'
 import { Charge } from '@daytona/billing-api-client'
 import { ColumnDef } from '@tanstack/react-table'
-import React from 'react'
-import { SortOrderIcon } from '../SortIcon'
+import { DataTableColumnHeader } from '../DataTableColumnHeader'
 import { Badge } from '../ui/badge'
 import { ChargesTableActions } from './ChargesTableActions'
-
-interface SortableHeaderProps {
-  column: any
-  label: string
-  dataState?: string
-}
-
-const SortableHeader: React.FC<SortableHeaderProps> = ({ column, label, dataState }) => {
-  const sortDirection = column.getIsSorted()
-
-  return (
-    <button
-      type="button"
-      onClick={() => column.toggleSorting(sortDirection === 'asc')}
-      className="group/sort-header flex h-full w-full items-center gap-2"
-      {...(dataState && { 'data-state': dataState })}
-    >
-      {label}
-      <SortOrderIcon sort={sortDirection || null} />
-    </button>
-  )
-}
 
 export function getColumns(): ColumnDef<Charge>[] {
   return [
     {
       id: 'createdAt',
       size: 140,
-      header: ({ column }) => <SortableHeader column={column} label="Date" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} label="Date" />,
       cell: ({ row }) => {
         const timestamp = parseTimestamp(row.original.createdAt)
         return (
@@ -67,7 +44,7 @@ export function getColumns(): ColumnDef<Charge>[] {
       id: 'description',
       size: 320,
       minSize: 220,
-      header: ({ column }) => <SortableHeader column={column} label="Description" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} label="Description" />,
       accessorKey: 'description',
       cell: ({ row }) => {
         const charge = row.original
@@ -89,7 +66,7 @@ export function getColumns(): ColumnDef<Charge>[] {
     {
       id: 'amountCents',
       size: 120,
-      header: ({ column }) => <SortableHeader column={column} label="Amount" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} label="Amount" />,
       cell: ({ row }) => (
         <div className="w-full truncate">
           <span>{formatAmount(row.original.amountCents ?? 0)}</span>
@@ -103,7 +80,7 @@ export function getColumns(): ColumnDef<Charge>[] {
     {
       id: 'status',
       size: 120,
-      header: ({ column }) => <SortableHeader column={column} label="Status" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} label="Status" />,
       cell: ({ row }) => {
         const status = row.original.status
         return (

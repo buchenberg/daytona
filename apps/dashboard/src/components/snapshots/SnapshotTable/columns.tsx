@@ -10,8 +10,7 @@ import { getTableColumnMaxResizeSize } from '@/lib/utils/table'
 import { SnapshotDto, SnapshotState } from '@daytona/api-client'
 import { ColumnDef, RowData, Table } from '@tanstack/react-table'
 import { Loader2, MoreHorizontal } from 'lucide-react'
-import React from 'react'
-import { SortOrderIcon } from '../../SortIcon'
+import { DataTableColumnHeader } from '../../DataTableColumnHeader'
 import { Badge, BadgeProps } from '../../ui/badge'
 import { Button } from '../../ui/button'
 import { Checkbox } from '../../ui/checkbox'
@@ -42,28 +41,8 @@ declare module '@tanstack/react-table' {
   }
 }
 
-interface SortableHeaderProps {
-  column: any
-  label: string
-}
-
 const getMeta = (table: Table<SnapshotDto>) => {
   return table.options.meta?.snapshot as SnapshotTableMeta
-}
-
-const SortableHeader: React.FC<SortableHeaderProps> = ({ column, label }) => {
-  const sortDirection = column.getIsSorted()
-
-  return (
-    <button
-      type="button"
-      onClick={() => column.toggleSorting(sortDirection === 'asc')}
-      className="group/sort-header flex h-full w-full items-center gap-2"
-    >
-      {label}
-      <SortOrderIcon sort={sortDirection || null} />
-    </button>
-  )
 }
 
 const columns: ColumnDef<SnapshotDto>[] = [
@@ -142,7 +121,7 @@ const columns: ColumnDef<SnapshotDto>[] = [
     size: 300,
     minSize: 300,
     enableSorting: true,
-    header: ({ column }) => <SortableHeader column={column} label="Name" />,
+    header: ({ column }) => <DataTableColumnHeader column={column} label="Name" />,
     cell: ({ row }) => {
       const snapshot = row.original
       return (
@@ -278,7 +257,7 @@ const columns: ColumnDef<SnapshotDto>[] = [
     size: 120,
     maxSize: getTableColumnMaxResizeSize(120),
     enableSorting: true,
-    header: ({ column }) => <SortableHeader column={column} label="State" />,
+    header: ({ column }) => <DataTableColumnHeader column={column} label="State" />,
     cell: ({ row }) => {
       const snapshot = row.original
       const variant = getStateBadgeVariant(snapshot.state)
@@ -307,7 +286,7 @@ const columns: ColumnDef<SnapshotDto>[] = [
     size: 120,
     maxSize: getTableColumnMaxResizeSize(120),
     enableSorting: true,
-    header: ({ column }) => <SortableHeader column={column} label="Created" />,
+    header: ({ column }) => <DataTableColumnHeader column={column} label="Created" />,
     cell: ({ row }) => {
       const snapshot = row.original
       if (snapshot.general) {
@@ -326,7 +305,7 @@ const columns: ColumnDef<SnapshotDto>[] = [
     size: 120,
     maxSize: getTableColumnMaxResizeSize(120),
     enableSorting: true,
-    header: ({ column }) => <SortableHeader column={column} label="Last Used" />,
+    header: ({ column }) => <DataTableColumnHeader column={column} label="Last Used" />,
     cell: ({ row }) => {
       const snapshot = row.original
       if (snapshot.general || !snapshot.lastUsedAt) {

@@ -4,9 +4,9 @@
  */
 
 import { CopyButton } from '@/components/CopyButton'
+import { DataTableColumnHeader } from '@/components/DataTableColumnHeader'
 import { EllipsisWithTooltip } from '@/components/EllipsisWithTooltip'
 import { SandboxLabel } from '@/components/SandboxLabel'
-import { SortOrderIcon } from '@/components/SortIcon'
 import { TimestampTooltip } from '@/components/TimestampTooltip'
 import { SandboxState as SandboxStateComponent } from '@/components/sandboxes/SandboxState'
 import { Badge } from '@/components/ui/badge'
@@ -16,7 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { getRelativeTimeString } from '@/lib/utils'
 import { getTableColumnMaxResizeSize } from '@/lib/utils/table'
 import { SandboxDesiredState, SandboxListItem } from '@daytona/api-client'
-import { Column, ColumnDef, RowData, Table } from '@tanstack/react-table'
+import { ColumnDef, RowData, Table } from '@tanstack/react-table'
 import { Loader2 } from 'lucide-react'
 import React from 'react'
 import { SandboxTableActions } from './SandboxTableActions'
@@ -50,30 +50,8 @@ declare module '@tanstack/react-table' {
   }
 }
 
-interface SortableHeaderProps {
-  column: Column<SandboxListItem, unknown>
-  label: string
-  dataState?: string
-}
-
 const getMeta = (table: Table<SandboxListItem>) => {
   return table.options.meta?.sandbox as SandboxTableMeta
-}
-
-const SortableHeader: React.FC<SortableHeaderProps> = ({ column, label, dataState }) => {
-  const sortDirection = column.getIsSorted()
-
-  return (
-    <button
-      type="button"
-      onClick={() => column.toggleSorting(sortDirection === 'asc')}
-      className="group/sort-header flex h-full w-full items-center gap-2"
-      {...(dataState && { 'data-state': dataState })}
-    >
-      {label}
-      <SortOrderIcon sort={sortDirection || null} />
-    </button>
-  )
 }
 
 const SandboxStateCell = React.memo(function SandboxStateCell({
@@ -160,7 +138,7 @@ const columns: ColumnDef<SandboxListItem>[] = [
     size: 350,
     enableSorting: true,
     enableHiding: true,
-    header: ({ column }) => <SortableHeader column={column} label="Name" />,
+    header: ({ column }) => <DataTableColumnHeader column={column} label="Name" />,
     accessorKey: 'name',
     cell: ({ row }) => {
       const displayName = getDisplayName(row.original)
@@ -335,7 +313,7 @@ const columns: ColumnDef<SandboxListItem>[] = [
     maxSize: getTableColumnMaxResizeSize(140),
     enableSorting: true,
     enableHiding: true,
-    header: ({ column }) => <SortableHeader column={column} label="Last Event" />,
+    header: ({ column }) => <DataTableColumnHeader column={column} label="Last Event" />,
     accessorFn: (row) => getLastEvent(row).date,
     cell: ({ row }) => {
       const lastEvent = getLastEvent(row.original)
@@ -354,7 +332,7 @@ const columns: ColumnDef<SandboxListItem>[] = [
     maxSize: getTableColumnMaxResizeSize(180),
     enableSorting: true,
     enableHiding: true,
-    header: ({ column }) => <SortableHeader column={column} label="Created" />,
+    header: ({ column }) => <DataTableColumnHeader column={column} label="Created" />,
     accessorFn: (row) => (row.createdAt ? new Date(row.createdAt) : new Date()),
     cell: ({ row }) => {
       const timestamp = getRelativeTimeString(row.original.createdAt)

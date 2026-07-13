@@ -7,7 +7,7 @@ import { Invoice } from '@daytona/billing-api-client'
 import { formatAmount } from '@/lib/utils'
 import { ColumnDef, RowData, Table } from '@tanstack/react-table'
 import React from 'react'
-import { SortOrderIcon } from '../SortIcon'
+import { DataTableColumnHeader } from '../DataTableColumnHeader'
 import { Badge } from '../ui/badge'
 import { InvoicesTableActions } from './InvoicesTableActions'
 
@@ -21,28 +21,6 @@ declare module '@tanstack/react-table' {
   interface TableMeta<TData extends RowData> {
     invoices?: TData extends Invoice ? InvoicesTableMeta : never
   }
-}
-
-interface SortableHeaderProps {
-  column: any
-  label: string
-  dataState?: string
-}
-
-const SortableHeader: React.FC<SortableHeaderProps> = ({ column, label, dataState }) => {
-  const sortDirection = column.getIsSorted()
-
-  return (
-    <button
-      type="button"
-      onClick={() => column.toggleSorting(sortDirection === 'asc')}
-      className="group/sort-header flex h-full w-full items-center gap-2"
-      {...(dataState && { 'data-state': dataState })}
-    >
-      {label}
-      <SortOrderIcon sort={sortDirection || null} />
-    </button>
-  )
 }
 
 const getMeta = (table: Table<Invoice>) => {
@@ -72,7 +50,7 @@ export const invoiceColumns: ColumnDef<Invoice>[] = [
   {
     id: 'number',
     header: ({ column }) => {
-      return <SortableHeader column={column} label="Invoice" />
+      return <DataTableColumnHeader column={column} label="Invoice" />
     },
     accessorKey: 'number',
     cell: ({ row }) => {
@@ -90,7 +68,7 @@ export const invoiceColumns: ColumnDef<Invoice>[] = [
     id: 'issuingDate',
     size: 140,
     header: ({ column }) => {
-      return <SortableHeader column={column} label="Date" />
+      return <DataTableColumnHeader column={column} label="Date" />
     },
     cell: ({ row }) => <DateCell value={row.original.issuingDate} />,
     accessorFn: (row) => parseTimestamp(row.issuingDate) ?? -Infinity,
@@ -105,7 +83,7 @@ export const invoiceColumns: ColumnDef<Invoice>[] = [
     id: 'paymentDueDate',
     size: 140,
     header: ({ column }) => {
-      return <SortableHeader column={column} label="Due Date" />
+      return <DataTableColumnHeader column={column} label="Due Date" />
     },
     cell: ({ row }) => <DateCell value={row.original.paymentDueDate} />,
     accessorFn: (row) => parseTimestamp(row.paymentDueDate) ?? -Infinity,
@@ -120,7 +98,7 @@ export const invoiceColumns: ColumnDef<Invoice>[] = [
     id: 'totalAmountCents',
     size: 120,
     header: ({ column }) => {
-      return <SortableHeader column={column} label="Amount" />
+      return <DataTableColumnHeader column={column} label="Amount" />
     },
     cell: ({ row }) => {
       return (
@@ -138,7 +116,7 @@ export const invoiceColumns: ColumnDef<Invoice>[] = [
     id: 'paymentStatus',
     size: 120,
     header: ({ column }) => {
-      return <SortableHeader column={column} label="Status" />
+      return <DataTableColumnHeader column={column} label="Status" />
     },
     cell: ({ row }) => {
       const invoice = row.original
@@ -179,7 +157,7 @@ export const invoiceColumns: ColumnDef<Invoice>[] = [
     id: 'type',
     size: 120,
     header: ({ column }) => {
-      return <SortableHeader column={column} label="Type" />
+      return <DataTableColumnHeader column={column} label="Type" />
     },
     cell: ({ row }) => {
       const type = row.original.type
