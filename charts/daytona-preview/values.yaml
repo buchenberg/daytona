@@ -345,6 +345,10 @@ minio:
   rootPassword: 'minioadmin'
   region: 'us-east-1'
   defaultBucket: 'daytona'
+  persistence:
+    enabled: true
+    storageClass: 'gp3-encrypted'
+    size: 10Gi
   resources:
     limits:
       memory: 1Gi
@@ -367,6 +371,10 @@ registry:
   # but the registry itself accepts any value.
   admin: 'admin'
   password: 'password'
+  persistence:
+    enabled: true
+    storageClass: 'gp3-encrypted'
+    size: 10Gi
   resources:
     limits:
       memory: 512Mi
@@ -393,7 +401,15 @@ postgresql:
     database: 'daytona_preview'
   primary:
     persistence:
-      enabled: false
+      enabled: true
+      storageClass: 'gp3-encrypted'
+      size: 8Gi
+    # Preview data is disposable — never leave a PVC behind, whether the
+    # release is uninstalled or the StatefulSet is scaled down.
+    persistentVolumeClaimRetentionPolicy:
+      enabled: true
+      whenScaled: Delete
+      whenDeleted: Delete
 
 # ---------------------------------------------------------------------------
 # Redis subchart (per-preview instance)
@@ -410,7 +426,15 @@ redis:
     enabled: false
   master:
     persistence:
-      enabled: false
+      enabled: true
+      storageClass: 'gp3-encrypted'
+      size: 8Gi
+    # Preview data is disposable — never leave a PVC behind, whether the
+    # release is uninstalled or the StatefulSet is scaled down.
+    persistentVolumeClaimRetentionPolicy:
+      enabled: true
+      whenScaled: Delete
+      whenDeleted: Delete
   replica:
     replicaCount: 0
     persistence:

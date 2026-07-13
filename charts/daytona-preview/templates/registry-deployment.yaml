@@ -9,6 +9,12 @@ metadata:
     app.kubernetes.io/component: registry
 spec:
   replicas: 1
+  {{- if .Values.registry.persistence.enabled }}
+  # The data PVC is ReadWriteOnce; a rolling update would deadlock waiting for
+  # the old pod to release the volume.
+  strategy:
+    type: Recreate
+  {{- end }}
   selector:
     matchLabels:
       {{- include "preview.selectorLabels" . | nindent 6 }}
@@ -43,5 +49,10 @@ spec:
             {{- toYaml .Values.registry.resources | nindent 12 }}
       volumes:
         - name: data
+          {{- if .Values.registry.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "preview.fullname" . }}-registry-data
+          {{- else }}
           emptyDir: {}
+          {{- end }}
 {{- end }}

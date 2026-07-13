@@ -9,6 +9,12 @@ metadata:
     app.kubernetes.io/component: minio
 spec:
   replicas: 1
+  {{- if .Values.minio.persistence.enabled }}
+  # The data PVC is ReadWriteOnce; a rolling update would deadlock waiting for
+  # the old pod to release the volume.
+  strategy:
+    type: Recreate
+  {{- end }}
   selector:
     matchLabels:
       {{- include "preview.selectorLabels" . | nindent 6 }}
@@ -46,5 +52,10 @@ spec:
             {{- toYaml .Values.minio.resources | nindent 12 }}
       volumes:
         - name: data
+          {{- if .Values.minio.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "preview.fullname" . }}-minio-data
+          {{- else }}
           emptyDir: {}
+          {{- end }}
 {{- end }}

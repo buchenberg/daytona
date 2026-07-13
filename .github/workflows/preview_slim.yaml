@@ -252,7 +252,9 @@ jobs:
         env:
           BRANCH_SLUG: ${{ needs.build.outputs.branch_slug }}
         run: |
-          # Wipes per-preview postgres/redis/minio data (emptyDir volumes are deleted with the pods).
+          # Wipes per-preview postgres/redis/minio/registry data: chart-owned PVCs are
+          # deleted with the release, and the postgres/redis StatefulSet PVCs are removed
+          # via the subcharts' persistentVolumeClaimRetentionPolicy.
           helm uninstall "$BRANCH_SLUG" --namespace preview --ignore-not-found --wait
 
       - name: Deploy with Helm
@@ -385,7 +387,9 @@ jobs:
         env:
           BRANCH_SLUG: ${{ steps.slug.outputs.branch_slug }}
         run: |
-          # Wipes per-preview postgres/redis/minio data (emptyDir volumes are deleted with the pods).
+          # Wipes per-preview postgres/redis/minio/registry data: chart-owned PVCs are
+          # deleted with the release, and the postgres/redis StatefulSet PVCs are removed
+          # via the subcharts' persistentVolumeClaimRetentionPolicy.
           helm uninstall "$BRANCH_SLUG" --namespace preview --ignore-not-found --wait
 
       - name: Deactivate and remove GitHub deployments
