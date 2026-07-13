@@ -542,6 +542,8 @@ export class MetricsInterceptor implements NestInterceptor, OnApplicationShutdow
       sandbox_target: response.target,
       sandbox_auto_stop_interval_min_request: request.autoStopInterval,
       sandbox_auto_stop_interval_min: response.autoStopInterval,
+      sandbox_auto_pause_interval_min_request: request.autoPauseInterval,
+      sandbox_auto_pause_interval_min: response.autoPauseInterval,
       sandbox_auto_archive_interval_min_request: request.autoArchiveInterval,
       sandbox_auto_archive_interval_min: response.autoArchiveInterval,
       sandbox_auto_delete_interval_min_request: request.autoDeleteInterval,

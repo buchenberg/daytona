@@ -379,6 +379,7 @@ export class SandboxOpenSearchSearchAdapter implements SandboxSearchAdapter, OnM
       labels,
       backupState: source.backupState,
       autoStopInterval: source.autoStopInterval,
+      autoPauseInterval: source.autoPauseInterval,
       autoArchiveInterval: source.autoArchiveInterval,
       autoDeleteInterval: source.autoDeleteInterval,
       createdAt: source.createdAt ? new Date(source.createdAt).toISOString() : undefined,

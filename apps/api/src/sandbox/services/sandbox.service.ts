@@ -36,7 +36,11 @@ import { Cron, CronExpression } from '@nestjs/schedule'
 import { BackupState } from '../enums/backup-state.enum'
 import { Snapshot } from '../entities/snapshot.entity'
 import { SnapshotState } from '../enums/snapshot-state.enum'
-import { OTEL_CONFIG_CACHE_KEY_PREFIX, SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION } from '../constants/sandbox.constants'
+import {
+  OTEL_CONFIG_CACHE_KEY_PREFIX,
+  PAUSE_SUPPORTED_SANDBOX_CLASSES,
+  SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+} from '../constants/sandbox.constants'
 import { SandboxWarmPoolService } from './sandbox-warm-pool.service'
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter'
 import { WarmPoolEvents } from '../constants/warmpool-events.constants'
@@ -136,6 +140,7 @@ const DEFAULT_CPU = 1
 const DEFAULT_MEMORY = 1
 const DEFAULT_DISK = 3
 const DEFAULT_GPU = 0
+const DEFAULT_AUTO_PAUSE_INTERVAL = 60
 
 @Injectable()
 export class SandboxService {
@@ -734,9 +739,14 @@ export class SandboxService {
         sandbox.domainAllowList = this.resolveDomainAllowList(createSandboxDto.domainAllowList)
       }
 
-      if (createSandboxDto.autoStopInterval !== undefined) {
-        sandbox.autoStopInterval = this.resolveAutoStopInterval(createSandboxDto.autoStopInterval)
-      }
+      Object.assign(
+        sandbox,
+        this.resolveAutoStopAndAutoPauseIntervals(
+          createSandboxDto,
+          sandbox.sandboxClass,
+          isEphemeral(createSandboxDto),
+        ),
+      )
 
       if (createSandboxDto.autoArchiveInterval !== undefined) {
         sandbox.autoArchiveInterval = this.resolveAutoArchiveInterval(createSandboxDto.autoArchiveInterval)
@@ -860,9 +870,14 @@ export class SandboxService {
       updateData.name = createSandboxDto.name
     }
 
-    if (createSandboxDto.autoStopInterval !== undefined) {
-      updateData.autoStopInterval = this.resolveAutoStopInterval(createSandboxDto.autoStopInterval)
-    }
+    Object.assign(
+      updateData,
+      this.resolveAutoStopAndAutoPauseIntervals(
+        createSandboxDto,
+        warmPoolSandbox.sandboxClass,
+        isEphemeral({ autoDeleteInterval: createSandboxDto.autoDeleteInterval ?? warmPoolSandbox.autoDeleteInterval }),
+      ),
+    )
 
     if (createSandboxDto.autoArchiveInterval !== undefined) {
       updateData.autoArchiveInterval = this.resolveAutoArchiveInterval(createSandboxDto.autoArchiveInterval)
@@ -1086,9 +1101,14 @@ export class SandboxService {
         sandbox.domainAllowList = this.resolveDomainAllowList(createSandboxDto.domainAllowList)
       }
 
-      if (createSandboxDto.autoStopInterval !== undefined) {
-        sandbox.autoStopInterval = this.resolveAutoStopInterval(createSandboxDto.autoStopInterval)
-      }
+      Object.assign(
+        sandbox,
+        this.resolveAutoStopAndAutoPauseIntervals(
+          createSandboxDto,
+          sandbox.sandboxClass,
+          isEphemeral(createSandboxDto),
+        ),
+      )
 
       if (createSandboxDto.autoArchiveInterval !== undefined) {
         sandbox.autoArchiveInterval = this.resolveAutoArchiveInterval(createSandboxDto.autoArchiveInterval)
@@ -1283,6 +1303,7 @@ export class SandboxService {
       forkedSandbox.gpuType = sourceSandbox.gpuType ?? null
       forkedSandbox.public = sourceSandbox.public
       forkedSandbox.autoStopInterval = sourceSandbox.autoStopInterval
+      forkedSandbox.autoPauseInterval = sourceSandbox.autoPauseInterval
       forkedSandbox.autoArchiveInterval = sourceSandbox.autoArchiveInterval
       forkedSandbox.autoDeleteInterval = sourceSandbox.autoDeleteInterval
       forkedSandbox.volumes = sourceSandbox.volumes?.map((volume) => ({ ...volume }))
@@ -2559,8 +2580,12 @@ export class SandboxService {
       throw new StateChangeInProgressError()
     }
 
-    if (![SandboxClass.LINUX_VM, SandboxClass.WINDOWS].includes(sandbox.sandboxClass)) {
+    if (!PAUSE_SUPPORTED_SANDBOX_CLASSES.includes(sandbox.sandboxClass)) {
       throw new HttpException('Pausing is not supported for this sandbox', HttpStatus.UNPROCESSABLE_ENTITY)
+    }
+
+    if (isEphemeral(sandbox)) {
+      throw new SandboxError('Ephemeral sandboxes cannot be paused')
     }
 
     if (!sandbox.runnerId) {
@@ -3398,8 +3423,40 @@ export class SandboxService {
   async setAutostopInterval(sandboxIdOrName: string, interval: number, organizationId?: string): Promise<Sandbox> {
     const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
 
+    const autoStopInterval = this.resolveAutoStopInterval(interval)
+
+    if (autoStopInterval !== 0 && sandbox.autoPauseInterval) {
+      throw new BadRequestError(
+        'Auto-stop and auto-pause intervals are mutually exclusive. Disable auto-pause first by setting its interval to 0',
+      )
+    }
+
     const updateData: Partial<Sandbox> = {
-      autoStopInterval: this.resolveAutoStopInterval(interval),
+      autoStopInterval,
+    }
+
+    return await this.sandboxRepository.update(sandbox.id, { updateData, entity: sandbox })
+  }
+
+  async setAutoPauseInterval(sandboxIdOrName: string, interval: number, organizationId?: string): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+
+    const autoPauseInterval = this.resolveAutoPauseInterval(sandbox.sandboxClass, interval)
+
+    if (autoPauseInterval !== 0) {
+      if (isEphemeral(sandbox)) {
+        throw new BadRequestError('Ephemeral sandboxes cannot have auto-pause enabled. Set autoPauseInterval to 0')
+      }
+
+      if (sandbox.autoStopInterval) {
+        throw new BadRequestError(
+          'Auto-stop and auto-pause intervals are mutually exclusive. Disable auto-stop first by setting its interval to 0',
+        )
+      }
+    }
+
+    const updateData: Partial<Sandbox> = {
+      autoPauseInterval,
     }
 
     return await this.sandboxRepository.update(sandbox.id, { updateData, entity: sandbox })
@@ -3420,6 +3477,12 @@ export class SandboxService {
 
     if (sandbox.gpu > 0) {
       throw new BadRequestError('GPU sandboxes must remain ephemeral')
+    }
+
+    if (interval === 0 && sandbox.autoPauseInterval) {
+      throw new BadRequestError(
+        'Ephemeral sandboxes cannot have auto-pause enabled. Disable auto-pause first by setting its interval to 0',
+      )
     }
 
     const updateData: Partial<Sandbox> = {
@@ -3718,6 +3781,65 @@ export class SandboxService {
     }
 
     return autoStopInterval
+  }
+
+  private resolveAutoPauseInterval(sandboxClass: SandboxClass, autoPauseInterval: number): number {
+    if (autoPauseInterval < 0) {
+      throw new BadRequestError('Auto-pause interval must be non-negative')
+    }
+
+    if (autoPauseInterval !== 0 && !PAUSE_SUPPORTED_SANDBOX_CLASSES.includes(sandboxClass)) {
+      throw new HttpException(
+        `Auto-pause is not supported for sandbox class '${sandboxClass}'. Supported classes: ${PAUSE_SUPPORTED_SANDBOX_CLASSES.join(', ')}`,
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      )
+    }
+
+    return autoPauseInterval
+  }
+
+  //  resolves autoStopInterval and autoPauseInterval together: validates mutual exclusivity,
+  //  disables auto-stop when auto-pause is explicitly enabled, and applies the default
+  //  auto-pause of DEFAULT_AUTO_PAUSE_INTERVAL minutes (with auto-stop disabled) for
+  //  pause-supporting sandbox classes when neither interval is provided.
+  //  Ephemeral sandboxes cannot have auto-pause enabled and never receive the default.
+  //  Returned keys are only set when they should be assigned to the sandbox.
+  private resolveAutoStopAndAutoPauseIntervals(
+    createSandboxDto: CreateSandboxDto,
+    sandboxClass: SandboxClass,
+    ephemeral: boolean,
+  ): Pick<Partial<Sandbox>, 'autoStopInterval' | 'autoPauseInterval'> {
+    if (createSandboxDto.autoStopInterval && createSandboxDto.autoPauseInterval) {
+      throw new BadRequestError(
+        'Auto-stop and auto-pause intervals are mutually exclusive. Set at most one of them to a non-zero value',
+      )
+    }
+
+    if (ephemeral && createSandboxDto.autoPauseInterval) {
+      throw new BadRequestError('Ephemeral sandboxes cannot have auto-pause enabled. Set autoPauseInterval to 0')
+    }
+
+    const resolved: Pick<Partial<Sandbox>, 'autoStopInterval' | 'autoPauseInterval'> = {}
+
+    if (createSandboxDto.autoStopInterval !== undefined) {
+      resolved.autoStopInterval = this.resolveAutoStopInterval(createSandboxDto.autoStopInterval)
+    }
+
+    if (createSandboxDto.autoPauseInterval !== undefined) {
+      resolved.autoPauseInterval = this.resolveAutoPauseInterval(sandboxClass, createSandboxDto.autoPauseInterval)
+      if (resolved.autoPauseInterval !== 0 && createSandboxDto.autoStopInterval === undefined) {
+        resolved.autoStopInterval = 0
+      }
+    } else if (
+      createSandboxDto.autoStopInterval === undefined &&
+      !ephemeral &&
+      PAUSE_SUPPORTED_SANDBOX_CLASSES.includes(sandboxClass)
+    ) {
+      resolved.autoPauseInterval = DEFAULT_AUTO_PAUSE_INTERVAL
+      resolved.autoStopInterval = 0
+    }
+
+    return resolved
   }
 
   private resolveAutoArchiveInterval(autoArchiveInterval: number): number {

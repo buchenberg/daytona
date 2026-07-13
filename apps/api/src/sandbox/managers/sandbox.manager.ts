@@ -16,7 +16,10 @@ import { RunnerService } from '../services/runner.service'
 
 import { RedisLockProvider, LockCode } from '../common/redis-lock.provider'
 
-import { SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION } from '../constants/sandbox.constants'
+import {
+  PAUSE_SUPPORTED_SANDBOX_CLASSES,
+  SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+} from '../constants/sandbox.constants'
 
 import { SandboxEvents, SandboxEvent } from '../constants/sandbox-events.constants'
 import { SandboxStoppedEvent } from '../events/sandbox-stopped.event'
@@ -174,6 +177,102 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
                 )
               } catch (error) {
                 this.logger.error(`Error processing auto-stop state for sandbox ${sandbox.id}:`, error)
+              } finally {
+                await this.redisLockProvider.unlock(lockKey)
+              }
+            }),
+          )
+        }),
+      )
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'auto-pause-check' })
+  @TrackJobExecution()
+  @WithInstrumentation()
+  @LogExecution('auto-pause-check')
+  async autopauseCheck(): Promise<void> {
+    const lockKey = 'auto-pause-check-worker-selected'
+    //  lock the sync to only run one instance at a time
+    if (!(await this.redisLockProvider.lock(lockKey, 60))) {
+      return
+    }
+
+    try {
+      const readyRunners = await this.runnerService.findAllReady()
+
+      // Process all runners in parallel
+      await Promise.all(
+        readyRunners.map(async (runner) => {
+          if (runner.apiVersion === '0') {
+            // V0 runners do not support pausing sandboxes
+            return
+          }
+
+          const sandboxes = await this.sandboxRepository
+            .createQueryBuilder('sandbox')
+            .innerJoin('sandbox_last_activity', 'activity', 'activity."sandboxId" = sandbox.id')
+            .where('sandbox."runnerId" = :runnerId', { runnerId: runner.id })
+            .andWhere('sandbox."organizationId" != :warmPoolOrg', {
+              warmPoolOrg: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+            })
+            .andWhere('sandbox.state = :state', { state: SandboxState.STARTED })
+            .andWhere('sandbox."desiredState" = :desiredState', {
+              desiredState: SandboxDesiredState.STARTED,
+            })
+            .andWhere('sandbox.pending != true')
+            .andWhere('sandbox."autoPauseInterval" != 0')
+            .andWhere('sandbox."autoDeleteInterval" != 0')
+            .andWhere('sandbox."sandboxClass" IN (:...pauseSupportedClasses)', {
+              pauseSupportedClasses: PAUSE_SUPPORTED_SANDBOX_CLASSES,
+            })
+            .andWhere('activity."lastActivityAt" < NOW() - INTERVAL \'1 minute\' * sandbox."autoPauseInterval"')
+            .orderBy('sandbox."lastBackupAt"', 'ASC')
+            .limit(100)
+            .getMany()
+
+          if (sandboxes.length === 0) {
+            return
+          }
+
+          const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+
+          await Promise.all(
+            sandboxes.map(async (sandbox) => {
+              const lockKey = getStateChangeLockKey(sandbox.id)
+              const acquired = await this.redisLockProvider.lock(lockKey, 30)
+              if (!acquired) {
+                return
+              }
+
+              try {
+                await this.sandboxRepository.updateWhere(sandbox.id, {
+                  updateData: {
+                    state: SandboxState.PAUSING,
+                    desiredState: SandboxDesiredState.PAUSED,
+                    pending: true,
+                  },
+                  whereCondition: { state: SandboxState.STARTED, pending: false },
+                })
+
+                try {
+                  await runnerAdapter.pauseSandbox(sandbox.id)
+                } catch (error) {
+                  // Rollback to STARTED on error
+                  await this.sandboxRepository.updateWhere(sandbox.id, {
+                    updateData: {
+                      state: SandboxState.STARTED,
+                      desiredState: SandboxDesiredState.STARTED,
+                      pending: false,
+                    },
+                    whereCondition: { state: SandboxState.PAUSING },
+                  })
+                  throw error
+                }
+              } catch (error) {
+                this.logger.error(`Error processing auto-pause state for sandbox ${sandbox.id}:`, error)
               } finally {
                 await this.redisLockProvider.unlock(lockKey)
               }

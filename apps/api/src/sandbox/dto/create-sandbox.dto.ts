@@ -184,6 +184,16 @@ export class CreateSandboxDto {
   autoStopInterval?: number
 
   @ApiPropertyOptional({
+    description:
+      'Auto-pause interval in minutes (0 means disabled). Only supported for sandbox classes that support pausing. Not allowed for ephemeral sandboxes. At most one of autoStopInterval and autoPauseInterval may be non-zero. For non-ephemeral sandbox classes that support pausing, defaults to 60 minutes (with auto-stop disabled) when neither interval is provided.',
+    example: 60,
+    type: 'integer',
+  })
+  @IsOptional()
+  @IsNumber()
+  autoPauseInterval?: number
+
+  @ApiPropertyOptional({
     description: 'Auto-archive interval in minutes (0 means the maximum interval will be used)',
     example: 7 * 24 * 60,
     type: 'integer',

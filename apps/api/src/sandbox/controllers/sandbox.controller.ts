@@ -274,6 +274,7 @@ export class SandboxController {
         memory: req.body?.memory,
         disk: req.body?.disk,
         autoStopInterval: req.body?.autoStopInterval,
+        autoPauseInterval: req.body?.autoPauseInterval,
         autoArchiveInterval: req.body?.autoArchiveInterval,
         autoDeleteInterval: req.body?.autoDeleteInterval,
         volumes: req.body?.volumes,
@@ -1027,6 +1028,52 @@ export class SandboxController {
     @Param('interval') interval: number,
   ): Promise<SandboxDto> {
     const sandbox = await this.sandboxService.setAutostopInterval(sandboxIdOrName, interval, authContext.organizationId)
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Post(':sandboxIdOrName/autopause/:interval')
+  @ApiOperation({
+    summary: 'Set sandbox auto-pause interval',
+    operationId: 'setAutoPauseInterval',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiParam({
+    name: 'interval',
+    description: 'Auto-pause interval in minutes (0 to disable)',
+    type: 'number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Auto-pause interval has been set',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.SET_AUTO_PAUSE_INTERVAL,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      params: (req) => ({
+        interval: req.params.interval,
+      }),
+    },
+  })
+  async setAutoPauseInterval(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Param('interval') interval: number,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.setAutoPauseInterval(
+      sandboxIdOrName,
+      interval,
+      authContext.organizationId,
+    )
     return this.sandboxService.toSandboxDto(sandbox)
   }
 

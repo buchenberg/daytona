@@ -195,6 +195,7 @@ export class SandboxTypeormSearchAdapter implements SandboxSearchAdapter {
       labels: sandbox.labels,
       backupState: sandbox.backupState,
       autoStopInterval: sandbox.autoStopInterval,
+      autoPauseInterval: sandbox.autoPauseInterval,
       autoArchiveInterval: sandbox.autoArchiveInterval,
       autoDeleteInterval: sandbox.autoDeleteInterval,
       createdAt: sandbox.createdAt ? new Date(sandbox.createdAt).toISOString() : undefined,

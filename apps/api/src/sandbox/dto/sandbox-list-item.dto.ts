@@ -33,6 +33,7 @@ interface SandboxListItemDtoFields {
   labels: { [key: string]: string }
   backupState?: BackupState
   autoStopInterval?: number
+  autoPauseInterval?: number
   autoArchiveInterval?: number
   autoDeleteInterval?: number
   createdAt?: string
@@ -203,6 +204,14 @@ export class SandboxListItemDto {
   autoStopInterval?: number
 
   @ApiPropertyOptional({
+    description: 'Auto-pause interval in minutes (0 means disabled)',
+    example: 60,
+    required: false,
+  })
+  @IsOptional()
+  autoPauseInterval?: number
+
+  @ApiPropertyOptional({
     description: 'Auto-archive interval in minutes',
     example: 7 * 24 * 60,
     required: false,
@@ -279,6 +288,7 @@ export class SandboxListItemDto {
     labels,
     backupState,
     autoStopInterval,
+    autoPauseInterval,
     autoArchiveInterval,
     autoDeleteInterval,
     createdAt,
@@ -307,6 +317,7 @@ export class SandboxListItemDto {
     this.labels = labels
     this.backupState = backupState
     this.autoStopInterval = autoStopInterval
+    this.autoPauseInterval = autoPauseInterval
     this.autoArchiveInterval = autoArchiveInterval
     this.autoDeleteInterval = autoDeleteInterval
     this.createdAt = createdAt

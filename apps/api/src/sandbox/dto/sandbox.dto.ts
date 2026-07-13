@@ -220,6 +220,14 @@ export class SandboxDto {
   autoStopInterval?: number
 
   @ApiPropertyOptional({
+    description: 'Auto-pause interval in minutes (0 means disabled)',
+    example: 60,
+    required: false,
+  })
+  @IsOptional()
+  autoPauseInterval?: number
+
+  @ApiPropertyOptional({
     description: 'Auto-archive interval in minutes',
     example: 7 * 24 * 60,
     required: false,
@@ -344,6 +352,7 @@ export class SandboxDto {
       backupState: sandbox.backupState,
       backupCreatedAt: sandbox.lastBackupAt ? new Date(sandbox.lastBackupAt).toISOString() : undefined,
       autoStopInterval: sandbox.autoStopInterval,
+      autoPauseInterval: sandbox.autoPauseInterval,
       autoArchiveInterval: sandbox.autoArchiveInterval,
       autoDeleteInterval: sandbox.autoDeleteInterval,
       sandboxClass: sandbox.sandboxClass,

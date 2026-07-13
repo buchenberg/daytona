@@ -232,6 +232,14 @@ export class Sandbox {
   @Column({ default: 15, type: 'int' })
   autoStopInterval: number | undefined = 15
 
+  //  this is the interval in minutes after which the sandbox will be paused if lastActivityAt is not updated
+  //  if set to 0, auto pause will be disabled
+  //  only supported for sandbox classes that support pausing; mutually exclusive with autoStopInterval
+  //  the column default is 0, but creation defaults to 60 minutes (with auto stop disabled)
+  //  for pause-supporting sandbox classes when neither interval is provided
+  @Column({ default: 0, type: 'int' })
+  autoPauseInterval: number | undefined = 0
+
   //  this is the interval in minutes after which a continuously stopped workspace will be automatically archived
   @Column({ default: 7 * 24 * 60, type: 'int' })
   autoArchiveInterval: number | undefined = 7 * 24 * 60

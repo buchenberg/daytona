@@ -273,6 +273,21 @@ describe('[AUTH] SandboxController', () => {
     ])
   })
 
+  it('setAutoPauseInterval', () => {
+    const methodName = trackMethod('setAutoPauseInterval')
+    expect(isPublicEndpoint(SandboxController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(SandboxController, methodName), [
+      AuthStrategyType.API_KEY,
+      AuthStrategyType.JWT,
+    ])
+    expectArrayMatch(getAuthContextGuards(SandboxController, methodName), [OrganizationAuthContextGuard])
+    expectArrayMatch(getResourceAccessGuards(SandboxController, methodName), [SandboxAccessGuard])
+    expect(getRequiredOrganizationMemberRole(SandboxController, methodName)).toBeUndefined()
+    expectArrayMatch(getRequiredOrganizationResourcePermissions(SandboxController, methodName), [
+      OrganizationResourcePermission.WRITE_SANDBOXES,
+    ])
+  })
+
   it('setAutoArchiveInterval', () => {
     const methodName = trackMethod('setAutoArchiveInterval')
     expect(isPublicEndpoint(SandboxController, methodName)).toBe(false)
