@@ -21,7 +21,10 @@ import (
 
 // secretCAContainerPath is where the shared proxy's CA bundle is mounted inside
 // every secret-using sandbox; the injected SSL_CERT_FILE / *_CA_BUNDLE env vars
-// point HTTP clients at it so they trust the proxy's MITM certificates.
+// point HTTP clients at it so they trust the proxy's MITM certificates. The
+// in-sandbox daemon also installs it into the system trust store at startup
+// (apps/daemon/pkg/cacert) for clients that ignore those env vars, e.g. GnuTLS
+// builds of wget. Keep the path in sync with cacert.DefaultProxyCAPath.
 const secretCAContainerPath = "/etc/daytona/netleash/ca.crt"
 
 // EnableSecretInjection brings up the runner's shared secret-injection proxy:

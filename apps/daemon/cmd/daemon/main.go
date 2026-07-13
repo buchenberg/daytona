@@ -18,6 +18,7 @@ import (
 	"github.com/daytonaio/common-go/pkg/log"
 	"github.com/daytonaio/daemon/cmd/daemon/config"
 	"github.com/daytonaio/daemon/internal/util"
+	"github.com/daytonaio/daemon/pkg/cacert"
 	"github.com/daytonaio/daemon/pkg/childreap"
 	"github.com/daytonaio/daemon/pkg/recording"
 	"github.com/daytonaio/daemon/pkg/recordingdashboard"
@@ -123,6 +124,13 @@ func run() int {
 			slog.SetDefault(logger)
 		}
 	}
+
+	// Install the secret proxy's CA (mounted by the runner into secret-using
+	// sandboxes) into the system trust store before any user code runs, so TLS
+	// clients that ignore the injected SSL_CERT_FILE / *_CA_BUNDLE env vars
+	// (e.g. GnuTLS builds of wget) trust the proxy's certificates. No-op in
+	// sandboxes without secrets.
+	cacert.InstallProxyCA(logger)
 
 	sessionService := session.NewSessionService(logger, configDir, c.TerminationGracePeriod, c.TerminationCheckInterval)
 
