@@ -13,10 +13,8 @@ import { UserModule } from '../user/user.module'
 import { RunnerService } from './services/runner.service'
 import { Runner } from './entities/runner.entity'
 import { RunnerController } from './controllers/runner.controller'
-import { ToolboxService } from './services/toolbox.deprecated.service'
 import { DockerRegistryModule } from '../docker-registry/docker-registry.module'
 import { SandboxManager } from './managers/sandbox.manager'
-import { ToolboxController } from './controllers/toolbox.deprecated.controller'
 import { Snapshot } from './entities/snapshot.entity'
 import { SnapshotController } from './controllers/snapshot.controller'
 import { SnapshotService } from './services/snapshot.service'
@@ -105,7 +103,6 @@ import { BillingModule } from '../billing/billing.module'
   controllers: [
     SandboxController,
     RunnerController,
-    ToolboxController,
     SnapshotController,
     PreviewController,
     VolumeController,
@@ -117,7 +114,6 @@ import { BillingModule } from '../billing/billing.module'
     BackupManager,
     SandboxWarmPoolService,
     RunnerService,
-    ToolboxService,
     SnapshotService,
     BuildInfoService,
     ProxyCacheInvalidationService,

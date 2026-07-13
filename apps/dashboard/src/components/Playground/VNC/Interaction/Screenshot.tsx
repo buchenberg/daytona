@@ -15,7 +15,6 @@ import {
 } from '@/contexts/PlaygroundContext'
 import { ScreenshotActions, ScreenshotFormatOption } from '@/enums/Playground'
 import { usePlayground } from '@/hooks/usePlayground'
-import { CompressedScreenshotResponse, RegionScreenshotResponse } from '@daytona/api-client'
 import { ComputerUse, ScreenshotRegion } from '@daytona/sdk'
 import { ScreenshotResponse } from '@daytona/toolbox-api-client'
 import PlaygroundActionForm from '../../ActionForm'
@@ -127,7 +126,7 @@ const VNCScreenshotOperations: React.FC<VNCInteractionOptionsSectionComponentPro
   // Disable logic ensures that this method is called when ComputerUseClient exists -> we use as ComputerUse to silence TS compiler
   const screenshotActionAPICall: PlaygroundActionInvokeApi = async (screenshotActionFormData) => {
     const ScreenshotActionsClient = (ComputerUseClient as ComputerUse).screenshot
-    let screenshotActionResponse: ScreenshotResponse | RegionScreenshotResponse | CompressedScreenshotResponse = {
+    let screenshotActionResponse: ScreenshotResponse = {
       screenshot: '',
     }
     switch (screenshotActionFormData.methodName) {

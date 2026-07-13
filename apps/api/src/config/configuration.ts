@@ -251,7 +251,6 @@ const configuration = {
       '/toolbox',
   },
   audit: {
-    toolboxRequestsEnabled: process.env.AUDIT_TOOLBOX_REQUESTS_ENABLED === 'true',
     retentionDays: process.env.AUDIT_LOG_RETENTION_DAYS
       ? parseInt(process.env.AUDIT_LOG_RETENTION_DAYS, 10)
       : undefined,

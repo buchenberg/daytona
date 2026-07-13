@@ -18,7 +18,6 @@ import { Request, Response } from 'express'
 import { Observable, Subscriber, firstValueFrom } from 'rxjs'
 import { AUDIT_CONTEXT_KEY, AuditContext } from '../decorators/audit.decorator'
 import { AuditLog, AuditLogMetadata } from '../entities/audit-log.entity'
-import { AuditAction } from '../enums/audit-action.enum'
 import { AuditService } from '../services/audit.service'
 import { BaseAuthContext, isBaseAuthContext } from '../../common/interfaces/base-auth-context.interface'
 import { isUserAuthContext } from '../../common/interfaces/user-auth-context.interface'
@@ -26,7 +25,6 @@ import { isOrganizationAuthContext } from '../../common/interfaces/organization-
 import { isRunnerCleanupToolAuthContext } from '../../common/interfaces/runner-cleanup-tool-auth-context.interface'
 import { getAuthContext } from '../../common/utils/get-auth-context'
 import { CustomHeaders } from '../../common/constants/header.constants'
-import { TypedConfigService } from '../../config/typed-config.service'
 import { truncateErrorMessage } from '../../common/utils/truncate-error-message'
 
 @Injectable()
@@ -36,7 +34,6 @@ export class AuditInterceptor implements NestInterceptor {
   constructor(
     private readonly reflector: Reflector,
     private readonly auditService: AuditService,
-    private readonly configService: TypedConfigService,
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
@@ -48,11 +45,6 @@ export class AuditInterceptor implements NestInterceptor {
 
     // Non-audited request
     if (!auditContext) {
-      return next.handle()
-    }
-
-    // Toolbox requests are not audited by default
-    if (this.isToolboxAction(auditContext.action) && !this.configService.get('audit.toolboxRequestsEnabled')) {
       return next.handle()
     }
 
@@ -174,10 +166,6 @@ export class AuditInterceptor implements NestInterceptor {
     }
 
     return Object.keys(resolvedMetadata).length > 0 ? resolvedMetadata : null
-  }
-
-  private isToolboxAction(action: AuditAction): boolean {
-    return action.startsWith('toolbox_')
   }
 
   private async recordHandlerSuccess(

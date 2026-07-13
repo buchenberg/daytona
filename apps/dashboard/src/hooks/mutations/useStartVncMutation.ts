@@ -13,7 +13,7 @@ export const useStartVncMutation = (sandboxId: string) => {
 
   return useMutation({
     mutationFn: async () => {
-      await toolboxApi.startComputerUseDeprecated(sandboxId, selectedOrganization?.id)
+      await toolboxApi.startComputerUse(sandboxId, selectedOrganization?.id)
     },
   })
 }

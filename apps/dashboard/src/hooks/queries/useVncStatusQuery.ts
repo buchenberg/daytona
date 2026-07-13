@@ -15,7 +15,7 @@ export const useVncInitialStatusQuery = (sandboxId: string, enabled: boolean) =>
   return useQuery({
     queryKey: queryKeys.sandboxes.vncInitialStatus(sandboxId),
     queryFn: async () => {
-      const { data } = await toolboxApi.getComputerUseStatusDeprecated(sandboxId, selectedOrganization?.id)
+      const { data } = await toolboxApi.getComputerUseStatus(sandboxId, selectedOrganization?.id)
       return data.status as string
     },
     enabled: enabled && !!sandboxId && !!selectedOrganization?.id,
@@ -31,7 +31,7 @@ export const useVncPollStatusQuery = (sandboxId: string, enabled: boolean) => {
   return useQuery({
     queryKey: queryKeys.sandboxes.vncPollStatus(sandboxId),
     queryFn: async () => {
-      const { data } = await toolboxApi.getComputerUseStatusDeprecated(sandboxId, selectedOrganization?.id)
+      const { data } = await toolboxApi.getComputerUseStatus(sandboxId, selectedOrganization?.id)
       if (data.status !== 'active') throw new Error(`VNC not ready: ${data.status}`)
       return data.status as string
     },

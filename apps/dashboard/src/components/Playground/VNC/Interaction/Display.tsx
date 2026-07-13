@@ -10,8 +10,8 @@ import {
 } from '@/contexts/PlaygroundContext'
 import { DisplayActions } from '@/enums/Playground'
 import { usePlayground } from '@/hooks/usePlayground'
-import { DisplayInfoResponse, WindowsResponse } from '@daytona/api-client'
 import { ComputerUse } from '@daytona/sdk'
+import { DisplayInfoResponse, WindowsResponse } from '@daytona/toolbox-api-client'
 import PlaygroundActionForm from '../../ActionForm'
 
 const VNCDisplayOperations: React.FC<VNCInteractionOptionsSectionComponentProps> = ({
@@ -56,14 +56,16 @@ const VNCDisplayOperations: React.FC<VNCInteractionOptionsSectionComponentProps>
       }
       case DisplayActions.GET_WINDOWS: {
         const displayWindowsResponse = displayActionResponse as WindowsResponse
-        displayActionResponseText += `Found ${displayWindowsResponse.windows.length} open windows:\n`
+        displayActionResponseText += `Found ${displayWindowsResponse.windows?.length} open windows:\n`
         type Window = {
           title: string
-          id: string
+          id: number
         }
-        ;(displayWindowsResponse.windows as Window[]).forEach((window) => {
-          displayActionResponseText += `- ${window.title} (ID: ${window.id})\n`
-        })
+        ;(displayWindowsResponse.windows?.length ? (displayWindowsResponse.windows as Window[]) : []).forEach(
+          (window) => {
+            displayActionResponseText += `- ${window.title} (ID: ${window.id})\n`
+          },
+        )
         break
       }
     }

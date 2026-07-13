@@ -14,6 +14,7 @@ import {
   Sandbox,
 } from '@daytona/sdk'
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { AxiosInstance } from 'axios'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useAuth } from 'react-oidc-context'
 import { toast } from 'sonner'
@@ -24,6 +25,15 @@ type CreateSandboxParams = CreateSandboxBaseParams | CreateSandboxFromImageParam
 const TERMINAL_PORT = 22222
 const VNC_PORT = 6080
 const DEFAULT_URL_EXPIRY_SECONDS = 600
+
+// The SDK routes toolbox calls (fs, process, computerUse, ...) through the sandbox's toolbox proxy URL,
+// which serves an interstitial warning page to browser requests unless this header is set. The SDK does
+// not expose the toolbox axios instance, so reach into the private field to set it.
+function skipPreviewWarning(sandbox: Sandbox): Sandbox {
+  const { axiosInstance } = sandbox as unknown as { axiosInstance: AxiosInstance }
+  axiosInstance.defaults.headers.common['X-Daytona-Skip-Preview-Warning'] = 'true'
+  return sandbox
+}
 
 export type UseSandboxSessionOptions = {
   scope?: string
@@ -106,7 +116,7 @@ export function useSandboxSession(options?: UseSandboxSessionOptions): UseSandbo
     mutationKey: ['create-sandbox', scope ?? 'default'],
     mutationFn: async (params) => {
       if (!client) throw new Error('Unable to create Daytona client: missing access token or organization ID.')
-      return await client.create(params ?? createParams)
+      return skipPreviewWarning(await client.create(params ?? createParams))
     },
     onSuccess: (newSandbox) => {
       if (scope) queryClient.setQueryData(queryKeys.sandbox.currentId(scope), newSandbox.id)
@@ -127,7 +137,8 @@ export function useSandboxSession(options?: UseSandboxSessionOptions): UseSandbo
 
   const sandboxQuery = useQuery<Sandbox>({
     queryKey: queryKeys.sandbox.instance(resolvedScope, sandboxId),
-    queryFn: () => client?.get(sandboxId) ?? Promise.reject(new Error('Client not initialized')),
+    queryFn: () =>
+      client?.get(sandboxId).then(skipPreviewWarning) ?? Promise.reject(new Error('Client not initialized')),
     enabled: !!resolvedScope && !!sandboxId && !!client,
   })
 
@@ -151,7 +162,7 @@ export function useSandboxSession(options?: UseSandboxSessionOptions): UseSandbo
 
   const startVncMutation = useMutation<void, Error>({
     mutationFn: async () => {
-      await toolboxApi.startComputerUseDeprecated(sandboxId, selectedOrganization?.id)
+      await toolboxApi.startComputerUse(sandboxId, selectedOrganization?.id)
     },
     onMutate: () => {
       if (notifyRef.current.vnc) {
@@ -182,7 +193,7 @@ export function useSandboxSession(options?: UseSandboxSessionOptions): UseSandbo
     queryFn: async () => {
       const {
         data: { status },
-      } = await toolboxApi.getComputerUseStatusDeprecated(sandboxId, selectedOrganization?.id)
+      } = await toolboxApi.getComputerUseStatus(sandboxId, selectedOrganization?.id)
       if (status !== 'active') throw new Error(`VNC desktop not ready: ${status}`)
       return status
     },

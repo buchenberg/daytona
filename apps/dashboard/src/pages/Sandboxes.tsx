@@ -646,7 +646,7 @@ const Sandboxes: React.FC = () => {
       toast.info('Checking VNC desktop status...')
 
       try {
-        const statusResponse = await toolboxApi.getComputerUseStatusDeprecated(sandboxId, selectedOrganization?.id)
+        const statusResponse = await toolboxApi.getComputerUseStatus(sandboxId, selectedOrganization?.id)
         const status = statusResponse.data.status
 
         if (status === 'active') {
@@ -659,11 +659,11 @@ const Sandboxes: React.FC = () => {
         }
 
         try {
-          await toolboxApi.startComputerUseDeprecated(sandboxId, selectedOrganization?.id)
+          await toolboxApi.startComputerUse(sandboxId, selectedOrganization?.id)
           toast.success('Starting VNC desktop...')
           await new Promise((resolve) => setTimeout(resolve, 5000))
 
-          const newStatusResponse = await toolboxApi.getComputerUseStatusDeprecated(sandboxId, selectedOrganization?.id)
+          const newStatusResponse = await toolboxApi.getComputerUseStatus(sandboxId, selectedOrganization?.id)
           const newStatus = newStatusResponse.data.status
 
           if (newStatus === 'active') {

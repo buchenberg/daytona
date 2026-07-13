@@ -22,13 +22,13 @@ import {
   SandboxApi,
   SecretApi,
   SnapshotsApi,
-  ToolboxApi,
   UsersApi,
   VolumesApi,
   WebhooksApi,
 } from '@daytona/api-client'
 import axios, { AxiosError } from 'axios'
 import { DaytonaError } from './errors'
+import { ToolboxApiClient } from './toolboxApiClient'
 
 export class ApiClient {
   private config: Configuration
@@ -40,7 +40,7 @@ export class ApiClient {
   private _organizationsApi: OrganizationsApi
   private _billingApi: BillingApiClient
   private _volumeApi: VolumesApi
-  private _toolboxApi: ToolboxApi
+  private _toolboxApi: ToolboxApiClient
   private _auditApi: AuditApi
   private _regionsApi: RegionsApi
   private _runnersApi: RunnersApi
@@ -91,7 +91,7 @@ export class ApiClient {
     })
     this._billingApi = new BillingApiClient(billingConfig, axiosInstance)
     this._volumeApi = new VolumesApi(this.config, undefined, axiosInstance)
-    this._toolboxApi = new ToolboxApi(this.config, undefined, axiosInstance)
+    this._toolboxApi = new ToolboxApiClient(this._sandboxApi, axiosInstance, () => String(this.config.accessToken))
     this._auditApi = new AuditApi(this.config, undefined, axiosInstance)
     this._regionsApi = new RegionsApi(this.config, undefined, axiosInstance)
     this._runnersApi = new RunnersApi(this.config, undefined, axiosInstance)
