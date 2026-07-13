@@ -19,6 +19,7 @@ import { Message } from './entities/message.entity'
 import { ThreadCollaborator } from './entities/thread-collaborator.entity'
 import { Memory } from './entities/memory.entity'
 import { MemoryService } from './memory.service'
+import { RetentionService } from './retention.service'
 import { BackofficeUser } from '../backoffice-db/entities/backoffice-user.entity'
 
 @Module({
@@ -29,6 +30,6 @@ import { BackofficeUser } from '../backoffice-db/entities/backoffice-user.entity
     ToolsModule,
   ],
   controllers: [ChatController, ConversationsController, SettingsController],
-  providers: [ChatService, ConversationsService, CollaboratorsService, MemoryService],
+  providers: [ChatService, ConversationsService, CollaboratorsService, MemoryService, RetentionService],
 })
 export class ChatModule {}

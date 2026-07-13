@@ -102,6 +102,7 @@ export * from './update-runner-dto';
 export * from './update-sandbox-dto';
 export * from './update-settings-dto';
 export * from './update-snapshot-dto';
+export * from './upsert-memory-dto';
 export * from './user-deletion-options-dto';
 export * from './user-deletion-preview-dto';
 export * from './user-deletion-request-dto';

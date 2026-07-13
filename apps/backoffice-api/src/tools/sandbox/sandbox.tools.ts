@@ -79,14 +79,28 @@ export const sandboxToolDefinitions: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'codebase_workspace',
+    description:
+      'Set up (or reuse) a Daytona sandbox with the Daytona codebase cloned for read-only analysis: the ' +
+      'main app repo (daytonaio/daytona-ai), the docs, and the clients. Call this whenever answering ' +
+      'requires reading actual source code — how a feature works, where an error message originates, what ' +
+      'a config flag does, how the docs describe something. Returns the sandbox ID and repo paths; then ' +
+      'explore with sandbox_exec (grep -rn, find, cat). Analysis only — do not edit files or create PRs ' +
+      'from this workspace. No cleanup needed — the sandbox auto-stops and is reused.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
     name: 'create_fix_pr',
     description:
       'Spin up a Daytona sandbox with Claude Agent to fix a code issue ' +
-      "and open a pull request on GitHub. Use this when you've identified " +
-      'a bug or issue in the codebase through monitoring data (logs, metrics, ' +
-      'errors) and want to autonomously create a fix. Provide a clear task ' +
-      'description, a short PR title, monitoring context, and optionally a ' +
-      'build command to verify the fix compiles.',
+      'and open a pull request on GitHub. ONLY use this when the user ' +
+      'explicitly asks for a fix or a PR — never proactively. Provide a ' +
+      'clear task description, a short PR title, monitoring context, and ' +
+      'optionally a build command to verify the fix compiles.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -149,6 +163,8 @@ export const sandboxToolExecutors: Record<string, ToolExecutor<SandboxService>> 
       (input.timeout as number | undefined) ?? 30,
       userId,
     ),
+
+  codebase_workspace: (service, _input, userId) => service.codebaseWorkspace(userId),
 
   create_fix_pr: (service, input, userId) =>
     service.createFixPr(

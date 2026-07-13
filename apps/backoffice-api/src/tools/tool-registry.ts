@@ -22,7 +22,13 @@ import { DatasourceDisabledError } from './datasource-disabled.error'
 import { truncateResult, safeSummary } from './truncate'
 
 /** Tools that mutate state — must execute sequentially, never in parallel. */
-const SIDE_EFFECT_TOOL_NAMES = new Set(['sandbox_create', 'sandbox_delete', 'sandbox_exec', 'create_fix_pr'])
+const SIDE_EFFECT_TOOL_NAMES = new Set([
+  'sandbox_create',
+  'sandbox_delete',
+  'sandbox_exec',
+  'create_fix_pr',
+  'codebase_workspace',
+])
 
 /** Per-tool timeout overrides (ms). Default: 30s. */
 const TOOL_TIMEOUTS: Record<string, number> = {
@@ -35,6 +41,7 @@ const TOOL_TIMEOUTS: Record<string, number> = {
   sandbox_create: 120_000,
   sandbox_exec: 60_000,
   create_fix_pr: 300_000,
+  codebase_workspace: 420_000,
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000

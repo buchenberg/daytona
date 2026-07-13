@@ -124,6 +124,7 @@ models/update-runner-dto.ts
 models/update-sandbox-dto.ts
 models/update-settings-dto.ts
 models/update-snapshot-dto.ts
+models/upsert-memory-dto.ts
 models/user-deletion-options-dto.ts
 models/user-deletion-preview-dto.ts
 models/user-deletion-request-dto.ts

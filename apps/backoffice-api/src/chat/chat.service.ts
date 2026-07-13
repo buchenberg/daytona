@@ -19,7 +19,7 @@ import { safeSummary } from '../tools/truncate'
 import { SYSTEM_PROMPT } from './system-prompt'
 import { matchSkills } from '../skills'
 import { MemoryService } from './memory.service'
-import { parseLlmJson } from './parse-llm-json'
+import { MEMORY_TOOL_DEFINITIONS, MEMORY_TOOL_NAMES } from './memory-tools'
 import { formatSSE } from './sse-events'
 import { Permissions } from '../common/permissions'
 
@@ -27,6 +27,9 @@ const MAX_ROUNDS = 15
 const MAX_IDENTICAL_TOOL_CALLS = 3
 const MAX_STREAM_ATTEMPTS = 3
 const TOKEN_WARNING_THRESHOLD = 120000
+// Output cap per round. Adaptive thinking tokens count against this too,
+// so it needs headroom beyond the expected visible output.
+const MAX_TOKENS_PER_ROUND = 32768
 
 interface ContentBlock {
   type: string
@@ -139,7 +142,7 @@ export class ChatService {
         conversationId,
         messages,
         systemPrompt: await this.buildSystemPrompt(message, userId),
-        tools: await this.toolRegistry.listAvailableTools(userId, permissions),
+        tools: await this.availableTools(userId, permissions),
         abortController,
         userId,
         permissions,
@@ -190,7 +193,7 @@ export class ChatService {
         conversationId,
         messages,
         systemPrompt: await this.buildSystemPrompt('', userId),
-        tools: await this.toolRegistry.listAvailableTools(userId, permissions),
+        tools: await this.availableTools(userId, permissions),
         abortController,
         userId,
         permissions,
@@ -224,11 +227,15 @@ export class ChatService {
         return
       }
 
+      // Each round reads the previous rounds from cache instead of re-billing them.
+      this.applyHistoryCacheBreakpoint(messages)
+
       // Token counting on first round and every 5th round (avoid per-round latency)
       if (!tokenWarningEmitted && (round === 0 || round % 5 === 0)) {
         try {
           const tokenCount = await this.client.messages.countTokens({
             model: this.model,
+            thinking: { type: 'adaptive' },
             system: systemPrompt,
             messages,
             tools: tools.length > 0 ? tools : undefined,
@@ -249,6 +256,7 @@ export class ChatService {
       const assistantContent: unknown[] = []
       let stopReason: string | null = null
       let roundSucceeded = false
+      let useFallback = false
 
       for (let attempt = 0; attempt < MAX_STREAM_ATTEMPTS; attempt++) {
         if (abortController.signal.aborted) {
@@ -256,22 +264,27 @@ export class ChatService {
           return
         }
 
-        const currentModel = attempt < MAX_STREAM_ATTEMPTS - 1 ? this.model : this.fallbackModel
+        const currentModel = useFallback || attempt === MAX_STREAM_ATTEMPTS - 1 ? this.fallbackModel : this.model
 
         // Reset round state on retry
         assistantContent.length = 0
         stopReason = null
 
         try {
+          // The fallback model (Haiku 4.5) supports neither adaptive thinking
+          // nor thinking blocks in history, so it gets a stripped request.
+          const isPrimaryModel = currentModel === this.model
           const stream = this.client.messages.stream({
             model: currentModel,
-            max_tokens: 16384,
+            max_tokens: MAX_TOKENS_PER_ROUND,
+            ...(isPrimaryModel ? { thinking: { type: 'adaptive' as const, display: 'summarized' as const } } : {}),
             system: systemPrompt,
-            messages,
+            messages: isPrimaryModel ? messages : this.stripThinkingBlocks(messages),
             ...(tools.length > 0 ? { tools } : {}),
           })
 
           let currentTextBlock: { type: 'text'; text: string } | null = null
+          let streamedText = false
 
           // Real-time streaming — each yield goes to the client immediately
           for await (const event of stream) {
@@ -302,7 +315,10 @@ export class ChatService {
             if (event.type === 'content_block_delta') {
               if (event.delta.type === 'text_delta' && currentTextBlock) {
                 currentTextBlock.text += event.delta.text
+                streamedText = true
                 yield formatSSE({ type: 'text', text: event.delta.text })
+              } else if (event.delta.type === 'thinking_delta') {
+                yield formatSSE({ type: 'thinking', text: event.delta.thinking })
               }
             }
 
@@ -318,18 +334,29 @@ export class ChatService {
             }
           }
 
-          // Backfill complete tool input from the final message
+          // Use the final message content verbatim: it carries complete tool
+          // inputs and the thinking blocks that must be replayed unchanged on
+          // subsequent rounds when thinking is enabled.
           const finalMessage = await stream.finalMessage()
-          for (const block of finalMessage.content) {
-            if (block.type === 'tool_use') {
-              const idx = assistantContent.findIndex(
-                (b) => (b as ContentBlock).type === 'tool_use' && (b as ContentBlock).id === block.id,
-              )
-              if (idx >= 0) {
-                assistantContent[idx] = { type: 'tool_use', id: block.id, name: block.name, input: block.input }
-              }
+
+          // Safety classifiers (e.g. on Fable) decline with a successful
+          // response; rerun the round on the fallback model instead. If any
+          // partial text already reached the client, mark the cutover so the
+          // fallback answer doesn't read as a continuation.
+          if (finalMessage.stop_reason === 'refusal' && isPrimaryModel) {
+            this.logger.warn(`[refusal] conv=${conversationId} round=${round} retrying on ${this.fallbackModel}`)
+            if (streamedText) {
+              yield formatSSE({
+                type: 'text',
+                text: '\n\n---\n_The response above was cut short by a safety check — retrying with the fallback model._\n\n',
+              })
             }
+            useFallback = true
+            continue
           }
+
+          assistantContent.length = 0
+          assistantContent.push(...finalMessage.content)
 
           // Log usage + cache metrics
           yield* this.emitUsage(finalMessage, conversationId, round, currentModel)
@@ -363,6 +390,12 @@ export class ChatService {
       }
 
       if (!roundSucceeded) throw new Error('Exhausted all retry attempts')
+
+      if (stopReason === 'refusal') {
+        // Both models declined — surface it instead of saving an empty turn.
+        yield formatSSE({ type: 'error', error: 'The model declined to answer this request.' })
+        return
+      }
 
       await this.conversationsService.addMessage(conversationId, 'assistant', assistantContent)
       messages.push({ role: 'assistant', content: assistantContent as Anthropic.ContentBlock[] })
@@ -402,7 +435,9 @@ export class ChatService {
 
     for (let i = 0; i < toolUseBlocks.length; i++) {
       const b = toolUseBlocks[i]
-      if (this.toolRegistry.isReadOnlyTool(b.name!)) {
+      // Memory tools mutate shared state and are unknown to the registry, so
+      // classify them as side-effect explicitly to keep their call order.
+      if (!MEMORY_TOOL_NAMES.has(b.name!) && this.toolRegistry.isReadOnlyTool(b.name!)) {
         readOnlyBatch.push({ block: b, index: i })
       } else {
         sideEffectQueue.push({ block: b, index: i })
@@ -486,12 +521,9 @@ export class ChatService {
     userId: string,
     permissions: Permissions,
   ): Promise<{ index: number; toolResult: Anthropic.ToolResultBlockParam; yieldEvent: string | null }> {
-    const result = await this.toolRegistry.execute(
-      block.name!,
-      block.input as Record<string, unknown>,
-      permissions,
-      userId,
-    )
+    const result = MEMORY_TOOL_NAMES.has(block.name!)
+      ? await this.executeMemoryTool(block.name!, block.input as Record<string, unknown>, userId)
+      : await this.toolRegistry.execute(block.name!, block.input as Record<string, unknown>, permissions, userId)
 
     let parsedResult: unknown
     try {
@@ -529,6 +561,34 @@ export class ChatService {
     }
 
     return { index, toolResult, yieldEvent }
+  }
+
+  /** Knowledge-base tools are executed directly against MemoryService, not the datasource registry. */
+  private async executeMemoryTool(name: string, input: Record<string, unknown>, userId: string): Promise<string> {
+    const TOOL_CATEGORIES = ['finding', 'learning', 'infra', 'org']
+    try {
+      const key = String(input.key ?? '').trim()
+      if (!key) return JSON.stringify({ error: 'key is required' })
+
+      // Curated entries are managed by superadmins in the dashboard only.
+      const existing = await this.memoryService.findByKey(key)
+      if (existing?.category === 'curated') {
+        return JSON.stringify({ error: 'This entry is curated — only superadmins can change it.' })
+      }
+
+      if (name === 'memory_store') {
+        const value = String(input.value ?? '').trim()
+        if (!value) return JSON.stringify({ error: 'value is required' })
+        const category = TOOL_CATEGORIES.includes(input.category as string) ? (input.category as string) : 'finding'
+        await this.memoryService.store(userId, key, value, category)
+        return JSON.stringify({ success: true, key })
+      }
+
+      const deleted = await this.memoryService.forget(key)
+      return JSON.stringify(deleted ? { success: true } : { success: false, note: 'No entry with that key' })
+    } catch (error) {
+      return JSON.stringify({ error: error instanceof Error ? error.message : String(error) })
+    }
   }
 
   private checkStuckLoop(
@@ -610,6 +670,12 @@ export class ChatService {
         `cache_read=${cacheRead} cache_create=${cacheCreation} hit_rate=${cacheHitRate}%`,
     )
 
+    // Persist the context size of this round so the sidebar can show it.
+    // Fire-and-forget — usage stats must not block or fail the stream.
+    this.conversationsService
+      .updateInputTokens(conversationId, totalInput + cacheRead + cacheCreation)
+      .catch((err) => this.logger.warn(`Failed to persist usage for conv=${conversationId}: ${err}`))
+
     yield formatSSE({
       type: 'usage',
       inputTokens: totalInput,
@@ -630,24 +696,37 @@ export class ChatService {
     const history = await this.conversationsService.getAnthropicMessages(conversationId)
     if (history.length === 0) return []
 
-    // Take last 4 messages for context (keep token usage low)
-    const recentMessages = history.slice(-4) as Anthropic.MessageParam[]
+    // Last 4 messages, without thinking blocks — the suggestion model runs with thinking off.
+    const recentMessages = this.stripThinkingBlocks(history.slice(-4) as Anthropic.MessageParam[])
 
     try {
       const response = await this.client.messages.create({
         model: this.suggestionModel,
         max_tokens: 256,
         system:
-          'You are a production operations assistant. Given the conversation so far, suggest 3 short follow-up prompts the user might want to ask next. Return ONLY a JSON array of strings, no other text. Each suggestion should be under 60 characters.',
+          'You are a production operations assistant. Given the conversation so far, suggest 3 short follow-up prompts the user might want to ask next. Each suggestion should be under 60 characters.',
+        output_config: {
+          format: {
+            type: 'json_schema',
+            schema: {
+              type: 'object',
+              properties: {
+                suggestions: { type: 'array', items: { type: 'string' } },
+              },
+              required: ['suggestions'],
+              additionalProperties: false,
+            },
+          },
+        },
         messages: [
           ...recentMessages,
           { role: 'user', content: 'Based on our conversation, suggest 3 follow-up questions I might want to ask.' },
         ],
       })
 
-      const raw = response.content[0]?.type === 'text' ? response.content[0].text : '[]'
-      const parsed = parseLlmJson<string[]>(raw)
-      return Array.isArray(parsed) ? parsed.slice(0, 3).map(String) : []
+      const raw = response.content[0]?.type === 'text' ? response.content[0].text : '{}'
+      const parsed = JSON.parse(raw) as { suggestions?: unknown[] }
+      return Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 3).map(String) : []
     } catch {
       return []
     }
@@ -709,6 +788,49 @@ export class ChatService {
   // Private helpers
   // ---------------------------------------------------------------------------
 
+  /** Datasource tools the user may invoke, plus the always-available knowledge-base tools. */
+  private async availableTools(userId: string, permissions: Permissions): Promise<Anthropic.Tool[]> {
+    return [...(await this.toolRegistry.listAvailableTools(userId, permissions)), ...MEMORY_TOOL_DEFINITIONS]
+  }
+
+  /** Remove thinking blocks — required before sending history to a model with thinking off. */
+  private stripThinkingBlocks(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+    return messages
+      .map((m) =>
+        Array.isArray(m.content)
+          ? { ...m, content: m.content.filter((b) => b.type !== 'thinking' && b.type !== 'redacted_thinking') }
+          : m,
+      )
+      .filter((m) => typeof m.content === 'string' || m.content.length > 0)
+  }
+
+  /**
+   * Keep exactly one history cache breakpoint, on the last block of the latest
+   * message (the system prompt uses the other three of the four allowed).
+   * Mutates in-memory only — messages are persisted before this runs.
+   */
+  private applyHistoryCacheBreakpoint(messages: Anthropic.MessageParam[]): void {
+    for (const msg of messages) {
+      if (Array.isArray(msg.content)) {
+        for (const block of msg.content) {
+          if (typeof block === 'object' && block !== null && 'cache_control' in block) {
+            delete (block as { cache_control?: unknown }).cache_control
+          }
+        }
+      }
+    }
+
+    const last = messages[messages.length - 1]
+    if (!last) return
+    if (typeof last.content === 'string') {
+      last.content = [{ type: 'text', text: last.content }]
+    }
+    if (Array.isArray(last.content) && last.content.length > 0) {
+      const lastBlock = last.content[last.content.length - 1] as { cache_control?: { type: 'ephemeral' } }
+      lastBlock.cache_control = { type: 'ephemeral' }
+    }
+  }
+
   private async getDatasourceBlock(userId: string): Promise<string> {
     if (!(await this.grafana.isEnabledFor(userId))) return ''
 
@@ -733,7 +855,9 @@ export class ChatService {
     const skills = matchSkills(userMessage)
     const datasources = await this.getDatasourceBlock(userId)
 
-    // Multi-block caching: base prompt stays cached even when skills/datasources change
+    // Multi-block caching, most stable first: base prompt, datasources (10-min
+    // TTL cache), memory (changes on knowledge-base writes), then per-message
+    // skills last so their churn never invalidates the cached blocks above.
     const blocks: Anthropic.TextBlockParam[] = [
       { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
     ]
@@ -742,13 +866,13 @@ export class ChatService {
       blocks.push({ type: 'text', text: datasources, cache_control: { type: 'ephemeral' } })
     }
 
-    if (skills.length > 0) {
-      blocks.push({ type: 'text', text: '## Matched Skills\n\n' + skills.join('\n\n---\n\n') })
-    }
-
     const memoryBlock = await this.memoryService.getPromptBlock()
     if (memoryBlock) {
-      blocks.push({ type: 'text', text: memoryBlock })
+      blocks.push({ type: 'text', text: memoryBlock, cache_control: { type: 'ephemeral' } })
+    }
+
+    if (skills.length > 0) {
+      blocks.push({ type: 'text', text: '## Matched Skills\n\n' + skills.join('\n\n---\n\n') })
     }
 
     return blocks

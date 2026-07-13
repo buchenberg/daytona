@@ -67,10 +67,10 @@ export class ConversationsController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Rename conversation' })
-  async rename(@Param('id') id: string, @Body() body: UpdateConversationDto, @Req() req: AuthenticatedRequest) {
+  @ApiOperation({ summary: 'Update conversation (rename, pin/unpin)' })
+  async update(@Param('id') id: string, @Body() body: UpdateConversationDto, @Req() req: AuthenticatedRequest) {
     const userId = req.user?.id || 'anonymous'
-    return this.conversationsService.rename(id, userId, body.title)
+    return this.conversationsService.update(id, userId, { title: body.title, pinned: body.pinned })
   }
 
   @Delete(':id')

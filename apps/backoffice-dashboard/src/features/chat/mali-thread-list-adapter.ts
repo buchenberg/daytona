@@ -9,20 +9,74 @@ import { createConversation, listConversations, getConversation, renameConversat
 import { MaliThreadProvider } from './MaliThreadProvider'
 import { registerKnownConversationId, setLastCreatedConversationId } from './mali-runtime'
 
-const timestampCache = new Map<string, string>()
+interface ThreadMeta {
+  updatedAt: string
+  pinned: boolean
+  inputTokens: number
+  isCollaboration: boolean
+}
 
-export function getThreadTimestamp(remoteId: string): string | undefined {
-  return timestampCache.get(remoteId)
+const metaCache = new Map<string, ThreadMeta>()
+
+// Minimal external store so the thread list re-renders on meta changes
+// (pin toggles, deletions) — assistant-ui only re-lists on mount.
+let metaVersion = 0
+const metaListeners = new Set<() => void>()
+
+function bumpMetaVersion(): void {
+  metaVersion++
+  metaListeners.forEach((listener) => listener())
+}
+
+export function subscribeThreadMeta(listener: () => void): () => void {
+  metaListeners.add(listener)
+  return () => metaListeners.delete(listener)
+}
+
+export function getThreadMetaVersion(): number {
+  return metaVersion
+}
+
+export function getThreadMeta(remoteId: string): ThreadMeta | undefined {
+  return metaCache.get(remoteId)
+}
+
+export function hasPinnedThreads(): boolean {
+  for (const meta of metaCache.values()) if (meta.pinned) return true
+  return false
+}
+
+export function hasUnpinnedThreads(): boolean {
+  for (const meta of metaCache.values()) if (!meta.pinned) return true
+  return false
+}
+
+export function setCachedThreadPinned(remoteId: string, pinned: boolean): void {
+  const meta = metaCache.get(remoteId)
+  if (meta) metaCache.set(remoteId, { ...meta, pinned })
+  bumpMetaVersion()
 }
 
 export const createMaliThreadListAdapter = (): RemoteThreadListAdapter => ({
   async list() {
     try {
       const conversations = await listConversations()
+      // Prune entries gone from the server (e.g. deleted in another tab) so
+      // section headers never key off threads that are no longer rendered.
+      const listedIds = new Set(conversations.map((c) => c.id))
+      for (const id of [...metaCache.keys()]) {
+        if (!listedIds.has(id)) metaCache.delete(id)
+      }
       for (const c of conversations) {
-        timestampCache.set(c.id, c.updatedAt)
+        metaCache.set(c.id, {
+          updatedAt: c.updatedAt,
+          pinned: c.pinned,
+          inputTokens: c.inputTokens,
+          isCollaboration: c.isCollaboration,
+        })
         registerKnownConversationId(c.id)
       }
+      bumpMetaVersion()
       return {
         threads: conversations.map((c) => ({
           status: 'regular' as const,
@@ -57,7 +111,8 @@ export const createMaliThreadListAdapter = (): RemoteThreadListAdapter => ({
   async delete(remoteId) {
     try {
       await deleteConversation(remoteId)
-      timestampCache.delete(remoteId)
+      metaCache.delete(remoteId)
+      bumpMetaVersion()
     } catch (err) {
       console.warn('[mali-threads] Failed to delete conversation:', err)
       toast.error('Failed to delete conversation')
@@ -68,7 +123,8 @@ export const createMaliThreadListAdapter = (): RemoteThreadListAdapter => ({
   async initialize() {
     try {
       const conv = await createConversation()
-      timestampCache.set(conv.id, conv.createdAt)
+      metaCache.set(conv.id, { updatedAt: conv.createdAt, pinned: false, inputTokens: 0, isCollaboration: false })
+      bumpMetaVersion()
       // Register before returning — run() may fire before React re-renders
       // the updated remoteId into unstable_threadId.
       setLastCreatedConversationId(conv.id)
@@ -93,7 +149,13 @@ export const createMaliThreadListAdapter = (): RemoteThreadListAdapter => ({
   async fetch(remoteId) {
     try {
       const conv = await getConversation(remoteId)
-      timestampCache.set(conv.id, conv.updatedAt)
+      metaCache.set(conv.id, {
+        updatedAt: conv.updatedAt,
+        pinned: conv.pinned,
+        inputTokens: conv.inputTokens,
+        isCollaboration: !conv.isOwner,
+      })
+      bumpMetaVersion()
       return {
         status: 'regular' as const,
         remoteId: conv.id,

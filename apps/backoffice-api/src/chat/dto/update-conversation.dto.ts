@@ -3,12 +3,18 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { ApiProperty } from '@nestjs/swagger'
-import { IsString, MaxLength } from 'class-validator'
+import { ApiPropertyOptional } from '@nestjs/swagger'
+import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator'
 
 export class UpdateConversationDto {
-  @ApiProperty({ description: 'New conversation title' })
+  @ApiPropertyOptional({ description: 'New conversation title' })
+  @IsOptional()
   @IsString()
   @MaxLength(200)
-  title: string
+  title?: string
+
+  @ApiPropertyOptional({ description: 'Pin the conversation to exempt it from retention autodeletion' })
+  @IsOptional()
+  @IsBoolean()
+  pinned?: boolean
 }

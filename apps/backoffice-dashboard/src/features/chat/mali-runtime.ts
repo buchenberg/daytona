@@ -196,6 +196,8 @@ export const createMaliAdapter = (fixedConversationId?: string): ChatModelAdapte
             return
 
           // New event types — silently ignored in the UI for now
+          // ('thinking' carries the model's summarized reasoning deltas)
+          case 'thinking':
           case 'usage':
           case 'stuck_loop':
             break

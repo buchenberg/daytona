@@ -3,33 +3,23 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { useAui } from '@assistant-ui/react'
 import { Thread } from '../../components/assistant-ui/thread'
-import { ThreadList } from '../../components/assistant-ui/thread-list'
+import { ThreadList, ManageCollaboratorsContext } from '../../components/assistant-ui/thread-list'
 import { SettingsPanel } from './SettingsPanel'
-import { CollaboratorsModal } from './CollaboratorsModal'
+import { CollaboratorsView } from './CollaboratorsView'
 import { SidebarTrigger } from '@dashboard/ui/sidebar'
-import { Settings, Users, PanelLeftOpen, PanelLeftClose } from 'lucide-react'
+import { Settings, BookOpen, PanelLeftOpen, PanelLeftClose } from 'lucide-react'
 import { useState, type FC } from 'react'
-
-interface ThreadAccessor {
-  threadListItem?: () => { getState(): { remoteId?: string } }
-}
-
-function useCurrentConversationId(): string | null {
-  try {
-    const aui = useAui() as unknown as ThreadAccessor
-    return aui.threadListItem?.()?.getState()?.remoteId ?? null
-  } catch {
-    return null
-  }
-}
+import { useNavigate } from 'react-router'
+import { usePermissions } from '../../providers/ApiProvider'
 
 export const ChatLayout: FC = () => {
-  const conversationId = useCurrentConversationId()
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [collaboratorsOpen, setCollaboratorsOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  // Conversation whose collaborators are being managed; shown instead of the chat.
+  const [collaboratorsFor, setCollaboratorsFor] = useState<string | null>(null)
+  const isSuperAdmin = usePermissions().superAdmin === true
+  const navigate = useNavigate()
 
   return (
     <div className="flex h-full bg-background relative overflow-hidden">
@@ -46,7 +36,9 @@ export const ChatLayout: FC = () => {
         `}
       >
         <div className="flex-1 min-h-0">
-          <ThreadList />
+          <ManageCollaboratorsContext.Provider value={setCollaboratorsFor}>
+            <ThreadList />
+          </ManageCollaboratorsContext.Provider>
         </div>
         <div className="flex items-center gap-1 px-3 py-2 border-t">
           <button
@@ -56,13 +48,15 @@ export const ChatLayout: FC = () => {
           >
             <Settings className="h-4 w-4" />
           </button>
-          <button
-            onClick={() => setCollaboratorsOpen(true)}
-            className="inline-flex items-center justify-center rounded-md h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            title="Collaborators"
-          >
-            <Users className="h-4 w-4" />
-          </button>
+          {isSuperAdmin && (
+            <button
+              onClick={() => navigate('/knowledge-bank')}
+              className="inline-flex items-center justify-center rounded-md h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Knowledge Bank"
+            >
+              <BookOpen className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </aside>
 
@@ -79,16 +73,15 @@ export const ChatLayout: FC = () => {
         </div>
 
         <div className="flex-1 min-h-0">
-          <Thread />
+          {collaboratorsFor ? (
+            <CollaboratorsView conversationId={collaboratorsFor} onClose={() => setCollaboratorsFor(null)} />
+          ) : (
+            <Thread />
+          )}
         </div>
       </main>
 
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <CollaboratorsModal
-        conversationId={conversationId}
-        open={collaboratorsOpen}
-        onClose={() => setCollaboratorsOpen(false)}
-      />
     </div>
   )
 }

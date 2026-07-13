@@ -137,6 +137,9 @@ export interface ConversationSummary {
   title: string
   createdAt: string
   updatedAt: string
+  pinned: boolean
+  inputTokens: number
+  isCollaboration: boolean
 }
 
 export interface ConversationWithMessages {
@@ -144,6 +147,9 @@ export interface ConversationWithMessages {
   title: string
   createdAt: string
   updatedAt: string
+  pinned: boolean
+  inputTokens: number
+  isOwner: boolean
   messages: AssistantUIMessage[]
 }
 
@@ -188,6 +194,13 @@ export function deleteConversation(id: string): Promise<{ success: boolean }> {
   return request(`/conversations/${id}`, { method: 'DELETE' })
 }
 
+export function setConversationPinned(id: string, pinned: boolean): Promise<{ success: boolean }> {
+  return request(`/conversations/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ pinned }),
+  })
+}
+
 export function rememberFromConversation(
   conversationId: string,
 ): Promise<{ success: boolean; key?: string; value?: string }> {
@@ -204,6 +217,42 @@ export function resetConversationMessages(id: string, keepCount: number): Promis
 
 export function compactConversation(conversationId: string): Promise<{ summary: string }> {
   return request(`/chat/compact/${conversationId}`, { method: 'POST' })
+}
+
+// Knowledge base (shared memories)
+
+export interface MemoryEntry {
+  id: string
+  key: string
+  value: string
+  category: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export function listMemories(): Promise<{ memories: MemoryEntry[] }> {
+  return request('/chat/memories')
+}
+
+// Superadmin only
+export function upsertMemory(
+  key: string,
+  value: string,
+  category?: string,
+): Promise<{ success: boolean; memory: MemoryEntry }> {
+  return request('/chat/memories', {
+    method: 'POST',
+    body: JSON.stringify({ key, value, category }),
+  })
+}
+
+// Superadmin only
+export function forgetMemory(key: string): Promise<{ success: boolean }> {
+  return request('/chat/forget', {
+    method: 'POST',
+    body: JSON.stringify({ key }),
+  })
 }
 
 // Settings

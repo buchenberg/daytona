@@ -379,17 +379,17 @@ export const ConversationsApiAxiosParamCreator = function (configuration?: Confi
         },
         /**
          * 
-         * @summary Rename conversation
+         * @summary Update conversation (rename, pin/unpin)
          * @param {string} id 
          * @param {UpdateConversationDto} updateConversationDto 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        conversationsControllerRename: async (id: string, updateConversationDto: UpdateConversationDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        conversationsControllerUpdate: async (id: string, updateConversationDto: UpdateConversationDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'id' is not null or undefined
-            assertParamExists('conversationsControllerRename', 'id', id)
+            assertParamExists('conversationsControllerUpdate', 'id', id)
             // verify required parameter 'updateConversationDto' is not null or undefined
-            assertParamExists('conversationsControllerRename', 'updateConversationDto', updateConversationDto)
+            assertParamExists('conversationsControllerUpdate', 'updateConversationDto', updateConversationDto)
             const localVarPath = `/conversations/{id}`
                 .replace(`{${"id"}}`, encodeURIComponent(String(id)));
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
@@ -549,16 +549,16 @@ export const ConversationsApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
-         * @summary Rename conversation
+         * @summary Update conversation (rename, pin/unpin)
          * @param {string} id 
          * @param {UpdateConversationDto} updateConversationDto 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async conversationsControllerRename(id: string, updateConversationDto: UpdateConversationDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerRename(id, updateConversationDto, options);
+        async conversationsControllerUpdate(id: string, updateConversationDto: UpdateConversationDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.conversationsControllerUpdate(id, updateConversationDto, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['ConversationsApi.conversationsControllerRename']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['ConversationsApi.conversationsControllerUpdate']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
     }
@@ -664,14 +664,14 @@ export const ConversationsApiFactory = function (configuration?: Configuration, 
         },
         /**
          * 
-         * @summary Rename conversation
+         * @summary Update conversation (rename, pin/unpin)
          * @param {string} id 
          * @param {UpdateConversationDto} updateConversationDto 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        conversationsControllerRename(id: string, updateConversationDto: UpdateConversationDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-            return localVarFp.conversationsControllerRename(id, updateConversationDto, options).then((request) => request(axios, basePath));
+        conversationsControllerUpdate(id: string, updateConversationDto: UpdateConversationDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.conversationsControllerUpdate(id, updateConversationDto, options).then((request) => request(axios, basePath));
         },
     };
 };
@@ -783,14 +783,14 @@ export class ConversationsApi extends BaseAPI {
 
     /**
      * 
-     * @summary Rename conversation
+     * @summary Update conversation (rename, pin/unpin)
      * @param {string} id 
      * @param {UpdateConversationDto} updateConversationDto 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    public conversationsControllerRename(id: string, updateConversationDto: UpdateConversationDto, options?: RawAxiosRequestConfig) {
-        return ConversationsApiFp(this.configuration).conversationsControllerRename(id, updateConversationDto, options).then((request) => request(this.axios, this.basePath));
+    public conversationsControllerUpdate(id: string, updateConversationDto: UpdateConversationDto, options?: RawAxiosRequestConfig) {
+        return ConversationsApiFp(this.configuration).conversationsControllerUpdate(id, updateConversationDto, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

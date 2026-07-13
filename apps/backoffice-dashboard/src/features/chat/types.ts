@@ -6,6 +6,7 @@
 export type ChatEvent =
   | { type: 'session'; conversationId: string }
   | { type: 'text'; text: string }
+  | { type: 'thinking'; text: string }
   | { type: 'tool_start'; toolCallId: string; tool: string; args: Record<string, unknown> }
   | { type: 'tool_end'; toolCallId: string; tool: string; success: true; result: unknown }
   | { type: 'tool_end'; toolCallId: string; tool: string; success: false; error: string }
@@ -32,6 +33,7 @@ export function parseChatEvent(raw: unknown): ChatEvent | null {
     case 'session':
       return typeof obj.conversationId === 'string' ? (obj as ChatEvent) : null
     case 'text':
+    case 'thinking':
       return typeof obj.text === 'string' ? (obj as ChatEvent) : null
     case 'tool_start':
       return typeof obj.toolCallId === 'string' && typeof obj.tool === 'string' ? (obj as ChatEvent) : null

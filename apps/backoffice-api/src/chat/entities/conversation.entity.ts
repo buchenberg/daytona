@@ -18,6 +18,14 @@ export class Conversation {
   @Column({ name: 'user_id', type: 'varchar' })
   userId: string
 
+  // Pinned conversations are exempt from retention autodeletion.
+  @Column({ type: 'boolean', default: false })
+  pinned: boolean
+
+  // Context size of the latest model round (input + cache read/creation tokens).
+  @Column({ name: 'input_tokens', type: 'int', default: 0 })
+  inputTokens: number
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date
 

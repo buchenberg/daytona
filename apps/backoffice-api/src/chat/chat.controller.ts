@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0
  */
 
-import { Controller, Post, Get, Param, Body, Req, Res, UseGuards } from '@nestjs/common'
+import { Controller, Post, Get, Param, Body, Req, Res, UseGuards, ForbiddenException } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiSecurity } from '@nestjs/swagger'
 import { SkipThrottle } from '@nestjs/throttler'
 import { Response } from 'express'
@@ -14,6 +14,8 @@ import { AuthenticatedRequest } from '../common/interfaces/authenticated-request
 import { ChatService } from './chat.service'
 import { MemoryService } from './memory.service'
 import { ChatRequestDto, StopChatRequestDto, ContinueChatRequestDto } from './dto/chat-request.dto'
+import { UpsertMemoryDto } from './dto/upsert-memory.dto'
+import { isSuperAdmin } from '../common/permissions'
 
 @ApiTags('chat')
 @ApiSecurity('bearerAuth')
@@ -135,9 +137,22 @@ export class ChatController {
     return { memories }
   }
 
+  // The knowledge base is injected into every user's system prompt, so
+  // curating it over HTTP is restricted to superadmins. (Mali itself can
+  // still store/forget entries via its tools during a conversation.)
+  @Post('memories')
+  @ApiOperation({ summary: 'Create or update a knowledge base entry (superadmin only)' })
+  async upsertMemory(@Body() body: UpsertMemoryDto, @Req() req: AuthenticatedRequest) {
+    if (!isSuperAdmin(req.user?.permissions)) throw new ForbiddenException('Superadmin only')
+    const userId = req.user?.id || 'anonymous'
+    const memory = await this.memoryService.store(userId, body.key, body.value, body.category ?? 'curated')
+    return { success: true, memory }
+  }
+
   @Post('forget')
-  @ApiOperation({ summary: 'Delete a memory entry by key' })
-  async forget(@Body() body: { key: string }) {
+  @ApiOperation({ summary: 'Delete a memory entry by key (superadmin only)' })
+  async forget(@Body() body: { key: string }, @Req() req: AuthenticatedRequest) {
+    if (!isSuperAdmin(req.user?.permissions)) throw new ForbiddenException('Superadmin only')
     const deleted = await this.memoryService.forget(body.key)
     return { success: deleted }
   }

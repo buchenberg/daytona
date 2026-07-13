@@ -323,9 +323,9 @@ const AssistantMessage: FC = () => {
         <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
           <span className="text-xs font-bold text-primary">M</span>
         </div>
-        <div className="max-w-[80%]">
+        <div className="max-w-[88%] min-w-0">
           <div className="text-xs text-muted-foreground mb-1">Mali</div>
-          <div className="rounded-2xl bg-muted px-4 py-2.5 text-sm select-text">
+          <div className="rounded-2xl bg-muted px-4 py-3 text-sm leading-relaxed select-text">
             <MessagePrimitive.Parts
               components={{
                 Text: AssistantTextPart,
@@ -424,7 +424,14 @@ const AssistantTextPart: FC = () => {
   if (!part.text) return null
 
   return (
-    <div className="prose prose-sm dark:prose-invert max-w-none overflow-x-auto">
+    <div
+      className="prose prose-sm dark:prose-invert max-w-none overflow-x-auto
+        prose-p:my-1.5 prose-headings:mt-4 prose-headings:mb-1.5 prose-h1:text-base prose-h2:text-base prose-h3:text-sm
+        prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-pre:my-2 prose-table:my-2
+        prose-th:px-3 prose-th:py-1.5 prose-td:px-3 prose-td:py-1.5
+        prose-code:before:content-none prose-code:after:content-none prose-code:rounded prose-code:bg-background/60 prose-code:px-1 prose-code:py-0.5
+        prose-hr:my-3"
+    >
       <RichMarkdown text={part.text} />
     </div>
   )

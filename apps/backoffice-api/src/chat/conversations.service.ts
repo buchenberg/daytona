@@ -5,7 +5,7 @@
 
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository, IsNull } from 'typeorm'
+import { Repository, IsNull, LessThan } from 'typeorm'
 import { Conversation } from './entities/conversation.entity'
 import { Message } from './entities/message.entity'
 import { ThreadCollaborator } from './entities/thread-collaborator.entity'
@@ -28,14 +28,24 @@ export class ConversationsService {
     return { id: saved.id, title: saved.title, createdAt: saved.createdAt }
   }
 
-  // Returns owned conversations + conversations where user is a collaborator
+  // Returns owned conversations + conversations where user is a collaborator.
+  // Pinned conversations are all included on the first page, however old;
+  // unpinned ones are paginated by recency.
   async list(userId: string, limit = 50, offset = 0) {
-    const owned = await this.conversationRepo.find({
-      where: { userId },
+    const pinnedOwned =
+      offset > 0
+        ? []
+        : await this.conversationRepo.find({
+            where: { userId, pinned: true },
+            order: { updatedAt: 'DESC' },
+          })
+    const recentOwned = await this.conversationRepo.find({
+      where: { userId, pinned: false },
       order: { updatedAt: 'DESC' },
       take: limit,
       skip: offset,
     })
+    const owned = [...pinnedOwned, ...recentOwned]
 
     const collaborations = await this.collaboratorRepo.find({
       where: { userId },
@@ -49,6 +59,8 @@ export class ConversationsService {
         title: c.conversation.title,
         createdAt: c.conversation.createdAt,
         updatedAt: c.conversation.updatedAt,
+        pinned: c.conversation.pinned,
+        inputTokens: c.conversation.inputTokens,
         isCollaboration: true,
         collaborationMode: c.mode,
       }))
@@ -58,12 +70,18 @@ export class ConversationsService {
       title: c.title,
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
+      pinned: c.pinned,
+      inputTokens: c.inputTokens,
       isCollaboration: false,
       collaborationMode: undefined as string | undefined,
     }))
 
+    // Pinned conversations first, then most recently updated.
     return [...ownedMapped, ...collabConversations]
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      })
       .slice(0, limit)
   }
 
@@ -88,17 +106,25 @@ export class ConversationsService {
       title: conversation.title,
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
+      pinned: conversation.pinned,
+      inputTokens: conversation.inputTokens,
       isOwner: conversation.userId === userId,
       collaborationMode: access === 'owner' ? undefined : access,
       messages: convertedMessages,
     }
   }
 
-  async rename(conversationId: string, userId: string, title: string) {
+  async update(conversationId: string, userId: string, changes: { title?: string; pinned?: boolean }) {
     const conversation = await this.conversationRepo.findOne({ where: { id: conversationId } })
     if (!conversation) throw new NotFoundException('Conversation not found')
-    if (conversation.userId !== userId) throw new ForbiddenException('Only the owner can rename')
-    await this.conversationRepo.update(conversationId, { title })
+    if (conversation.userId !== userId) throw new ForbiddenException('Only the owner can update')
+
+    const update: Partial<Conversation> = {}
+    if (changes.title !== undefined) update.title = changes.title
+    if (changes.pinned !== undefined) update.pinned = changes.pinned
+    if (Object.keys(update).length > 0) {
+      await this.conversationRepo.update(conversationId, update)
+    }
     return { success: true }
   }
 
@@ -161,6 +187,20 @@ export class ConversationsService {
 
   async updateTitle(conversationId: string, title: string) {
     await this.conversationRepo.update(conversationId, { title })
+  }
+
+  /** Record the context size of the latest model round. Raw SQL so updatedAt (retention clock) stays untouched. */
+  async updateInputTokens(conversationId: string, inputTokens: number) {
+    await this.conversationRepo.query('UPDATE mali_conversation SET input_tokens = $1 WHERE id = $2', [
+      inputTokens,
+      conversationId,
+    ])
+  }
+
+  /** Delete unpinned conversations last updated before the cutoff. Returns the number deleted. */
+  async deleteUnpinnedOlderThan(cutoff: Date): Promise<number> {
+    const result = await this.conversationRepo.delete({ pinned: false, updatedAt: LessThan(cutoff) })
+    return result.affected ?? 0
   }
 
   // Returns 'owner' | 'read' | 'write' | null

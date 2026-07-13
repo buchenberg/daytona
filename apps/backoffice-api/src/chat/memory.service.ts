@@ -5,12 +5,11 @@
 
 import { Injectable, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository, LessThan } from 'typeorm'
+import { Repository, LessThan, Not } from 'typeorm'
 import { ConfigService } from '@nestjs/config'
 import Anthropic from '@anthropic-ai/sdk'
 import { Memory } from './entities/memory.entity'
 import { ConversationsService } from './conversations.service'
-import { parseLlmJson } from './parse-llm-json'
 
 @Injectable()
 export class MemoryService {
@@ -31,16 +30,20 @@ export class MemoryService {
     this.contextMessages = parseInt(this.configService.get<string>('mali.memoryContextMessages') || '5', 10)
   }
 
-  async list(limit = 30): Promise<Memory[]> {
+  async list(limit = 200): Promise<Memory[]> {
     return this.memoryRepo.find({
       order: { updatedAt: 'DESC' },
       take: limit,
     })
   }
 
+  async findByKey(key: string): Promise<Memory | null> {
+    return this.memoryRepo.findOne({ where: { key } })
+  }
+
   async store(createdBy: string, key: string, value: string, category = 'finding'): Promise<Memory> {
     // Upsert by key
-    const existing = await this.memoryRepo.findOne({ where: { key } })
+    const existing = await this.findByKey(key)
     if (existing) {
       existing.value = value
       existing.category = category
@@ -57,8 +60,10 @@ export class MemoryService {
   }
 
   async cleanup(): Promise<number> {
+    // Curated entries (managed by superadmins in the dashboard) never expire;
+    // auto-extracted and tool-stored entries age out after 30 days.
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-    const result = await this.memoryRepo.delete({ updatedAt: LessThan(thirtyDaysAgo) })
+    const result = await this.memoryRepo.delete({ updatedAt: LessThan(thirtyDaysAgo), category: Not('curated') })
     return result.affected ?? 0
   }
 
@@ -72,16 +77,30 @@ export class MemoryService {
       const response = await this.client.messages.create({
         model: this.model,
         max_tokens: 512,
+        output_config: {
+          format: {
+            type: 'json_schema',
+            schema: {
+              type: 'object',
+              properties: {
+                key: { type: 'string', description: 'Short snake_case identifier' },
+                value: { type: 'string', description: 'The insight, 1-2 sentences' },
+              },
+              required: ['key', 'value'],
+              additionalProperties: false,
+            },
+          },
+        },
         messages: [
           {
             role: 'user',
-            content: `Analyze this conversation excerpt and extract ONE useful insight, best practice, or reusable pattern that would help in future production operations investigations. Return a JSON object with "key" (short identifier, snake_case) and "value" (the insight, 1-2 sentences). Return ONLY the JSON, no other text.\n\n${JSON.stringify(recent)}`,
+            content: `Analyze this conversation excerpt and extract ONE useful insight, best practice, or reusable pattern that would help in future production operations investigations.\n\n${JSON.stringify(recent)}`,
           },
         ],
       })
 
       const raw = response.content[0]?.type === 'text' ? response.content[0].text : '{}'
-      const parsed = parseLlmJson<{ key?: string; value?: string }>(raw)
+      const parsed = JSON.parse(raw) as { key?: string; value?: string }
       if (parsed.key && parsed.value) {
         return this.store(userId, parsed.key, parsed.value, 'learning')
       }
@@ -91,11 +110,32 @@ export class MemoryService {
     return null
   }
 
-  /** Build a prompt block with recent memory entries for injection into system prompt. */
+  /** Build a prompt block with memory entries for injection into system prompt. */
   async getPromptBlock(): Promise<string> {
-    const memories = await this.list(20)
+    // Curated entries take priority over the recency slots, capped so the
+    // system prompt cannot grow without bound.
+    const curated = await this.memoryRepo.find({
+      where: { category: 'curated' },
+      order: { updatedAt: 'DESC' },
+      take: 100,
+    })
+    const recent = await this.memoryRepo.find({
+      where: { category: Not('curated') },
+      order: { updatedAt: 'DESC' },
+      take: 30,
+    })
+    const memories = [...curated, ...recent]
     if (memories.length === 0) return ''
-    const lines = memories.map((m) => `- [${m.category}] ${m.key}: ${m.value}`)
-    return `\n\n### Shared Knowledge Base\nThese are findings and learnings from previous investigations, shared across all users:\n${lines.join('\n')}`
+    const lines = memories.map((m) => {
+      const date = m.updatedAt.toISOString().slice(0, 10)
+      return `- [${m.category}] ${m.key}: ${m.value} (by ${m.createdBy}, ${date})`
+    })
+    return (
+      `\n\n### Shared Knowledge Base\n` +
+      `Findings and learnings from previous investigations, shared across all users. ` +
+      `Weigh entries by age — older entries may be stale. ` +
+      `Use the \`memory_store\` tool to save new durable insights you discover, and \`memory_forget\` ` +
+      `to remove entries you confirm are wrong or obsolete.\n${lines.join('\n')}`
+    )
   }
 }

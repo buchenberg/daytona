@@ -14,7 +14,7 @@ export class Memory {
   @Column({ name: 'created_by', type: 'varchar' })
   createdBy: string
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', unique: true })
   key: string
 
   @Column({ type: 'text' })

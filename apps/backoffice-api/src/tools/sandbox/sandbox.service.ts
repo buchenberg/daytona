@@ -174,6 +174,8 @@ interface Pool {
   lastUsedAt: number
 }
 
+const WORKSPACE_DIR = '/home/daytona/repos'
+
 @Injectable()
 export class SandboxService implements OnModuleDestroy {
   private readonly logger = new Logger(SandboxService.name)
@@ -181,6 +183,9 @@ export class SandboxService implements OnModuleDestroy {
 
   // Cached Daytona toolbox-proxy URL template; same across all users, fetched once lazily.
   private proxyBaseUrl: string | null = null
+
+  // userId → codebase-workspace sandbox id, reused across a user's conversations.
+  private readonly workspaceSandboxes = new Map<string, string>()
 
   constructor(
     private readonly configService: ConfigService,
@@ -368,6 +373,90 @@ export class SandboxService implements OnModuleDestroy {
     return {
       exitCode: result.exitCode,
       output: (result.result || '').trim(),
+    }
+  }
+
+  /**
+   * Provision (or reuse) a sandbox with the Daytona repos cloned under
+   * WORKSPACE_DIR, so Mali can explore the codebase via sandbox_exec.
+   */
+  async codebaseWorkspace(userId: string): Promise<Record<string, unknown>> {
+    const creds = await this.getCreds(userId)
+    const pat = this.configService.get<string>('mali.codebase.githubPat')
+    if (!pat) {
+      return { status: 'error', error: 'Codebase analysis is not configured (MALI_CODEBASE_GITHUB_PAT is unset).' }
+    }
+    const repos = (this.configService.get<string>('mali.codebase.repos') || '')
+      .split(',')
+      .map((r) => r.trim())
+      .filter(Boolean)
+    const client = this.createClient(creds.apiKey)
+
+    const cached = this.workspaceSandboxes.get(userId)
+    if (cached && (await this.reviveSandbox(client, cached))) {
+      for (const repo of repos) {
+        const dir = `${WORKSPACE_DIR}/${repo.split('/').pop()}`
+        await this.execInSandbox(client, cached, `git -C ${dir} pull --ff-only 2>&1 | tail -1`, 60).catch(() => {
+          /* refresh is best-effort */
+        })
+      }
+      return this.workspaceInfo(cached, repos, 'reused')
+    }
+    this.workspaceSandboxes.delete(userId)
+
+    const createResp = await client.post('/sandbox', {
+      snapshot: 'daytona-large',
+      autoStopInterval: 30,
+      autoDeleteInterval: 1440,
+    })
+    const sandboxId = createResp.data.id as string
+    await this.waitForSandboxReady(client, sandboxId)
+
+    const failures: string[] = []
+    for (const repo of repos) {
+      const dir = `${WORKSPACE_DIR}/${repo.split('/').pop()}`
+      const cloneUrl = `https://x-access-token:${pat}@github.com/${repo}.git`
+      const result = await this.execInSandbox(client, sandboxId, `git clone --depth 1 ${cloneUrl} ${dir} 2>&1`, 180)
+      if (result.exitCode !== 0) {
+        failures.push(`${repo}: ${(result.result || '').replace(pat, '***').slice(0, 200)}`)
+      }
+    }
+    if (failures.length === repos.length) {
+      await client.delete(`/sandbox/${sandboxId}`).catch(() => {
+        /* best-effort cleanup */
+      })
+      return { status: 'error', error: `All clones failed:\n${failures.join('\n')}` }
+    }
+
+    this.workspaceSandboxes.set(userId, sandboxId)
+    const info = this.workspaceInfo(sandboxId, repos, 'created')
+    if (failures.length > 0) info.cloneFailures = failures
+    return info
+  }
+
+  /** Returns true if the sandbox exists and is (or could be started into) a usable state. */
+  private async reviveSandbox(client: AxiosInstance, sandboxId: string): Promise<boolean> {
+    try {
+      const resp = await client.get(`/sandbox/${sandboxId}`)
+      const state = String(resp.data.state).toLowerCase()
+      if (state === 'started') return true
+      if (state === 'stopped') {
+        await client.post(`/sandbox/${sandboxId}/start`)
+        await this.waitForSandboxReady(client, sandboxId)
+        return true
+      }
+      return false
+    } catch {
+      return false
+    }
+  }
+
+  private workspaceInfo(sandboxId: string, repos: string[], status: string): Record<string, unknown> {
+    return {
+      status,
+      sandboxId,
+      repos: repos.map((repo) => ({ repo, path: `${WORKSPACE_DIR}/${repo.split('/').pop()}` })),
+      note: 'Explore with sandbox_exec (grep -rn, find, cat, head). The sandbox auto-stops after 30 min idle.',
     }
   }
 

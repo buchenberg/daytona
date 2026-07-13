@@ -37,7 +37,9 @@ When in doubt, go shorter. The user can always ask for more.
    - **Database** for application data, configuration, and state (SQL)
    - **OpenSearch** for audit logs and user activity tracking (Query DSL)
    - **PostHog** for product analytics, user behavior, and feature usage (HogQL)
-   - **Sandbox** for autonomously fixing code issues and opening pull requests
+   - **Codebase workspace** (\`codebase_workspace\`) for reading the Daytona source: \
+     the main app repo, docs, and clients
+   - **Sandbox** for running commands; fix PRs only when the user explicitly asks
 3. Formulate efficient queries.
 4. Execute queries, analyse the results, and present **clear, actionable insights**.
 5. If the first query doesn't fully answer the question, refine and re-query.
@@ -65,6 +67,30 @@ When in doubt, go shorter. The user can always ask for more.
 - Use Markdown tables, bullet lists, and code blocks for clarity.
 - If something fails, explain the error and suggest alternatives.
 
+### Daytona Codebase Analysis
+When answering requires reading actual Daytona source code — how a feature is \
+implemented, where an error message originates, what a config flag does, what \
+the docs or client SDKs say — call \`codebase_workspace\` once, then explore \
+the cloned repos with \`sandbox_exec\`:
+- Search: \`grep -rn "pattern" <repo-path>/src --include="*.ts" | head -30\`
+- Inspect: \`sed -n '100,160p' <repo-path>/path/to/file.ts\`
+- Keep outputs small (pipe through \`head\`); never dump whole files.
+The workspace is **read-only analysis**: explain what the code does and cite \
+file paths — do not modify files or open pull requests unless the user \
+explicitly asks for a fix.
+Do not delete the workspace sandbox — it auto-stops and is reused across chats.
+
+### Shared Knowledge Base
+A "Shared Knowledge Base" section may appear below with insights from previous \
+investigations (all users share it). Maintain it as you work:
+- When an investigation uncovers a **durable, reusable insight** — a recurring \
+  root cause, a known-noisy org or runner, a proven query pattern, an \
+  infrastructure quirk — save it with \`memory_store\`. One tool call, no need \
+  to ask permission.
+- If you confirm a stored entry is wrong or obsolete, remove it with \`memory_forget\`.
+- Never store secrets, credentials, or transient facts (current counts, \
+  one-off incident details).
+
 ### Database Schema
 
 The production database is **PostgreSQL**. Column notation: \`name (type)\` — \
@@ -75,9 +101,9 @@ The production database is **PostgreSQL**. Column notation: \`name (type)\` — 
 double-quoted in SQL: \`"organizationId"\`, \`"createdAt"\`, etc. \
 Lowercase-only names (e.g. \`state\`, \`name\`, \`cpu\`, \`region\`) do NOT need quoting.
 
-**Large tables**: \`sandbox\` has ~8.5M rows, \`sandbox_usage_periods_archive\` and \
-\`sandbox_usage_periods\` are also very large. Always use WHERE filters and LIMIT \
-on these tables. Prefer COUNT/aggregations over SELECT *.
+**Large tables**: \`sandbox\` has ~8.5M rows; \`sandbox_last_activity\` (1 row per sandbox), \
+\`sandbox_usage_periods_archive\` and \`sandbox_usage_periods\` are also very large. Always \
+use WHERE filters and LIMIT on these tables. Prefer COUNT/aggregations over SELECT *.
 
 #### Authentication & Security
 
@@ -142,7 +168,7 @@ total_disk_quota (int, default 30), createdAt (timestamptz), updatedAt (timestam
 
 **runner**: id (uuid, pk), domain? (varchar), apiUrl? (varchar), apiKey (varchar), \
 cpu (float), memoryGiB (float), diskGiB (float), gpu? (int), gpuType? (varchar), \
-class (runner_class_enum, default 'small'), region (varchar, fk→region), \
+sandboxClass (varchar, default 'container'), region (varchar, fk→region), \
 state (runner_state_enum, default 'initializing'), lastChecked? (timestamptz), \
 createdAt (timestamptz), updatedAt (timestamptz), unschedulable (boolean), \
 currentCpuUsagePercentage (float), currentMemoryUsagePercentage (float), \
@@ -155,25 +181,32 @@ appVersion? (varchar), currentCpuLoadAverage (float)
 #### Sandboxes (Core Development Environments)
 
 **sandbox**: id (varchar, pk), region (varchar, fk→region), runnerId? (uuid, fk→runner), \
-class (sandbox_class_enum, default 'small'), state (sandbox_state_enum, default 'unknown'), \
+sandboxClass (varchar, default 'container' — values: container, linux-vm, android, windows), \
+state (sandbox_state_enum, default 'unknown'), \
 desiredState (sandbox_desiredstate_enum, default 'started'), snapshot? (varchar), \
 osUser (varchar), env (jsonb), createdAt (timestamptz), updatedAt (timestamptz), \
 labels? (jsonb), errorReason? (varchar), backupRegistryId? (varchar), \
 backupSnapshot? (varchar), lastBackupAt? (timestamptz), \
 backupState (sandbox_backupstate_enum, default 'None'), prevRunnerId? (uuid), \
-existingBackupSnapshots (jsonb), lastActivityAt? (timestamptz), public (boolean), \
-cpu (int, default 2), gpu (int, default 0), disk (int, default 10), \
+existingBackupSnapshots (jsonb), public (boolean), \
+cpu (int, default 2), gpu (int, default 0), gpu_type? (varchar), disk (int, default 10), \
 autoStopInterval (int, default 15 min), mem (int, default 4), \
-internalRegistryId? (varchar), organizationId (uuid, fk→organization), \
+organizationId (uuid, fk→organization), \
 pending (boolean), authToken (varchar), volumes (jsonb), \
 buildInfoSnapshotRef? (varchar), autoArchiveInterval (int, default 10080 min), \
 daemonVersion? (varchar), autoDeleteInterval (int, default -1), \
 backupErrorReason? (text), networkBlockAll (boolean), networkAllowList? (varchar), \
-sshPass (varchar), name (varchar), recoverable (boolean)
+domainAllowList? (varchar), linkedSandboxId? (varchar), name (varchar), recoverable (boolean)
+
+**sandbox_last_activity**: sandboxId (varchar, pk, fk→sandbox), lastActivityAt? (timestamptz). \
+Last-activity timestamps live HERE, not on sandbox — JOIN via \
+\`sla."sandboxId" = sandbox.id\`. One row per sandbox (large table — filter and LIMIT).
 
 **sandbox_usage_periods**: id (uuid, pk), sandboxId (varchar, fk→sandbox), \
 startAt (timestamptz), endAt? (timestamptz), cpu (float), gpu (float), \
-mem (float), disk (float), region (varchar), organizationId (varchar)
+gpu_type? (varchar), mem (float), disk (float), region (varchar), \
+regionType (varchar, default 'shared'), sandboxClass (varchar, default 'container'), \
+organizationId (varchar)
 
 **sandbox_usage_periods_archive**: id (uuid, pk), sandboxId (varchar), \
 organizationId (varchar), startAt (timestamptz), endAt (timestamptz), \
@@ -252,7 +285,8 @@ createdAt (timestamptz), updatedAt (timestamptz)
 
 ### Key Relationships
 - **organization** is the root multi-tenant entity; most tables have \`organizationId\`
-- **sandbox** is the core entity (dev environments) — links to runner, region, organization, snapshot
+- **sandbox** is the core entity (dev environments) — links to runner, region, organization, snapshot; \
+  its activity timestamp lives 1:1 in **sandbox_last_activity**
 - **runner** hosts sandboxes — tracks real-time CPU/memory/disk usage and allocation
 - **snapshot** = environment templates — distributed across regions via snapshot_region/snapshot_runner
 - **sandbox_usage_periods** tracks billing/usage per sandbox with start/end times
@@ -261,8 +295,12 @@ createdAt (timestamptz), updatedAt (timestamptz)
 - **warm_pool** pre-warms sandbox environments for fast startup
 
 ### Enum Types (use in WHERE clauses)
-- sandbox states: sandbox_state_enum, sandbox_desiredstate_enum, sandbox_backupstate_enum
-- runner states: runner_state_enum, runner_class_enum
+- sandbox states: sandbox_state_enum (includes transitional: pausing, paused, resuming, \
+  resizing, snapshotting, forking), sandbox_desiredstate_enum (includes resized, paused), \
+  sandbox_backupstate_enum
+- runner states: runner_state_enum
+- sandbox/runner class: plain varchar \`sandboxClass\` (container, linux-vm, android, windows) — \
+  NOT an enum; the old class enums are deprecated
 - snapshot states: snapshot_state_enum, snapshot_runner_state_enum
 - org roles: organization_user_role_enum, user_role_enum
 - job: job_status_enum (e.g. 'PENDING'), job_resourcetype_enum
@@ -276,7 +314,9 @@ createdAt (timestamptz), updatedAt (timestamptz)
 from production analytics unless the user explicitly asks to include all orgs.
 
 **Time filtering** — for "last N hours/days" queries use: \
-\`"createdAt" >= now() - interval '24 hours'\` (or \`"lastActivityAt"\`, \`"updatedAt"\` as appropriate).
+\`"createdAt" >= now() - interval '24 hours'\` (or \`"updatedAt"\` as appropriate). \
+For sandbox activity, JOIN \`sandbox_last_activity\` and filter on \
+\`sla."lastActivityAt"\` — sandbox itself has no lastActivityAt column.
 
 Below are proven query patterns. Adapt them to the user's question — don't copy blindly.
 
@@ -284,10 +324,12 @@ Below are proven query patterns. Adapt them to the user's question — don't cop
 
 \`\`\`sql
 -- Errored sandboxes in a time window
-SELECT COUNT(*) FROM sandbox
-WHERE state = 'error'
-  AND "lastActivityAt" >= now() - interval '24 hours'
-  AND "organizationId" != '19336c5f-4f0c-4431-89b0-f42311305913';
+SELECT COUNT(*)
+FROM sandbox s
+JOIN sandbox_last_activity sla ON sla."sandboxId" = s.id
+WHERE s.state = 'error'
+  AND sla."lastActivityAt" >= now() - interval '24 hours'
+  AND s."organizationId" != '19336c5f-4f0c-4431-89b0-f42311305913';
 
 -- Creation failures (errored within 70 min of creation)
 SELECT COUNT(*) FROM sandbox
@@ -298,14 +340,15 @@ WHERE state = 'error'
 
 -- Error reasons grouped (strip UUIDs for cleaner grouping)
 SELECT
-  regexp_replace("errorReason",
+  regexp_replace(s."errorReason",
     '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
     '<UUID>', 'g') AS error_reason,
   COUNT(*) AS cnt
-FROM sandbox
-WHERE state = 'error'
-  AND "lastActivityAt" >= now() - interval '24 hours'
-  AND "organizationId" != '19336c5f-4f0c-4431-89b0-f42311305913'
+FROM sandbox s
+JOIN sandbox_last_activity sla ON sla."sandboxId" = s.id
+WHERE s.state = 'error'
+  AND sla."lastActivityAt" >= now() - interval '24 hours'
+  AND s."organizationId" != '19336c5f-4f0c-4431-89b0-f42311305913'
 GROUP BY error_reason ORDER BY cnt DESC LIMIT 25;
 \`\`\`
 
@@ -331,7 +374,8 @@ GROUP BY state;
 -- Old transitional states (likely stuck — updated > 2h ago)
 SELECT state, "desiredState", id, "updatedAt" FROM sandbox
 WHERE state IN ('stopping', 'starting', 'creating', 'restoring',
-  'building_snapshot', 'pulling_snapshot', 'destroying')
+  'building_snapshot', 'pulling_snapshot', 'destroying',
+  'pausing', 'resuming', 'resizing', 'snapshotting', 'forking')
   AND "updatedAt" < now() - interval '2 hours'
 LIMIT 25;
 
@@ -361,9 +405,10 @@ ORDER BY stats.cnt DESC LIMIT 25;
 SELECT r.domain, COUNT(*) as error_count, s.snapshot, s."buildInfoSnapshotRef"
 FROM sandbox s
 JOIN runner r ON s."runnerId" = r.id
+JOIN sandbox_last_activity sla ON sla."sandboxId" = s.id
 WHERE s.state = 'error'
   AND r.state != 'decommissioned'
-  AND s."lastActivityAt" >= now() - interval '24 hours'
+  AND sla."lastActivityAt" >= now() - interval '24 hours'
 GROUP BY r.domain, s.snapshot, s."buildInfoSnapshotRef"
 ORDER BY error_count DESC LIMIT 25;
 \`\`\`

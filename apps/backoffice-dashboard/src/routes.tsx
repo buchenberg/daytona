@@ -15,9 +15,10 @@ import {
   ClipboardList,
   MessageCircle,
   Bell,
+  BookOpen,
   LucideIcon,
 } from 'lucide-react'
-import { hasPermission, PermissionResource, Permissions } from '@backoffice-api/permissions'
+import { hasPermission, isSuperAdmin, PermissionResource, Permissions } from '@backoffice-api/permissions'
 import { SandboxesPage } from './pages/SandboxesPage'
 import { RunnersPage } from './pages/RunnersPage'
 import { SnapshotsPage } from './pages/SnapshotsPage'
@@ -28,12 +29,14 @@ import { NotificationsPage } from './pages/NotificationsPage'
 import { UsersPage } from './pages/UsersPage'
 import { AuditLogsPage } from './pages/AuditLogsPage'
 import { ChatPage } from './pages/ChatPage'
+import { KnowledgeBankPage } from './pages/KnowledgeBankPage'
 
 export interface AppRoute {
   path: string
   name: string
   icon: LucideIcon
   requires: PermissionResource
+  superAdminOnly?: boolean
   component: ComponentType
 }
 
@@ -68,6 +71,14 @@ export const APP_ROUTES: readonly AppRoute[] = [
   { path: '/users', name: 'Users', icon: UserCircle, requires: 'users', component: UsersPage },
   { path: '/audit-logs', name: 'Audit Logs', icon: ClipboardList, requires: 'auditLogs', component: AuditLogsPage },
   { path: '/chat', name: 'mali', icon: MessageCircle, requires: 'maliDatasources', component: ChatPage },
+  {
+    path: '/knowledge-bank',
+    name: 'Knowledge Bank',
+    icon: BookOpen,
+    requires: 'maliDatasources',
+    superAdminOnly: true,
+    component: KnowledgeBankPage,
+  },
 ]
 
 // Reached from the Header bell rather than the sidebar, so it lives outside
@@ -83,6 +94,7 @@ export const NOTIFICATIONS_ROUTE: AppRoute = {
 }
 
 export function canAccessRoute(permissions: Permissions, route: AppRoute): boolean {
+  if (route.superAdminOnly) return isSuperAdmin(permissions)
   return hasPermission(permissions, route.requires, '*')
 }
 

@@ -12,7 +12,6 @@ import { PoolRegistry } from '../pool-registry'
 
 interface Pool {
   client: AxiosInstance | null
-  dsIdCache: Map<string, number>
   disabled: boolean
   lastUsedAt: number
 }
@@ -32,16 +31,16 @@ export class GrafanaService implements OnModuleDestroy {
     return !cfg.disabled && !!cfg.url && !!cfg.token
   }
 
-  private async getContext(userId: string): Promise<{ client: AxiosInstance; dsIdCache: Map<string, number> }> {
+  private async getContext(userId: string): Promise<{ client: AxiosInstance }> {
     const cfg = await this.settings.getEffectiveGrafanaConfig(userId)
     const pool = await this.pools.getOrBuild(hashConfig(cfg), () => this.build(cfg))
     if (pool.disabled || !pool.client) throw new DatasourceDisabledError('grafana', userId)
-    return { client: pool.client, dsIdCache: pool.dsIdCache }
+    return { client: pool.client }
   }
 
   private build(cfg: EffectiveGrafanaConfig): Pool {
     if (cfg.disabled || !cfg.url || !cfg.token) {
-      return { client: null, dsIdCache: new Map(), disabled: true, lastUsedAt: Date.now() }
+      return { client: null, disabled: true, lastUsedAt: Date.now() }
     }
     const client = axios.create({
       baseURL: cfg.url.replace(/\/+$/, ''),
@@ -52,23 +51,24 @@ export class GrafanaService implements OnModuleDestroy {
         Accept: 'application/json',
       },
     })
-    return { client, dsIdCache: new Map(), disabled: false, lastUsedAt: Date.now() }
+    // Surface method + path in errors — a bare "status code 404" is
+    // undebuggable from logs and useless to the model for self-correction.
+    client.interceptors.response.use(undefined, (error) => {
+      if (axios.isAxiosError(error) && error.response) {
+        const method = error.config?.method?.toUpperCase() ?? 'GET'
+        error.message = `Grafana request failed: ${error.response.status} ${method} ${error.config?.url}`
+      }
+      return Promise.reject(error)
+    })
+    return { client, disabled: false, lastUsedAt: Date.now() }
   }
 
-  /** Client plus the numeric datasource id behind a UID — proxy endpoints need both. */
-  private async getProxyContext(userId: string, uid: string): Promise<{ client: AxiosInstance; dsId: number }> {
-    const { client, dsIdCache } = await this.getContext(userId)
-    const cached = dsIdCache.get(uid)
-    if (cached !== undefined) return { client, dsId: cached }
-
-    const resp = await client.get(`/api/datasources/uid/${uid}`)
-    const dsId = resp.data.id as number
-    dsIdCache.set(uid, dsId)
-    return { client, dsId }
-  }
-
-  private proxyPath(dsId: number): string {
-    return `/api/datasources/proxy/${dsId}`
+  /**
+   * UID-based proxy base path. The numeric-id form (/api/datasources/proxy/:id)
+   * was removed in Grafana 11 and 404s there.
+   */
+  private proxyPath(uid: string): string {
+    return `/api/datasources/proxy/uid/${encodeURIComponent(uid)}`
   }
 
   static parseTime(timeStr: string): string {
@@ -119,18 +119,15 @@ export class GrafanaService implements OnModuleDestroy {
   }
 
   async listDatasources(userId: string): Promise<unknown[]> {
-    const { client, dsIdCache } = await this.getContext(userId)
+    const { client } = await this.getContext(userId)
     const resp = await client.get('/api/datasources')
     const raw = resp.data as Array<Record<string, unknown>>
-    for (const ds of raw) {
-      dsIdCache.set(ds.uid as string, ds.id as number)
-    }
+    // Only uid/name/type: exposing the numeric id invites the model to pass it
+    // where a UID is expected.
     return raw.map((ds) => ({
       uid: ds.uid,
-      id: ds.id,
       name: ds.name,
       type: ds.type,
-      url: ds.url || '',
       is_default: ds.isDefault || false,
     }))
   }
@@ -147,10 +144,10 @@ export class GrafanaService implements OnModuleDestroy {
     time: string | undefined,
     userId: string,
   ): Promise<unknown> {
-    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
+    const { client } = await this.getContext(userId)
     const params: Record<string, string> = { query }
     if (time) params.time = GrafanaService.parseTime(time)
-    const resp = await client.get(`${this.proxyPath(dsId)}/api/v1/query`, { params })
+    const resp = await client.get(`${this.proxyPath(datasourceUid)}/api/v1/query`, { params })
     return resp.data
   }
 
@@ -162,26 +159,26 @@ export class GrafanaService implements OnModuleDestroy {
     step: string,
     userId: string,
   ): Promise<unknown> {
-    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
+    const { client } = await this.getContext(userId)
     const params = {
       query,
       start: GrafanaService.parseTime(start),
       end: GrafanaService.parseTime(end),
       step,
     }
-    const resp = await client.get(`${this.proxyPath(dsId)}/api/v1/query_range`, { params })
+    const resp = await client.get(`${this.proxyPath(datasourceUid)}/api/v1/query_range`, { params })
     return resp.data
   }
 
   async listPrometheusLabelNames(datasourceUid: string, userId: string): Promise<unknown> {
-    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
-    const resp = await client.get(`${this.proxyPath(dsId)}/api/v1/labels`)
+    const { client } = await this.getContext(userId)
+    const resp = await client.get(`${this.proxyPath(datasourceUid)}/api/v1/labels`)
     return resp.data
   }
 
   async getPrometheusLabelValues(datasourceUid: string, labelName: string, userId: string): Promise<unknown> {
-    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
-    const resp = await client.get(`${this.proxyPath(dsId)}/api/v1/label/${labelName}/values`)
+    const { client } = await this.getContext(userId)
+    const resp = await client.get(`${this.proxyPath(datasourceUid)}/api/v1/label/${labelName}/values`)
     return resp.data
   }
 
@@ -190,10 +187,10 @@ export class GrafanaService implements OnModuleDestroy {
     metric: string | undefined,
     userId: string,
   ): Promise<unknown> {
-    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
+    const { client } = await this.getContext(userId)
     const params: Record<string, string> = {}
     if (metric) params.metric = metric
-    const resp = await client.get(`${this.proxyPath(dsId)}/api/v1/metadata`, { params })
+    const resp = await client.get(`${this.proxyPath(datasourceUid)}/api/v1/metadata`, { params })
     return resp.data
   }
 
@@ -206,7 +203,7 @@ export class GrafanaService implements OnModuleDestroy {
     direction: string,
     userId: string,
   ): Promise<unknown> {
-    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
+    const { client } = await this.getContext(userId)
     const params: Record<string, string> = {
       query,
       start: GrafanaService.parseTime(start || 'now-1h'),
@@ -214,19 +211,19 @@ export class GrafanaService implements OnModuleDestroy {
       limit: String(Math.min(limit, 5000)),
       direction,
     }
-    const resp = await client.get(`${this.proxyPath(dsId)}/loki/api/v1/query_range`, { params })
+    const resp = await client.get(`${this.proxyPath(datasourceUid)}/loki/api/v1/query_range`, { params })
     return resp.data
   }
 
   async listLokiLabelNames(datasourceUid: string, userId: string): Promise<unknown> {
-    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
-    const resp = await client.get(`${this.proxyPath(dsId)}/loki/api/v1/labels`)
+    const { client } = await this.getContext(userId)
+    const resp = await client.get(`${this.proxyPath(datasourceUid)}/loki/api/v1/labels`)
     return resp.data
   }
 
   async getLokiLabelValues(datasourceUid: string, labelName: string, userId: string): Promise<unknown> {
-    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
-    const resp = await client.get(`${this.proxyPath(dsId)}/loki/api/v1/label/${labelName}/values`)
+    const { client } = await this.getContext(userId)
+    const resp = await client.get(`${this.proxyPath(datasourceUid)}/loki/api/v1/label/${labelName}/values`)
     return resp.data
   }
 
@@ -241,7 +238,7 @@ export class GrafanaService implements OnModuleDestroy {
     end: string | undefined,
     userId: string,
   ): Promise<unknown> {
-    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
+    const { client } = await this.getContext(userId)
     const params: Record<string, string> = { limit: String(limit) }
     if (q) params.q = q
     if (tags) params.tags = tags
@@ -249,13 +246,13 @@ export class GrafanaService implements OnModuleDestroy {
     if (maxDuration) params.maxDuration = maxDuration
     if (start) params.start = GrafanaService.parseTime(start)
     if (end) params.end = GrafanaService.parseTime(end)
-    const resp = await client.get(`${this.proxyPath(dsId)}/api/search`, { params })
+    const resp = await client.get(`${this.proxyPath(datasourceUid)}/api/search`, { params })
     return resp.data
   }
 
   async getTempoTrace(datasourceUid: string, traceId: string, userId: string): Promise<unknown> {
-    const { client, dsId } = await this.getProxyContext(userId, datasourceUid)
-    const resp = await client.get(`${this.proxyPath(dsId)}/api/traces/${traceId}`)
+    const { client } = await this.getContext(userId)
+    const resp = await client.get(`${this.proxyPath(datasourceUid)}/api/traces/${traceId}`)
     return resp.data
   }
 

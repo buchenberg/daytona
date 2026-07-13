@@ -14,14 +14,18 @@
 
 
 
-export interface UpdateConversationDto {
+export interface UpsertMemoryDto {
     /**
-     * New conversation title
+     * Unique key of the knowledge base entry (upserts on conflict)
      */
-    'title'?: string;
+    'key': string;
     /**
-     * Pin the conversation to exempt it from retention autodeletion
+     * The insight or fact to store
      */
-    'pinned'?: boolean;
+    'value': string;
+    /**
+     * Entry category
+     */
+    'category'?: string;
 }
 

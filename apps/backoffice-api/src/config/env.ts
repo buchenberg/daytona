@@ -126,6 +126,16 @@ export const config = {
     suggestionModel: process.env.MALI_SUGGESTION_MODEL || 'claude-haiku-4-5-20251001',
     fallbackModel: process.env.ANTHROPIC_FALLBACK_MODEL || 'claude-haiku-4-5-20251001',
     memoryContextMessages: process.env.MALI_MEMORY_CONTEXT_MESSAGES || '5',
+    // Unpinned conversations older than this are autodeleted by the nightly
+    // retention sweep. Set to 0 (or negative) to disable.
+    conversationRetentionDays: process.env.MALI_CONVERSATION_RETENTION_DAYS || '14',
+
+    // Repos cloned into the codebase_workspace analysis sandbox, and the PAT
+    // used to clone them (needs read access to the private repos).
+    codebase: {
+      githubPat: process.env.MALI_CODEBASE_GITHUB_PAT || '',
+      repos: process.env.MALI_CODEBASE_REPOS || 'daytonaio/daytona-ai,daytonaio/docs,daytona/clients',
+    },
 
     // Master secret for AES-256-CBC/PBKDF2 encryption of secret fields in
     // mali_user_settings.datasource_overrides. Compatible with:
