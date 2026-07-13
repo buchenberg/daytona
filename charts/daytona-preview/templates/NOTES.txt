@@ -5,10 +5,8 @@ API:   https://{{ include "preview.apiHost" . }}
 Proxy: https://{{ include "preview.proxyHost" . }}
 SSH:   {{ .Release.Name }}-ssh-gateway:{{ .Values.services.sshGateway.service.port }} (Tailscale MagicDNS — `kubectl get svc {{ .Release.Name }}-ssh-gateway -n {{ .Release.Namespace }}`)
 
-Helm hooks executed:
-  post-install : migration:run:init → migration:run:pre-deploy
-  pre-upgrade  : migration:run:pre-deploy
-  post-upgrade : migration:run:post-deploy
+Migrations: applied by the api pod's `migrations` init container
+(`migration:run:init` — all sets) before the app starts.
 
 To tear down:
   helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }}

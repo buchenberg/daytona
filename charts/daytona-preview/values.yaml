@@ -74,7 +74,7 @@ services:
       MAINTENANCE_MODE: 'false'
       OTEL_ENABLED: 'false'
       DISABLE_CRON_JOBS: 'false'
-      RUN_MIGRATIONS: 'false' # migrations run via helm hooks
+      RUN_MIGRATIONS: 'false' # migrations run via the api pod's init container
       # OIDC — point to shared Dex or external IdP
       OIDC_CLIENT_ID: 'R0UIj1ZOitwBJNKwmKNs3y2uPuY61Egn'
       OIDC_ISSUER_BASE_URL: 'https://daytonastage.us.auth0.com'

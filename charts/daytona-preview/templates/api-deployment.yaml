@@ -34,6 +34,35 @@ spec:
       serviceAccountName: {{ include "preview.serviceAccountName" (dict "ctx" . "component" "api") }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        # Migrations run here rather than as helm hooks: on a fresh install the api
+        # pod and postgres are created together, and post-install hooks only run
+        # AFTER helm's --wait sees this pod ready — a hook can never seed the schema
+        # before first boot, so the api would crash on its startup queries
+        # (onModuleInit). migration:run:init applies every migration set (legacy +
+        # pre/post-deploy) and is idempotent (TypeORM tracks applied migrations).
+        # The retry loop absorbs postgres starting up in parallel.
+        - name: migrations
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "preview.image" (dict "repo" .Values.services.api.image.repository "svcTag" .Values.services.api.image.tag "Values" .Values) | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["sh", "-c"]
+          args:
+            - |
+              for i in $(seq 1 30); do
+                yarn migration:run:init && exit 0
+                echo "migration attempt $i/30 failed; retrying in 5s" >&2
+                sleep 5
+              done
+              exit 1
+          env:
+            {{- include "preview.env.api" . | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: var-run
+              mountPath: /var/run
       containers:
         - name: api
           securityContext:
