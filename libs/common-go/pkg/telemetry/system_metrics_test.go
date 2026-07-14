@@ -78,6 +78,16 @@ func TestSystemMetricsStoreRecordUsage(t *testing.T) {
 		}
 	})
 
+	t.Run("changed limits refresh snapshot totals", func(t *testing.T) {
+		s := NewSystemMetricsStore()
+		s.recordUsage(0, 1024, 0, t0, &ResourceLimits{CPULimit: 1, MemoryLimit: 4096})
+		s.recordUsage(uint64(sec), 1024, 0, t0.Add(time.Second), &ResourceLimits{CPULimit: 2, MemoryLimit: 8192})
+		snap := s.Snapshot()
+		if snap.CPUCount != 2 || snap.MemTotal != 8192 {
+			t.Errorf("after resize CPUCount = %d, MemTotal = %d, want 2, 8192", snap.CPUCount, snap.MemTotal)
+		}
+	})
+
 	t.Run("snapshot carries mem and disk fields", func(t *testing.T) {
 		s := NewSystemMetricsStore()
 		s.recordUsage(0, 4096, 512, t0, &ResourceLimits{CPULimit: 2, MemoryLimit: 8192})

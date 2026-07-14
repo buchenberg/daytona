@@ -76,7 +76,7 @@ func InitMetrics(ctx context.Context, config Config, meterName string, store *Sy
 			"available_gb", float64(diskStats.Available)/1073741824.0)
 	}
 
-	registerSandboxMetrics(meterName, mp, limits, store)
+	registerSandboxMetrics(meterName, mp, store)
 
 	// Start runtime metrics collection
 	if err := otel_runtime.Start(otel_runtime.WithMinimumReadMemStatsInterval(time.Second)); err != nil {
@@ -111,18 +111,21 @@ func ShutdownMeter(logger *slog.Logger, mp *sdk_metric.MeterProvider) {
 func InitSandboxMetricsCache(meterName string, store *SystemMetricsStore) (*sdk_metric.MeterProvider, error) {
 	reader := sdk_metric.NewPeriodicReader(noopMetricExporter{})
 	mp := sdk_metric.NewMeterProvider(sdk_metric.WithReader(reader))
-	registerSandboxMetrics(meterName, mp, getContainerLimits(), store)
+	registerSandboxMetrics(meterName, mp, store)
 	return mp, nil
 }
 
 // registerSandboxMetrics registers the sandbox limit/usage/disk observable gauges on mp with
 // callbacks that fold each collection into store. Shared by InitMetrics (OTLP) and
 // InitSandboxMetricsCache (no-op) so both transports observe a single collection.
-func registerSandboxMetrics(meterName string, mp *sdk_metric.MeterProvider, limits *ResourceLimits, store *SystemMetricsStore) {
-	if err := registerLimitsMetrics(meterName, mp, limits); err != nil {
+// The callbacks re-read the cgroup limits on every collection: a running sandbox can be
+// resized (docker update rewrites the cgroup files), so limits must not be captured once
+// at registration time.
+func registerSandboxMetrics(meterName string, mp *sdk_metric.MeterProvider, store *SystemMetricsStore) {
+	if err := registerLimitsMetrics(meterName, mp); err != nil {
 		slog.Warn("Failed to register container limits metrics", "error", err)
 	}
-	if err := registerUsageMetrics(meterName, mp, limits, store); err != nil {
+	if err := registerUsageMetrics(meterName, mp, store); err != nil {
 		slog.Warn("Failed to register container usage metrics", "error", err)
 	}
 	if err := registerDiskUsageMetrics(meterName, mp, store); err != nil {
@@ -315,7 +318,7 @@ func cpuUsagePercent(cpuDeltaNanos uint64, wallDeltaNanos int64, cpuLimit float6
 }
 
 // registerLimitsMetrics registers gauges for resource limits
-func registerLimitsMetrics(name string, mp *sdk_metric.MeterProvider, limits *ResourceLimits) error {
+func registerLimitsMetrics(name string, mp *sdk_metric.MeterProvider) error {
 	meter := mp.Meter(fmt.Sprintf("%s-limits", name))
 
 	// CPU Limit gauge
@@ -341,6 +344,7 @@ func registerLimitsMetrics(name string, mp *sdk_metric.MeterProvider, limits *Re
 	// Register callback to observe the limits
 	_, err = meter.RegisterCallback(
 		func(ctx context.Context, observer metric.Observer) error {
+			limits := getContainerLimits()
 			if limits.CPULimit > 0 {
 				observer.ObserveFloat64(cpuLimitGauge, limits.CPULimit)
 			}
@@ -357,7 +361,7 @@ func registerLimitsMetrics(name string, mp *sdk_metric.MeterProvider, limits *Re
 }
 
 // registerUsageMetrics registers gauges for resource usage
-func registerUsageMetrics(name string, mp *sdk_metric.MeterProvider, limits *ResourceLimits, store *SystemMetricsStore) error {
+func registerUsageMetrics(name string, mp *sdk_metric.MeterProvider, store *SystemMetricsStore) error {
 	meter := mp.Meter(fmt.Sprintf("%s-usage", name))
 
 	// CPU Usage Percentage (relative to container limit)
@@ -402,6 +406,7 @@ func registerUsageMetrics(name string, mp *sdk_metric.MeterProvider, limits *Res
 
 	_, err = meter.RegisterCallback(
 		func(ctx context.Context, observer metric.Observer) error {
+			limits := getContainerLimits()
 			memUsage, _ := readCgroupMemUsageBytes(limits.cgroupV2)
 			memCache, _ := readCgroupMemCacheBytes(limits.cgroupV2)
 			cpuUsage, _ := readCgroupCPUUsageNanos(limits.cgroupV2)
