@@ -155,6 +155,7 @@ const META_LARGE_SANDBOX_ORGS = new Set([
 export const SPILLOVER_ON_ERROR_ORGS = new Set<string>([
   'fd4f4489-5a9b-4d7b-b62e-dbd26113115c', // Meta
   'c0a5d258-844b-44da-aac0-706f31c3027f', // deeptune
+  'c8789392-ea10-4be4-9b24-71c23a6c30da', // deeptune
 ])
 
 export function isSpilloverOnErrorOrg(organizationId: string): boolean {
@@ -163,6 +164,7 @@ export function isSpilloverOnErrorOrg(organizationId: string): boolean {
 
 const DEEPTUNE_AND_MILLION_ORGS = new Set([
   'c0a5d258-844b-44da-aac0-706f31c3027f', // deeptune
+  'c8789392-ea10-4be4-9b24-71c23a6c30da', // deeptune
   'c543c338-b39a-4abf-a07a-095c0b23a380', // million
 ])
 
