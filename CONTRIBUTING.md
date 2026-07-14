@@ -102,7 +102,7 @@ API and service method conventions:
 
 Here is what being a contributor means for you:
 
-- License all our contributions to the project under the AGPL 3.0 License or the Apache 2.0 License
-- Have the legal rights to license our contributions ourselves, or get permission to license them from our employers, clients, or others who may have them
+- Contributions to this repository are proprietary to Daytona Platforms, Inc. under the root [LICENSE](LICENSE) and are made under your agreement with Daytona Platforms, Inc. (for employees and contractors, your employment or services agreement, including its IP terms)
+- Have the legal right to make your contribution, and certify the DCO v1.1 on each commit
 
 For more information, see the [README](README.md) and feel free to reach out to us on [Slack](https://go.daytona.io/slack).

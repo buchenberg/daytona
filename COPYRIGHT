@@ -1,9 +1,12 @@
-Copyrights in the Daytona software are retained by their contributors.
-No copyright assignment is required to contribute to Daytona software.
+Copyright (c) 2025-2026 Daytona Platforms, Inc. All rights reserved.
 
-When we refer to the 'Daytona software authors', we mean anyone who
-has contributed to this repository.
+The Daytona software in this repository is the proprietary and confidential
+property of Daytona Platforms, Inc. and is governed by the root LICENSE file.
 
-Unless otherwise noted, such as with a LICENSE file in a directory, or a
-specific copyright notice on a file, all files in this repository are
-licensed under the AGPL 3.0 license.
+Certain components are Separately Licensed Components under their own
+open-source terms (for example, the API client libraries, common-go, and
+runner-proto under libs/, each licensed under Apache-2.0); see the LICENSE
+file or license headers in the respective directory.
+
+Third-party software incorporated into the Daytona software is licensed
+under its original upstream terms; see NOTICE for attributions.

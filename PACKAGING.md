@@ -11,7 +11,7 @@ The Daytona team appreciates any efforts to make our software more accessible to
 
 ## General Guidelines
 
-1. **License Compliance**: Ensure that the AGPL 3.0/Apache 2.0 license is included with the package and that all copyright notices are preserved.
+1. **License Compliance**: Distribution of Daytona packages is subject to Daytona's proprietary [LICENSE](LICENSE) and requires a separate written agreement with Daytona Platforms, Inc. Preserve the NOTICE third-party attributions and the license terms of any Separately Licensed Components (Apache-2.0) included in the package.
 
 2. **Version Accuracy**: Use the exact version number of Daytona that you are packaging. Do not modify the version number or add custom suffixes without explicit permission.
 

@@ -14,7 +14,7 @@
     "openapi-generator",
     "@daytona/runner-api-client"
   ],
-  "license": "Unlicense",
+  "license": "Apache-2.0",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "scripts": {

@@ -14,7 +14,7 @@
     "openapi-generator",
     "@daytona/backoffice-api-client"
   ],
-  "license": "Unlicense",
+  "license": "UNLICENSED",
   "main": "./dist/index.js",
   "typings": "./dist/index.d.ts",
   "module": "./dist/esm/index.js",
