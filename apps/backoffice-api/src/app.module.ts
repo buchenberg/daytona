@@ -9,7 +9,7 @@ import { join } from 'path'
 // Backoffice DB entities
 import { AuditLog } from './backoffice-db/entities/audit-log.entity'
 import { BackofficeUser } from './backoffice-db/entities/backoffice-user.entity'
-import { QuotaBumpRequest } from './backoffice-db/entities/quota-bump-request.entity'
+import { QuotaRequest } from './backoffice-db/entities/quota-request.entity'
 import { Conversation } from './chat/entities/conversation.entity'
 import { Message } from './chat/entities/message.entity'
 import { UserSettings } from './chat/entities/user-settings.entity'
@@ -84,7 +84,7 @@ import { HealthController } from './health.controller'
       entities: [
         AuditLog,
         BackofficeUser,
-        QuotaBumpRequest,
+        QuotaRequest,
         Conversation,
         Message,
         UserSettings,

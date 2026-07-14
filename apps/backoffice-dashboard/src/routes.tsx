@@ -78,7 +78,7 @@ export const APP_ROUTES: readonly AppRoute[] = [
 
 // Reached from the Header bell rather than the sidebar, so it lives outside
 // APP_ROUTES (which drives the sidebar and post-login landing precedence).
-// Quota-bump notifications are part of the region-quotas feature, so access
+// Quota-request notifications are part of the region-quotas feature, so access
 // follows the `regionQuotas` resource.
 export const NOTIFICATIONS_ROUTE: AppRoute = {
   path: '/notifications',

@@ -9,7 +9,7 @@ import { Separator } from '@dashboard/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@dashboard/ui/select'
 import BackofficeApiClient from '../../api/BackofficeApiClient'
 import type { CreateRegionQuotaDto } from '@daytonaio/backoffice-api-client'
-import { SANDBOX_CLASSES, SandboxClass } from '../../types/quota-bumps'
+import { SANDBOX_CLASSES, SandboxClass } from '../../types/quota-requests'
 
 interface CreateRegionQuotaModalProps {
   open: boolean
@@ -24,6 +24,7 @@ type FormState = {
   totalCpuQuota: string
   totalMemoryQuota: string
   totalDiskQuota: string
+  totalGpuQuota: string
   maxCpuPerSandbox: string
   maxMemoryPerSandbox: string
   maxDiskPerSandbox: string
@@ -37,6 +38,7 @@ const initialState: FormState = {
   totalCpuQuota: '',
   totalMemoryQuota: '',
   totalDiskQuota: '',
+  totalGpuQuota: '',
   maxCpuPerSandbox: '',
   maxMemoryPerSandbox: '',
   maxDiskPerSandbox: '',
@@ -83,6 +85,7 @@ export const CreateRegionQuotaModal = ({ open, onClose, onSuccess }: CreateRegio
       totalCpuQuota: totalCpu,
       totalMemoryQuota: totalMem,
       totalDiskQuota: totalDisk,
+      totalGpuQuota: numberOrUndefined(formData.totalGpuQuota),
       maxCpuPerSandbox: numberOrUndefined(formData.maxCpuPerSandbox) ?? null,
       maxMemoryPerSandbox: numberOrUndefined(formData.maxMemoryPerSandbox) ?? null,
       maxDiskPerSandbox: numberOrUndefined(formData.maxDiskPerSandbox) ?? null,
@@ -191,6 +194,17 @@ export const CreateRegionQuotaModal = ({ open, onClose, onSuccess }: CreateRegio
                   value={formData.totalDiskQuota}
                   onChange={(e) => setFormData((prev) => ({ ...prev, totalDiskQuota: e.target.value }))}
                   required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="totalGpuQuota">GPUs</Label>
+                <Input
+                  id="totalGpuQuota"
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  value={formData.totalGpuQuota}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, totalGpuQuota: e.target.value }))}
                 />
               </div>
             </div>

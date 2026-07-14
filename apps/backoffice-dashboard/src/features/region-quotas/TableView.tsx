@@ -24,7 +24,7 @@ interface TableViewProps {
   selectedRowKeys?: string[]
   onSelectionChange?: (selectedRowKeys: string[]) => void
   onEdit?: (regionQuota: RegionQuota) => void
-  onBump?: (regionQuota: RegionQuota) => void
+  onRequestUpdate?: (regionQuota: RegionQuota) => void
   sortField?: string
   sortOrder?: 'asc' | 'desc'
   onSortChange?: (field: string, order: 'asc' | 'desc') => void
@@ -44,7 +44,7 @@ export const TableView = ({
   selectedRowKeys = [],
   onSelectionChange,
   onEdit,
-  onBump,
+  onRequestUpdate,
   sortField,
   sortOrder,
   onSortChange,
@@ -52,7 +52,7 @@ export const TableView = ({
   onSearchChange,
 }: TableViewProps) => {
   const canWrite = useHasPermission('regionQuotas', 'write')
-  const canBump = useHasPermission('regionQuotas', 'bump')
+  const canRequest = useHasPermission('regionQuotas', 'request')
   const columns: Column<RegionQuota>[] = [
     {
       key: 'organization',
@@ -135,10 +135,10 @@ export const TableView = ({
     },
   ]
 
-  // Actions column: full editors get Edit, support staff get a temporary Bump.
+  // Actions column: full editors get Edit, support staff get a temporary Update.
   const showEdit = !!onEdit && canWrite
-  const showBump = !!onBump && canBump
-  if (showEdit || showBump) {
+  const showUpdate = !!onRequestUpdate && canRequest
+  if (showEdit || showUpdate) {
     columns.push({
       key: 'actions',
       title: 'Actions',
@@ -158,17 +158,17 @@ export const TableView = ({
               Edit
             </Button>
           )}
-          {showBump && (
+          {showUpdate && (
             <Button
               variant="ghost"
               size="sm"
               onClick={(e) => {
                 e.stopPropagation()
-                onBump?.(regionQuota)
+                onRequestUpdate?.(regionQuota)
               }}
             >
               <TrendingUp className="mr-1 h-3 w-3" />
-              Bump
+              Update
             </Button>
           )}
         </div>

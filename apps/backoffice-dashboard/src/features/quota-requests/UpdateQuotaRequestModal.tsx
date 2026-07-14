@@ -10,10 +10,10 @@ import { Textarea } from '@dashboard/ui/textarea'
 import { Separator } from '@dashboard/ui/separator'
 import BackofficeApiClient from '../../api/BackofficeApiClient'
 import { RegionQuota } from '../../types'
-import { SandboxClass } from '../../types/quota-bumps'
-import { useQuotaBumpBudget } from './useQuotaBumps'
+import { SandboxClass } from '../../types/quota-requests'
+import { useQuotaUpdateBudget } from './useQuotaRequests'
 
-interface BumpRegionQuotaModalProps {
+interface UpdateQuotaRequestModalProps {
   regionQuota: RegionQuota | null
   open: boolean
   onClose: () => void
@@ -22,22 +22,23 @@ interface BumpRegionQuotaModalProps {
 
 const numberOrZero = (v: string): number => (v === '' ? 0 : Math.max(0, Math.floor(Number(v))))
 
-type BumpField = 'cpu' | 'memory' | 'disk'
+type UpdateField = 'cpu' | 'memory' | 'disk' | 'gpu'
 
-const BUMP_FIELDS: { field: BumpField; label: string; current: (rq: RegionQuota) => number }[] = [
+const UPDATE_FIELDS: { field: UpdateField; label: string; current: (rq: RegionQuota) => number }[] = [
   { field: 'cpu', label: '+ CPU (cores)', current: (rq) => rq.totalCpuQuota },
   { field: 'memory', label: '+ Memory (GB)', current: (rq) => rq.totalMemoryQuota },
   { field: 'disk', label: '+ Disk (GB)', current: (rq) => rq.totalDiskQuota },
+  { field: 'gpu', label: '+ GPUs', current: (rq) => rq.totalGpuQuota },
 ]
 
-const EMPTY_DELTAS: Record<BumpField, string> = { cpu: '', memory: '', disk: '' }
+const EMPTY_DELTAS: Record<UpdateField, string> = { cpu: '', memory: '', disk: '', gpu: '' }
 
-export const BumpRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: BumpRegionQuotaModalProps) => {
+export const UpdateQuotaRequestModal = ({ regionQuota, open, onClose, onSuccess }: UpdateQuotaRequestModalProps) => {
   const [loading, setLoading] = useState(false)
   const [deltaInputs, setDeltaInputs] = useState(EMPTY_DELTAS)
   const [reason, setReason] = useState('')
   const queryClient = useQueryClient()
-  const { data: budget } = useQuotaBumpBudget(open)
+  const { data: budget } = useQuotaUpdateBudget(open)
 
   const sandboxClass: SandboxClass = (regionQuota?.sandboxClass ?? 'container') as SandboxClass
 
@@ -50,11 +51,8 @@ export const BumpRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
 
   const limits = budget?.limits
 
-  // Mirror the server's per-bump limit: max( percent% of current, flat allowance ).
-  const maxDelta = (field: BumpField, current: number): number | null => {
-    if (!limits) return null
-    return Math.max(Math.floor((current * limits.maxPercent) / 100), limits.flatIncrease[field])
-  }
+  // Mirror the server's per-update limit: percent% of the current value.
+  const maxDelta = (current: number): number | null => (limits ? Math.floor((current * limits.maxPercent) / 100) : null)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -64,27 +62,28 @@ export const BumpRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
       cpuDelta: numberOrZero(deltaInputs.cpu),
       memoryDelta: numberOrZero(deltaInputs.memory),
       diskDelta: numberOrZero(deltaInputs.disk),
+      gpuDelta: numberOrZero(deltaInputs.gpu),
     }
-    if (deltas.cpuDelta <= 0 && deltas.memoryDelta <= 0 && deltas.diskDelta <= 0) {
+    if (Object.values(deltas).every((delta) => delta <= 0)) {
       toast.info('Enter at least one increase')
       return
     }
 
     try {
       setLoading(true)
-      await BackofficeApiClient.createQuotaBump({
+      await BackofficeApiClient.requestQuotaUpdate({
         organizationId: regionQuota.organizationId,
         regionId: regionQuota.regionId,
         sandboxClass,
         ...deltas,
         reason: reason || undefined,
       })
-      toast.success('Temporary bump applied — pending approval, auto-reverts in 24h')
-      await queryClient.invalidateQueries({ queryKey: ['quota-bumps'] })
+      toast.success('Update applied — pending approval, auto-reverts in 24h')
+      await queryClient.invalidateQueries({ queryKey: ['quota-requests'] })
       onSuccess()
       onClose()
     } catch (error) {
-      handleUpdateError(error, 'Failed to create quota bump')
+      handleUpdateError(error, 'Failed to request quota update')
     } finally {
       setLoading(false)
     }
@@ -96,7 +95,7 @@ export const BumpRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>Temporary Quota Bump</DialogTitle>
+          <DialogTitle>Request Quota Update</DialogTitle>
           <DialogDescription>
             {regionQuota?.organizationName || regionQuota?.organizationId} · {regionQuota?.regionId} · {sandboxClass}
             <br />
@@ -105,8 +104,8 @@ export const BumpRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid gap-4 sm:grid-cols-3">
-            {BUMP_FIELDS.map(({ field, label, current }) => (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {UPDATE_FIELDS.map(({ field, label, current }) => (
               <div key={field} className="space-y-2">
                 <Label htmlFor={`${field}Delta`}>{label}</Label>
                 <Input
@@ -120,8 +119,7 @@ export const BumpRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
                 {regionQuota && (
                   <p className="text-xs text-muted-foreground">
                     now {current(regionQuota)}
-                    {maxDelta(field, current(regionQuota)) !== null &&
-                      `, max +${maxDelta(field, current(regionQuota))}`}
+                    {maxDelta(current(regionQuota)) !== null && `, max +${maxDelta(current(regionQuota))}`}
                   </p>
                 )}
               </div>
@@ -141,12 +139,12 @@ export const BumpRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
           <Separator />
 
           <p className="text-xs text-muted-foreground">
-            {limits &&
-              `Per-bump limit: the greater of +${limits.maxPercent}% of the current value or +${limits.flatIncrease.cpu}/${limits.flatIncrease.memory}/${limits.flatIncrease.disk} (cpu/mem/disk), bounded by your daily budget.`}
+            {limits && `Per-update limit: +${limits.maxPercent}% of the current value, bounded by your daily budget.`}
             {remaining && (
               <>
                 {' '}
-                Your remaining daily budget — cpu {remaining.cpu}, mem {remaining.memory}, disk {remaining.disk}.
+                Your remaining daily budget — cpu {remaining.cpu}, mem {remaining.memory}, disk {remaining.disk}, gpu{' '}
+                {remaining.gpu}.
               </>
             )}
           </p>
@@ -156,7 +154,7 @@ export const BumpRegionQuotaModal = ({ regionQuota, open, onClose, onSuccess }: 
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Applying...' : 'Apply Bump'}
+              {loading ? 'Applying...' : 'Apply Update'}
             </Button>
           </DialogFooter>
         </form>

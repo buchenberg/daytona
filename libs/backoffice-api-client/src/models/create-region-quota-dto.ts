@@ -40,6 +40,10 @@ export interface CreateRegionQuotaDto {
      */
     'totalDiskQuota': number;
     /**
+     * Total GPU quota for the region. Defaults to 0.
+     */
+    'totalGpuQuota'?: number;
+    /**
      * Max CPU per sandbox in this region. null = use organization default.
      */
     'maxCpuPerSandbox'?: number | null;

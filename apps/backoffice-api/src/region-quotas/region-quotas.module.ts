@@ -3,19 +3,19 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 import { RegionQuota } from '@api/organization/entities/region-quota.entity'
 import { Organization } from '@api/organization/entities/organization.entity'
 import { Region } from '@api/region/entities/region.entity'
-import { QuotaBumpRequest } from '../backoffice-db/entities/quota-bump-request.entity'
+import { QuotaRequest } from '../backoffice-db/entities/quota-request.entity'
 import {
   RegionQuotasController,
   RegionQuotasBulkController,
   RegionQuotasSearchController,
-  QuotaBumpsController,
+  QuotaRequestsController,
 } from './controllers'
 import {
   RegionQuotasService,
   RegionQuotasBulkService,
   RegionQuotasSearchService,
-  QuotaBumpService,
-  QuotaBumpExpiryService,
+  QuotaRequestService,
+  QuotaRequestExpiryService,
 } from './services'
 import { AuthModule } from '../auth/auth.module'
 import { AuditModule } from '../audit/audit.module'
@@ -23,18 +23,23 @@ import { AuditModule } from '../audit/audit.module'
 @Module({
   imports: [
     TypeOrmModule.forFeature([RegionQuota, Organization, Region]),
-    TypeOrmModule.forFeature([QuotaBumpRequest], 'backoffice'),
+    TypeOrmModule.forFeature([QuotaRequest], 'backoffice'),
     AuthModule,
     AuditModule,
   ],
-  controllers: [RegionQuotasController, RegionQuotasBulkController, RegionQuotasSearchController, QuotaBumpsController],
+  controllers: [
+    RegionQuotasController,
+    RegionQuotasBulkController,
+    RegionQuotasSearchController,
+    QuotaRequestsController,
+  ],
   providers: [
     RegionQuotasService,
     RegionQuotasBulkService,
     RegionQuotasSearchService,
-    QuotaBumpService,
-    QuotaBumpExpiryService,
+    QuotaRequestService,
+    QuotaRequestExpiryService,
   ],
-  exports: [RegionQuotasService, RegionQuotasBulkService, RegionQuotasSearchService, QuotaBumpService],
+  exports: [RegionQuotasService, RegionQuotasBulkService, RegionQuotasSearchService, QuotaRequestService],
 })
 export class RegionQuotasModule {}

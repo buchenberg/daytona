@@ -36,6 +36,12 @@ export class CreateRegionQuotaDto {
   @Min(0)
   totalDiskQuota: number
 
+  @ApiPropertyOptional({ description: 'Total GPU quota for the region. Defaults to 0.' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  totalGpuQuota?: number
+
   @ApiPropertyOptional({
     description: 'Max CPU per sandbox in this region. null = use organization default.',
     nullable: true,

@@ -20,7 +20,7 @@ export type SnapshotAction = 'read' | 'write' | 'write-bulk' | 'delete'
 export type RunnerAction = 'read' | 'write' | 'write-bulk' | 'delete'
 export type OrganizationAction = 'read' | 'write' | 'write-bulk' | 'delete'
 export type OrganizationUserAction = 'read' | 'write' | 'write-bulk' | 'delete'
-export type RegionQuotaAction = 'read' | 'write' | 'write-bulk' | 'delete' | 'bump'
+export type RegionQuotaAction = 'read' | 'write' | 'write-bulk' | 'delete' | 'request'
 export type UserAction = 'read' | 'delete'
 export type AuditLogAction = 'read'
 // For Mali the grantable "actions" are datasources rather than CRUD verbs:
@@ -73,7 +73,7 @@ export const ACTIONS_BY_RESOURCE: { [R in PermissionResource]: readonly ActionFo
   runners: ['read', 'write', 'write-bulk', 'delete'],
   organizations: ['read', 'write', 'write-bulk', 'delete'],
   organizationUsers: ['read', 'write', 'write-bulk', 'delete'],
-  regionQuotas: ['read', 'write', 'write-bulk', 'delete', 'bump'],
+  regionQuotas: ['read', 'write', 'write-bulk', 'delete', 'request'],
   users: ['read', 'delete'],
   auditLogs: ['read'],
   maliDatasources: ['database', 'clickhouse', 'grafana', 'opensearch', 'posthog', 'sandbox'],

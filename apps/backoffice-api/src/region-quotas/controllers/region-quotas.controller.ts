@@ -1,4 +1,4 @@
-import { Controller, Param, Body, Patch, Post, UseGuards, Req } from '@nestjs/common'
+import { Controller, Get, Param, Body, Patch, Post, UseGuards, Req } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity, ApiParam, ApiBody } from '@nestjs/swagger'
 import { FlexibleAuthGuard, AuthenticatedRequest } from '../../common/guards/flexible-auth.guard'
 import { PermissionsGuard } from '../../common/guards/permissions.guard'
@@ -31,6 +31,14 @@ export class RegionQuotasController {
   })
   async create(@Body() dto: CreateRegionQuotaDto) {
     return this.regionQuotasService.create(dto)
+  }
+
+  @Get('regions')
+  @RequirePermission(['regionQuotas', '*'])
+  @ApiOperation({ summary: 'List regions a quota can target' })
+  @ApiResponse({ status: 200, description: 'Regions' })
+  async listRegions() {
+    return this.regionQuotasService.listRegions()
   }
 
   @Patch(':organizationId/:region')

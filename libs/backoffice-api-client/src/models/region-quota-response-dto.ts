@@ -21,6 +21,7 @@ export interface RegionQuotaResponseDto {
     'totalCpuQuota': number;
     'totalMemoryQuota': number;
     'totalDiskQuota': number;
+    'totalGpuQuota': number;
     'maxCpuPerSandbox'?: number | null;
     'maxMemoryPerSandbox'?: number | null;
     'maxDiskPerSandbox'?: number | null;

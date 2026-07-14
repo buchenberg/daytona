@@ -14,7 +14,7 @@
 
 
 
-export interface CreateQuotaBumpDto {
+export interface UpdateQuotaRequestDto {
     /**
      * Organization ID (UUID)
      */
@@ -24,9 +24,9 @@ export interface CreateQuotaBumpDto {
      */
     'regionId': string;
     /**
-     * Sandbox class of the quota to bump. Defaults to \"container\".
+     * Sandbox class of the quota to update. Defaults to \"container\".
      */
-    'sandboxClass'?: CreateQuotaBumpDtoSandboxClassEnum;
+    'sandboxClass'?: UpdateQuotaRequestDtoSandboxClassEnum;
     /**
      * CPU cores to add to totalCpuQuota
      */
@@ -40,18 +40,22 @@ export interface CreateQuotaBumpDto {
      */
     'diskDelta'?: number;
     /**
-     * Why this bump is needed (shown to approvers)
+     * GPUs to add to totalGpuQuota
+     */
+    'gpuDelta'?: number;
+    /**
+     * Why this update is needed (shown to approvers)
      */
     'reason'?: string;
 }
 
-export const CreateQuotaBumpDtoSandboxClassEnum = {
+export const UpdateQuotaRequestDtoSandboxClassEnum = {
     LINUX_VM: 'linux-vm',
     CONTAINER: 'container',
     ANDROID: 'android',
     WINDOWS: 'windows',
 } as const;
 
-export type CreateQuotaBumpDtoSandboxClassEnum = typeof CreateQuotaBumpDtoSandboxClassEnum[keyof typeof CreateQuotaBumpDtoSandboxClassEnum];
+export type UpdateQuotaRequestDtoSandboxClassEnum = typeof UpdateQuotaRequestDtoSandboxClassEnum[keyof typeof UpdateQuotaRequestDtoSandboxClassEnum];
 
 

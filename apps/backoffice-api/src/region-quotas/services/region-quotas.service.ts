@@ -21,6 +21,11 @@ export class RegionQuotasService {
     private readonly regionRepository: Repository<Region>,
   ) {}
 
+  /** Regions a quota can target, for pickers in the dashboard. */
+  async listRegions(): Promise<Pick<Region, 'id' | 'name'>[]> {
+    return this.regionRepository.find({ select: { id: true, name: true }, order: { name: 'ASC' } })
+  }
+
   /**
    * Create a new region quota for an organization/region pair.
    */
@@ -73,6 +78,7 @@ export class RegionQuotasService {
       totalCpuQuota: dto.totalCpuQuota,
       totalMemoryQuota: dto.totalMemoryQuota,
       totalDiskQuota: dto.totalDiskQuota,
+      totalGpuQuota: dto.totalGpuQuota ?? 0,
       maxCpuPerSandbox: dto.maxCpuPerSandbox ?? null,
       maxMemoryPerSandbox: dto.maxMemoryPerSandbox ?? null,
       maxDiskPerSandbox: dto.maxDiskPerSandbox ?? null,

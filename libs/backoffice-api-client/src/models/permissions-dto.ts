@@ -76,7 +76,7 @@ export const PermissionsDtoRegionQuotasEnum = {
     WRITE: 'write',
     WRITE_BULK: 'write-bulk',
     DELETE: 'delete',
-    BUMP: 'bump',
+    REQUEST: 'request',
 } as const;
 
 export type PermissionsDtoRegionQuotasEnum = typeof PermissionsDtoRegionQuotasEnum[keyof typeof PermissionsDtoRegionQuotasEnum];

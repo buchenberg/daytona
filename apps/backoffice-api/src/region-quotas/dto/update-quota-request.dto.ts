@@ -7,7 +7,7 @@ import { SandboxClass } from '@api/sandbox/enums/sandbox-class.enum'
  * Deltas are the amount to ADD to the current totals (cpu cores / GiB / GiB).
  * At least one delta must be greater than zero.
  */
-export class CreateQuotaBumpDto {
+export class UpdateQuotaRequestDto {
   @ApiProperty({ description: 'Organization ID (UUID)' })
   @IsString()
   @IsNotEmpty()
@@ -19,7 +19,7 @@ export class CreateQuotaBumpDto {
   regionId: string
 
   @ApiPropertyOptional({
-    description: 'Sandbox class of the quota to bump. Defaults to "container".',
+    description: 'Sandbox class of the quota to update. Defaults to "container".',
     enum: SandboxClass,
   })
   @IsOptional()
@@ -44,7 +44,13 @@ export class CreateQuotaBumpDto {
   @Min(0)
   diskDelta?: number
 
-  @ApiPropertyOptional({ description: 'Why this bump is needed (shown to approvers)' })
+  @ApiPropertyOptional({ description: 'GPUs to add to totalGpuQuota', default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  gpuDelta?: number
+
+  @ApiPropertyOptional({ description: 'Why this update is needed (shown to approvers)' })
   @IsOptional()
   @IsString()
   @MaxLength(1000)
@@ -52,10 +58,11 @@ export class CreateQuotaBumpDto {
 }
 
 /**
- * Optional note an approver can attach when rejecting a pending bump.
+ * Optional note an approver can attach when rejecting a pending request
+ * of either kind.
  */
-export class RejectQuotaBumpDto {
-  @ApiPropertyOptional({ description: 'Reason for rejecting the bump' })
+export class RejectQuotaRequestDto {
+  @ApiPropertyOptional({ description: 'Reason for rejecting the request' })
   @IsOptional()
   @IsString()
   @MaxLength(1000)

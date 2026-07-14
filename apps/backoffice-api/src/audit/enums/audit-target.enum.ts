@@ -6,5 +6,5 @@ export enum AuditTarget {
   RUNNER = 'runner',
   REGION_QUOTA = 'region_quota',
   ORGANIZATION_USER = 'organization_user',
-  QUOTA_BUMP_REQUEST = 'quota_bump_request',
+  QUOTA_REQUEST = 'quota_request',
 }

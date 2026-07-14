@@ -46,7 +46,7 @@ models/bulk-update-snapshot-dto.ts
 models/chat-request-dto.ts
 models/clickhouse-override-dto.ts
 models/continue-chat-request-dto.ts
-models/create-quota-bump-dto.ts
+models/create-quota-request-dto.ts
 models/create-region-quota-dto.ts
 models/create-runner-dto.ts
 models/database-override-dto.ts
@@ -84,7 +84,7 @@ models/region-quota-filters-dto.ts
 models/region-quota-response-dto.ts
 models/region-quota-search-data-dto.ts
 models/region-quota-search-response-dto.ts
-models/reject-quota-bump-dto.ts
+models/reject-quota-request-dto.ts
 models/runner-filters-dto.ts
 models/runner-response-dto.ts
 models/runner-search-data-dto.ts
@@ -119,6 +119,7 @@ models/stop-chat-request-dto.ts
 models/update-conversation-dto.ts
 models/update-organization-dto.ts
 models/update-organization-user-dto.ts
+models/update-quota-request-dto.ts
 models/update-region-quota-dto.ts
 models/update-runner-dto.ts
 models/update-sandbox-dto.ts

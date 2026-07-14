@@ -2,14 +2,14 @@ import { Sun, Moon, LogOut, Bell } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { Button } from '@dashboard/ui/button'
 import { useTheme } from '@backoffice/contexts/ThemeContext'
-import { usePendingQuotaBumps } from '../../features/quota-bumps/useQuotaBumps'
+import { usePendingQuotaRequests } from '../../features/quota-requests/useQuotaRequests'
 
 export function Header() {
   const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
 
-  const { data: pendingBumps } = usePendingQuotaBumps()
-  const pendingCount = pendingBumps?.total ?? 0
+  const { data: pendingRequests } = usePendingQuotaRequests()
+  const pendingCount = pendingRequests?.total ?? 0
 
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light')

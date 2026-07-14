@@ -14,9 +14,9 @@
 
 
 
-export interface RejectQuotaBumpDto {
+export interface RejectQuotaRequestDto {
     /**
-     * Reason for rejecting the bump
+     * Reason for rejecting the request
      */
     'reason'?: string;
 }

@@ -54,9 +54,16 @@ import type {
   BulkInsertResponseDto,
   SandboxSyncStatusResponseDto,
   SandboxResyncResponseDto,
-  CreateQuotaBumpDto,
 } from '@daytonaio/backoffice-api-client'
-import type { QuotaBumpRequestDto, QuotaBumpBudgetDto, PendingQuotaBumpsResponse } from '../types/quota-bumps'
+import type {
+  QuotaRequestDto,
+  QuotaUpdateBudgetDto,
+  PendingQuotaRequestsResponse,
+  UpdateQuotaRequestDto,
+  CreateQuotaRequestDto,
+  QuotaAmounts,
+  RegionDto,
+} from '../types/quota-requests'
 import axios from 'axios'
 
 declare global {
@@ -287,43 +294,58 @@ export class BackofficeApiClient {
   }
 
   // ---------------------------------------------------------------------------
-  // Temporary region-quota bumps. Raw axios — the generated client types these
-  // responses as void, so we keep typed wrappers here.
+  // Region-quota requests (updates & creates). Raw axios — the generated client
+  // types these responses as void, so we keep typed wrappers here.
   // ---------------------------------------------------------------------------
-  async createQuotaBump(data: CreateQuotaBumpDto): Promise<QuotaBumpRequestDto> {
-    const response = await axios.post(`${API_URL}/region-quotas/bumps`, data, { withCredentials: true })
+  async requestQuotaUpdate(data: UpdateQuotaRequestDto): Promise<QuotaRequestDto> {
+    const response = await axios.post(`${API_URL}/region-quotas/requests/update`, data, { withCredentials: true })
     return response.data
   }
 
-  async listPendingQuotaBumps(page = 1, pageSize = 100): Promise<PendingQuotaBumpsResponse> {
-    const response = await axios.get(`${API_URL}/region-quotas/bumps`, {
+  async requestQuotaCreate(data: CreateQuotaRequestDto): Promise<QuotaRequestDto> {
+    const response = await axios.post(`${API_URL}/region-quotas/requests/create`, data, { withCredentials: true })
+    return response.data
+  }
+
+  async listQuotaRegions(): Promise<RegionDto[]> {
+    const response = await axios.get(`${API_URL}/region-quotas/regions`, { withCredentials: true })
+    return response.data
+  }
+
+  async listPendingQuotaRequests(page = 1, pageSize = 100): Promise<PendingQuotaRequestsResponse> {
+    const response = await axios.get(`${API_URL}/region-quotas/requests`, {
       params: { page, pageSize },
       withCredentials: true,
     })
     return response.data
   }
 
-  async getQuotaBumpBudget(): Promise<QuotaBumpBudgetDto> {
-    const response = await axios.get(`${API_URL}/region-quotas/bumps/budget`, { withCredentials: true })
+  async getQuotaUpdateBudget(): Promise<QuotaUpdateBudgetDto> {
+    const response = await axios.get(`${API_URL}/region-quotas/requests/budget`, { withCredentials: true })
     return response.data
   }
 
-  async approveQuotaBump(id: string): Promise<QuotaBumpRequestDto> {
-    const response = await axios.post(`${API_URL}/region-quotas/bumps/${id}/approve`, {}, { withCredentials: true })
+  async getQuotaCreateDefaults(): Promise<QuotaAmounts> {
+    const response = await axios.get(`${API_URL}/region-quotas/requests/create-defaults`, { withCredentials: true })
     return response.data
   }
 
-  async rejectQuotaBump(id: string, reason?: string): Promise<QuotaBumpRequestDto> {
+  async approveQuotaRequest(id: string): Promise<QuotaRequestDto> {
+    const response = await axios.post(`${API_URL}/region-quotas/requests/${id}/approve`, {}, { withCredentials: true })
+    return response.data
+  }
+
+  async rejectQuotaRequest(id: string, reason?: string): Promise<QuotaRequestDto> {
     const response = await axios.post(
-      `${API_URL}/region-quotas/bumps/${id}/reject`,
+      `${API_URL}/region-quotas/requests/${id}/reject`,
       { reason },
       { withCredentials: true },
     )
     return response.data
   }
 
-  async cancelQuotaBump(id: string): Promise<QuotaBumpRequestDto> {
-    const response = await axios.post(`${API_URL}/region-quotas/bumps/${id}/cancel`, {}, { withCredentials: true })
+  async cancelQuotaRequest(id: string): Promise<QuotaRequestDto> {
+    const response = await axios.post(`${API_URL}/region-quotas/requests/${id}/cancel`, {}, { withCredentials: true })
     return response.data
   }
 }

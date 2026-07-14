@@ -45,23 +45,29 @@ export const config = {
     },
   },
 
-  // Temporary region-quota bumps (support self-service with maker-checker approval)
+  // Support-requested region-quota updates and creates (maker-checker approval)
   regionQuotas: {
-    // How long a bump stays active before it auto-reverts unless approved.
-    bumpTtlHours: intEnv(process.env.QUOTA_BUMP_TTL_HOURS, 24),
-    // A single bump may add the GREATER of this % of the current value or the flat
-    // per-field allowance below, so small/zero quotas can still get a useful bump.
-    bumpMaxIncreasePercent: intEnv(process.env.QUOTA_BUMP_MAX_INCREASE_PERCENT, 40),
-    // Flat per-bump allowance: a bump may always add at least this much to a field
-    // even when the % cap rounds lower (e.g. a field at 0). The per-editor daily
-    // budget below is the real upper bound on how much gets handed out.
-    bumpFlatIncreaseCpu: intEnv(process.env.QUOTA_BUMP_FLAT_INCREASE_CPU, 500),
-    bumpFlatIncreaseMemory: intEnv(process.env.QUOTA_BUMP_FLAT_INCREASE_MEMORY, 500),
-    bumpFlatIncreaseDisk: intEnv(process.env.QUOTA_BUMP_FLAT_INCREASE_DISK, 500),
-    // Per-editor rolling-24h budget: how much each support user may hand out.
-    bumpDailyBudgetCpu: intEnv(process.env.QUOTA_BUMP_DAILY_BUDGET_CPU, 5000),
-    bumpDailyBudgetMemory: intEnv(process.env.QUOTA_BUMP_DAILY_BUDGET_MEMORY, 5000),
-    bumpDailyBudgetDisk: intEnv(process.env.QUOTA_BUMP_DAILY_BUDGET_DISK, 5000),
+    // How long a request stays active before it auto-reverts unless approved.
+    requestTtlHours: intEnv(process.env.QUOTA_REQUEST_TTL_HOURS, 24),
+    // A single update may add at most this % of the field's current value —
+    // purely relative, no flat allowance. The daily budgets below are the
+    // overall upper bound on how much gets handed out.
+    updateMaxIncreasePercent: intEnv(process.env.QUOTA_UPDATE_MAX_INCREASE_PERCENT, 40),
+    // Per-editor rolling-24h update budget (cores / GiB / GiB / GPUs).
+    updateDailyBudgetCpu: intEnv(process.env.QUOTA_UPDATE_DAILY_BUDGET_CPU, 5000),
+    updateDailyBudgetMemory: intEnv(process.env.QUOTA_UPDATE_DAILY_BUDGET_MEMORY, 5000),
+    updateDailyBudgetDisk: intEnv(process.env.QUOTA_UPDATE_DAILY_BUDGET_DISK, 5000),
+    updateDailyBudgetGpu: intEnv(process.env.QUOTA_UPDATE_DAILY_BUDGET_GPU, 50),
+    // Limits a support-requested region quota is created with (cores / GiB / GiB / GPUs).
+    createLimitCpu: intEnv(process.env.QUOTA_CREATE_LIMIT_CPU, 500),
+    createLimitMemory: intEnv(process.env.QUOTA_CREATE_LIMIT_MEMORY, 1000),
+    createLimitDisk: intEnv(process.env.QUOTA_CREATE_LIMIT_DISK, 5000),
+    createLimitGpu: intEnv(process.env.QUOTA_CREATE_LIMIT_GPU, 10),
+    // Per-editor rolling-24h create budget; defaults allow about five creates per day.
+    createDailyBudgetCpu: intEnv(process.env.QUOTA_CREATE_DAILY_BUDGET_CPU, 2500),
+    createDailyBudgetMemory: intEnv(process.env.QUOTA_CREATE_DAILY_BUDGET_MEMORY, 5000),
+    createDailyBudgetDisk: intEnv(process.env.QUOTA_CREATE_DAILY_BUDGET_DISK, 25000),
+    createDailyBudgetGpu: intEnv(process.env.QUOTA_CREATE_DAILY_BUDGET_GPU, 50),
   },
 
   auth: {

@@ -26,7 +26,7 @@ import type { BulkUpdateRegionQuotaDto } from '../models';
 // @ts-ignore
 import type { BulkUpdateResponseDto } from '../models';
 // @ts-ignore
-import type { CreateQuotaBumpDto } from '../models';
+import type { CreateQuotaRequestDto } from '../models';
 // @ts-ignore
 import type { CreateRegionQuotaDto } from '../models';
 // @ts-ignore
@@ -34,9 +34,11 @@ import type { PatchRegionQuotaDto } from '../models';
 // @ts-ignore
 import type { RegionQuotaSearchResponseDto } from '../models';
 // @ts-ignore
-import type { RejectQuotaBumpDto } from '../models';
+import type { RejectQuotaRequestDto } from '../models';
 // @ts-ignore
 import type { SearchRegionQuotaDto } from '../models';
+// @ts-ignore
+import type { UpdateQuotaRequestDto } from '../models';
 /**
  * RegionQuotasApi - axios parameter creator
  */
@@ -44,15 +46,15 @@ export const RegionQuotasApiAxiosParamCreator = function (configuration?: Config
     return {
         /**
          * 
-         * @summary Approve a pending bump (make it permanent)
+         * @summary Approve a pending request (make it permanent)
          * @param {string} id 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        quotaBumpsControllerApprove: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        quotaRequestsControllerApprove: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'id' is not null or undefined
-            assertParamExists('quotaBumpsControllerApprove', 'id', id)
-            const localVarPath = `/region-quotas/bumps/{id}/approve`
+            assertParamExists('quotaRequestsControllerApprove', 'id', id)
+            const localVarPath = `/region-quotas/requests/{id}/approve`
                 .replace(`{${"id"}}`, encodeURIComponent(String(id)));
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -81,12 +83,12 @@ export const RegionQuotasApiAxiosParamCreator = function (configuration?: Config
         },
         /**
          * 
-         * @summary Get the current editor\'s remaining daily bump budget
+         * @summary Get the current editor\'s remaining daily update budget
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        quotaBumpsControllerBudget: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            const localVarPath = `/region-quotas/bumps/budget`;
+        quotaRequestsControllerBudget: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/region-quotas/requests/budget`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -114,15 +116,15 @@ export const RegionQuotasApiAxiosParamCreator = function (configuration?: Config
         },
         /**
          * 
-         * @summary Cancel your own pending bump and revert the quota
+         * @summary Cancel your own pending request and revert the quota
          * @param {string} id 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        quotaBumpsControllerCancel: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        quotaRequestsControllerCancel: async (id: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'id' is not null or undefined
-            assertParamExists('quotaBumpsControllerCancel', 'id', id)
-            const localVarPath = `/region-quotas/bumps/{id}/cancel`
+            assertParamExists('quotaRequestsControllerCancel', 'id', id)
+            const localVarPath = `/region-quotas/requests/{id}/cancel`
                 .replace(`{${"id"}}`, encodeURIComponent(String(id)));
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -151,15 +153,12 @@ export const RegionQuotasApiAxiosParamCreator = function (configuration?: Config
         },
         /**
          * 
-         * @summary Create a temporary region quota bump
-         * @param {CreateQuotaBumpDto} createQuotaBumpDto 
+         * @summary Get the default limits a create request grants
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        quotaBumpsControllerCreate: async (createQuotaBumpDto: CreateQuotaBumpDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'createQuotaBumpDto' is not null or undefined
-            assertParamExists('quotaBumpsControllerCreate', 'createQuotaBumpDto', createQuotaBumpDto)
-            const localVarPath = `/region-quotas/bumps`;
+        quotaRequestsControllerCreateDefaults: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/region-quotas/requests/create-defaults`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -167,7 +166,7 @@ export const RegionQuotasApiAxiosParamCreator = function (configuration?: Config
                 baseOptions = configuration.baseOptions;
             }
 
-            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
             const localVarHeaderParameter = {} as any;
             const localVarQueryParameter = {} as any;
 
@@ -175,12 +174,10 @@ export const RegionQuotasApiAxiosParamCreator = function (configuration?: Config
             // http bearer authentication required
             await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-            localVarHeaderParameter['Content-Type'] = 'application/json';
 
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(createQuotaBumpDto, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -189,14 +186,14 @@ export const RegionQuotasApiAxiosParamCreator = function (configuration?: Config
         },
         /**
          * 
-         * @summary List pending quota bumps awaiting approval
-         * @param {number} [page] Page number
-         * @param {number} [pageSize] Number of items per page
+         * @summary List pending quota requests awaiting approval
+         * @param {number} [page] Page number (1-indexed)
+         * @param {number} [pageSize] Items per page
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        quotaBumpsControllerListPending: async (page?: number, pageSize?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            const localVarPath = `/region-quotas/bumps`;
+        quotaRequestsControllerListPending: async (page?: number, pageSize?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/region-quotas/requests`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -232,18 +229,18 @@ export const RegionQuotasApiAxiosParamCreator = function (configuration?: Config
         },
         /**
          * 
-         * @summary Reject a pending bump and revert the quota
+         * @summary Reject a pending request and revert the quota
          * @param {string} id 
-         * @param {RejectQuotaBumpDto} rejectQuotaBumpDto 
+         * @param {RejectQuotaRequestDto} rejectQuotaRequestDto 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        quotaBumpsControllerReject: async (id: string, rejectQuotaBumpDto: RejectQuotaBumpDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        quotaRequestsControllerReject: async (id: string, rejectQuotaRequestDto: RejectQuotaRequestDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'id' is not null or undefined
-            assertParamExists('quotaBumpsControllerReject', 'id', id)
-            // verify required parameter 'rejectQuotaBumpDto' is not null or undefined
-            assertParamExists('quotaBumpsControllerReject', 'rejectQuotaBumpDto', rejectQuotaBumpDto)
-            const localVarPath = `/region-quotas/bumps/{id}/reject`
+            assertParamExists('quotaRequestsControllerReject', 'id', id)
+            // verify required parameter 'rejectQuotaRequestDto' is not null or undefined
+            assertParamExists('quotaRequestsControllerReject', 'rejectQuotaRequestDto', rejectQuotaRequestDto)
+            const localVarPath = `/region-quotas/requests/{id}/reject`
                 .replace(`{${"id"}}`, encodeURIComponent(String(id)));
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -265,7 +262,83 @@ export const RegionQuotasApiAxiosParamCreator = function (configuration?: Config
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(rejectQuotaBumpDto, localVarRequestOptions, configuration)
+            localVarRequestOptions.data = serializeDataIfNeeded(rejectQuotaRequestDto, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Create a region quota with the default limits (pending approval)
+         * @param {CreateQuotaRequestDto} createQuotaRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        quotaRequestsControllerRequestCreate: async (createQuotaRequestDto: CreateQuotaRequestDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'createQuotaRequestDto' is not null or undefined
+            assertParamExists('quotaRequestsControllerRequestCreate', 'createQuotaRequestDto', createQuotaRequestDto)
+            const localVarPath = `/region-quotas/requests/create`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(createQuotaRequestDto, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Request a temporary region quota update (increase)
+         * @param {UpdateQuotaRequestDto} updateQuotaRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        quotaRequestsControllerRequestUpdate: async (updateQuotaRequestDto: UpdateQuotaRequestDto, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'updateQuotaRequestDto' is not null or undefined
+            assertParamExists('quotaRequestsControllerRequestUpdate', 'updateQuotaRequestDto', updateQuotaRequestDto)
+            const localVarPath = `/region-quotas/requests/update`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(updateQuotaRequestDto, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -343,6 +416,39 @@ export const RegionQuotasApiAxiosParamCreator = function (configuration?: Config
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = serializeDataIfNeeded(createRegionQuotaDto, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary List regions a quota can target
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        regionQuotasControllerListRegions: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/region-quotas/regions`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -445,81 +551,106 @@ export const RegionQuotasApiFp = function(configuration?: Configuration) {
     return {
         /**
          * 
-         * @summary Approve a pending bump (make it permanent)
+         * @summary Approve a pending request (make it permanent)
          * @param {string} id 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async quotaBumpsControllerApprove(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.quotaBumpsControllerApprove(id, options);
+        async quotaRequestsControllerApprove(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.quotaRequestsControllerApprove(id, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.quotaBumpsControllerApprove']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.quotaRequestsControllerApprove']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
          * 
-         * @summary Get the current editor\'s remaining daily bump budget
+         * @summary Get the current editor\'s remaining daily update budget
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async quotaBumpsControllerBudget(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.quotaBumpsControllerBudget(options);
+        async quotaRequestsControllerBudget(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.quotaRequestsControllerBudget(options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.quotaBumpsControllerBudget']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.quotaRequestsControllerBudget']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
          * 
-         * @summary Cancel your own pending bump and revert the quota
+         * @summary Cancel your own pending request and revert the quota
          * @param {string} id 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async quotaBumpsControllerCancel(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.quotaBumpsControllerCancel(id, options);
+        async quotaRequestsControllerCancel(id: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.quotaRequestsControllerCancel(id, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.quotaBumpsControllerCancel']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.quotaRequestsControllerCancel']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
          * 
-         * @summary Create a temporary region quota bump
-         * @param {CreateQuotaBumpDto} createQuotaBumpDto 
+         * @summary Get the default limits a create request grants
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async quotaBumpsControllerCreate(createQuotaBumpDto: CreateQuotaBumpDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.quotaBumpsControllerCreate(createQuotaBumpDto, options);
+        async quotaRequestsControllerCreateDefaults(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.quotaRequestsControllerCreateDefaults(options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.quotaBumpsControllerCreate']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.quotaRequestsControllerCreateDefaults']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
          * 
-         * @summary List pending quota bumps awaiting approval
-         * @param {number} [page] Page number
-         * @param {number} [pageSize] Number of items per page
+         * @summary List pending quota requests awaiting approval
+         * @param {number} [page] Page number (1-indexed)
+         * @param {number} [pageSize] Items per page
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async quotaBumpsControllerListPending(page?: number, pageSize?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.quotaBumpsControllerListPending(page, pageSize, options);
+        async quotaRequestsControllerListPending(page?: number, pageSize?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.quotaRequestsControllerListPending(page, pageSize, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.quotaBumpsControllerListPending']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.quotaRequestsControllerListPending']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
          * 
-         * @summary Reject a pending bump and revert the quota
+         * @summary Reject a pending request and revert the quota
          * @param {string} id 
-         * @param {RejectQuotaBumpDto} rejectQuotaBumpDto 
+         * @param {RejectQuotaRequestDto} rejectQuotaRequestDto 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async quotaBumpsControllerReject(id: string, rejectQuotaBumpDto: RejectQuotaBumpDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.quotaBumpsControllerReject(id, rejectQuotaBumpDto, options);
+        async quotaRequestsControllerReject(id: string, rejectQuotaRequestDto: RejectQuotaRequestDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.quotaRequestsControllerReject(id, rejectQuotaRequestDto, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.quotaBumpsControllerReject']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.quotaRequestsControllerReject']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Create a region quota with the default limits (pending approval)
+         * @param {CreateQuotaRequestDto} createQuotaRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async quotaRequestsControllerRequestCreate(createQuotaRequestDto: CreateQuotaRequestDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.quotaRequestsControllerRequestCreate(createQuotaRequestDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.quotaRequestsControllerRequestCreate']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Request a temporary region quota update (increase)
+         * @param {UpdateQuotaRequestDto} updateQuotaRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async quotaRequestsControllerRequestUpdate(updateQuotaRequestDto: UpdateQuotaRequestDto, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.quotaRequestsControllerRequestUpdate(updateQuotaRequestDto, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.quotaRequestsControllerRequestUpdate']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -546,6 +677,18 @@ export const RegionQuotasApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.regionQuotasControllerCreate(createRegionQuotaDto, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.regionQuotasControllerCreate']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary List regions a quota can target
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async regionQuotasControllerListRegions(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.regionQuotasControllerListRegions(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['RegionQuotasApi.regionQuotasControllerListRegions']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -587,64 +730,83 @@ export const RegionQuotasApiFactory = function (configuration?: Configuration, b
     return {
         /**
          * 
-         * @summary Approve a pending bump (make it permanent)
+         * @summary Approve a pending request (make it permanent)
          * @param {string} id 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        quotaBumpsControllerApprove(id: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-            return localVarFp.quotaBumpsControllerApprove(id, options).then((request) => request(axios, basePath));
+        quotaRequestsControllerApprove(id: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.quotaRequestsControllerApprove(id, options).then((request) => request(axios, basePath));
         },
         /**
          * 
-         * @summary Get the current editor\'s remaining daily bump budget
+         * @summary Get the current editor\'s remaining daily update budget
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        quotaBumpsControllerBudget(options?: RawAxiosRequestConfig): AxiosPromise<void> {
-            return localVarFp.quotaBumpsControllerBudget(options).then((request) => request(axios, basePath));
+        quotaRequestsControllerBudget(options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.quotaRequestsControllerBudget(options).then((request) => request(axios, basePath));
         },
         /**
          * 
-         * @summary Cancel your own pending bump and revert the quota
+         * @summary Cancel your own pending request and revert the quota
          * @param {string} id 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        quotaBumpsControllerCancel(id: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-            return localVarFp.quotaBumpsControllerCancel(id, options).then((request) => request(axios, basePath));
+        quotaRequestsControllerCancel(id: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.quotaRequestsControllerCancel(id, options).then((request) => request(axios, basePath));
         },
         /**
          * 
-         * @summary Create a temporary region quota bump
-         * @param {CreateQuotaBumpDto} createQuotaBumpDto 
+         * @summary Get the default limits a create request grants
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        quotaBumpsControllerCreate(createQuotaBumpDto: CreateQuotaBumpDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-            return localVarFp.quotaBumpsControllerCreate(createQuotaBumpDto, options).then((request) => request(axios, basePath));
+        quotaRequestsControllerCreateDefaults(options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.quotaRequestsControllerCreateDefaults(options).then((request) => request(axios, basePath));
         },
         /**
          * 
-         * @summary List pending quota bumps awaiting approval
-         * @param {number} [page] Page number
-         * @param {number} [pageSize] Number of items per page
+         * @summary List pending quota requests awaiting approval
+         * @param {number} [page] Page number (1-indexed)
+         * @param {number} [pageSize] Items per page
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        quotaBumpsControllerListPending(page?: number, pageSize?: number, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-            return localVarFp.quotaBumpsControllerListPending(page, pageSize, options).then((request) => request(axios, basePath));
+        quotaRequestsControllerListPending(page?: number, pageSize?: number, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.quotaRequestsControllerListPending(page, pageSize, options).then((request) => request(axios, basePath));
         },
         /**
          * 
-         * @summary Reject a pending bump and revert the quota
+         * @summary Reject a pending request and revert the quota
          * @param {string} id 
-         * @param {RejectQuotaBumpDto} rejectQuotaBumpDto 
+         * @param {RejectQuotaRequestDto} rejectQuotaRequestDto 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        quotaBumpsControllerReject(id: string, rejectQuotaBumpDto: RejectQuotaBumpDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-            return localVarFp.quotaBumpsControllerReject(id, rejectQuotaBumpDto, options).then((request) => request(axios, basePath));
+        quotaRequestsControllerReject(id: string, rejectQuotaRequestDto: RejectQuotaRequestDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.quotaRequestsControllerReject(id, rejectQuotaRequestDto, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Create a region quota with the default limits (pending approval)
+         * @param {CreateQuotaRequestDto} createQuotaRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        quotaRequestsControllerRequestCreate(createQuotaRequestDto: CreateQuotaRequestDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.quotaRequestsControllerRequestCreate(createQuotaRequestDto, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Request a temporary region quota update (increase)
+         * @param {UpdateQuotaRequestDto} updateQuotaRequestDto 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        quotaRequestsControllerRequestUpdate(updateQuotaRequestDto: UpdateQuotaRequestDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.quotaRequestsControllerRequestUpdate(updateQuotaRequestDto, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -665,6 +827,15 @@ export const RegionQuotasApiFactory = function (configuration?: Configuration, b
          */
         regionQuotasControllerCreate(createRegionQuotaDto: CreateRegionQuotaDto, options?: RawAxiosRequestConfig): AxiosPromise<void> {
             return localVarFp.regionQuotasControllerCreate(createRegionQuotaDto, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary List regions a quota can target
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        regionQuotasControllerListRegions(options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.regionQuotasControllerListRegions(options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -697,69 +868,90 @@ export const RegionQuotasApiFactory = function (configuration?: Configuration, b
 export class RegionQuotasApi extends BaseAPI {
     /**
      * 
-     * @summary Approve a pending bump (make it permanent)
+     * @summary Approve a pending request (make it permanent)
      * @param {string} id 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    public quotaBumpsControllerApprove(id: string, options?: RawAxiosRequestConfig) {
-        return RegionQuotasApiFp(this.configuration).quotaBumpsControllerApprove(id, options).then((request) => request(this.axios, this.basePath));
+    public quotaRequestsControllerApprove(id: string, options?: RawAxiosRequestConfig) {
+        return RegionQuotasApiFp(this.configuration).quotaRequestsControllerApprove(id, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
      * 
-     * @summary Get the current editor\'s remaining daily bump budget
+     * @summary Get the current editor\'s remaining daily update budget
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    public quotaBumpsControllerBudget(options?: RawAxiosRequestConfig) {
-        return RegionQuotasApiFp(this.configuration).quotaBumpsControllerBudget(options).then((request) => request(this.axios, this.basePath));
+    public quotaRequestsControllerBudget(options?: RawAxiosRequestConfig) {
+        return RegionQuotasApiFp(this.configuration).quotaRequestsControllerBudget(options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
      * 
-     * @summary Cancel your own pending bump and revert the quota
+     * @summary Cancel your own pending request and revert the quota
      * @param {string} id 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    public quotaBumpsControllerCancel(id: string, options?: RawAxiosRequestConfig) {
-        return RegionQuotasApiFp(this.configuration).quotaBumpsControllerCancel(id, options).then((request) => request(this.axios, this.basePath));
+    public quotaRequestsControllerCancel(id: string, options?: RawAxiosRequestConfig) {
+        return RegionQuotasApiFp(this.configuration).quotaRequestsControllerCancel(id, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
      * 
-     * @summary Create a temporary region quota bump
-     * @param {CreateQuotaBumpDto} createQuotaBumpDto 
+     * @summary Get the default limits a create request grants
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    public quotaBumpsControllerCreate(createQuotaBumpDto: CreateQuotaBumpDto, options?: RawAxiosRequestConfig) {
-        return RegionQuotasApiFp(this.configuration).quotaBumpsControllerCreate(createQuotaBumpDto, options).then((request) => request(this.axios, this.basePath));
+    public quotaRequestsControllerCreateDefaults(options?: RawAxiosRequestConfig) {
+        return RegionQuotasApiFp(this.configuration).quotaRequestsControllerCreateDefaults(options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
      * 
-     * @summary List pending quota bumps awaiting approval
-     * @param {number} [page] Page number
-     * @param {number} [pageSize] Number of items per page
+     * @summary List pending quota requests awaiting approval
+     * @param {number} [page] Page number (1-indexed)
+     * @param {number} [pageSize] Items per page
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    public quotaBumpsControllerListPending(page?: number, pageSize?: number, options?: RawAxiosRequestConfig) {
-        return RegionQuotasApiFp(this.configuration).quotaBumpsControllerListPending(page, pageSize, options).then((request) => request(this.axios, this.basePath));
+    public quotaRequestsControllerListPending(page?: number, pageSize?: number, options?: RawAxiosRequestConfig) {
+        return RegionQuotasApiFp(this.configuration).quotaRequestsControllerListPending(page, pageSize, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
      * 
-     * @summary Reject a pending bump and revert the quota
+     * @summary Reject a pending request and revert the quota
      * @param {string} id 
-     * @param {RejectQuotaBumpDto} rejectQuotaBumpDto 
+     * @param {RejectQuotaRequestDto} rejectQuotaRequestDto 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    public quotaBumpsControllerReject(id: string, rejectQuotaBumpDto: RejectQuotaBumpDto, options?: RawAxiosRequestConfig) {
-        return RegionQuotasApiFp(this.configuration).quotaBumpsControllerReject(id, rejectQuotaBumpDto, options).then((request) => request(this.axios, this.basePath));
+    public quotaRequestsControllerReject(id: string, rejectQuotaRequestDto: RejectQuotaRequestDto, options?: RawAxiosRequestConfig) {
+        return RegionQuotasApiFp(this.configuration).quotaRequestsControllerReject(id, rejectQuotaRequestDto, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Create a region quota with the default limits (pending approval)
+     * @param {CreateQuotaRequestDto} createQuotaRequestDto 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public quotaRequestsControllerRequestCreate(createQuotaRequestDto: CreateQuotaRequestDto, options?: RawAxiosRequestConfig) {
+        return RegionQuotasApiFp(this.configuration).quotaRequestsControllerRequestCreate(createQuotaRequestDto, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Request a temporary region quota update (increase)
+     * @param {UpdateQuotaRequestDto} updateQuotaRequestDto 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public quotaRequestsControllerRequestUpdate(updateQuotaRequestDto: UpdateQuotaRequestDto, options?: RawAxiosRequestConfig) {
+        return RegionQuotasApiFp(this.configuration).quotaRequestsControllerRequestUpdate(updateQuotaRequestDto, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -782,6 +974,16 @@ export class RegionQuotasApi extends BaseAPI {
      */
     public regionQuotasControllerCreate(createRegionQuotaDto: CreateRegionQuotaDto, options?: RawAxiosRequestConfig) {
         return RegionQuotasApiFp(this.configuration).regionQuotasControllerCreate(createRegionQuotaDto, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary List regions a quota can target
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public regionQuotasControllerListRegions(options?: RawAxiosRequestConfig) {
+        return RegionQuotasApiFp(this.configuration).regionQuotasControllerListRegions(options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
