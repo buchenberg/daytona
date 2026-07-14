@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { useQueryCountdown } from '@/hooks/useQueryCountdown'
 import { cn } from '@/lib/utils'
 import { Tooltip } from './Tooltip'

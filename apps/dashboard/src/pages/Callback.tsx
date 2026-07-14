@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { useEffect } from 'react'
 import { useAuth } from 'react-oidc-context'
 import { useNavigate } from 'react-router'

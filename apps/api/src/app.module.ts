@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Module, NestModule, MiddlewareConsumer, RequestMethod, ExecutionContext } from '@nestjs/common'
 import { APP_GUARD } from '@nestjs/core'
 import { GlobalAuthGuard } from './auth/global-auth.guard'

@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { plainToInstance } from 'class-transformer'
 import { validate } from 'class-validator'
 import { ListAuditLogsQueryDto, MAX_AUDIT_FILTER_RULES } from './list-audit-logs-query.dto'

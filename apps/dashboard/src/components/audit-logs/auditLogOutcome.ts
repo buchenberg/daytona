@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 export type OutcomeCategory = 'informational' | 'success' | 'redirect' | 'client-error' | 'server-error' | 'unknown'
 
 export interface OutcomeInfo {

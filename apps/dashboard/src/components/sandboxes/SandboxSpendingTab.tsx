@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { TimeRangeSelector } from '@/components/telemetry/TimeRangeSelector'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'

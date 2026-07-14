@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { handleApiError } from '@/lib/error-handling'
 import { downloadBlob } from '@/lib/utils'
 import { FileInfo } from '@daytona/toolbox-api-client'

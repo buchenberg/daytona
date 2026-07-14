@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Injectable, ExecutionContext, Logger, CanActivate, Type, mixin } from '@nestjs/common'
 import { ModuleRef } from '@nestjs/core'
 import { InvalidAuthenticationContextException } from '../common/exceptions/invalid-authentication-context.exception'

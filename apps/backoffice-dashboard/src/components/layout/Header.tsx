@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Sun, Moon, LogOut, Bell } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { Button } from '@dashboard/ui/button'

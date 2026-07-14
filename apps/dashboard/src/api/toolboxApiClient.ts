@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { SandboxApi } from '@daytona/api-client'
 import { ComputerUseApi, Configuration as ToolboxConfiguration } from '@daytona/toolbox-api-client'
 import { AxiosInstance } from 'axios'

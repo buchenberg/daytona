@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { parseAsArrayOf, parseAsInteger, parseAsIsoDateTime, parseAsString, parseAsStringLiteral } from 'nuqs'
 
 export const TAB_VALUES = [

@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { UserController } from './user.controller'
 import { AuthStrategyType } from '../auth/enums/auth-strategy-type.enum'
 import {

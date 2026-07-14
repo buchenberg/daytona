@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Daytona } from '@daytona/sdk'
 import { useMemo } from 'react'
 import { useAuth } from 'react-oidc-context'

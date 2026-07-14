@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Logger, OnModuleInit } from '@nestjs/common'
 import { ClientKafkaProxy } from '@nestjs/microservices'
 import { CompressionTypes, Message } from 'kafkajs'

@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import axios, { AxiosError } from 'axios'
 import axiosDebug from 'axios-debug-log'
 import axiosRetry from 'axios-retry'

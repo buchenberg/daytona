@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { PlaygroundCategories } from '@/enums/Playground'
 import { useDeepCompareMemo } from '@/hooks/useDeepCompareMemo'
 import { usePlayground } from '@/hooks/usePlayground'

@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 export const SYSTEM_PROMPT = `You are an expert **production operations assistant** with deep knowledge of \
 Grafana, Prometheus, PromQL, Loki, LogQL, Tempo, TraceQL, Thanos, and SQL databases.
 

@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Invoice } from '@daytona/billing-api-client'
 import { formatAmount } from '@/lib/utils'
 import { ColumnDef, RowData, Table } from '@tanstack/react-table'

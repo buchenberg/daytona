@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { JobController } from './job.controller'
 import { RunnerAuthContextGuard } from '../guards/runner-auth-context.guard'
 import { JobAccessGuard } from '../guards/job-access.guard'

@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { DockerRegistryController } from './docker-registry.controller'
 import { OrganizationAuthContextGuard } from '../../organization/guards/organization-auth-context.guard'
 import { DockerRegistryAccessGuard } from '../guards/docker-registry-access.guard'

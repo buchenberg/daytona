@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ConsentPreferences } from '@/hooks/usePrivacyConsent'
 import { useEffect, useState } from 'react'
 import { Button } from './ui/button'

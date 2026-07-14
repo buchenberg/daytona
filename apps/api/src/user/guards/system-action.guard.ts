@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Injectable, ExecutionContext, Logger, CanActivate } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { RequiredSystemRole } from '../decorators/required-system-role.decorator'

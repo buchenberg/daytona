@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 // Substrings in a backup error reason that indicate a transient failure eligible for automatic retry
 export const BACKUP_RETRY_ERROR_SUBSTRINGS: string[] = [
   'connect ECONNREFUSED',

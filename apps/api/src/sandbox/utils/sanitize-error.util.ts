@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 export function sanitizeSandboxError(error: any): { recoverable: boolean; errorReason: string } {
   if (typeof error === 'string') {
     try {

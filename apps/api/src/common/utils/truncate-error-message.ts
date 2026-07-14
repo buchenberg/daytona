@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 const DEFAULT_MAX_LENGTH = 10_000
 const TRUNCATION_SEPARATOR = '\n\n... [truncated] ...\n\n'
 

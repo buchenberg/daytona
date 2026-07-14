@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { routes } from '@/routes/paths'
 import LinkifyIt from 'linkify-it'
 import { type ReactNode } from 'react'

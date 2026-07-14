@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ForbiddenException, Inject, Logger } from '@nestjs/common'
 import { EventEmitter2 } from '@nestjs/event-emitter'
 import { DataSource, EntitySubscriberInterface, EventSubscriber, UpdateEvent } from 'typeorm'

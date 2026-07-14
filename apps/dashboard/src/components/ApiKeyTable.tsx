@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { CREATE_API_KEY_PERMISSIONS_GROUPS } from '@/constants/CreateApiKeyPermissionsGroups'
 import { DAYTONA_DOCS_API_KEYS_URL } from '@/constants/Links'
 import { buildTableInitialState, DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'

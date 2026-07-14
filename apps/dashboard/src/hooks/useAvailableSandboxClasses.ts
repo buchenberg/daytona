@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { useMemo } from 'react'
 import { SandboxClass } from '@daytona/api-client'
 import { useAvailableSandboxClassesQuery } from '@/hooks/queries/useAvailableSandboxClassesQuery'

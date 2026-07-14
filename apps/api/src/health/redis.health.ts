@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Injectable } from '@nestjs/common'
 import { HealthIndicatorService } from '@nestjs/terminus'
 import { InjectRedis } from '@nestjs-modules/ioredis'

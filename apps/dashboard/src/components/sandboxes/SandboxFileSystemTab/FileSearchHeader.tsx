@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { SearchIcon, XIcon } from 'lucide-react'
 import { Ref, useCallback, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from 'react'
 

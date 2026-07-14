@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { GpuType } from '../enums/gpu-type.enum'
 import { resolveGpuTypeSelector, runnerMatchesGpuTypeSelector, resolvePinnedGpuType } from './gpu-type-selector.util'
 

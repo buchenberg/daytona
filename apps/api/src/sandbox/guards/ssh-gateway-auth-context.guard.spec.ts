@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { SshGatewayAuthContextGuard } from './ssh-gateway-auth-context.guard'
 import { InvalidAuthenticationContextException } from '../../common/exceptions/invalid-authentication-context.exception'
 import {

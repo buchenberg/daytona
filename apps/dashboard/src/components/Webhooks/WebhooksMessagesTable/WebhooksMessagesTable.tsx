@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { PageFooterPortal } from '@/components/PageLayout'
 import { Pagination } from '@/components/Pagination'
 import { SearchInput } from '@/components/SearchInput'

@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { usePlaygroundSandbox } from '@/hooks/usePlaygroundSandbox'

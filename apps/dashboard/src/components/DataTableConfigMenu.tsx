@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import type { Column, ColumnPinningState, Table, VisibilityState } from '@tanstack/react-table'
 import isEqual from 'fast-deep-equal'
 import { Eye, EyeOff, GripVertical, Pin, PinOff, RotateCcw, Settings2Icon } from 'lucide-react'

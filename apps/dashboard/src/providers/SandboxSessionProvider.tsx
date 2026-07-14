@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ISandboxSessionContext, SandboxSessionContext } from '@/contexts/SandboxSessionContext'
 import { ReactNode, useCallback, useRef } from 'react'
 

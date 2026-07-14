@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Organization } from '../entities/organization.entity'
 import { RegionQuotaDto } from '../dto/region-quota.dto'
 

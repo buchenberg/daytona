@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 export * from './telemetry-query-params.dto'
 export * from './log-entry.dto'
 export * from './paginated-logs.dto'

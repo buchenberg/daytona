@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { AssistantRuntimeProvider, useLocalRuntime, useRemoteThreadListRuntime } from '@assistant-ui/react'
 import { ErrorBoundary } from 'react-error-boundary'
 import { ChatLayout } from '../features/chat/ChatLayout'

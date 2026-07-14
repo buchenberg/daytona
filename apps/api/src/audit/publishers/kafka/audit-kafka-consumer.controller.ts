@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Controller, Inject, Logger, UseFilters } from '@nestjs/common'
 import { Ctx, EventPattern, KafkaContext, Payload } from '@nestjs/microservices'
 import { AuditLog } from '../../entities/audit-log.entity'

@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ExecutionContext } from '@nestjs/common'
 import { BaseAuthContext } from '../interfaces/base-auth-context.interface'
 import { InvalidAuthenticationContextException } from '../exceptions/invalid-authentication-context.exception'

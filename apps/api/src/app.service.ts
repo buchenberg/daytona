@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common'
 import { DockerRegistryService } from './docker-registry/services/docker-registry.service'
 import { RegistryType } from './docker-registry/enums/registry-type.enum'

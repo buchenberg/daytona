@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { CurrentUsageCard } from '@/components/CurrentUsageCard'
 import { OrganizationUserRoleEnum } from '@daytona/api-client'
 import { PageContent, PageHeader, PageIntro, PageLayout } from '@/components/PageLayout'

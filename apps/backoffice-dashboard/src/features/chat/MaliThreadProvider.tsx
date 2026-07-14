@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { RuntimeAdapterProvider, useAui, ExportedMessageRepository } from '@assistant-ui/react'
 import type { ThreadHistoryAdapter, ThreadMessageLike } from '@assistant-ui/react'
 import { useMemo, type FC, type PropsWithChildren } from 'react'

@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Module, OnModuleInit, BadRequestException } from '@nestjs/common'
 import { HttpAdapterHost } from '@nestjs/core'
 import { Request, Response, NextFunction } from 'express'

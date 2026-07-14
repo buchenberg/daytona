@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Checkbox } from '@dashboard/ui/checkbox'
 import { Label } from '@dashboard/ui/label'
 import { SANDBOX_CLASS_OPTIONS } from '@dashboard/components/SandboxTable/constants'

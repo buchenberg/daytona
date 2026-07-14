@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 /**
  * Maximum number of values allowed inside a single `in` / `notIn` filter operator.
  *

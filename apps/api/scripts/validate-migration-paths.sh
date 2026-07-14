@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Copyright Daytona Platforms Inc.
-# SPDX-License-Identifier: AGPL-3.0
-
 # Fails if any migration file is placed directly under
 # apps/api/src/migrations/ instead of pre-deploy/ or post-deploy/.
 # Legacy migrations (timestamp <= LEGACY_CUTOFF) are excluded.

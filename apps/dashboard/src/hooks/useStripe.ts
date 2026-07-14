@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { loadStripe, Stripe } from '@stripe/stripe-js'
 
 let stripePromise: Promise<Stripe | null> | null = null

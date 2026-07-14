@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { PaginatedAuditLogs } from '@daytona/api-client'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useApi } from '../useApi'

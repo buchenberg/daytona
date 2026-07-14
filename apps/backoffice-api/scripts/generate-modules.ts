@@ -56,12 +56,7 @@ function toPascalCase(str: string): string {
 function generateController(config: ModuleConfig): string {
   const className = toPascalCase(config.name)
 
-  return `/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
-import { Controller, Param, Body, Patch, UseGuards, Req } from '@nestjs/common'
+  return `import { Controller, Param, Body, Patch, UseGuards, Req } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity, ApiParam } from '@nestjs/swagger'
 import { FlexibleAuthGuard, AuthenticatedRequest } from '../../common/guards/flexible-auth.guard'
 import { PermissionsGuard } from '../../common/guards/permissions.guard'
@@ -110,12 +105,7 @@ export class ${className}Controller {
 function generateBulkController(config: ModuleConfig): string {
   const className = toPascalCase(config.name)
 
-  return `/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
-import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common'
+  return `import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger'
 import { FlexibleAuthGuard, AuthenticatedRequest } from '../../common/guards/flexible-auth.guard'
 import { PermissionsGuard } from '../../common/guards/permissions.guard'
@@ -161,12 +151,7 @@ export class ${className}BulkController {
 function generateSearchController(config: ModuleConfig): string {
   const className = toPascalCase(config.name)
 
-  return `/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
-import { Controller, Post, Body, UseGuards } from '@nestjs/common'
+  return `import { Controller, Post, Body, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiSecurity } from '@nestjs/swagger'
 import { FlexibleAuthGuard } from '../../common/guards/flexible-auth.guard'
 import { PermissionsGuard } from '../../common/guards/permissions.guard'
@@ -195,12 +180,7 @@ export class ${className}SearchController {
 function generateModule(config: ModuleConfig): string {
   const className = toPascalCase(config.name)
 
-  return `/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
-import { Module } from '@nestjs/common'
+  return `import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { ${config.entityName} } from '${config.entityPath}'
 import { ${className}Controller, ${className}BulkController, ${className}SearchController } from './controllers'

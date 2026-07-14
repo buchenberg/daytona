@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm'
 import { SandboxUsagePeriod } from './sandbox-usage-period.entity'
 import { SandboxClass } from '../../sandbox/enums/sandbox-class.enum'

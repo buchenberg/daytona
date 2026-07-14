@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Global, Module, DynamicModule } from '@nestjs/common'
 import { ConfigModule as NestConfigModule, ConfigModuleOptions } from '@nestjs/config'
 import { TypedConfigService } from './typed-config.service'

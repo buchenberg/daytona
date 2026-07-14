@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { useState, type FC } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 

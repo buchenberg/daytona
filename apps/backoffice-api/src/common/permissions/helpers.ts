@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Permissions, PermissionResource, ActionFor, WildcardAction } from './types'
 
 export function hasPermission<R extends PermissionResource>(

@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ReactNode } from 'react'
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from '@dashboard/ui/table'
 import { Checkbox } from '@dashboard/ui/checkbox'

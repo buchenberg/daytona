@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Injectable, Logger } from '@nestjs/common'
 import { createCipheriv, createDecipheriv, randomBytes, scrypt } from 'crypto'
 import { promisify } from 'node:util'

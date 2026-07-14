@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Controller, Post, Get, Param, UseGuards, HttpCode, HttpStatus, NotFoundException } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiOAuth2, ApiHeader, ApiParam } from '@nestjs/swagger'
 import { WebhookService } from '../services/webhook.service'

@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 export function Logo() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="27" height="28" fill="currentColor" viewBox="0 0 27 28">

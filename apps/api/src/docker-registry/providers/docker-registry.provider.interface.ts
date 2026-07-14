@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 export const DOCKER_REGISTRY_PROVIDER = 'DOCKER_REGISTRY_PROVIDER'
 
 export interface IDockerRegistryProvider {

@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { cn } from '@/lib/utils'
 import { getColumnSizeStyles, getTableSizeStyles } from '@/lib/utils/table'
 import { flexRender } from '@tanstack/react-table'

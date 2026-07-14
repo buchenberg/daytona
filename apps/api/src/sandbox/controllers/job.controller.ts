@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Controller, Get, Post, Body, Param, Query, UseGuards, Logger, Req, NotFoundException } from '@nestjs/common'
 import { AuthenticatedRateLimitGuard } from '../../common/guards/authenticated-rate-limit.guard'
 import { Request } from 'express'

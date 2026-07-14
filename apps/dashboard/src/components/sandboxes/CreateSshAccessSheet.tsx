@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { SshAccessDto } from '@daytona/api-client'
 import { useForm } from '@tanstack/react-form'

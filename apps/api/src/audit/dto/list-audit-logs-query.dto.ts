@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ApiPropertyOptional, ApiSchema } from '@nestjs/swagger'
 import { PageNumber } from '../../common/decorators/page-number.decorator'
 import { PageLimit } from '../../common/decorators/page-limit.decorator'

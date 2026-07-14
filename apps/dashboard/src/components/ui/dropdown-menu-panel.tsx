@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Menu as MenuPrimitive } from '@base-ui/react/menu'
 import { Popover as PopoverPrimitive } from '@base-ui/react/popover'
 import { ChevronRight } from 'lucide-react'

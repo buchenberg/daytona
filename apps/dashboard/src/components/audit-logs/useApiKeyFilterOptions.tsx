@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import type { FacetedFilterOption } from '@/components/ui/faceted-filter'
 import { useApiKeysQuery } from '@/hooks/queries/useApiKeysQuery'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'

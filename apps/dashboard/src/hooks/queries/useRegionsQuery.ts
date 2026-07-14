@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Region } from '@daytona/api-client'
 import { useQuery, UseQueryOptions } from '@tanstack/react-query'
 import { useMemo } from 'react'

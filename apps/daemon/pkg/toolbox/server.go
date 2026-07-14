@@ -1,6 +1,3 @@
-// Copyright 2025 Daytona Platforms Inc.
-// SPDX-License-Identifier: AGPL-3.0
-
 //	@title			Daytona Toolbox API
 //	@version		v0.0.0-dev
 //	@description	Daytona Toolbox API. The base URL comes from the sandbox's `toolboxProxyUrl` field (returned in sandbox DTO by the main Daytona API) plus the sandbox ID: `{toolboxProxyUrl}/{sandboxId}/{endpoint}`. Default for Daytona Cloud: `https://proxy.app.daytona.io/toolbox/{sandboxId}`.

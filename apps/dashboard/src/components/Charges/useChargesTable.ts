@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { DEFAULT_TABLE_COLUMN } from '@/lib/utils/table'
 import { Charge } from '@daytona/billing-api-client'
 import {

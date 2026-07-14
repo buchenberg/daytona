@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Req, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiSecurity, ApiQuery } from '@nestjs/swagger'
 import { FlexibleAuthGuard } from '../common/guards/flexible-auth.guard'

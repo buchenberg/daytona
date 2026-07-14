@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { createParser } from 'nuqs'
 import { type AuditFilterRule, getAuditFilterFieldDef, isListOperator } from './auditLogFilterConfig'
 

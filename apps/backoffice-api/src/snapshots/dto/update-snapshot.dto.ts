@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ApiPropertyOptional } from '@nestjs/swagger'
 import { IsOptional, IsString, IsBoolean, MaxLength } from 'class-validator'
 import { Snapshot } from '@api/sandbox/entities/snapshot.entity'

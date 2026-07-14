@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { SandboxDto } from '../../sandbox/dto/sandbox.dto'
 import { SandboxState } from '../../sandbox/enums/sandbox-state.enum'
 import { SandboxDesiredState } from '../../sandbox/enums/sandbox-desired-state.enum'

@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { pluralize } from '@/lib/utils'
 import { VolumeDto, VolumeState } from '@daytona/api-client'
 import { CheckSquare2Icon, MinusSquareIcon, PlusIcon, TrashIcon } from 'lucide-react'

@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { User } from '../entities/user.entity'
 import { PaginationResponseDto } from '../../common/dto/pagination.dto'

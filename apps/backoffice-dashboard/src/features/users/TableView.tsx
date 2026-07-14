@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Filter, RefreshCw, Trash2 } from 'lucide-react'
 import { Button } from '@dashboard/ui/button'
 import { Badge } from '@dashboard/ui/badge'

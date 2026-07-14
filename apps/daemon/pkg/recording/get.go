@@ -1,6 +1,3 @@
-// Copyright Daytona Platforms Inc.
-// SPDX-License-Identifier: AGPL-3.0
-
 package recording
 
 // GetRecording returns a recording by ID (active or from filesystem)

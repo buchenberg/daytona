@@ -1,7 +1,4 @@
 #!/bin/sh
-# Copyright Daytona Platforms Inc.
-# SPDX-License-Identifier: AGPL-3.0
-
 set -e
 
 # Validate DAYTONA_BASE_API_URL is a well-formed URL

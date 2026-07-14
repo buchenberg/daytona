@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 /**
  * Type-safe SSE event protocol for Mali chat streaming.
  * Every event emitted by the backend must match one of these variants.

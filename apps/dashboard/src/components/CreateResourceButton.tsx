@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ResponsiveButton } from '@/components/ResponsiveButton'
 import { Plus } from 'lucide-react'
 import type { ComponentProps, ReactNode } from 'react'

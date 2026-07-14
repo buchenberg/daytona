@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { OrganizationController } from './organization.controller'
 import { OrganizationMemberRole } from '../enums/organization-member-role.enum'
 import { OrganizationResourcePermission } from '../enums/organization-resource-permission.enum'

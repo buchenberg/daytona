@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Highlight, themes } from 'prism-react-renderer'
 import type { FC } from 'react'
 import type { SyntaxHighlighterProps } from '@assistant-ui/react-markdown'

@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { SandboxClass, SandboxState } from '@daytona/api-client'
 import { AndroidLogoIcon, LinuxLogoIcon, WindowsLogoIcon } from '@phosphor-icons/react'
 import { AlertTriangle, Archive, CheckCircle, Circle, Container, LucideIcon, Timer } from 'lucide-react'

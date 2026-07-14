@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { cn } from '@/lib/utils'
 import { SandboxState as SandboxStateType } from '@daytona/api-client'
 import { Loader2 } from 'lucide-react'

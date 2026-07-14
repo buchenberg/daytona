@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { useState, useEffect, useCallback } from 'react'
 import { OrganizationRole } from '@daytona/api-client'
 import { useApi } from '@/hooks/useApi'

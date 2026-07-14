@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { OrganizationResourcePermission } from '../../organization/enums/organization-resource-permission.enum'
 
 export const STRIPE_PROJECTS_API_KEY_PERMISSIONS: OrganizationResourcePermission[] = [

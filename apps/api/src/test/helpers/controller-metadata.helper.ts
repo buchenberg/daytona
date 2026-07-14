@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import 'reflect-metadata'
 import { CanActivate, Type } from '@nestjs/common'
 import { PATH_METADATA } from '@nestjs/common/constants'

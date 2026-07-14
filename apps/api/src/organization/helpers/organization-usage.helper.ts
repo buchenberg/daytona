@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 export type OrganizationUsageQuotaType = 'cpu' | 'memory' | 'disk' | 'gpu' | 'snapshot_count' | 'volume_count'
 export type OrganizationUsageResourceType = 'sandbox' | 'snapshot' | 'volume'
 

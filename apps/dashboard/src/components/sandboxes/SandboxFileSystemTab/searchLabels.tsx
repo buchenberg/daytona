@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { measureNaturalWidth, prepareWithSegments } from '@chenglou/pretext'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 

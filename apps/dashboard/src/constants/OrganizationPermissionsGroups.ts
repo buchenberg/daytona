@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { OrganizationRolePermissionsEnum } from '@daytona/api-client'
 
 export const ORGANIZATION_ROLE_PERMISSIONS_GROUPS: { name: string; permissions: OrganizationRolePermissionsEnum[] }[] =

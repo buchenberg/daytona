@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ConflictException } from '@nestjs/common'
 import { EventEmitter2 } from '@nestjs/event-emitter'
 import { Repository } from 'typeorm'

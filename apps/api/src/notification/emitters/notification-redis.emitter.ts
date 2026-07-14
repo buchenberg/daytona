@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
 import { Emitter } from '@socket.io/redis-emitter'
 import { InjectRedis } from '@nestjs-modules/ioredis'

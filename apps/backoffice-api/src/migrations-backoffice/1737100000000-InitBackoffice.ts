@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { MigrationInterface, QueryRunner } from 'typeorm'
 
 export class InitBackoffice1737100000000 implements MigrationInterface {

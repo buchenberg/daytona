@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 export const METRIC_DISPLAY_NAMES: Record<string, string> = {
   'daytona.sandbox.cpu.utilization': 'CPU Usage (cores)',
   'daytona.sandbox.cpu.limit': 'CPU Limit',

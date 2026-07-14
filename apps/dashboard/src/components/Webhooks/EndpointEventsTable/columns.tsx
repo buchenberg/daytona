@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { TimestampTooltip } from '@/components/TimestampTooltip'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

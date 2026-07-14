@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { MigrationInterface, QueryRunner } from 'typeorm'
 import { GlobalOrganizationRolesIds } from '../../organization/constants/global-organization-roles.constant'
 import { OrganizationResourcePermission } from '../../organization/enums/organization-resource-permission.enum'

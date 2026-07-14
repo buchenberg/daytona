@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { createContext, type ReactNode, useContext, useRef } from 'react'
 import { createStore, useStore, type StoreApi } from 'zustand'
 

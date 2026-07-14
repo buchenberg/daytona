@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ApiKeyController } from './api-key.controller'
 import { OrganizationAuthContextGuard } from '../organization/guards/organization-auth-context.guard'
 import { StripeProjectsAuthContextGuard } from '../auth/guards/stripe-projects-auth-context.guard'

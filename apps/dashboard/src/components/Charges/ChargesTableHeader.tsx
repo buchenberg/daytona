@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import React from 'react'
 import { SearchInput } from '../SearchInput'
 import { ChargesTableHeaderProps } from './types'

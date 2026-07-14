@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { useConfig } from '@/hooks/useConfig'
 import { useEffect } from 'react'
 import { create } from 'zustand'

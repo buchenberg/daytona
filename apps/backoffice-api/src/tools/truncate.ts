@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 const MAX_RESULT_LENGTH = 80_000
 
 export function truncateResult(data: unknown): string {

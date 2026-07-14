@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ApiProperty, ApiSchema } from '@nestjs/swagger'
 import { User } from '../user.entity'
 import { UserPublicKeyDto } from './user-public-key.dto'

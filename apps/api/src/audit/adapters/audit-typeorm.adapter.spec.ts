@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { AuditTypeormStorageAdapter } from './audit-typeorm.adapter'
 import { AuditLog } from '../entities/audit-log.entity'
 import { AuditLogFilter } from '../interfaces/audit-filter.interface'

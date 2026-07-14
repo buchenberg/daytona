@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Input } from '@/components/ui/input'
 import { NumberParameterFormItem } from '@/contexts/PlaygroundContext'
 import React from 'react'

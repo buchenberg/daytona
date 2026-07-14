@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { BadRequestError } from '../../exceptions/bad-request.exception'
 import { InjectRepository } from '@nestjs/typeorm'

@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { StringFilter } from '../../common/dto/string-filter.dto'
 import { IntFilter } from '../../common/dto/int-filter.dto'
 import { DateFilter } from '../../common/dto/date-filter.dto'

@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { AuditOpenSearchStorageAdapter } from './audit-opensearch.adapter'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { OpensearchClient } from 'nestjs-opensearch'

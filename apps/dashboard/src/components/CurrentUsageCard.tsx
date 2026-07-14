@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { LiveIndicator } from '@/components/LiveIndicator'
 import { getSandboxClassIcon, getSandboxClassLabel } from '@/components/SandboxTable/constants'
 import { Badge } from '@/components/ui/badge'

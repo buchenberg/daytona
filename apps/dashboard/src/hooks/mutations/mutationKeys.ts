@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 export const mutationKeys = {
   sandboxes: {
     all: ['sandboxes'] as const,

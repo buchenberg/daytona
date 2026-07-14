@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { NotFoundException } from '@nestjs/common'
 import { RunnerAccessGuard } from './runner-access.guard'
 import {

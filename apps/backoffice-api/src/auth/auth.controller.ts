@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Controller, Get, Post, Query, Res, UseGuards, Req, UnauthorizedException, Session } from '@nestjs/common'
 import { Request } from 'express'
 import { ApiTags, ApiOperation, ApiResponse, ApiExtraModels } from '@nestjs/swagger'

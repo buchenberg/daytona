@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { IsNumber, IsOptional, IsString } from 'class-validator'
 import { ApiProperty, ApiSchema } from '@nestjs/swagger'
 import { CreateRunnerDto } from '../../sandbox/dto/create-runner.dto'

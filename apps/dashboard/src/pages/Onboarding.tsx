@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import pythonIcon from '@/assets/python.svg'
 import typescriptIcon from '@/assets/typescript.svg'
 import CodeBlock from '@/components/CodeBlock'

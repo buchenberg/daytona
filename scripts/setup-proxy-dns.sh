@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Copyright 2025 Daytona Platforms Inc.
-# SPDX-License-Identifier: AGPL-3.0
-
 # Setup DNS for *.proxy.localhost -> 127.0.0.1
 
 if [[ "$OSTYPE" == "darwin"* ]]; then

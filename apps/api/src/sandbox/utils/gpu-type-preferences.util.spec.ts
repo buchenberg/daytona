@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { BadRequestError } from '../../exceptions/bad-request.exception'
 import { GpuType } from '../enums/gpu-type.enum'
 import { resolveGpuTypePreferences } from './gpu-type-preferences.util'

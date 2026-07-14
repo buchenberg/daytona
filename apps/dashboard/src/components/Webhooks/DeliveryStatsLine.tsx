@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { cn } from '@/lib/utils'
 import type { EndpointStats } from 'svix'
 import { motion } from 'framer-motion'

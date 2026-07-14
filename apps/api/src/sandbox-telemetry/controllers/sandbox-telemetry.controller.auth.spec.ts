@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { SandboxTelemetryController } from './sandbox-telemetry.controller'
 import { OrganizationAuthContextGuard } from '../../organization/guards/organization-auth-context.guard'
 import { SandboxAccessGuard } from '../../sandbox/guards/sandbox-access.guard'

@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { memo } from 'react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@dashboard/ui/tooltip'
 import { cn } from '@backoffice/lib/utils'

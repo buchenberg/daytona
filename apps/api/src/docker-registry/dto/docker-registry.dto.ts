@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ApiProperty, ApiSchema } from '@nestjs/swagger'
 import { RegistryType } from './../../docker-registry/enums/registry-type.enum'
 import { DockerRegistry } from '../entities/docker-registry.entity'

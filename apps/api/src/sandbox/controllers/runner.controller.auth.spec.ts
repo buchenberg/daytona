@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { RunnerController } from './runner.controller'
 import { OrganizationAuthContextGuard } from '../../organization/guards/organization-auth-context.guard'
 import { RunnerAuthContextGuard } from '../guards/runner-auth-context.guard'

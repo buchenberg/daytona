@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { handleApiError } from '@/lib/error-handling'
 import { Organization } from '@daytona/api-client'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'

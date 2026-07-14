@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { useAuth } from 'react-oidc-context'
 import { useCallback } from 'react'
 import { WebhookInitializationStatus } from '@daytona/api-client'

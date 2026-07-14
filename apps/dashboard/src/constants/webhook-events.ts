@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { WebhookEvent } from '@daytona/api-client'
 
 export const WEBHOOK_EVENTS: Array<{ value: WebhookEvent; label: string; category: string }> = [

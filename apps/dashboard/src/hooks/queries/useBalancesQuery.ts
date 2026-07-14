@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { useApi } from '../useApi'
 import { useConfig } from '../useConfig'

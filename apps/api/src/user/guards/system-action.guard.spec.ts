@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { SystemActionGuard } from './system-action.guard'
 import { SystemRole } from '../enums/system-role.enum'
 import { AccessDeniedException } from '../../common/exceptions/access-denied.exception'

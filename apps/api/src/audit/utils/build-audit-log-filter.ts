@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { BadRequestException } from '@nestjs/common'
 import { ListAuditLogsQueryDto, MAX_AUDIT_FILTER_RULES } from '../dto/list-audit-logs-query.dto'
 import { AuditLogFilter } from '../interfaces/audit-filter.interface'

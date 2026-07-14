@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import type { ChatModelAdapter, ChatModelRunResult } from '@assistant-ui/react'
 import { streamChat, stopChat, resetConversationMessages } from './api'
 import type { ChatEvent } from './types'

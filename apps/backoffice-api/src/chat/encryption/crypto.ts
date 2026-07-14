@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes } from 'crypto'
 import { Logger } from '@nestjs/common'
 import { config } from '../../config/env'

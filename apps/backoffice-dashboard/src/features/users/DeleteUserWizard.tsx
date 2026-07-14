@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@dashboard/ui/dialog'
 import { Step1Auth0Confirmation } from './deletion-steps/Step1Auth0Confirmation'

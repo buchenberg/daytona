@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Injectable } from '@nestjs/common'
 import { BillingInfoApi, Configuration } from '@daytona/billing-api-client'
 import axios from 'axios'

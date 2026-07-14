@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import type { Meta, StoryObj } from '@storybook/react'
 import { ToggleGroup, ToggleGroupItem } from '../toggle-group'
 import { AlignLeftIcon, AlignCenterIcon, AlignRightIcon } from 'lucide-react'

@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common'
 import { AuditLog } from '../entities/audit-log.entity'
 import { AuditLogPublisher } from '../interfaces/audit-publisher.interface'

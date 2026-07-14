@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import type { ReactNode } from 'react'
 import awsIcon from '@/assets/aws.svg'
 import dockerIcon from '@/assets/docker.svg'

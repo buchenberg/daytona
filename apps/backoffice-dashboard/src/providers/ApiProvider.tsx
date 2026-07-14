@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router'
 import BackofficeApiClient from '../api/BackofficeApiClient'

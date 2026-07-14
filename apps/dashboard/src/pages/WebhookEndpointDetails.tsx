@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { CopyButton } from '@/components/CopyButton'
 import { PageContent, PageHeader, PageIntro, PageLayout } from '@/components/PageLayout'
 import { TimestampTooltip } from '@/components/TimestampTooltip'

@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { useConfig } from '@/hooks/useConfig'
 import { usePrivacyConsentStore } from '@/hooks/usePrivacyConsent'
 import { usePostHog } from 'posthog-js/react'

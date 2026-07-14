@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { OrganizationUser } from '../../organization/entities/organization-user.entity'
 import { Organization } from '../../organization/entities/organization.entity'
 import { UserAuthContext, isUserAuthContext } from './user-auth-context.interface'

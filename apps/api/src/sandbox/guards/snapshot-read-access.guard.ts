@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Injectable, ExecutionContext, ForbiddenException, Logger, NotFoundException } from '@nestjs/common'
 import { ResourceAccessGuard } from '../../common/guards/resource-access.guard'
 import { SnapshotService } from '../services/snapshot.service'

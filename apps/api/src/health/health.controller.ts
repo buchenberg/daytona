@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Controller, Get, Logger, ServiceUnavailableException, UseGuards } from '@nestjs/common'
 import { HealthCheckService, HealthCheck, TypeOrmHealthIndicator } from '@nestjs/terminus'
 import { RedisHealthIndicator } from './redis.health'

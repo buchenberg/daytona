@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Catch, ArgumentsHost, Logger } from '@nestjs/common'
 import { KafkaContext } from '@nestjs/microservices'
 import NodeCache from 'node-cache'

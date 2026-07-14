@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { JobType } from '../enums/job-type.enum'
 import { ResourceType } from '../enums/resource-type.enum'
 

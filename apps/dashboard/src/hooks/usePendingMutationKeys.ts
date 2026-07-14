@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { MutationKey, useMutationState } from '@tanstack/react-query'
 import { useMemo } from 'react'
 

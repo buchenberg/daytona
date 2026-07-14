@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Reflector } from '@nestjs/core'
 import { SystemRole } from '../enums/system-role.enum'
 

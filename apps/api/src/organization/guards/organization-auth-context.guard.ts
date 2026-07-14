@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ExecutionContext, Injectable, Logger } from '@nestjs/common'
 import { AuthContextGuard } from '../../common/guards/auth-context.guard'
 import { Reflector } from '@nestjs/core'

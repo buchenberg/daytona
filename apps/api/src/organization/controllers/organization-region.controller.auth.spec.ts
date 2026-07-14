@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { OrganizationRegionController } from './organization-region.controller'
 import { OrganizationAuthContextGuard } from '../guards/organization-auth-context.guard'
 import { RegionAccessGuard } from '../../region/guards/region-access.guard'

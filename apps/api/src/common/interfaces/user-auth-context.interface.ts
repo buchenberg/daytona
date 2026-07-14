@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ApiKey } from '../../api-key/api-key.entity'
 import { BaseAuthContext, isBaseAuthContext } from './base-auth-context.interface'
 

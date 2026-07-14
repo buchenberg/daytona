@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { ROOT_PATH } from './constants'

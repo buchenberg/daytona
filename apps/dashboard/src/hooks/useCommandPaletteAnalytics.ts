@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { usePostHog } from 'posthog-js/react'
 import { useCallback, useMemo } from 'react'
 

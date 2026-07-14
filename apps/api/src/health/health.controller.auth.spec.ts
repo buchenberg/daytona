@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { HealthController } from './health.controller'
 import { HealthCheckAuthContextGuard } from './guards/health-check-auth-context.guard'
 import { AuthStrategyType } from '../auth/enums/auth-strategy-type.enum'

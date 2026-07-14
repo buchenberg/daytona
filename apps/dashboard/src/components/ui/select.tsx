@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Select as SelectPrimitive } from '@base-ui/react/select'
 import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 import * as React from 'react'

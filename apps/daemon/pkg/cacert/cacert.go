@@ -1,6 +1,3 @@
-// Copyright 2025 Daytona Platforms Inc.
-// SPDX-License-Identifier: AGPL-3.0
-
 // Package cacert installs the secret-injection proxy's CA certificate into the
 // sandbox's system trust store. The runner points common TLS stacks at the
 // mounted CA via SSL_CERT_FILE / *_CA_BUNDLE env vars, but clients that only

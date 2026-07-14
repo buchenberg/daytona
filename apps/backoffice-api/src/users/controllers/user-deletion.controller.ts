@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common'
 import { PermissionsGuard } from '../../common/guards/permissions.guard'
 import { RequirePermission } from '../../common/decorators/require-permission.decorator'

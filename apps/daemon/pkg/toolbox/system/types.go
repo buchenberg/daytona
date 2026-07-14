@@ -1,6 +1,3 @@
-// Copyright Daytona Platforms Inc.
-// SPDX-License-Identifier: AGPL-3.0
-
 package system
 
 // SystemMetrics is a point-in-time snapshot of a sandbox's CPU, memory and disk

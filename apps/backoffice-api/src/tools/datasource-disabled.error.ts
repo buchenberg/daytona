@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 /**
  * Thrown by a mali datasource service when a tool is invoked for a user who
  * has the corresponding source `{disabled: true}` in their override blob.

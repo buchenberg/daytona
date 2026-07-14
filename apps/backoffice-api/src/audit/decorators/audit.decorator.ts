@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { SetMetadata } from '@nestjs/common'
 import { Request } from 'express'
 import { AuditAction } from '../enums/audit-action.enum'

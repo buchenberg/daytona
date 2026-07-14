@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ApiProperty, ApiSchema } from '@nestjs/swagger'
 import { OrganizationMemberRole } from '../enums/organization-member-role.enum'
 import { OrganizationRoleDto } from './organization-role.dto'

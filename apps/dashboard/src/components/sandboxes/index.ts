@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 export { default as SandboxDetails } from './SandboxDetails'
 export { default as SandboxDetailsSheet } from './SandboxDetailsSheet'
 export type { SandboxDetailsSheetTabValue } from './SandboxDetailsSheet'

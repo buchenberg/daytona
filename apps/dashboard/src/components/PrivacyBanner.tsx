@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { usePrivacyConsent } from '@/hooks/usePrivacyConsent'
 import { Cookie, Settings } from 'lucide-react'
 import { useState } from 'react'

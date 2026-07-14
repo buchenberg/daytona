@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common'
 import { createClient, ClickHouseClient } from '@clickhouse/client'
 import { TypedConfigService } from '../config/typed-config.service'

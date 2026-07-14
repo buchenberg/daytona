@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { pluralize } from '@/lib/utils'
 import { BulkActionCounts } from '@/lib/utils/sandbox'
 import { ArchiveIcon, CheckSquare2Icon, MinusSquareIcon, PlayIcon, SquareIcon, TrashIcon } from 'lucide-react'

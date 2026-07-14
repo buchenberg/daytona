@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { routes } from '@/routes/paths'
 import { queryKeys } from '@/hooks/queries/queryKeys'
 import { DaytonaConfiguration } from '@daytona/api-client'

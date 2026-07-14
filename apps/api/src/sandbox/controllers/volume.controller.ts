@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Controller, Get, Post, Delete, Body, Param, Logger, UseGuards, HttpCode, Query } from '@nestjs/common'
 import {
   ApiOAuth2,

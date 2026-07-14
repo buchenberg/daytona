@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { OrganizationRoleController } from './organization-role.controller'
 import { OrganizationAuthContextGuard } from '../guards/organization-auth-context.guard'
 import { AuthStrategyType } from '../../auth/enums/auth-strategy-type.enum'

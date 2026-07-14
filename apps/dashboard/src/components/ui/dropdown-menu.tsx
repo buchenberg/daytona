@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Menu as DropdownMenuPrimitive } from '@base-ui/react/menu'
 import { Check, ChevronRight, Circle } from 'lucide-react'
 import * as React from 'react'

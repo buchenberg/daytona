@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 /**
  * Pure policy checks for temporary region-quota bumps. Kept side-effect free so
  * they are trivially unit-testable; the service turns any returned violation

@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { PageContent, PageHeader, PageIntro, PageLayout } from '@/components/PageLayout'
 import { AggregatedUsageChart, ResourceUsageBreakdown, UsageSummary } from '@/components/spending/AggregatedUsageChart'
 import { SandboxUsageTable } from '@/components/spending/SandboxUsageTable'

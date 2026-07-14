@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Provider } from '@nestjs/common'
 import { getRepositoryToken } from '@nestjs/typeorm'
 import { OpensearchClient } from 'nestjs-opensearch'

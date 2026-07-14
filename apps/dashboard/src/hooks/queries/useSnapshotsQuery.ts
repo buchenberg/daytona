@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { GetAllSnapshotsOrderEnum, GetAllSnapshotsSortEnum, PaginatedSnapshots, SnapshotDto } from '@daytona/api-client'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'

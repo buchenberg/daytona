@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Controller, Get, UseGuards, HttpCode } from '@nestjs/common'
 import { ApiOAuth2, ApiTags, ApiOperation, ApiResponse, ApiHeader, ApiBearerAuth } from '@nestjs/swagger'
 import { OrganizationAuthContext } from '../../common/interfaces/organization-auth-context.interface'

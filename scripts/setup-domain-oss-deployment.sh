@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Copyright 2026 Daytona Platforms Inc.
-# SPDX-License-Identifier: AGPL-3.0
-
 # Daytona Domain Setup
 # Automated deployment of Daytona OSS behind a custom domain with Caddy + TLS.
 # Supports: Ubuntu, Debian, Fedora, CentOS, RHEL, Rocky, AlmaLinux, macOS

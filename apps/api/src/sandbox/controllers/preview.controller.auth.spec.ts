@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { PreviewController } from './preview.controller'
 import { ProxyAuthContextGuard } from '../guards/proxy-auth-context.guard'
 import { AuthStrategyType } from '../../auth/enums/auth-strategy-type.enum'

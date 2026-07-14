@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { SandboxRepository } from '../../repositories/sandbox.repository'
 import { isSpilloverError, RECOVERY_ERROR_SUBSTRINGS } from '../../constants/errors-for-recovery'

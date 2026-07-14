@@ -288,4 +288,4 @@ See [`AGENTS.md`](AGENTS.md) for the full shell reference, project-to-shell mapp
 ## Contributing
 
 > [!NOTE]
-> Daytona is Open Source under the [GNU AFFERO GENERAL PUBLIC LICENSE](LICENSE), and is the [copyright of its contributors](NOTICE). If you would like to contribute to the software, read the [Developer Certificate of Origin Version 1.1](https://developercertificate.org/) and the [contributing guide](CONTRIBUTING.md) to get started.
+> Daytona is proprietary software. Copyright Daytona Platforms, Inc. All Rights Reserved. Certain components under `libs/` (the API client libraries, `common-go`, and `runner-proto`) are Separately Licensed Components under Apache-2.0; see the LICENSE file or license headers in each directory, and the root [LICENSE](LICENSE) for details.

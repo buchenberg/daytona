@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { createParamDecorator, ExecutionContext } from '@nestjs/common'
 import { BaseAuthContext, isBaseAuthContext } from '../interfaces/base-auth-context.interface'
 import { isUserAuthContext } from '../interfaces/user-auth-context.interface'

@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { type CommandConfig, useRegisterCommands } from '@/components/CommandPalette'
 import { PageContent, PageFooter, PageHeader, PageIntro, PageLayout } from '@/components/PageLayout'
 import { UpsertEndpointSheet } from '@/components/Webhooks/UpsertEndpointSheet'

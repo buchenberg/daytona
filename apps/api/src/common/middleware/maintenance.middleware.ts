@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Injectable, NestMiddleware, HttpException, HttpStatus } from '@nestjs/common'
 import { Request, Response, NextFunction } from 'express'
 import { TypedConfigService } from '../../config/typed-config.service'

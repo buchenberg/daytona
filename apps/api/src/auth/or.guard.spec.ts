@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { CanActivate, ExecutionContext } from '@nestjs/common'
 import { ModuleRef } from '@nestjs/core'
 import { OrGuard } from './or.guard'

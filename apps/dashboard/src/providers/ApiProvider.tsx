@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ApiClient } from '@/api/apiClient'
 import LoadingFallback from '@/components/LoadingFallback'
 import { ApiContext } from '@/contexts/ApiContext'

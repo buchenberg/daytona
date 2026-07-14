@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { EntityManager } from 'typeorm'
 import { Sandbox } from '../entities/sandbox.entity'
 

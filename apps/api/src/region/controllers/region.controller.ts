@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Controller, Get, Logger, HttpCode } from '@nestjs/common'
 import { ApiResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { RegionDto } from '../dto/region.dto'

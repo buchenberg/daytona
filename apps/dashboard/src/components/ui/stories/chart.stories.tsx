@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import type { Meta, StoryObj } from '@storybook/react'
 import { Bar, BarChart, XAxis, YAxis } from 'recharts'
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '../chart'

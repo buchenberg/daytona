@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Injectable, Logger, OnModuleInit, NotFoundException, ServiceUnavailableException } from '@nestjs/common'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { Svix } from 'svix'

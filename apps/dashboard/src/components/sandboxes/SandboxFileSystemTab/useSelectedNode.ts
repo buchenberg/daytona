@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ROOT_PATH } from './constants'
 import { useFileSystemStore } from './fileSystemStore'
 import { useFileDetailsQuery } from './queries'

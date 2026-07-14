@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { CopyButton } from '@/components/CopyButton'
 import { DeleteOrganizationDialog } from '@/components/Organizations/DeleteOrganizationDialog'
 import { LeaveOrganizationDialog } from '@/components/Organizations/LeaveOrganizationDialog'

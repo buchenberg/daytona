@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 export const MOCK_USER_ID = 'mock-user-id'
 export const MOCK_USER_EMAIL = 'mock@example.com'
 export const MOCK_ORGANIZATION_ID = 'mock-org-id'

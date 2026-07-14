@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { DynamicModule, Module } from '@nestjs/common'
 import { EmailService } from './services/email.service'
 import { EMAIL_MODULE_OPTIONS } from './constants'

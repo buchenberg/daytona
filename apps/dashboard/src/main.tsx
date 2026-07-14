@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { NuqsAdapter } from 'nuqs/adapters/react-router/v7'
 import React, { Suspense } from 'react'
 import ReactDOM from 'react-dom/client'

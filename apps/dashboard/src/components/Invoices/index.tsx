@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
 import { cn } from '@/lib/utils'
 import { getColumnSizeStyles, getTableSizeStyles } from '@/lib/utils/table'

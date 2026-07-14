@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Tooltip } from '@/components/Tooltip'
 import { Label } from '@/components/ui/label'
 import { SANDBOX_SNAPSHOT_DEFAULT_VALUE } from '@/constants/Playground'

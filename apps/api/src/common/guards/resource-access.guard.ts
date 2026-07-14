@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { CanActivate, ExecutionContext, Logger, NotFoundException } from '@nestjs/common'
 import { EntityNotFoundError } from 'typeorm'
 

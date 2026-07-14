@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { SnapshotController } from './snapshot.controller'
 import { OrganizationAuthContextGuard } from '../../organization/guards/organization-auth-context.guard'
 import { SnapshotAccessGuard } from '../guards/snapshot-access.guard'

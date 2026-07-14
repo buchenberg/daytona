@@ -1,6 +1,3 @@
-// Copyright Daytona Platforms Inc.
-// SPDX-License-Identifier: AGPL-3.0
-
 // Daemon-side HTTP handlers for the AT-SPI accessibility API. The plugin's
 // interface-facing wrappers (libs/computer-use/pkg/computeruse/accessibility.go)
 // return raw sentinel errors; this file maps them to HTTP status codes. Only

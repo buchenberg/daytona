@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 // Response shapes for the quota-bump endpoints. The generated client types these
 // as `void` (the controllers don't declare response DTOs), so we describe them here.
 // Request bodies use the generated CreateQuotaBumpDto / RejectQuotaBumpDto.

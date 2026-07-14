@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { CopyButton } from '@/components/CopyButton'
 import { SandboxState } from './SandboxState'
 import { Button } from '@/components/ui/button'

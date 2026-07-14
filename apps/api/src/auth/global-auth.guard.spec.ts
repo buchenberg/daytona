@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { HttpException, HttpStatus, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { GlobalAuthGuard } from './global-auth.guard'

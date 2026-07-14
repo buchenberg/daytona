@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { SystemRole } from '../../user/enums/system-role.enum'
 import { OrganizationMemberRole } from '../../organization/enums/organization-member-role.enum'
 import { UserAuthContext } from '../../common/interfaces/user-auth-context.interface'

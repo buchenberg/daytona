@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { DAYTONA_DOCS_URL } from '@/constants/Links'
 import { useTheme } from '@/contexts/ThemeContext'
 import { routes } from '@/routes/paths'

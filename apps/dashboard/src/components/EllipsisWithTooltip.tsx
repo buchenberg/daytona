@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { cn } from '@/lib/utils'
 import { useRender } from '@base-ui/react/use-render'
 import { useRef, useState, type ComponentProps } from 'react'

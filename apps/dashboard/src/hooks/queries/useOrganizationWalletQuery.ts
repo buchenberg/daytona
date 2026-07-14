@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import type { OrganizationWallet } from '@daytona/billing-api-client'
 import { useQuery, UseQueryOptions } from '@tanstack/react-query'
 import { useApi } from '../useApi'

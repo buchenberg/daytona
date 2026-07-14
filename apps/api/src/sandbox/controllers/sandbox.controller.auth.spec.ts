@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { SandboxController } from './sandbox.controller'
 import { OrganizationAuthContextGuard } from '../../organization/guards/organization-auth-context.guard'
 import { SandboxAccessGuard } from '../guards/sandbox-access.guard'

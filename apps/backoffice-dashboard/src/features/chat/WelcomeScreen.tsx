@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ThreadPrimitive } from '@assistant-ui/react'
 import { Database, AlertTriangle, Search, BarChart3, Bug } from 'lucide-react'
 import type { FC } from 'react'

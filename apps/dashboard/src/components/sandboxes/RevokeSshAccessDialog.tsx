@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Field, FieldLabel } from '@/components/ui/field'

@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { ApiProperty, ApiSchema } from '@nestjs/swagger'
 import { IsBoolean, IsInt, IsOptional, IsString, IsArray, IsEnum, IsDate, Min } from 'class-validator'
 import { Type } from 'class-transformer'

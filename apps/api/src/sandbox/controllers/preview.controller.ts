@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import Redis from 'ioredis'
 import { Controller, Get, Param, Query, Logger, NotFoundException, Req, UseGuards } from '@nestjs/common'
 import { SandboxService } from '../services/sandbox.service'

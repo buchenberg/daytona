@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Injectable, OnModuleDestroy } from '@nestjs/common'
 import axios, { AxiosInstance } from 'axios'
 import { SettingsService, EffectivePosthogConfig } from '../../chat/settings.service'

@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Buffer } from 'buffer'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 

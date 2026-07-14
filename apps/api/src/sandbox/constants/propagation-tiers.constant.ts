@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 /**
  * Propagation tiers keyed by regionId. Each entry maps a cpuQuota threshold to the percentage of shared runners to propagate to.
  *

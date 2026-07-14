@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import type { ComponentType } from 'react'
 import type { LazyRouteFunction, RouteObject } from 'react-router'
 

@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { Accordion as AccordionPrimitive } from '@base-ui/react/accordion'
 import { ChevronDown } from 'lucide-react'
 import * as React from 'react'

@@ -1,8 +1,3 @@
-/*
- * Copyright Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { NotFoundException } from '@nestjs/common'
 import { RegionAccessGuard } from './region-access.guard'
 import { InvalidAuthenticationContextException } from '../../common/exceptions/invalid-authentication-context.exception'

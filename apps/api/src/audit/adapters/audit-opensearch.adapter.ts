@@ -1,8 +1,3 @@
-/*
- * Copyright 2025 Daytona Platforms Inc.
- * SPDX-License-Identifier: AGPL-3.0
- */
-
 import { BadRequestException, Logger, OnModuleInit } from '@nestjs/common'
 import { errors } from '@opensearch-project/opensearch'
 import { AuditLog } from '../entities/audit-log.entity'
