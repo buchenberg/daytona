@@ -48,9 +48,6 @@ func (p *Proxy) getSnapshotTarget(ctx *gin.Context) (*url.URL, map[string]string
 		return nil, nil, fmt.Errorf("failed to get runner info: %w", err)
 	}
 
-	queryParams := ctx.Request.URL.Query()
-	queryParams.Add("snapshotRef", *snapshot.Ref)
-
 	// Build the target URL
 	targetURL := fmt.Sprintf("%s/snapshots/logs", runnerInfo.ApiUrl)
 
@@ -60,7 +57,7 @@ func (p *Proxy) getSnapshotTarget(ctx *gin.Context) (*url.URL, map[string]string
 		ctx.Error(common_errors.NewBadRequestError(fmt.Errorf("failed to parse target URL: %w", err)))
 		return nil, nil, fmt.Errorf("failed to parse target URL: %w", err)
 	}
-	target.RawQuery = queryParams.Encode()
+	applyBuildLogsQuery(ctx, target, *snapshot.Ref)
 
 	return target, map[string]string{
 		"X-Daytona-Authorization": fmt.Sprintf("Bearer %s", runnerInfo.ApiKey),

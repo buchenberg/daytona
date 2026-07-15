@@ -39,9 +39,6 @@ func (p *Proxy) getSandboxBuildTarget(ctx *gin.Context) (*url.URL, map[string]st
 		return nil, nil, fmt.Errorf("failed to get runner info: %w", err)
 	}
 
-	queryParams := ctx.Request.URL.Query()
-	queryParams.Add("snapshotRef", sandbox.BuildInfo.SnapshotRef)
-
 	// Build the target URL
 	targetURL := fmt.Sprintf("%s/snapshots/logs", runnerInfo.ApiUrl)
 
@@ -51,7 +48,7 @@ func (p *Proxy) getSandboxBuildTarget(ctx *gin.Context) (*url.URL, map[string]st
 		ctx.Error(common_errors.NewBadRequestError(fmt.Errorf("failed to parse target URL: %w", err)))
 		return nil, nil, fmt.Errorf("failed to parse target URL: %w", err)
 	}
-	target.RawQuery = queryParams.Encode()
+	applyBuildLogsQuery(ctx, target, sandbox.BuildInfo.SnapshotRef)
 
 	return target, map[string]string{
 		"X-Daytona-Authorization": fmt.Sprintf("Bearer %s", runnerInfo.ApiKey),
