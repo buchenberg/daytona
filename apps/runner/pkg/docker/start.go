@@ -177,16 +177,9 @@ func (d *DockerClient) convertRuncToKata(ctx context.Context, containerId string
 	return d.recreateContainerUnderSameID(ctx, containerId, "daytona-runc-to-kata", original, nil, func(hc *container.HostConfig) {
 		hc.Privileged = false
 		hc.Runtime = "kata-clh"
-		// Kata VM default size is 1vcpu and 2Gi RAM. Kata adds container resources on
-		// top of its defaults, so subtract them to get the actual requested size.
-		if hc.CPUQuota >= 100000 {
-			hc.CPUQuota -= 100000
-		}
-		kataDefaultMemory := common.GBToBytes(1)
-		if hc.Memory >= kataDefaultMemory {
-			hc.Memory -= kataDefaultMemory
-			hc.MemorySwap -= kataDefaultMemory
-		}
+		// The requested limits pass through unchanged: kata enforces them as cgroup
+		// limits inside the guest, so the workload gets exactly what was requested.
+		// The VM itself is sized at default_vcpus/default_memory + these limits.
 		hc.CapAdd = []string{"ALL"}
 		hc.SecurityOpt = []string{"seccomp=unconfined", "apparmor=unconfined"}
 	})

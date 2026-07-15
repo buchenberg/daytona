@@ -219,18 +219,9 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 	if noSysbox || forceKata {
 		hostConfig.Privileged = false
 		hostConfig.Runtime = "kata-clh"
-		// Kata VM default size is 1vcpu and 2Gi RAM
-		// Kata adds container resources on top of its defaults, so subtract them
-		// to get the actual requested size inside the VM.
-		if hostConfig.CPUQuota >= 100000 {
-			hostConfig.CPUQuota -= 100000 // subtract 1 vCPU (1 * CPUPeriod)
-		}
-		kataDefaultMemory := common.GBToBytes(1)
-		if hostConfig.Memory >= kataDefaultMemory {
-			hostConfig.Memory -= kataDefaultMemory
-			hostConfig.MemorySwap -= kataDefaultMemory
-		}
-
+		// The requested limits pass through unchanged: kata enforces them as cgroup
+		// limits inside the guest, so the workload gets exactly what was requested.
+		// The VM itself is sized at default_vcpus/default_memory + these limits.
 		hostConfig.CapAdd = []string{"ALL"}
 		hostConfig.SecurityOpt = []string{"seccomp=unconfined", "apparmor=unconfined"}
 		// hostConfig.Binds = append(hostConfig.Binds, "/opt/kata/bin/kata-init.sh:/opt/kata-init.sh:ro")
