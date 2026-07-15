@@ -16,15 +16,6 @@ import (
 	"github.com/docker/docker/api/types/container"
 )
 
-// Fixed sandbox slice applied to every GPU sandbox regardless of host size.
-// Keeping these constant across runners makes user-visible GPU sandbox
-// capacity uniform on heterogeneous GPU fleets.
-const (
-	gpuSandboxCPUCores  int64 = 16
-	gpuSandboxMemoryGiB int64 = 256
-	gpuSandboxDiskGiB   int64 = 512
-)
-
 // androidDeviceLabel is set on containers created for sandboxes tagged as "android-device".
 // The Start path reads it to skip the daytona daemon exec/wait that regular sandboxes need.
 const androidDeviceLabel = "daytona.android_device"
@@ -38,13 +29,13 @@ func isAndroidDeviceContainer(c *container.InspectResponse) bool {
 	return c.Config.Labels[androidDeviceLabel] == "true"
 }
 
-func (d *DockerClient) getContainerConfigs(sandboxDto dto.CreateSandboxDTO, image *image.InspectResponse, volumeMountPathBinds []string, gpuIndex *int) (*container.Config, *container.HostConfig, *network.NetworkingConfig, error) {
-	containerConfig, err := d.getContainerCreateConfig(sandboxDto, image, gpuIndex)
+func (d *DockerClient) getContainerConfigs(sandboxDto dto.CreateSandboxDTO, image *image.InspectResponse, volumeMountPathBinds []string, gpuIndices []int) (*container.Config, *container.HostConfig, *network.NetworkingConfig, error) {
+	containerConfig, err := d.getContainerCreateConfig(sandboxDto, image, gpuIndices)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	hostConfig, err := d.getContainerHostConfig(sandboxDto, volumeMountPathBinds, gpuIndex)
+	hostConfig, err := d.getContainerHostConfig(sandboxDto, volumeMountPathBinds, gpuIndices)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -54,7 +45,7 @@ func (d *DockerClient) getContainerConfigs(sandboxDto dto.CreateSandboxDTO, imag
 	return containerConfig, hostConfig, networkingConfig, nil
 }
 
-func (d *DockerClient) getContainerCreateConfig(sandboxDto dto.CreateSandboxDTO, image *image.InspectResponse, gpuIndex *int) (*container.Config, error) {
+func (d *DockerClient) getContainerCreateConfig(sandboxDto dto.CreateSandboxDTO, image *image.InspectResponse, gpuIndices []int) (*container.Config, error) {
 	if image == nil {
 		return nil, fmt.Errorf("image not found for sandbox: %s", sandboxDto.Id)
 	}
@@ -65,19 +56,25 @@ func (d *DockerClient) getContainerCreateConfig(sandboxDto dto.CreateSandboxDTO,
 		"DAYTONA_SANDBOX_USER=" + sandboxDto.OsUser,
 	}
 
-	// GPU sandboxes run non-privileged so CDI's per-device cgroup rules
-	// actually take effect. CDI already restricts the container to the one
-	// allocated physical GPU (see DeviceRequests below), and Linux/CUDA
-	// renumber the exposed devices starting at 0 - so from inside the
-	// container the GPU is always index 0 regardless of which host slot
-	// was allocated. Hard-code the env vars to "0" so CUDA/userspace tools
-	// don't try to address a host-side index that doesn't exist in the
-	// container's view (which would break e.g. cudaSetDevice while letting
-	// nvidia-smi work).
-	if gpuIndex != nil {
+	// GPU sandboxes run non-privileged so CDI's per-device cgroup rules take
+	// effect. Physical GPU isolation is done entirely by docker-native CDI
+	// (HostConfig.DeviceRequests, Driver "cdi"): it injects only the assigned
+	// devices and renumbers them to 0..N-1 inside the container. The env vars
+	// are not the isolation mechanism:
+	//   - NVIDIA_VISIBLE_DEVICES is pinned to "void" - the value the CDI runtime
+	//     forces at container start anyway - so a base image's common
+	//     NVIDIA_VISIBLE_DEVICES=all default can never become the effective value
+	//     and over-expose GPUs if injection ever falls back off the CDI path.
+	//   - CUDA_VISIBLE_DEVICES pins the CUDA runtime to the logical 0..N-1 view.
+	if len(gpuIndices) > 0 {
+		visibleDevices := make([]string, len(gpuIndices))
+		for i := range gpuIndices {
+			visibleDevices[i] = strconv.Itoa(i)
+		}
+		visibleDeviceList := strings.Join(visibleDevices, ",")
 		envVars = append(envVars,
-			"NVIDIA_VISIBLE_DEVICES=0",
-			"CUDA_VISIBLE_DEVICES=0",
+			"NVIDIA_VISIBLE_DEVICES=void",
+			"CUDA_VISIBLE_DEVICES="+visibleDeviceList,
 		)
 	}
 
@@ -126,8 +123,12 @@ func (d *DockerClient) getContainerCreateConfig(sandboxDto dto.CreateSandboxDTO,
 			labels["daytona.organization_name"] = orgName
 		}
 	}
-	if gpuIndex != nil {
-		labels[GpuIndexLabel] = strconv.Itoa(*gpuIndex)
+	if len(gpuIndices) > 0 {
+		indexStrings := make([]string, len(gpuIndices))
+		for i, index := range gpuIndices {
+			indexStrings[i] = strconv.Itoa(index)
+		}
+		labels[GpuIndexLabel] = strings.Join(indexStrings, ",")
 	}
 
 	// Android-device sandboxes run the image's native entrypoint (e.g. the docker-android
@@ -184,7 +185,7 @@ func (d *DockerClient) getContainerCreateConfig(sandboxDto dto.CreateSandboxDTO,
 	}, nil
 }
 
-func (d *DockerClient) getContainerHostConfig(sandboxDto dto.CreateSandboxDTO, volumeMountPathBinds []string, gpuIndex *int) (*container.HostConfig, error) {
+func (d *DockerClient) getContainerHostConfig(sandboxDto dto.CreateSandboxDTO, volumeMountPathBinds []string, gpuIndices []int) (*container.HostConfig, error) {
 	// Android-device sandboxes run on plain docker runtime, without the bundled
 	// daytona daemon, and require /dev/kvm to be mounted for emulator acceleration.
 	if sandboxDto.IsAndroidSandbox() {
@@ -215,7 +216,7 @@ func (d *DockerClient) getContainerHostConfig(sandboxDto dto.CreateSandboxDTO, v
 		// CDI cgroup rules, so GPU sandboxes have to opt out to keep their
 		// allocated card isolated. Non-GPU sandboxes still need privileged
 		// for their current workloads.
-		Privileged: gpuIndex == nil,
+		Privileged: len(gpuIndices) == 0,
 		Binds:      binds,
 	}
 
@@ -225,18 +226,9 @@ func (d *DockerClient) getContainerHostConfig(sandboxDto dto.CreateSandboxDTO, v
 		}
 	}
 
-	// GPU sandboxes ignore the API-requested resources and instead get a
-	// uniform slice that is identical on every GPU runner regardless of
-	// host size. This keeps user-visible sandbox capacity consistent
-	// across heterogeneous GPU fleets (e.g. H100 NVL vs H100 SXM5 hosts).
 	cpuQuota := sandboxDto.CpuQuota
 	memoryQuotaGiB := sandboxDto.MemoryQuota
 	storageQuotaGiB := sandboxDto.StorageQuota
-	if gpuIndex != nil {
-		cpuQuota = gpuSandboxCPUCores
-		memoryQuotaGiB = gpuSandboxMemoryGiB
-		storageQuotaGiB = gpuSandboxDiskGiB
-	}
 
 	if !d.resourceLimitsDisabled {
 		hostConfig.Resources = container.Resources{
@@ -258,10 +250,23 @@ func (d *DockerClient) getContainerHostConfig(sandboxDto dto.CreateSandboxDTO, v
 		}
 	}
 
-	if d.gpuEnabled && gpuIndex != nil {
+	// GPU workloads need far more shared memory than Docker's 64 MiB default:
+	// PyTorch DataLoader workers pass batches to the main process through
+	// /dev/shm and SIGBUS when it is too small. Size it to half the sandbox's
+	// memory. This is a ceiling, not a reservation - tmpfs pages are charged to
+	// the container's memory cgroup, so the workload still gets the other half.
+	if len(gpuIndices) > 0 && memoryQuotaGiB > 0 {
+		hostConfig.ShmSize = common.GBToBytes(float64(memoryQuotaGiB)) / 2
+	}
+
+	if d.gpuEnabled && len(gpuIndices) > 0 {
+		deviceIDs := make([]string, len(gpuIndices))
+		for i, index := range gpuIndices {
+			deviceIDs[i] = fmt.Sprintf("nvidia.com/gpu=%d", index)
+		}
 		hostConfig.DeviceRequests = []container.DeviceRequest{{
 			Driver:    "cdi",
-			DeviceIDs: []string{fmt.Sprintf("nvidia.com/gpu=%d", *gpuIndex)},
+			DeviceIDs: deviceIDs,
 		}}
 	}
 

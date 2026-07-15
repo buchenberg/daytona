@@ -45,14 +45,14 @@ export class RegionUsageOverviewDto {
   @ApiProperty({ nullable: true })
   maxDiskPerNonEphemeralSandbox: number | null
 
-  @ApiProperty({ nullable: true })
-  maxCpuPerGpuSandbox: number | null
+  @ApiProperty({ nullable: true, description: 'CPU maximum per requested GPU unit for GPU sandboxes.' })
+  maxCpuPerGpu: number | null
 
-  @ApiProperty({ nullable: true })
-  maxMemoryPerGpuSandbox: number | null
+  @ApiProperty({ nullable: true, description: 'Memory maximum per requested GPU unit for GPU sandboxes.' })
+  maxMemoryPerGpu: number | null
 
-  @ApiProperty({ nullable: true })
-  maxDiskPerGpuSandbox: number | null
+  @ApiProperty({ nullable: true, description: 'Disk maximum per requested GPU unit for GPU sandboxes.' })
+  maxDiskPerGpu: number | null
 }
 
 @ApiSchema({ name: 'OrganizationUsageOverview' })

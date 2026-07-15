@@ -7622,21 +7622,21 @@ components:
         allowedGpuTypes:
         - H100
         - H100
-        maxDiskPerGpuSandbox: 1.4894159098541704
         totalGpuQuota: 7.061401241503109
-        maxCpuPerGpuSandbox: 1.2315135367772556
+        maxMemoryPerGpu: 1.0246457001441578
         maxCpuPerSandbox: 3.616076749251911
         maxDiskPerSandbox: 4.145608029883936
         maxDiskPerNonEphemeralSandbox: 7.386281948385884
         regionId: regionId
         currentDiskUsage: 2.3021358869347655
+        maxCpuPerGpu: 1.2315135367772556
         currentMemoryUsage: 5.962133916683182
         currentCpuUsage: 6.027456183070403
         maxMemoryPerSandbox: 2.027123023002322
+        maxDiskPerGpu: 1.4894159098541704
         totalMemoryQuota: 1.4658129805029452
         totalDiskQuota: 5.637376656633329
         sandboxClass: ""
-        maxMemoryPerGpuSandbox: 1.0246457001441578
       properties:
         regionId:
           type: string
@@ -7675,13 +7675,16 @@ components:
         maxDiskPerNonEphemeralSandbox:
           nullable: true
           type: number
-        maxCpuPerGpuSandbox:
+        maxCpuPerGpu:
+          description: CPU maximum per requested GPU unit for GPU sandboxes.
           nullable: true
           type: number
-        maxMemoryPerGpuSandbox:
+        maxMemoryPerGpu:
+          description: Memory maximum per requested GPU unit for GPU sandboxes.
           nullable: true
           type: number
-        maxDiskPerGpuSandbox:
+        maxDiskPerGpu:
+          description: Disk maximum per requested GPU unit for GPU sandboxes.
           nullable: true
           type: number
       required:
@@ -7689,12 +7692,12 @@ components:
       - currentDiskUsage
       - currentGpuUsage
       - currentMemoryUsage
-      - maxCpuPerGpuSandbox
+      - maxCpuPerGpu
       - maxCpuPerSandbox
-      - maxDiskPerGpuSandbox
+      - maxDiskPerGpu
       - maxDiskPerNonEphemeralSandbox
       - maxDiskPerSandbox
-      - maxMemoryPerGpuSandbox
+      - maxMemoryPerGpu
       - maxMemoryPerSandbox
       - regionId
       - sandboxClass
@@ -7715,41 +7718,41 @@ components:
           allowedGpuTypes:
           - H100
           - H100
-          maxDiskPerGpuSandbox: 1.4894159098541704
           totalGpuQuota: 7.061401241503109
-          maxCpuPerGpuSandbox: 1.2315135367772556
+          maxMemoryPerGpu: 1.0246457001441578
           maxCpuPerSandbox: 3.616076749251911
           maxDiskPerSandbox: 4.145608029883936
           maxDiskPerNonEphemeralSandbox: 7.386281948385884
           regionId: regionId
           currentDiskUsage: 2.3021358869347655
+          maxCpuPerGpu: 1.2315135367772556
           currentMemoryUsage: 5.962133916683182
           currentCpuUsage: 6.027456183070403
           maxMemoryPerSandbox: 2.027123023002322
+          maxDiskPerGpu: 1.4894159098541704
           totalMemoryQuota: 1.4658129805029452
           totalDiskQuota: 5.637376656633329
           sandboxClass: ""
-          maxMemoryPerGpuSandbox: 1.0246457001441578
         - totalCpuQuota: 0.8008281904610115
           currentGpuUsage: 9.301444243932576
           allowedGpuTypes:
           - H100
           - H100
-          maxDiskPerGpuSandbox: 1.4894159098541704
           totalGpuQuota: 7.061401241503109
-          maxCpuPerGpuSandbox: 1.2315135367772556
+          maxMemoryPerGpu: 1.0246457001441578
           maxCpuPerSandbox: 3.616076749251911
           maxDiskPerSandbox: 4.145608029883936
           maxDiskPerNonEphemeralSandbox: 7.386281948385884
           regionId: regionId
           currentDiskUsage: 2.3021358869347655
+          maxCpuPerGpu: 1.2315135367772556
           currentMemoryUsage: 5.962133916683182
           currentCpuUsage: 6.027456183070403
           maxMemoryPerSandbox: 2.027123023002322
+          maxDiskPerGpu: 1.4894159098541704
           totalMemoryQuota: 1.4658129805029452
           totalDiskQuota: 5.637376656633329
           sandboxClass: ""
-          maxMemoryPerGpuSandbox: 1.0246457001441578
       properties:
         regionUsage:
           items:
@@ -7890,17 +7893,17 @@ components:
         allowedGpuTypes:
         - H100
         - H100
-        maxDiskPerGpuSandbox: 4.145608029883936
         totalGpuQuota: 5.962133916683182
-        maxCpuPerGpuSandbox: 3.616076749251911
+        maxMemoryPerGpu: 2.027123023002322
         maxCpuPerSandbox: 5.637376656633329
         maxDiskPerSandbox: 7.061401241503109
         maxDiskPerNonEphemeralSandbox: 9.301444243932576
+        maxCpuPerGpu: 3.616076749251911
         maxMemoryPerSandbox: 2.3021358869347655
+        maxDiskPerGpu: 4.145608029883936
         totalMemoryQuota: 6.027456183070403
         totalDiskQuota: 1.4658129805029452
         sandboxClass: ""
-        maxMemoryPerGpuSandbox: 2.027123023002322
       properties:
         sandboxClass:
           allOf:
@@ -7934,13 +7937,16 @@ components:
         maxDiskPerNonEphemeralSandbox:
           nullable: true
           type: number
-        maxCpuPerGpuSandbox:
+        maxCpuPerGpu:
+          description: CPU maximum per requested GPU unit for GPU sandboxes.
           nullable: true
           type: number
-        maxMemoryPerGpuSandbox:
+        maxMemoryPerGpu:
+          description: Memory maximum per requested GPU unit for GPU sandboxes.
           nullable: true
           type: number
-        maxDiskPerGpuSandbox:
+        maxDiskPerGpu:
+          description: Disk maximum per requested GPU unit for GPU sandboxes.
           nullable: true
           type: number
       required:
@@ -9422,11 +9428,13 @@ components:
           - $ref: "#/components/schemas/CreateBuildInfo"
           description: Build information for the sandbox
         linkedSandbox:
-          description: ID or name of an existing sandbox to link the new sandbox to.
-            The new sandbox will be scheduled on the same runner as the linked sandbox
-            so a local network can be established between them. Linked sandboxes must
-            be ephemeral (autoDeleteInterval=0) and cannot themselves be linked to
-            another sandbox.
+          description: "ID or name of an existing sandbox to link the new sandbox\
+            \ to. The new sandbox will be scheduled on the same runner as the linked\
+            \ sandbox so a local network can be established between them. Linked sandboxes\
+            \ must be ephemeral (autoDeleteInterval=0) and cannot themselves be linked\
+            \ to another sandbox. GPU sandboxes cannot participate in links in either\
+            \ direction: a GPU sandbox cannot specify linkedSandbox, and cannot be\
+            \ the link target of another sandbox."
           example: sandbox123
           type: string
         secrets:
@@ -9739,19 +9747,19 @@ components:
         allowedGpuTypes:
         - H100
         - H100
-        maxDiskPerGpuSandbox: 4.145608029883936
         totalGpuQuota: 5.962133916683182
-        maxCpuPerGpuSandbox: 3.616076749251911
+        maxMemoryPerGpu: 2.027123023002322
         organizationId: organizationId
         maxCpuPerSandbox: 5.637376656633329
         maxDiskPerSandbox: 7.061401241503109
         maxDiskPerNonEphemeralSandbox: 9.301444243932576
         regionId: regionId
+        maxCpuPerGpu: 3.616076749251911
         maxMemoryPerSandbox: 2.3021358869347655
+        maxDiskPerGpu: 4.145608029883936
         totalMemoryQuota: 6.027456183070403
         totalDiskQuota: 1.4658129805029452
         sandboxClass: ""
-        maxMemoryPerGpuSandbox: 2.027123023002322
       properties:
         organizationId:
           type: string
@@ -9784,22 +9792,25 @@ components:
         maxDiskPerNonEphemeralSandbox:
           nullable: true
           type: number
-        maxCpuPerGpuSandbox:
+        maxCpuPerGpu:
+          description: CPU maximum per requested GPU unit for GPU sandboxes.
           nullable: true
           type: number
-        maxMemoryPerGpuSandbox:
+        maxMemoryPerGpu:
+          description: Memory maximum per requested GPU unit for GPU sandboxes.
           nullable: true
           type: number
-        maxDiskPerGpuSandbox:
+        maxDiskPerGpu:
+          description: Disk maximum per requested GPU unit for GPU sandboxes.
           nullable: true
           type: number
       required:
-      - maxCpuPerGpuSandbox
+      - maxCpuPerGpu
       - maxCpuPerSandbox
-      - maxDiskPerGpuSandbox
+      - maxDiskPerGpu
       - maxDiskPerNonEphemeralSandbox
       - maxDiskPerSandbox
-      - maxMemoryPerGpuSandbox
+      - maxMemoryPerGpu
       - maxMemoryPerSandbox
       - organizationId
       - regionId
@@ -11709,17 +11720,17 @@ components:
         allowedGpuTypes:
         - H100
         - H100
-        maxDiskPerGpuSandbox: 4.145608029883936
         totalGpuQuota: 5.962133916683182
-        maxCpuPerGpuSandbox: 3.616076749251911
+        maxMemoryPerGpu: 2.027123023002322
         maxCpuPerSandbox: 5.637376656633329
         maxDiskPerSandbox: 7.061401241503109
         maxDiskPerNonEphemeralSandbox: 9.301444243932576
+        maxCpuPerGpu: 3.616076749251911
         maxMemoryPerSandbox: 2.3021358869347655
+        maxDiskPerGpu: 4.145608029883936
         totalMemoryQuota: 6.027456183070403
         totalDiskQuota: 1.4658129805029452
         sandboxClass: ""
-        maxMemoryPerGpuSandbox: 2.027123023002322
       properties:
         sandboxClass:
           allOf:
@@ -11749,13 +11760,16 @@ components:
         maxDiskPerNonEphemeralSandbox:
           nullable: true
           type: number
-        maxCpuPerGpuSandbox:
+        maxCpuPerGpu:
+          description: CPU maximum per requested GPU unit for GPU sandboxes.
           nullable: true
           type: number
-        maxMemoryPerGpuSandbox:
+        maxMemoryPerGpu:
+          description: Memory maximum per requested GPU unit for GPU sandboxes.
           nullable: true
           type: number
-        maxDiskPerGpuSandbox:
+        maxDiskPerGpu:
+          description: Disk maximum per requested GPU unit for GPU sandboxes.
           nullable: true
           type: number
       required:

@@ -25,7 +25,7 @@ import { useConfig } from '@/hooks/useConfig'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import { parseEnvFile } from '@/lib/env'
 import { handleApiError } from '@/lib/error-handling'
-import { GPU_TYPE_LABELS } from '@/lib/gpu-types'
+import { GPU_TYPE_LABELS, MAX_GPU_PER_SANDBOX, resolveAllowedGpuTypes } from '@/lib/gpu-types'
 import { EMPTY_REGIONS } from '@/lib/regions'
 import { imageNameSchema } from '@/lib/schema'
 import { cn, getRegionFullDisplayName } from '@/lib/utils'
@@ -44,13 +44,6 @@ import { SnapshotSelect } from './SnapshotSelect'
 
 const NAME_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/
 
-const SELECTABLE_GPU_TYPES = (Object.values(GpuType) as GpuType[]).filter((t) => t !== GpuType.UNKNOWN_DEFAULT_OPEN_API)
-
-const resolveAllowedGpuTypes = (regionAllowed: GpuType[] | null | undefined): GpuType[] => {
-  const filteredRegion = (regionAllowed ?? []).filter((t) => t !== GpuType.UNKNOWN_DEFAULT_OPEN_API)
-  return filteredRegion.length > 0 ? filteredRegion : SELECTABLE_GPU_TYPES
-}
-
 enum Source {
   SNAPSHOT = 'snapshot',
   IMAGE = 'image',
@@ -67,25 +60,22 @@ const noDuplicateKeys = (pairs: { key: string; value: string }[] | undefined) =>
   return new Set(keys).size === keys.length
 }
 
-const resourceSchema = (name: string, max: number | undefined) =>
+const resourceSchema = (name: string) =>
   z
     .number()
     .optional()
-    .refine(
-      (val) => val === undefined || (val >= 1 && (!max || val <= max)),
-      max ? `${name} must be between 1 and ${max}` : `${name} must be at least 1`,
-    )
+    .refine((val) => val === undefined || val >= 1, `${name} must be at least 1`)
 
-const buildBaseFormSchema = (maxCpu?: number, maxMemory?: number, maxDisk?: number) =>
+const buildBaseFormSchema = () =>
   z.object({
     name: z
       .string()
       .optional()
       .refine((val) => !val || NAME_REGEX.test(val), 'Only letters, digits, dots, underscores and dashes are allowed'),
     regionId: z.string().optional(),
-    cpu: resourceSchema('CPU', maxCpu),
-    memory: resourceSchema('Memory', maxMemory),
-    disk: resourceSchema('Storage', maxDisk),
+    cpu: resourceSchema('CPU'),
+    memory: resourceSchema('Memory'),
+    disk: resourceSchema('Storage'),
     autoStopInterval: z.number().min(0).optional(),
     autoArchiveInterval: z.number().min(0).optional(),
     autoDeleteInterval: z
@@ -98,12 +88,12 @@ const buildBaseFormSchema = (maxCpu?: number, maxMemory?: number, maxDisk?: numb
     networkBlockAll: z.boolean().optional(),
     ephemeral: z.boolean().optional(),
     setAsDefaultRegion: z.boolean().optional(),
-    gpu: z.boolean().optional(),
+    gpu: z.number().min(0).max(MAX_GPU_PER_SANDBOX).optional(),
     gpuType: z.nativeEnum(GpuType).optional(),
   })
 
 const buildFormSchema = (maxCpu?: number, maxMemory?: number, maxDisk?: number) => {
-  const base = buildBaseFormSchema(maxCpu, maxMemory, maxDisk)
+  const base = buildBaseFormSchema()
   return z
     .discriminatedUnion('source', [
       base.extend({
@@ -124,6 +114,26 @@ const buildFormSchema = (maxCpu?: number, maxMemory?: number, maxDisk?: number) 
           path: ['regionId'],
           message: 'Selected snapshot is not available in any region you can use.',
         })
+      }
+      // The org-level maxima apply only to non-GPU creates: GPU limits are
+      // per-GPU-unit and region-scoped, enforced server-side.
+      if (val.source === Source.IMAGE && (val.gpu ?? 0) === 0) {
+        const checks: Array<{ field: 'cpu' | 'memory' | 'disk'; max: number | undefined; label: string }> = [
+          { field: 'cpu', max: maxCpu, label: 'CPU' },
+          { field: 'memory', max: maxMemory, label: 'Memory' },
+          { field: 'disk', max: maxDisk, label: 'Storage' },
+        ]
+
+        for (const check of checks) {
+          const requested = val[check.field]
+          if (requested !== undefined && check.max !== undefined && requested > check.max) {
+            ctx.addIssue({
+              code: 'custom',
+              path: [check.field],
+              message: `${check.label} must be between 1 and ${check.max}`,
+            })
+          }
+        }
       }
     })
 }
@@ -152,7 +162,7 @@ const defaultValues: FormValues = {
   networkBlockAll: false,
   ephemeral: false,
   setAsDefaultRegion: false,
-  gpu: false,
+  gpu: 0,
   gpuType: undefined,
 }
 
@@ -263,14 +273,17 @@ export const CreateSandboxSheet = ({
       })
 
       const isImage = value.source === Source.IMAGE
+      const snapshotGpu =
+        !isImage && value.snapshot && selectedSnapshotOption?.name === value.snapshot ? selectedSnapshotOption.gpu : 0
+      const requiresEphemeralSandbox = isImage ? (value.gpu ?? 0) > 0 : snapshotGpu > 0
 
       const baseParams = {
         name: value.name?.trim() || undefined,
         target: value.regionId || undefined,
         autoStopInterval: value.autoStopInterval,
         autoArchiveInterval: value.autoArchiveInterval,
-        autoDeleteInterval: value.autoDeleteInterval,
-        ephemeral: value.ephemeral || undefined,
+        autoDeleteInterval: requiresEphemeralSandbox ? 0 : value.autoDeleteInterval,
+        ephemeral: requiresEphemeralSandbox ? true : value.ephemeral || undefined,
         envVars: Object.keys(envVars).length > 0 ? envVars : undefined,
         labels: Object.keys(labels).length > 0 ? labels : undefined,
         public: value.public || undefined,
@@ -284,13 +297,13 @@ export const CreateSandboxSheet = ({
             ...baseParams,
             image: value.image,
             resources:
-              value.cpu || value.memory || value.disk || value.gpu
+              value.cpu || value.memory || value.disk || (value.gpu ?? 0) > 0
                 ? {
                     cpu: value.cpu,
                     memory: value.memory,
                     disk: value.disk,
-                    gpu: value.gpu ? 1 : undefined,
-                    gpuType: value.gpu && value.gpuType ? value.gpuType : undefined,
+                    gpu: (value.gpu ?? 0) > 0 ? value.gpu : undefined,
+                    gpuType: (value.gpu ?? 0) > 0 && value.gpuType ? value.gpuType : undefined,
                   }
                 : undefined,
           })
@@ -315,6 +328,8 @@ export const CreateSandboxSheet = ({
   })
   const { reset: resetForm } = form
   const selectedSource = useStore(form.store, (state) => state.values.source)
+  const selectedRegionId = useStore(form.store, (state) => state.values.regionId)
+  const selectedGpuCount = useStore(form.store, (state) => state.values.gpu ?? 0)
   const selectedSnapshotName = useStore(form.store, (state) => state.values.snapshot)
   const selectedSnapshot = useMemo(() => {
     if (!selectedSnapshotName) {
@@ -323,6 +338,12 @@ export const CreateSandboxSheet = ({
 
     return selectedSnapshotOption?.name === selectedSnapshotName ? selectedSnapshotOption : undefined
   }, [selectedSnapshotName, selectedSnapshotOption])
+  const effectiveGpuCount = selectedSource === Source.SNAPSHOT ? (selectedSnapshot?.gpu ?? 0) : selectedGpuCount
+  const requiresEphemeralSandbox = effectiveGpuCount > 0
+  // Same entry the GPU controls render from; undefined hides them.
+  const selectedRegionGpuEntry = availableSandboxClasses?.find(
+    (rq) => rq.regionId === selectedRegionId && rq.gpuAvailable,
+  )
   const getRegionsForSnapshot = useCallback(
     (snapshot?: SnapshotDto) => {
       if (!snapshot) {
@@ -388,7 +409,7 @@ export const CreateSandboxSheet = ({
         form.setFieldValue('cpu', undefined)
         form.setFieldValue('memory', undefined)
         form.setFieldValue('disk', undefined)
-        form.setFieldValue('gpu', false)
+        form.setFieldValue('gpu', 0)
         form.setFieldValue('gpuType', undefined)
       } else {
         form.setFieldValue('snapshot', undefined)
@@ -466,6 +487,29 @@ export const CreateSandboxSheet = ({
       resetState()
     }
   }, [open, resetState])
+
+  // Keep the gpu/gpuType values consistent with the (possibly hidden) GPU
+  // controls: without a GPU-capable entry the values are reset so hidden
+  // state cannot leak into the create request; with one, a gpuType the new
+  // region does not allow is normalized to its first allowed type.
+  useEffect(() => {
+    if (!selectedRegionGpuEntry) {
+      form.setFieldValue('gpu', 0)
+      form.setFieldValue('gpuType', undefined)
+      return
+    }
+    const allowedGpuTypes = resolveAllowedGpuTypes(selectedRegionGpuEntry.allowedGpuTypes)
+    const currentGpuType = form.getFieldValue('gpuType')
+    if (currentGpuType && !allowedGpuTypes.includes(currentGpuType)) {
+      form.setFieldValue('gpuType', allowedGpuTypes[0])
+    }
+  }, [form, selectedRegionGpuEntry])
+
+  useEffect(() => {
+    if (!requiresEphemeralSandbox) return
+    form.setFieldValue('ephemeral', true)
+    form.setFieldValue('autoDeleteInterval', 0)
+  }, [form, requiresEphemeralSandbox])
 
   useEffect(() => {
     if (!open || loadingRegions) return
@@ -627,7 +671,7 @@ export const CreateSandboxSheet = ({
                                     allowNegative={false}
                                     isAllowed={(values) => {
                                       if (values.floatValue === undefined) return true
-                                      return !maxCpu || values.floatValue <= maxCpu
+                                      return selectedGpuCount > 0 || !maxCpu || values.floatValue <= maxCpu
                                     }}
                                     value={field.state.value ?? ''}
                                     onBlur={field.handleBlur}
@@ -660,7 +704,7 @@ export const CreateSandboxSheet = ({
                                     allowNegative={false}
                                     isAllowed={(values) => {
                                       if (values.floatValue === undefined) return true
-                                      return !maxMemory || values.floatValue <= maxMemory
+                                      return selectedGpuCount > 0 || !maxMemory || values.floatValue <= maxMemory
                                     }}
                                     value={field.state.value ?? ''}
                                     onBlur={field.handleBlur}
@@ -693,7 +737,7 @@ export const CreateSandboxSheet = ({
                                     allowNegative={false}
                                     isAllowed={(values) => {
                                       if (values.floatValue === undefined) return true
-                                      return !maxDisk || values.floatValue <= maxDisk
+                                      return selectedGpuCount > 0 || !maxDisk || values.floatValue <= maxDisk
                                     }}
                                     value={field.state.value ?? ''}
                                     onBlur={field.handleBlur}
@@ -718,39 +762,72 @@ export const CreateSandboxSheet = ({
                               <div className="flex flex-col gap-3">
                                 <form.Field name="gpu">
                                   {(field) => (
-                                    <div className="flex items-start gap-2 pt-1">
-                                      <Checkbox
-                                        id={field.name}
-                                        className="mt-0.5"
-                                        checked={field.state.value ?? false}
-                                        onCheckedChange={(checked) => {
-                                          const isChecked = checked === true
-                                          field.handleChange(isChecked)
-                                          if (isChecked) {
-                                            form.setFieldValue('ephemeral', true)
-                                            form.setFieldValue('autoDeleteInterval', 0)
+                                    <Field>
+                                      <FieldLabel htmlFor={field.name}>GPUs</FieldLabel>
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          type="button"
+                                          aria-label="Decrease GPU count"
+                                          variant="outline"
+                                          size="icon"
+                                          className="size-8"
+                                          onClick={() => {
+                                            const next = Math.max(0, (field.state.value ?? 0) - 1)
+                                            field.handleChange(next)
+                                            if (next === 0) form.setFieldValue('gpuType', undefined)
+                                          }}
+                                        >
+                                          <Minus className="size-4" />
+                                        </Button>
+                                        <NumericFormat
+                                          customInput={Input}
+                                          id={field.name}
+                                          className="h-8 w-20 text-center"
+                                          decimalScale={0}
+                                          allowNegative={false}
+                                          isAllowed={(values) =>
+                                            values.floatValue === undefined ||
+                                            (values.floatValue >= 0 && values.floatValue <= MAX_GPU_PER_SANDBOX)
+                                          }
+                                          value={field.state.value ?? 0}
+                                          onValueChange={(values) => {
+                                            const next = values.floatValue ?? 0
+                                            field.handleChange(next)
+                                            if (next > 0) {
+                                              if (!form.getFieldValue('gpuType') && allowedGpuTypes.length > 0) {
+                                                form.setFieldValue('gpuType', allowedGpuTypes[0])
+                                              }
+                                            } else {
+                                              form.setFieldValue('gpuType', undefined)
+                                            }
+                                          }}
+                                        />
+                                        <Button
+                                          type="button"
+                                          aria-label="Increase GPU count"
+                                          variant="outline"
+                                          size="icon"
+                                          className="size-8"
+                                          onClick={() => {
+                                            const next = Math.min(MAX_GPU_PER_SANDBOX, (field.state.value ?? 0) + 1)
+                                            field.handleChange(next)
                                             if (!form.getFieldValue('gpuType') && allowedGpuTypes.length > 0) {
                                               form.setFieldValue('gpuType', allowedGpuTypes[0])
                                             }
-                                          } else {
-                                            form.setFieldValue('gpuType', undefined)
-                                          }
-                                        }}
-                                      />
-                                      <div className="flex flex-col gap-1">
-                                        <Label htmlFor={field.name} className="text-sm font-normal">
-                                          Allocate GPU
-                                        </Label>
-                                        <FieldDescription>
-                                          GPU sandboxes are always ephemeral and auto-deleted when stopped.
-                                        </FieldDescription>
+                                          }}
+                                        >
+                                          <Plus className="size-4" />
+                                        </Button>
                                       </div>
-                                    </div>
+                                      <FieldDescription>
+                                        GPU sandboxes are always ephemeral and auto-deleted when stopped.
+                                      </FieldDescription>
+                                    </Field>
                                   )}
                                 </form.Field>
                                 <form.Subscribe selector={(state) => state.values.gpu}>
-                                  {(gpuEnabled) =>
-                                    gpuEnabled && allowedGpuTypes.length > 0 ? (
+                                  {(gpuCount) =>
+                                    (gpuCount ?? 0) > 0 && allowedGpuTypes.length > 0 ? (
                                       <form.Field name="gpuType">
                                         {(field) => (
                                           <Field>
@@ -782,7 +859,9 @@ export const CreateSandboxSheet = ({
                         </form.Subscribe>
                       </div>
                       <FieldDescription>
-                        If not specified, default values will be used (1 vCPU, 1 GiB memory, 3 GiB storage).
+                        {selectedGpuCount > 0
+                          ? 'If not specified, GPU default values will be used (16 vCPU, 192 GiB memory, 512 GiB storage).'
+                          : 'If not specified, default values will be used (1 vCPU, 1 GiB memory, 3 GiB storage).'}
                       </FieldDescription>
                     </div>
                   </TabsContent>
@@ -954,14 +1033,14 @@ export const CreateSandboxSheet = ({
                             id={field.name}
                             className="w-full"
                             placeholder="Disabled"
-                            disabled={ephemeral}
+                            disabled={ephemeral || requiresEphemeralSandbox}
                             decimalScale={0}
                             allowNegative
                             isAllowed={(values) => {
                               if (values.floatValue === undefined) return true
                               return values.floatValue === -1 || values.floatValue >= 0
                             }}
-                            value={ephemeral ? 0 : (field.state.value ?? '')}
+                            value={ephemeral || requiresEphemeralSandbox ? 0 : (field.state.value ?? '')}
                             onValueChange={(values) => field.handleChange(values.floatValue ?? undefined)}
                           />
                         </div>
@@ -971,35 +1050,31 @@ export const CreateSandboxSheet = ({
                 </form.Field>
                 <form.Field name="ephemeral">
                   {(field) => (
-                    <form.Subscribe selector={(state) => state.values.gpu}>
-                      {(gpu) => (
-                        <div className="flex items-start gap-2">
-                          <Checkbox
-                            className="mt-0.5"
-                            id={field.name}
-                            checked={field.state.value ?? false}
-                            disabled={gpu ?? false}
-                            onCheckedChange={(checked) => {
-                              const isEphemeral = checked === true
-                              field.handleChange(isEphemeral)
-                              if (isEphemeral) {
-                                form.setFieldValue('autoDeleteInterval', 0)
-                              }
-                            }}
-                          />
-                          <div className="flex flex-col gap-1">
-                            <Label htmlFor={field.name} className="text-sm font-normal">
-                              Ephemeral
-                            </Label>
-                            <FieldDescription>
-                              {gpu
-                                ? 'Required for GPU sandboxes - automatically deleted when stopped.'
-                                : 'Automatically delete the sandbox when it stops.'}
-                            </FieldDescription>
-                          </div>
-                        </div>
-                      )}
-                    </form.Subscribe>
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        className="mt-0.5"
+                        id={field.name}
+                        checked={requiresEphemeralSandbox || (field.state.value ?? false)}
+                        disabled={requiresEphemeralSandbox}
+                        onCheckedChange={(checked) => {
+                          const isEphemeral = checked === true
+                          field.handleChange(isEphemeral)
+                          if (isEphemeral) {
+                            form.setFieldValue('autoDeleteInterval', 0)
+                          }
+                        }}
+                      />
+                      <div className="flex flex-col gap-1">
+                        <Label htmlFor={field.name} className="text-sm font-normal">
+                          Ephemeral
+                        </Label>
+                        <FieldDescription>
+                          {requiresEphemeralSandbox
+                            ? 'Required for GPU sandboxes - automatically deleted when stopped.'
+                            : 'Automatically delete the sandbox when it stops.'}
+                        </FieldDescription>
+                      </div>
+                    </div>
                   )}
                 </form.Field>
               </div>

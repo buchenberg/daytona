@@ -38,9 +38,16 @@ import {
   runnerMatchesGpuTypeSelector,
   resolvePinnedGpuType,
 } from '../../utils/gpu-type-selector.util'
+import { GPU_RUNNER_ASSIGNMENT_LOCK_KEY } from '../../utils/lock-key.util'
 
 // How long the spillover hint persists so a re-assignment lands on the fallback region.
 const FORCE_SPILLOVER_TTL_SECONDS = 1 * 60
+
+// Thrown by placeUnassignedRunnerSandbox when no runner can currently take a
+// GPU sandbox. The lock-holding caller catches it after releasing the global
+// GPU runner assignment lock and ends the sync; the pending-build cron
+// retries placement, so one waiting sandbox never blocks other GPU placements.
+class GpuPlacementWaitSignal extends Error {}
 
 @Injectable()
 export class SandboxStartAction extends SandboxAction {
@@ -212,6 +219,43 @@ export class SandboxStartAction extends SandboxAction {
     lockCode: LockCode,
     isBuild = false,
   ): Promise<SyncState> {
+    if (sandbox.isGpu()) {
+      // Same lock as the create-time assignment in SandboxService. Runner
+      // selection reads reserved GPU units from the DB, but a concurrent
+      // placement's runnerId is not yet persisted, so unlocked concurrent
+      // placements can hand out the same units twice. GPU fallbacks can cross
+      // region boundaries, so this lock is global.
+      const key = GPU_RUNNER_ASSIGNMENT_LOCK_KEY
+      try {
+        await this.redisLockProvider.waitForLock(key, 60, 30000)
+      } catch {
+        return SYNC_AGAIN
+      }
+      try {
+        try {
+          return await this.placeUnassignedRunnerSandbox(sandbox, lockCode, isBuild)
+        } finally {
+          await this.redisLockProvider.unlock(key)
+        }
+      } catch (error) {
+        if (error instanceof GpuPlacementWaitSignal) {
+          // No runner can take this sandbox right now. GPU capacity waits
+          // are long (units free when another sandbox is destroyed), so end
+          // the sync instead of retrying in-process: GPU sandboxes wait here
+          // in PENDING_BUILD, and its cron re-picks them within 5s.
+          return DONT_SYNC_AGAIN
+        }
+        throw error
+      }
+    }
+    return this.placeUnassignedRunnerSandbox(sandbox, lockCode, isBuild)
+  }
+
+  private async placeUnassignedRunnerSandbox(
+    sandbox: Sandbox,
+    lockCode: LockCode,
+    isBuild = false,
+  ): Promise<SyncState> {
     // Get snapshot reference based on whether it's a pull or build operation
     let snapshotRef: string
 
@@ -227,7 +271,14 @@ export class SandboxStartAction extends SandboxAction {
 
     const declarativeBuildScoreThreshold = this.configService.get('runnerScore.thresholds.declarativeBuild')
 
-    const buildInfoOverloadedRunnerIds = isBuild ? await this.getBuildInfoOverloadedRunnerIds(snapshotRef, sandbox) : []
+    // The same-image build limits (CPU/memory utilization, sandbox count)
+    // protect shared runners from oversubscription by concurrent same-ref
+    // builds. GPU runners host GPU sandboxes exclusively with hard unit
+    // reservations, so that risk doesn't exist there — and the limits would
+    // needlessly cap same-image GPU fan-out on a runner. GPU sandboxes are
+    // therefore exempt.
+    const buildInfoOverloadedRunnerIds =
+      isBuild && !sandbox.isGpu() ? await this.getBuildInfoOverloadedRunnerIds(snapshotRef, sandbox) : []
 
     // GPU type to enforce during runner selection. When the sandbox already has a
     // concrete `gpuType` (snapshot-based, or a previously pinned build), that wins.
@@ -271,28 +322,45 @@ export class SandboxStartAction extends SandboxAction {
 
     // Try to assign an available runner that is currently processing the snapshot
     const snapshotRunners = await this.runnerService.getSnapshotRunners(snapshotRef)
+    const reservedGpuUnits =
+      sandbox.isGpu() && snapshotRunners.length > 0
+        ? await this.runnerService.getReservedGpuUnitsByRunnerId(snapshotRunners.map((sr) => sr.runnerId))
+        : new Map<string, number>()
     const targetState = isBuild ? SnapshotRunnerState.BUILDING_SNAPSHOT : SnapshotRunnerState.PULLING_SNAPSHOT
     const targetSandboxState = isBuild ? SandboxState.BUILDING_SNAPSHOT : SandboxState.PULLING_SNAPSHOT
     const errorSandboxState = isBuild ? SandboxState.BUILD_FAILED : SandboxState.ERROR
+    const runnerSandboxClass = getRunnerSandboxClass(sandbox.sandboxClass)
 
     for (const snapshotRunner of snapshotRunners) {
       // Consider removing the runner usage rate check or improving it
       const runner = await this.runnerService.findOneOrFail(snapshotRunner.runnerId)
 
-      if (runner.sandboxClass !== getRunnerSandboxClass(sandbox.sandboxClass)) {
+      // getSnapshotRunners is not region-scoped (snapshots propagate to
+      // multiple regions), so for GPU sandboxes only reuse an in-flight
+      // pull/build on a runner in the sandbox's effective region. Fallback
+      // regions stay reachable through the fresh-assignment path below, which
+      // spills over only when the effective region has no candidates;
+      // matching fallback runners here instead would reuse shared fallback
+      // hardware even while dedicated capacity is free. Skipping costs at
+      // most a duplicated pull. Non-GPU sandboxes keep prod behavior, which
+      // reuses cross-region runners here.
+      if (sandbox.isGpu() && runner.region !== effectiveRegion) {
         continue
       }
-
-      // Mirror the GPU class filter in findAvailableRunners - getSnapshotRunners
-      // can return GPU/non-GPU mismatched runners via stale snapshot_runner rows.
-      if (sandbox.gpu > 0) {
-        if (runner.gpu === null || runner.gpu < sandbox.gpu) {
+      // Mirror the structural GPU/class filters in findAvailableRunners -
+      // getSnapshotRunners can return mismatched runners via stale snapshot_runner rows.
+      if (runner.sandboxClass !== runnerSandboxClass) {
+        continue
+      }
+      if (sandbox.isGpu()) {
+        // runner.gpu = -1 is external overflow capacity (unlimited units).
+        if (runner.gpu === null || (runner.gpu !== -1 && runner.gpu < sandbox.gpu)) {
           continue
         }
         if (!runnerMatchesGpuTypeSelector(runner.gpuType, gpuTypeSelector)) {
           continue
         }
-      } else if (runner.gpu !== null && runner.gpu > 0) {
+      } else if (runner.gpu !== null && runner.gpu !== 0) {
         continue
       }
 
@@ -302,6 +370,9 @@ export class SandboxStartAction extends SandboxAction {
       }
 
       if (runner.unschedulable || runner.draining || runner.state !== RunnerState.READY) {
+        continue
+      }
+      if (sandbox.isGpu() && this.runnerService.getRunnerFreeGpuUnits(runner, reservedGpuUnits) < sandbox.gpu) {
         continue
       }
 
@@ -340,7 +411,6 @@ export class SandboxStartAction extends SandboxAction {
         }
       }
     }
-
     // Try to assign an available runner to start processing the snapshot
     let runner: Runner
 
@@ -357,6 +427,13 @@ export class SandboxStartAction extends SandboxAction {
           }),
       })
     } catch {
+      if (sandbox.isGpu()) {
+        // GPU sandboxes wait for capacity in PENDING_BUILD exactly like
+        // non-GPU sandboxes; SDK create() timeouts bound the wait
+        // client-side. The retry delay itself belongs in the caller, outside
+        // the global GPU assignment lock held around this method.
+        throw new GpuPlacementWaitSignal()
+      }
       // TODO: reconsider the timeout here
       // No runners available, wait for 3 seconds and retry
       await new Promise((resolve) => setTimeout(resolve, 3000))

@@ -3,9 +3,9 @@ import { Organization } from './organization.entity'
 import { SandboxClass } from '../../sandbox/enums/sandbox-class.enum'
 import { GpuType } from '../../sandbox/enums/gpu-type.enum'
 
-const DEFAULT_MAX_CPU_PER_GPU_SANDBOX = 16
-const DEFAULT_MAX_MEMORY_PER_GPU_SANDBOX = 192
-const DEFAULT_MAX_DISK_PER_GPU_SANDBOX = 512
+const DEFAULT_MAX_CPU_PER_GPU = 16
+const DEFAULT_MAX_MEMORY_PER_GPU = 192
+const DEFAULT_MAX_DISK_PER_GPU = 512
 
 @Entity()
 export class RegionQuota {
@@ -98,40 +98,40 @@ export class RegionQuota {
   maxDiskPerNonEphemeralSandbox: number | null
 
   /**
-   * If `null`, fallback to `maxCpuPerSandbox`.
-   * Typically larger than `maxCpuPerSandbox` since GPU sandboxes own the whole runner exclusively.
+   * CPU maximum per requested GPU unit; a GPU sandbox may use up to
+   * `maxCpuPerGpu * gpu` CPUs. If `null`, fallback to `maxCpuPerSandbox`.
    */
   @Column({
     type: 'int',
     nullable: true,
-    default: DEFAULT_MAX_CPU_PER_GPU_SANDBOX,
-    name: 'max_cpu_per_gpu_sandbox',
+    default: DEFAULT_MAX_CPU_PER_GPU,
+    name: 'max_cpu_per_gpu',
   })
-  maxCpuPerGpuSandbox: number | null
+  maxCpuPerGpu: number | null
 
   /**
-   * If `null`, fallback to `maxMemoryPerSandbox`.
-   * Typically larger than `maxMemoryPerSandbox` since GPU sandboxes own the whole runner exclusively.
+   * Memory maximum per requested GPU unit; a GPU sandbox may use up to
+   * `maxMemoryPerGpu * gpu` GiB. If `null`, fallback to `maxMemoryPerSandbox`.
    */
   @Column({
     type: 'int',
     nullable: true,
-    default: DEFAULT_MAX_MEMORY_PER_GPU_SANDBOX,
-    name: 'max_memory_per_gpu_sandbox',
+    default: DEFAULT_MAX_MEMORY_PER_GPU,
+    name: 'max_memory_per_gpu',
   })
-  maxMemoryPerGpuSandbox: number | null
+  maxMemoryPerGpu: number | null
 
   /**
-   * If `null`, fallback to `maxDiskPerSandbox`.
-   * Typically larger than `maxDiskPerSandbox` since GPU sandboxes own the whole runner exclusively.
+   * Disk maximum per requested GPU unit; a GPU sandbox may use up to
+   * `maxDiskPerGpu * gpu` GiB. If `null`, fallback to `maxDiskPerSandbox`.
    */
   @Column({
     type: 'int',
     nullable: true,
-    default: DEFAULT_MAX_DISK_PER_GPU_SANDBOX,
-    name: 'max_disk_per_gpu_sandbox',
+    default: DEFAULT_MAX_DISK_PER_GPU,
+    name: 'max_disk_per_gpu',
   })
-  maxDiskPerGpuSandbox: number | null
+  maxDiskPerGpu: number | null
 
   @CreateDateColumn({
     type: 'timestamp with time zone',
@@ -156,9 +156,9 @@ export class RegionQuota {
     maxMemoryPerSandbox?: number | null
     maxDiskPerSandbox?: number | null
     maxDiskPerNonEphemeralSandbox?: number | null
-    maxCpuPerGpuSandbox?: number | null
-    maxMemoryPerGpuSandbox?: number | null
-    maxDiskPerGpuSandbox?: number | null
+    maxCpuPerGpu?: number | null
+    maxMemoryPerGpu?: number | null
+    maxDiskPerGpu?: number | null
   }) {
     if (!params) return
     this.organizationId = params.organizationId
@@ -173,8 +173,8 @@ export class RegionQuota {
     this.maxMemoryPerSandbox = params.maxMemoryPerSandbox ?? null
     this.maxDiskPerSandbox = params.maxDiskPerSandbox ?? null
     this.maxDiskPerNonEphemeralSandbox = params.maxDiskPerNonEphemeralSandbox ?? null
-    this.maxCpuPerGpuSandbox = params.maxCpuPerGpuSandbox ?? DEFAULT_MAX_CPU_PER_GPU_SANDBOX
-    this.maxMemoryPerGpuSandbox = params.maxMemoryPerGpuSandbox ?? DEFAULT_MAX_MEMORY_PER_GPU_SANDBOX
-    this.maxDiskPerGpuSandbox = params.maxDiskPerGpuSandbox ?? DEFAULT_MAX_DISK_PER_GPU_SANDBOX
+    this.maxCpuPerGpu = params.maxCpuPerGpu ?? DEFAULT_MAX_CPU_PER_GPU
+    this.maxMemoryPerGpu = params.maxMemoryPerGpu ?? DEFAULT_MAX_MEMORY_PER_GPU
+    this.maxDiskPerGpu = params.maxDiskPerGpu ?? DEFAULT_MAX_DISK_PER_GPU
   }
 }

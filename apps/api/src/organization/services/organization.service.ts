@@ -251,9 +251,9 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
       maxMemoryPerSandbox: createDto.maxMemoryPerSandbox ?? null,
       maxDiskPerSandbox: createDto.maxDiskPerSandbox ?? null,
       maxDiskPerNonEphemeralSandbox: createDto.maxDiskPerNonEphemeralSandbox ?? null,
-      maxCpuPerGpuSandbox: createDto.maxCpuPerGpuSandbox ?? null,
-      maxMemoryPerGpuSandbox: createDto.maxMemoryPerGpuSandbox ?? null,
-      maxDiskPerGpuSandbox: createDto.maxDiskPerGpuSandbox ?? null,
+      maxCpuPerGpu: createDto.maxCpuPerGpu ?? null,
+      maxMemoryPerGpu: createDto.maxMemoryPerGpu ?? null,
+      maxDiskPerGpu: createDto.maxDiskPerGpu ?? null,
     })
 
     const saved = await this.regionQuotaRepository.save(regionQuota)
@@ -301,14 +301,14 @@ export class OrganizationService implements OnModuleInit, TrackableJobExecutions
     if (updateDto.maxDiskPerNonEphemeralSandbox !== undefined) {
       regionQuota.maxDiskPerNonEphemeralSandbox = updateDto.maxDiskPerNonEphemeralSandbox
     }
-    if (updateDto.maxCpuPerGpuSandbox !== undefined) {
-      regionQuota.maxCpuPerGpuSandbox = updateDto.maxCpuPerGpuSandbox
+    if (updateDto.maxCpuPerGpu !== undefined) {
+      regionQuota.maxCpuPerGpu = updateDto.maxCpuPerGpu
     }
-    if (updateDto.maxMemoryPerGpuSandbox !== undefined) {
-      regionQuota.maxMemoryPerGpuSandbox = updateDto.maxMemoryPerGpuSandbox
+    if (updateDto.maxMemoryPerGpu !== undefined) {
+      regionQuota.maxMemoryPerGpu = updateDto.maxMemoryPerGpu
     }
-    if (updateDto.maxDiskPerGpuSandbox !== undefined) {
-      regionQuota.maxDiskPerGpuSandbox = updateDto.maxDiskPerGpuSandbox
+    if (updateDto.maxDiskPerGpu !== undefined) {
+      regionQuota.maxDiskPerGpu = updateDto.maxDiskPerGpu
     }
 
     await this.regionQuotaRepository.save(regionQuota)

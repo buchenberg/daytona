@@ -744,7 +744,12 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
    * (`ceil(factor * eligibleRunners)`); if the two paths used different filters they would compute different
    * targets and fight each other (propagation re-pulling what scale-down removes, and vice versa).
    */
-  private eligibleRunnerWhere(snapshot: Snapshot, regionIds: string[]): FindOptionsWhere<Runner> {
+  private eligibleRunnerWhere(
+    // Callers pass raw query rows as well as entities, so only column fields
+    // may be accessed here - no entity methods.
+    snapshot: Pick<Snapshot, 'gpu' | 'gpuType' | 'sandboxClass'>,
+    regionIds: string[],
+  ): FindOptionsWhere<Runner> {
     return {
       state: RunnerState.READY,
       unschedulable: Not(true),

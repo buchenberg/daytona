@@ -173,7 +173,7 @@ export function CurrentUsageCard({
         )}
         <RateLimits
           title="Sandbox Limits"
-          description="Resources limit per sandbox."
+          description="Per-sandbox limits. GPU variants are per requested GPU."
           className="border-t border-border"
           rateLimits={buildSandboxLimitItems(currentRegionUsageOverview, selectedOrganization)}
         />
@@ -449,22 +449,22 @@ function buildSandboxLimitItems(region: RegionUsageOverview | null, org: Organiz
   const gpuEnabled = (region?.totalGpuQuota ?? 0) > 0
 
   const cpuBase = region?.maxCpuPerSandbox ?? org?.maxCpuPerSandbox
-  const cpuGpu = gpuEnabled ? region?.maxCpuPerGpuSandbox : null
+  const cpuGpu = gpuEnabled ? region?.maxCpuPerGpu : null
   items.push({ resourceType: 'compute', label: 'Compute', value: cpuBase, unit: 'vCPU' })
   if (cpuGpu != null && cpuGpu !== cpuBase) {
-    items.push({ resourceType: 'compute', label: 'Compute (GPU)', value: cpuGpu, unit: 'vCPU' })
+    items.push({ resourceType: 'compute', label: 'Compute (per GPU)', value: cpuGpu, unit: 'vCPU' })
   }
 
   const memBase = region?.maxMemoryPerSandbox ?? org?.maxMemoryPerSandbox
-  const memGpu = gpuEnabled ? region?.maxMemoryPerGpuSandbox : null
+  const memGpu = gpuEnabled ? region?.maxMemoryPerGpu : null
   items.push({ resourceType: 'memory', label: 'Memory', value: memBase, unit: 'GiB' })
   if (memGpu != null && memGpu !== memBase) {
-    items.push({ resourceType: 'memory', label: 'Memory (GPU)', value: memGpu, unit: 'GiB' })
+    items.push({ resourceType: 'memory', label: 'Memory (per GPU)', value: memGpu, unit: 'GiB' })
   }
 
   const diskBase = region?.maxDiskPerSandbox ?? org?.maxDiskPerSandbox
   const diskNonEphem = region?.maxDiskPerNonEphemeralSandbox
-  const diskGpu = gpuEnabled ? region?.maxDiskPerGpuSandbox : null
+  const diskGpu = gpuEnabled ? region?.maxDiskPerGpu : null
 
   const showNonEphemSplit = diskNonEphem != null && diskNonEphem > 0 && diskNonEphem !== diskBase
   const showStorageGpuVariant = diskGpu != null && diskGpu !== diskBase
@@ -477,7 +477,7 @@ function buildSandboxLimitItems(region: RegionUsageOverview | null, org: Organiz
   })
 
   if (showStorageGpuVariant) {
-    items.push({ resourceType: 'storage', label: 'Storage (GPU)', value: diskGpu, unit: 'GiB' })
+    items.push({ resourceType: 'storage', label: 'Storage (per GPU)', value: diskGpu, unit: 'GiB' })
   }
 
   if (showNonEphemSplit) {

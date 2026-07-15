@@ -19,8 +19,6 @@ import { ResizeSandboxDto } from '../dto/resize-sandbox.dto'
 import { SandboxState } from '../enums/sandbox-state.enum'
 import { SandboxClass } from '../enums/sandbox-class.enum'
 import { isRegistryBasedSandboxClass } from '../utils/sandbox-class.util'
-import { OpenFeature } from '@openfeature/server-sdk'
-import { FeatureFlags } from '../../common/constants/feature-flags'
 import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
 import { resolveGpuTypePreferences } from '../utils/gpu-type-preferences.util'
 import { RunnerService } from './runner.service'
@@ -71,7 +69,6 @@ import { VolumeService } from './volume.service'
 import {
   resolveEffectiveRegion,
   BUILD_INFO_BLOCKED_ORGS,
-  GPU_REGION,
   isBackupDisabled,
 } from '../constants/dedicated-regions.constant'
 import { PaginatedList } from '../../common/interfaces/paginated-list.interface'
@@ -129,7 +126,9 @@ import { SANDBOX_SEARCH_ADAPTER } from '../constants/sandbox-tokens'
 import { SandboxSearchAdapter } from '../interfaces/sandbox-search.interface'
 import { SecretService } from '../../secret/services/secret.service'
 import { SandboxSecret } from '../entities/sandbox-secret.entity'
+import { assertGpuTypeRequiresGpu, normalizeSandboxResourcesForCreate } from '../utils/gpu-resource-policy.util'
 import { BillingService } from '../../billing/services/billing.service'
+import { GPU_RUNNER_ASSIGNMENT_LOCK_KEY } from '../utils/lock-key.util'
 
 const DEFAULT_CPU = 1
 const DEFAULT_MEMORY = 1
@@ -205,11 +204,13 @@ export class SandboxService {
     ephemeral: boolean,
     excludeSandboxId?: string,
     regionQuota?: RegionQuotaDto | null,
-    // Controls which per-sandbox limits table is used (GPU-specific vs non-GPU).
-    // Defaults to `gpu > 0`, which is correct for create/start/fork/archive paths where
-    // `gpu` is the absolute sandbox GPU allocation. Resize passes `gpu = 0` (no GPU delta)
-    // but still needs GPU-aware per-sandbox limits when the sandbox itself is a GPU sandbox.
-    gpuEnabled: boolean = gpu > 0,
+    // Selects the per-sandbox limits table: 0 uses the non-GPU limits, >= 1
+    // uses GPU limits multiplied by the unit count. Defaults to `gpu`, which is
+    // correct for create/start/fork/archive paths where `gpu` is the absolute
+    // sandbox GPU allocation. Resize passes `gpu = 0` (no GPU delta) but still
+    // needs GPU-aware per-sandbox limits when the sandbox itself is a GPU
+    // sandbox, so it passes `sandbox.gpu` here explicitly.
+    gpuUnitsForLimits: number = gpu,
   ): Promise<{
     pendingCpuIncremented: boolean
     pendingMemoryIncremented: boolean
@@ -255,7 +256,7 @@ export class SandboxService {
 
     // validate per-sandbox quotas
     const { maxCpuPerSandbox, maxMemoryPerSandbox, maxDiskPerSandbox, maxDiskPerNonEphemeralSandbox } =
-      getEffectivePerSandboxLimits(organization, regionQuota, gpuEnabled)
+      getEffectivePerSandboxLimits(organization, regionQuota, gpuUnitsForLimits)
 
     if (cpu > maxCpuPerSandbox) {
       throw new BadRequestError(
@@ -469,11 +470,10 @@ export class SandboxService {
     sandbox.sandboxClass = snapshot.sandboxClass
 
     try {
-      // Same per-region GPU runner assignment serialization as createFromSnapshot.
-      if (sandbox.gpu > 0) {
-        const key = `gpu-runner-assignment:${sandbox.region}`
-        await this.redisLockProvider.waitForLock(key, 60, 30000)
-        gpuRunnerAssignmentLockKey = key
+      // Same global GPU runner assignment serialization as createFromSnapshot.
+      if (sandbox.isGpu()) {
+        await this.redisLockProvider.waitForLock(GPU_RUNNER_ASSIGNMENT_LOCK_KEY, 60, 30000)
+        gpuRunnerAssignmentLockKey = GPU_RUNNER_ASSIGNMENT_LOCK_KEY
       }
 
       const runner = await this.runnerService.getRandomAvailableRunner({
@@ -570,9 +570,13 @@ export class SandboxService {
       const gpu = snapshot.gpu
       const gpuType = snapshot.gpuType ?? null
 
+      if (gpu > 0 && createSandboxDto.linkedSandbox) {
+        throw new BadRequestError('GPU sandboxes cannot be linked to another sandbox')
+      }
+
       // GPU sandboxes are always ephemeral.
       if (gpu > 0 && !isEphemeral(createSandboxDto)) {
-        throw new BadRequestError('GPU sandboxes must be ephemeral - set autoDeleteInterval to 0')
+        throw new BadRequestError('GPU sandboxes must be ephemeral; set autoDeleteInterval to 0')
       }
 
       if (gpu > 0) {
@@ -589,7 +593,11 @@ export class SandboxService {
       //   - linked sandbox must exist in the same org, be STARTED or STOPPED, and have a runnerId
       //   - linked sandbox cannot itself be linked to another sandbox (no chains)
       //   - new sandbox must be ephemeral (autoDeleteInterval === 0)
+      //   - GPU sandboxes cannot participate in links
       const linkedSandbox = await this.resolveLinkedSandbox(createSandboxDto, organization.id)
+      if (linkedSandbox && linkedSandbox.isGpu()) {
+        throw new BadRequestError('Sandboxes cannot be linked to GPU sandboxes')
+      }
 
       this.organizationService.assertOrganizationIsNotSuspended(organization)
 
@@ -625,10 +633,10 @@ export class SandboxService {
 
       const resolvedSecretMounts = await this.validateSecrets(createSandboxDto.secrets, organization)
 
-      // GPU sandboxes are always ephemeral: they get exclusive ownership of a
-      // runner for their lifetime and are auto-deleted on first stop. Skip the
+      // GPU sandboxes are always ephemeral: their assigned GPU units remain
+      // reserved for their lifetime and are auto-deleted on first stop. Skip the
       // warm-pool path entirely so we always provision a fresh container on a
-      // currently-unoccupied GPU runner.
+      // GPU runner with current live capacity.
       if (
         gpu <= 0 &&
         !linkedSandbox &&
@@ -658,16 +666,17 @@ export class SandboxService {
         }
       }
 
-      // Serialize GPU runner assignment per region: getRunnersAtGpuCapacity reads
-      // the DB to find runners at capacity, but the just-assigned runnerId on a
+      // Serialize GPU runner assignment globally: runner selection reads reserved
+      // GPU units from the DB, but the just-assigned runnerId on a
       // concurrent request is not yet persisted, so two concurrent creates can
-      // pick the same already-full runner. Hold the lock until the runnerId is
-      // written to the DB. Only mark the key as held after acquisition succeeds —
-      // otherwise a timed-out waiter would unlock the actual holder in finally.
+      // pick the same already-full runner. GPU fallbacks can cross region
+      // boundaries, so region-scoped locks are not enough. Hold the lock until
+      // the runnerId is written to the DB. Only mark the key as held after
+      // acquisition succeeds — otherwise a timed-out waiter would unlock the
+      // actual holder in finally.
       if (gpu > 0) {
-        const key = `gpu-runner-assignment:${region.id}`
-        await this.redisLockProvider.waitForLock(key, 60, 30000)
-        gpuRunnerAssignmentLockKey = key
+        await this.redisLockProvider.waitForLock(GPU_RUNNER_ASSIGNMENT_LOCK_KEY, 60, 30000)
+        gpuRunnerAssignmentLockKey = GPU_RUNNER_ASSIGNMENT_LOCK_KEY
       }
 
       let runner: Runner
@@ -878,9 +887,9 @@ export class SandboxService {
       updateData.autoArchiveInterval = this.resolveAutoArchiveInterval(createSandboxDto.autoArchiveInterval)
     }
 
-    if (warmPoolSandbox.gpu > 0) {
+    if (warmPoolSandbox.isGpu()) {
       if (createSandboxDto.autoDeleteInterval !== undefined && createSandboxDto.autoDeleteInterval !== 0) {
-        throw new BadRequestError('GPU sandboxes must be ephemeral - autoDeleteInterval must be 0')
+        throw new BadRequestError('GPU sandboxes must be ephemeral; set autoDeleteInterval to 0')
       }
       updateData.autoDeleteInterval = 0
     } else if (createSandboxDto.autoDeleteInterval !== undefined) {
@@ -975,25 +984,25 @@ export class SandboxService {
 
     const region = await this.getValidatedOrDefaultRegion(organization, createSandboxDto.target)
 
-    if (createSandboxDto.gpu) {
-      // if (region.id !== GPU_REGION) {
-      //   throw new BadRequestError(`GPUs not available in this region`)
-      // }
-
-      if (createSandboxDto.gpu > 1) {
-        throw new BadRequestError(`Only one GPU per sandbox is allowed`)
-      }
-    }
-
     try {
-      const cpu = createSandboxDto.cpu || DEFAULT_CPU
-      const mem = createSandboxDto.memory || DEFAULT_MEMORY
-      const disk = createSandboxDto.disk || DEFAULT_DISK
-      const gpu = createSandboxDto.gpu || DEFAULT_GPU
+      assertGpuTypeRequiresGpu(createSandboxDto.gpu, createSandboxDto.gpuType)
+      const resources = normalizeSandboxResourcesForCreate(
+        {
+          cpu: createSandboxDto.cpu,
+          memory: createSandboxDto.memory,
+          disk: createSandboxDto.disk,
+          gpu: createSandboxDto.gpu,
+        },
+        { cpu: DEFAULT_CPU, memory: DEFAULT_MEMORY, disk: DEFAULT_DISK, gpu: DEFAULT_GPU },
+      )
+      const cpu = resources.cpu
+      const mem = resources.memory
+      const disk = resources.disk
+      const gpu = resources.gpu
 
       // GPU sandboxes are always ephemeral - delete on first stop.
       if (gpu > 0 && !isEphemeral(createSandboxDto)) {
-        throw new BadRequestError('GPU sandboxes must be ephemeral - set autoDeleteInterval to 0')
+        throw new BadRequestError('GPU sandboxes must be ephemeral; set autoDeleteInterval to 0')
       }
 
       if (gpu > 0) {
@@ -1124,29 +1133,37 @@ export class SandboxService {
 
       let runner: Runner
 
-      // Serialize GPU runner assignment per region: getRunnersAtGpuCapacity reads
-      // the DB to find runners at capacity, but the just-assigned runnerId on a
+      // Serialize GPU runner assignment globally: runner selection reads reserved
+      // GPU units from the DB, but the just-assigned runnerId on a
       // concurrent request is not yet persisted, so two concurrent creates can
-      // pick the same already-full runner. Hold the lock until the runnerId is
-      // written to the DB. Only mark the key as held after acquisition succeeds —
-      // otherwise a timed-out waiter would unlock the actual holder in finally.
-      if (sandbox.gpu > 0) {
-        const key = `gpu-runner-assignment:${region.id}`
-        await this.redisLockProvider.waitForLock(key, 60, 30000)
-        gpuRunnerAssignmentLockKey = key
+      // pick the same already-full runner. GPU fallbacks can cross region
+      // boundaries, so region-scoped locks are not enough. Hold the lock until
+      // the runnerId is written to the DB. Only mark the key as held after
+      // acquisition succeeds — otherwise a timed-out waiter would unlock the
+      // actual holder in finally.
+      if (sandbox.isGpu()) {
+        await this.redisLockProvider.waitForLock(GPU_RUNNER_ASSIGNMENT_LOCK_KEY, 60, 30000)
+        gpuRunnerAssignmentLockKey = GPU_RUNNER_ASSIGNMENT_LOCK_KEY
       }
 
       try {
         const declarativeBuildScoreThreshold = this.configService.get('runnerScore.thresholds.declarativeBuild')
-        const excludedRunnerIds = await this.runnerService.getRunnersOverBuildInfoSnapshotRefLimits(
-          buildInfoSnapshotRef,
-          {
-            maxCpuUtilization: this.configService.getOrThrow('buildInfo.maxCpuUtilizationPerRunner'),
-            maxMemUtilization: this.configService.getOrThrow('buildInfo.maxMemUtilizationPerRunner'),
-            maxSandboxCount: this.configService.getOrThrow('buildInfo.maxSandboxesPerRunner'),
-          },
-          { cpu: sandbox.cpu, mem: sandbox.mem },
-        )
+        // GPU sandboxes are exempt from the same-image build limits: GPU
+        // runners can't be oversubscribed (exclusive hosting, hard unit
+        // reservations), and the limits would needlessly cap same-image GPU
+        // fan-out on a runner. Mirrors the exemption in the sync-loop
+        // placement (sandbox-start.action.ts).
+        const excludedRunnerIds = sandbox.isGpu()
+          ? []
+          : await this.runnerService.getRunnersOverBuildInfoSnapshotRefLimits(
+              buildInfoSnapshotRef,
+              {
+                maxCpuUtilization: this.configService.getOrThrow('buildInfo.maxCpuUtilizationPerRunner'),
+                maxMemUtilization: this.configService.getOrThrow('buildInfo.maxMemUtilizationPerRunner'),
+                maxSandboxCount: this.configService.getOrThrow('buildInfo.maxSandboxesPerRunner'),
+              },
+              { cpu: sandbox.cpu, mem: sandbox.mem },
+            )
         runner = await this.runnerService.getRandomAvailableRunner({
           regions: [
             resolveEffectiveRegion(sandbox.organizationId, sandbox.region, this.configService, {
@@ -1167,7 +1184,7 @@ export class SandboxService {
         })
 
         sandbox.runnerId = runner.id
-        sandbox.gpuType = sandbox.gpu > 0 ? runner.gpuType : null
+        sandbox.gpuType = sandbox.isGpu() ? runner.gpuType : null
       } catch (error) {
         if (
           error instanceof BadRequestError == false ||
@@ -1277,7 +1294,7 @@ export class SandboxService {
         throw new NotFoundException(`Sandbox with ID ${sourceSandbox.id} does not have a runner`)
       }
 
-      if (sourceSandbox.gpu > 0) {
+      if (sourceSandbox.isGpu()) {
         throw new HttpException('Forking is not supported for GPU sandboxes', HttpStatus.UNPROCESSABLE_ENTITY)
       }
 
@@ -2749,6 +2766,8 @@ export class SandboxService {
         willStartOnV2 ? sandbox.gpu : 0,
         isEphemeral(sandbox),
         sandbox.id,
+        undefined,
+        sandbox.gpu,
       )
 
     try {
@@ -2904,7 +2923,7 @@ export class SandboxService {
         : null
 
       const { maxCpuPerSandbox, maxMemoryPerSandbox, maxDiskPerSandbox, maxDiskPerNonEphemeralSandbox } =
-        getEffectivePerSandboxLimits(organization, regionQuota, sandbox.gpu > 0)
+        getEffectivePerSandboxLimits(organization, regionQuota, sandbox.gpu)
 
       if (newCpu > maxCpuPerSandbox) {
         throw new BadRequestError(
@@ -2941,7 +2960,7 @@ export class SandboxService {
 
       // Validate and track pending for any non-zero quota changes.
       // Resize never changes GPU allocation — always pass 0 for the GPU delta, but pass
-      // `gpuEnabled = sandbox.gpu > 0` so per-sandbox limit checks use the GPU-specific table.
+      // `gpuEnabled = sandbox.isGpu()` so per-sandbox limit checks use the GPU-specific table.
       if (cpuDeltaForQuota !== 0 || memDeltaForQuota !== 0 || diskDeltaForQuota !== 0) {
         const { pendingCpuIncremented, pendingMemoryIncremented, pendingDiskIncremented } =
           await this.validateOrganizationQuotas(
@@ -2955,7 +2974,7 @@ export class SandboxService {
             isEphemeral(sandbox),
             undefined,
             regionQuota,
-            sandbox.gpu > 0,
+            sandbox.gpu,
           )
 
         if (pendingCpuIncremented) {
@@ -3470,7 +3489,7 @@ export class SandboxService {
   async setAutoDeleteInterval(sandboxIdOrName: string, interval: number, organizationId?: string): Promise<Sandbox> {
     const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
 
-    if (sandbox.gpu > 0) {
+    if (sandbox.isGpu()) {
       throw new BadRequestError('GPU sandboxes must remain ephemeral')
     }
 

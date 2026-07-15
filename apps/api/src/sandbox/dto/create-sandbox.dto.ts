@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsString,
   IsNumber,
+  IsInt,
   IsBoolean,
   IsArray,
   Max,
@@ -17,6 +18,7 @@ import { SandboxVolume } from './sandbox.dto'
 import { CreateBuildInfoDto } from './create-build-info.dto'
 import { IsSafeDisplayString } from '../../common/validators'
 import { GpuType } from '../enums/gpu-type.enum'
+import { MAX_GPU_PER_SANDBOX } from '../utils/gpu-resource-policy.util'
 
 @ApiSchema({ name: 'CreateSandbox' })
 export class CreateSandboxDto {
@@ -122,8 +124,9 @@ export class CreateSandboxDto {
   })
   @IsOptional()
   @IsNumber()
+  @IsInt()
   @Min(0)
-  @Max(1)
+  @Max(MAX_GPU_PER_SANDBOX)
   gpu?: number
 
   @ApiPropertyOptional({
@@ -228,7 +231,7 @@ export class CreateSandboxDto {
 
   @ApiPropertyOptional({
     description:
-      'ID or name of an existing sandbox to link the new sandbox to. The new sandbox will be scheduled on the same runner as the linked sandbox so a local network can be established between them. Linked sandboxes must be ephemeral (autoDeleteInterval=0) and cannot themselves be linked to another sandbox.',
+      'ID or name of an existing sandbox to link the new sandbox to. The new sandbox will be scheduled on the same runner as the linked sandbox so a local network can be established between them. Linked sandboxes must be ephemeral (autoDeleteInterval=0) and cannot themselves be linked to another sandbox. GPU sandboxes cannot participate in links in either direction: a GPU sandbox cannot specify linkedSandbox, and cannot be the link target of another sandbox.',
     example: 'sandbox123',
   })
   @IsOptional()

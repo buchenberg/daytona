@@ -56,18 +56,18 @@ export class UpdateOrganizationRegionQuotaDto {
   @IsOptional()
   maxDiskPerNonEphemeralSandbox?: number | null
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, description: 'CPU maximum per requested GPU unit for GPU sandboxes.' })
   @IsNumber()
   @IsOptional()
-  maxCpuPerGpuSandbox?: number | null
+  maxCpuPerGpu?: number | null
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, description: 'Memory maximum per requested GPU unit for GPU sandboxes.' })
   @IsNumber()
   @IsOptional()
-  maxMemoryPerGpuSandbox?: number | null
+  maxMemoryPerGpu?: number | null
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ nullable: true, description: 'Disk maximum per requested GPU unit for GPU sandboxes.' })
   @IsNumber()
   @IsOptional()
-  maxDiskPerGpuSandbox?: number | null
+  maxDiskPerGpu?: number | null
 }

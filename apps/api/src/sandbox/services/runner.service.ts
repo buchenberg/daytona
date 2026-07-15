@@ -48,6 +48,29 @@ import { SandboxRepository } from '../repositories/sandbox.repository'
 import { SnapshotRepository } from '../repositories/snapshot.repository'
 import { RunnerServiceInfo } from '../common/runner-service-info'
 
+/**
+ * Sandbox states whose GPU units are NOT counted as reserved on their runner.
+ *
+ * Every GPU sandbox in any other state - including STOPPED, ERROR, RESIZING,
+ * SNAPSHOTTING, etc. - counts toward capacity, because the GPU indices are
+ * pinned into the container's HostConfig.DeviceRequests at create time and
+ * survive any subsequent restart, so the physical cards stay reserved for
+ * that sandbox until it is fully destroyed.
+ *
+ * ARCHIVED is excluded together with DESTROYED: GPU sandboxes are forced
+ * ephemeral (see SandboxService) so they cannot legitimately reach the
+ * archived state, but if one ever does (legacy data, manual bypass) the
+ * container is no longer on the runner and the cards are effectively free.
+ *
+ * BUILD_FAILED is excluded because the build failed before a GPU container
+ * was created on the runner, so no physical card is reserved.
+ */
+export const GPU_RUNNER_RESERVATION_FREE_STATES: SandboxState[] = [
+  SandboxState.DESTROYED,
+  SandboxState.ARCHIVED,
+  SandboxState.BUILD_FAILED,
+]
+
 const SYSBOX_SERVICE_NAMES = ['sysbox-mgr', 'sysbox-fs']
 
 @Injectable()
@@ -315,15 +338,6 @@ export class RunnerService {
 
     const excludedRunnerIds = new Set((params.excludedRunnerIds ?? []).filter((id): id is string => !!id))
 
-    // A runner with runner.gpu = N can host up to N concurrent GPU sandboxes.
-    // Skip runners that have already reached their GPU sandbox capacity.
-    if (params.gpu > 0) {
-      const fullRunnerIds = await this.getRunnersAtGpuCapacity()
-      for (const id of fullRunnerIds) {
-        excludedRunnerIds.add(id)
-      }
-    }
-
     if (params.snapshotRef !== undefined) {
       const snapshotRunners = await this.snapshotRunnerRepository.find({
         where: {
@@ -353,9 +367,15 @@ export class RunnerService {
       runnerFilter.sandboxClass = params.sandboxClass
     }
 
-    const runners = await this.runnerRepository.find({
+    let runners = await this.runnerRepository.find({
       where: runnerFilter,
     })
+
+    let reservedGpuUnits = new Map<string, number>()
+    if (params.gpu > 0 && runners.length > 0) {
+      reservedGpuUnits = await this.getReservedGpuUnitsByRunnerId(runners.map((runner) => runner.id))
+      runners = runners.filter((runner) => this.getRunnerFreeGpuUnits(runner, reservedGpuUnits) >= params.gpu)
+    }
 
     if (runners.length === 0 && params.regions && params.regions.some(hasFallbackRegion)) {
       return this.findAvailableRunners({ ...params, regions: getFallbackRegions(params.regions) })
@@ -363,9 +383,19 @@ export class RunnerService {
 
     const selectionPercentage = params.regions?.includes('RL') ? 0.75 : 0.33
 
-    return runners
-      .sort((a, b) => b.availabilityScore - a.availabilityScore)
-      .slice(0, Math.max(10, Math.ceil(runners.length * selectionPercentage)))
+    // GPU selection takes the best-fit head of this list, so a deterministic
+    // tie order would make concurrent placements that hold no region lock
+    // (PENDING_BUILD builds) herd onto the same runner. Shuffling before the
+    // stable sort puts comparator ties in random order; packing preference
+    // (tightest fit, then availability score) is unaffected.
+    const sortedRunners =
+      params.gpu > 0
+        ? this.shuffleInPlace(runners).sort((a, b) =>
+            this.compareLiveGpuPlacementRunners(a, b, reservedGpuUnits, params.gpu),
+          )
+        : runners.sort((a, b) => b.availabilityScore - a.availabilityScore)
+
+    return sortedRunners.slice(0, Math.max(10, Math.ceil(runners.length * selectionPercentage)))
   }
 
   /**
@@ -828,7 +858,7 @@ export class RunnerService {
       for (const gpuType of params.gpuType) {
         const candidates = await this.findAvailableRunners({ ...params, gpuType })
         if (candidates.length > 0) {
-          return pickRandom(candidates)
+          return candidates[0]
         }
       }
       throw new BadRequestError(`No available runners with GPU type: ${params.gpuType.join(', ')}.`)
@@ -837,6 +867,9 @@ export class RunnerService {
     const availableRunners = await this.findAvailableRunners(params)
     if (availableRunners.length === 0) {
       throw new BadRequestError('No available runners')
+    }
+    if (params.gpu > 0) {
+      return availableRunners[0]
     }
     return pickRandom(availableRunners)
   }
@@ -1039,46 +1072,73 @@ export class RunnerService {
   }
 
   /**
-   * Returns runner IDs that have reached their GPU sandbox capacity. A runner
-   * with `runner.gpu = N` can host up to N concurrent GPU sandboxes; this
-   * method returns runners where the count of GPU sandboxes is `>= N`.
-   *
-   * Every GPU sandbox in any state other than DESTROYED / ARCHIVED /
-   * BUILD_FAILED counts toward capacity - including STOPPED, ERROR, RESIZING,
-   * SNAPSHOTTING, etc. - because the GPU index is pinned into the container's
-   * HostConfig.DeviceRequests at create time and survives any subsequent
-   * restart, so the physical card stays reserved for that sandbox until it
-   * is fully destroyed.
-   *
-   * ARCHIVED is excluded together with DESTROYED: GPU sandboxes are forced
-   * ephemeral (see SandboxService) so they cannot legitimately reach the
-   * archived state, but if one ever does (legacy data, manual bypass) the
-   * container is no longer on the runner and the card is effectively free.
-   *
-   * BUILD_FAILED is excluded because the build failed before a GPU container
-   * was created on the runner, so no physical card is reserved.
-   *
-   * Runners with `runner.gpu = -1` are treated as having infinite GPU capacity
-   * and are never considered at capacity. The `runner.gpu > 0` predicate below
-   * already excludes them, so they can host unlimited GPU sandboxes.
+   * Sums the GPU units reserved on each of the given runners by live GPU
+   * sandboxes (states outside GPU_RUNNER_RESERVATION_FREE_STATES). Runners
+   * with no reservations are absent from the returned map.
    */
-  async getRunnersAtGpuCapacity(): Promise<string[]> {
+  async getReservedGpuUnitsByRunnerId(runnerIds: string[]): Promise<Map<string, number>> {
+    const uniqueRunnerIds = [...new Set(runnerIds.filter((id): id is string => !!id))]
+    if (uniqueRunnerIds.length === 0) {
+      return new Map()
+    }
+
     const rows = await this.sandboxRepository
       .createQueryBuilder('sandbox')
-      .innerJoin(Runner, 'runner', 'runner.id = sandbox.runnerId')
       .select('sandbox.runnerId', 'runnerId')
-      .where('sandbox.runnerId IS NOT NULL')
+      .addSelect('COALESCE(SUM(sandbox.gpu), 0)', 'reservedGpu')
+      .where('sandbox.runnerId IN (:...runnerIds)', { runnerIds: uniqueRunnerIds })
       .andWhere('sandbox.gpu > 0')
-      .andWhere('runner.gpu IS NOT NULL AND runner.gpu > 0')
       .andWhere('sandbox.state NOT IN (:...freeStates)', {
-        freeStates: [SandboxState.DESTROYED, SandboxState.ARCHIVED, SandboxState.BUILD_FAILED],
+        freeStates: GPU_RUNNER_RESERVATION_FREE_STATES,
       })
       .groupBy('sandbox.runnerId')
-      .addGroupBy('runner.gpu')
-      .having('COUNT(*) >= runner.gpu')
       .getRawMany()
 
-    return rows.map((r) => r.runnerId).filter((id): id is string => !!id)
+    return new Map(rows.map((row) => [row.runnerId, Number(row.reservedGpu ?? 0)]))
+  }
+
+  /**
+   * Free GPU units on a runner after subtracting current reservations.
+   *
+   * `runner.gpu = -1` marks external overflow capacity (e.g. Cerebrium) with
+   * no fixed unit count: free units are Infinity, so any request fits and no
+   * reservation sum ever exhausts it. In best-fit packing
+   * (compareLiveGpuPlacementRunners) the infinite remainder sorts after every
+   * finite runner, so overflow capacity is only used when the owned fleet
+   * cannot take the request.
+   */
+  getRunnerFreeGpuUnits(runner: Runner, reservedGpuUnits: Map<string, number>): number {
+    if (runner.gpu === -1) {
+      return Number.POSITIVE_INFINITY
+    }
+    return Math.max(0, (runner.gpu ?? 0) - (reservedGpuUnits.get(runner.id) ?? 0))
+  }
+
+  private compareLiveGpuPlacementRunners(
+    a: Runner,
+    b: Runner,
+    reservedGpuUnits: Map<string, number>,
+    requestedGpu: number,
+  ): number {
+    const aRemainingAfterPlacement = this.getRunnerFreeGpuUnits(a, reservedGpuUnits) - requestedGpu
+    const bRemainingAfterPlacement = this.getRunnerFreeGpuUnits(b, reservedGpuUnits) - requestedGpu
+    if (aRemainingAfterPlacement !== bRemainingAfterPlacement) {
+      return aRemainingAfterPlacement - bRemainingAfterPlacement
+    }
+    if (a.availabilityScore !== b.availabilityScore) {
+      return b.availabilityScore - a.availabilityScore
+    }
+    // Exact ties keep their pre-sort order, which findAvailableRunners
+    // randomizes by shuffling before this stable sort.
+    return 0
+  }
+
+  private shuffleInPlace<T>(items: T[]): T[] {
+    for (let i = items.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[items[i], items[j]] = [items[j], items[i]]
+    }
+    return items
   }
 
   async getRunnersBySnapshotRef(ref: string): Promise<RunnerSnapshotDto[]> {
@@ -1301,13 +1361,13 @@ export class GetRunnerParams {
   excludedRunnerIds?: string[]
   availabilityScoreThreshold?: number
   // When > 0, only consider runners that have at least this much GPU capacity
-  // and have not yet reached their GPU sandbox capacity (a runner with
-  // runner.gpu = N can host up to N concurrent GPU sandboxes).
+  // and have not yet reached their GPU unit capacity (a runner with
+  // runner.gpu = N can host up to N total reserved GPU units).
   gpu: number
   /**
    * GPU type filter. Three forms accepted:
    *  - `null` → no GPU type filter
-   *  - single `GpuType` → exact match (honored by `findAvailableRunners`)
+   *  - single `GpuType` → exact match
    *  - `GpuType[]` ordered preference list → only honored by `getRandomAvailableRunner`,
    *    which iterates and returns a runner matching the first type with capacity.
    */

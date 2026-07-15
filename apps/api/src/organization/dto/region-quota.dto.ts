@@ -41,14 +41,14 @@ export class RegionQuotaDto {
   @ApiProperty({ nullable: true })
   maxDiskPerNonEphemeralSandbox: number | null
 
-  @ApiProperty({ nullable: true })
-  maxCpuPerGpuSandbox: number | null
+  @ApiProperty({ nullable: true, description: 'CPU maximum per requested GPU unit for GPU sandboxes.' })
+  maxCpuPerGpu: number | null
 
-  @ApiProperty({ nullable: true })
-  maxMemoryPerGpuSandbox: number | null
+  @ApiProperty({ nullable: true, description: 'Memory maximum per requested GPU unit for GPU sandboxes.' })
+  maxMemoryPerGpu: number | null
 
-  @ApiProperty({ nullable: true })
-  maxDiskPerGpuSandbox: number | null
+  @ApiProperty({ nullable: true, description: 'Disk maximum per requested GPU unit for GPU sandboxes.' })
+  maxDiskPerGpu: number | null
 
   constructor(regionQuota: RegionQuota) {
     this.organizationId = regionQuota.organizationId
@@ -65,8 +65,8 @@ export class RegionQuotaDto {
     this.maxMemoryPerSandbox = regionQuota.maxMemoryPerSandbox
     this.maxDiskPerSandbox = regionQuota.maxDiskPerSandbox
     this.maxDiskPerNonEphemeralSandbox = regionQuota.maxDiskPerNonEphemeralSandbox
-    this.maxCpuPerGpuSandbox = regionQuota.maxCpuPerGpuSandbox
-    this.maxMemoryPerGpuSandbox = regionQuota.maxMemoryPerGpuSandbox
-    this.maxDiskPerGpuSandbox = regionQuota.maxDiskPerGpuSandbox
+    this.maxCpuPerGpu = regionQuota.maxCpuPerGpu
+    this.maxMemoryPerGpu = regionQuota.maxMemoryPerGpu
+    this.maxDiskPerGpu = regionQuota.maxDiskPerGpu
   }
 }

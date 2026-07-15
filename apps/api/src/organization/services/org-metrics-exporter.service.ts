@@ -98,9 +98,9 @@ export class OrgMetricsExporterService {
         maxMemoryPerSandbox: null,
         maxDiskPerSandbox: null,
         maxDiskPerNonEphemeralSandbox: null,
-        maxCpuPerGpuSandbox: null,
-        maxMemoryPerGpuSandbox: null,
-        maxDiskPerGpuSandbox: null,
+        maxCpuPerGpu: null,
+        maxMemoryPerGpu: null,
+        maxDiskPerGpu: null,
       })
     }
 

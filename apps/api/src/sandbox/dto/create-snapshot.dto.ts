@@ -7,6 +7,7 @@ import {
   IsEnum,
   IsObject,
   IsNumber,
+  IsInt,
   IsOptional,
   IsString,
   Max,
@@ -16,6 +17,7 @@ import { CreateBuildInfoDto } from './create-build-info.dto'
 import { IsSafeDisplayString } from '../../common/validators'
 import { SandboxClass } from '../enums/sandbox-class.enum'
 import { GpuType } from '../enums/gpu-type.enum'
+import { MAX_GPU_PER_SANDBOX } from '../utils/gpu-resource-policy.util'
 
 @ApiSchema({ name: 'CreateSnapshot' })
 export class CreateSnapshotDto {
@@ -63,8 +65,9 @@ export class CreateSnapshotDto {
   })
   @IsOptional()
   @IsNumber()
+  @IsInt()
   @Min(0)
-  @Max(1)
+  @Max(MAX_GPU_PER_SANDBOX)
   gpu?: number
 
   @ApiPropertyOptional({

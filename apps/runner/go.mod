@@ -22,6 +22,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20
 	github.com/minio/minio-go/v7 v7.0.91
 	github.com/moby/buildkit v0.28.1
+	github.com/moby/docker-image-spec v1.3.1
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/prometheus/client_golang v1.23.2
@@ -107,7 +108,6 @@ require (
 	github.com/minio/crc64nvme v1.0.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
-	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/locker v1.0.1 // indirect
 	github.com/moby/patternmatcher v0.6.1 // indirect
 	github.com/moby/sys/signal v0.7.1 // indirect

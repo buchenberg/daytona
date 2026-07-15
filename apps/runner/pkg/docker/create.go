@@ -36,6 +36,18 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		return "", "", err
 	}
 
+	// Reject impossible GPU requests before any snapshot pull or container
+	// work; the allocator scan below only decides between possible requests.
+	requestedGpu := int(sandboxDto.GpuQuota)
+	if requestedGpu > 0 {
+		if !d.gpuEnabled {
+			return "", "", fmt.Errorf("no free GPU on runner: GPU requested but runner GPU support is disabled")
+		}
+		if requestedGpu > d.gpuCount {
+			return "", "", fmt.Errorf("no free GPU on runner: requested %d GPUs but runner has %d", requestedGpu, d.gpuCount)
+		}
+	}
+
 	if state == enums.SandboxStatePullingSnapshot {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
@@ -181,18 +193,16 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		}
 	}
 
-	// Pin GPU sandboxes to a single physical card. The allocator mutex must
-	// be held across ContainerCreate so concurrent creators see the new
-	// daytona.gpu_index label on their next scan and skip this index, but it
-	// must NOT be held across the subsequent Start() / network setup which
-	// can take seconds and would otherwise serialize every GPU sandbox
-	// creation on the runner.
+	// Pin GPU sandboxes to physical cards. The allocator mutex must be held
+	// across ContainerCreate so concurrent creators see the new GPU allocation
+	// labels on their next scan and skip these indices, but it must NOT be held
+	// across the subsequent Start() / network setup which can take seconds.
 	var (
-		gpuIndex   *int
+		gpuIndices []int
 		releaseGpu func()
 	)
-	if d.gpuEnabled && sandboxDto.GpuQuota > 0 {
-		idx, release, err := d.gpuAllocator.Acquire(ctx, d)
+	if requestedGpu > 0 {
+		indices, release, err := d.gpuAllocator.Acquire(ctx, d, requestedGpu)
 		if err != nil {
 			return "", "", err
 		}
@@ -204,10 +214,10 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 				releaseGpu()
 			}
 		}()
-		gpuIndex = &idx
+		gpuIndices = indices
 	}
 
-	containerConfig, hostConfig, networkingConfig, err := d.getContainerConfigs(sandboxDto, image, volumeMountPathBinds, gpuIndex)
+	containerConfig, hostConfig, networkingConfig, err := d.getContainerConfigs(sandboxDto, image, volumeMountPathBinds, gpuIndices)
 	if err != nil {
 		return "", "", err
 	}
@@ -243,7 +253,7 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 		}
 	}
 
-	// Container with the daytona.gpu_index label now exists; concurrent
+	// Container with the GPU allocation labels now exists; concurrent
 	// allocator scans will see it, so the mutex can be released even though
 	// Start() has not run yet.
 	if releaseGpu != nil {

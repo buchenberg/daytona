@@ -1,6 +1,5 @@
 import { CreateResourceButton } from '@/components/CreateResourceButton'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,12 +22,13 @@ import { useAvailableRegionsQuery } from '@/hooks/queries/useRegionsQuery'
 import { useAvailableSandboxClasses } from '@/hooks/useAvailableSandboxClasses'
 import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import { handleApiError } from '@/lib/error-handling'
-import { GPU_TYPE_LABELS } from '@/lib/gpu-types'
+import { GPU_TYPE_LABELS, MAX_GPU_PER_SANDBOX, resolveAllowedGpuTypes } from '@/lib/gpu-types'
 import { EMPTY_REGIONS } from '@/lib/regions'
 import { imageNameSchema } from '@/lib/schema'
 import { cn, getRegionFullDisplayName } from '@/lib/utils'
 import type { SnapshotDto } from '@daytona/api-client'
 import { GpuType, SandboxClass } from '@daytona/api-client'
+import { Minus, Plus } from 'lucide-react'
 import { useForm, useStore } from '@tanstack/react-form'
 import { Ref, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -48,13 +48,6 @@ const SANDBOX_CLASS_OPTIONS: { value: SandboxClass; label: string }[] = [
   { value: SandboxClass.ANDROID, label: 'Android' },
 ]
 
-const SELECTABLE_GPU_TYPES = (Object.values(GpuType) as GpuType[]).filter((t) => t !== GpuType.UNKNOWN_DEFAULT_OPEN_API)
-
-const resolveAllowedGpuTypes = (regionAllowed: GpuType[] | null | undefined): GpuType[] => {
-  const filteredRegion = (regionAllowed ?? []).filter((t) => t !== GpuType.UNKNOWN_DEFAULT_OPEN_API)
-  return filteredRegion.length > 0 ? filteredRegion : SELECTABLE_GPU_TYPES
-}
-
 const formSchema = z.object({
   name: snapshotNameSchema,
   imageName: imageNameSchema,
@@ -62,7 +55,7 @@ const formSchema = z.object({
   cpu: z.number().min(1).optional(),
   memory: z.number().min(1).optional(),
   disk: z.number().min(1).optional(),
-  gpu: z.boolean().optional(),
+  gpu: z.number().min(0).max(MAX_GPU_PER_SANDBOX).optional(),
   gpuType: z.nativeEnum(GpuType).optional(),
   regionId: z.string().optional(),
   sandboxClass: z.nativeEnum(SandboxClass).optional(),
@@ -77,7 +70,7 @@ const defaultValues: FormValues = {
   cpu: undefined,
   memory: undefined,
   disk: undefined,
-  gpu: false,
+  gpu: 0,
   gpuType: undefined,
   regionId: undefined,
   sandboxClass: SandboxClass.CONTAINER,
@@ -146,8 +139,8 @@ export const CreateSnapshotSheet = ({
             cpu: value.cpu,
             memory: value.memory,
             disk: value.disk,
-            gpu: value.gpu ? 1 : undefined,
-            gpuType: value.gpu && value.gpuType ? [value.gpuType] : undefined,
+            gpu: (value.gpu ?? 0) > 0 ? value.gpu : undefined,
+            gpuType: (value.gpu ?? 0) > 0 && value.gpuType ? [value.gpuType] : undefined,
             regionId: value.regionId,
             sandboxClass: value.sandboxClass,
           },
@@ -177,6 +170,7 @@ export const CreateSnapshotSheet = ({
 
   const selectedRegionId = useStore(form.store, (state) => state.values.regionId)
   const selectedSandboxClass = useStore(form.store, (state) => state.values.sandboxClass)
+  const selectedGpuCount = useStore(form.store, (state) => state.values.gpu ?? 0)
   const availableSandboxClasses = useAvailableSandboxClasses(selectedRegionId)
 
   useEffect(() => {
@@ -189,14 +183,24 @@ export const CreateSnapshotSheet = ({
     form.setFieldValue('sandboxClass', preferred)
   }, [availableSandboxClasses, form])
 
+  // Keep the gpu/gpuType values consistent with the (possibly hidden) GPU
+  // controls: without a GPU-capable entry the values are reset so hidden
+  // state cannot leak into the create request; with one, a gpuType the new
+  // region/class does not allow is normalized to its first allowed type.
   useEffect(() => {
-    if (!availableClassEntries) return
-    const entry = availableClassEntries.find(
+    const entry = availableClassEntries?.find(
       (r) => r.regionId === selectedRegionId && r.sandboxClass === selectedSandboxClass,
     )
-    if (entry?.gpuAvailable) return
+    if (entry?.gpuAvailable) {
+      const allowedGpuTypes = resolveAllowedGpuTypes(entry.allowedGpuTypes)
+      const currentGpuType = form.getFieldValue('gpuType')
+      if (currentGpuType && !allowedGpuTypes.includes(currentGpuType)) {
+        form.setFieldValue('gpuType', allowedGpuTypes[0])
+      }
+      return
+    }
     if (form.getFieldValue('gpu')) {
-      form.setFieldValue('gpu', false)
+      form.setFieldValue('gpu', 0)
     }
     if (form.getFieldValue('gpuType')) {
       form.setFieldValue('gpuType', undefined)
@@ -398,38 +402,73 @@ export const CreateSnapshotSheet = ({
                       <div className="flex flex-col gap-3">
                         <form.Field name="gpu">
                           {(field) => (
-                            <div className="flex items-start gap-2 pt-1">
-                              <Checkbox
-                                id={field.name}
-                                className="mt-0.5"
-                                checked={field.state.value ?? false}
-                                onCheckedChange={(checked) => {
-                                  const isChecked = checked === true
-                                  field.handleChange(isChecked)
-                                  if (isChecked) {
+                            <Field>
+                              <FieldLabel htmlFor={field.name}>GPUs</FieldLabel>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  type="button"
+                                  aria-label="Decrease GPU count"
+                                  variant="outline"
+                                  size="icon"
+                                  className="size-8"
+                                  onClick={() => {
+                                    const next = Math.max(0, (field.state.value ?? 0) - 1)
+                                    field.handleChange(next)
+                                    if (next === 0) form.setFieldValue('gpuType', undefined)
+                                  }}
+                                >
+                                  <Minus className="size-4" />
+                                </Button>
+                                <Input
+                                  id={field.name}
+                                  type="number"
+                                  className="h-8 w-20 text-center"
+                                  min={0}
+                                  max={MAX_GPU_PER_SANDBOX}
+                                  step={1}
+                                  value={field.state.value ?? 0}
+                                  onChange={(e) => {
+                                    const parsed = Number(e.target.value)
+                                    const next = Number.isFinite(parsed)
+                                      ? Math.max(0, Math.min(MAX_GPU_PER_SANDBOX, Math.trunc(parsed)))
+                                      : 0
+                                    field.handleChange(next)
+                                    if (next > 0) {
+                                      if (!form.getFieldValue('gpuType') && allowedGpuTypes.length > 0) {
+                                        form.setFieldValue('gpuType', allowedGpuTypes[0])
+                                      }
+                                    } else {
+                                      form.setFieldValue('gpuType', undefined)
+                                    }
+                                  }}
+                                />
+                                <Button
+                                  type="button"
+                                  aria-label="Increase GPU count"
+                                  variant="outline"
+                                  size="icon"
+                                  className="size-8"
+                                  onClick={() => {
+                                    const next = Math.min(MAX_GPU_PER_SANDBOX, (field.state.value ?? 0) + 1)
+                                    field.handleChange(next)
                                     if (!form.getFieldValue('gpuType') && allowedGpuTypes.length > 0) {
                                       form.setFieldValue('gpuType', allowedGpuTypes[0])
                                     }
-                                  } else {
-                                    form.setFieldValue('gpuType', undefined)
-                                  }
-                                }}
-                              />
-                              <div className="flex flex-col gap-1">
-                                <Label htmlFor={field.name} className="text-sm font-normal">
-                                  Allocate GPU
-                                </Label>
-                                <FieldDescription>
-                                  Sandboxes created from this snapshot must be ephemeral - set autoDeleteInterval to 0
-                                  when creating the sandbox.
-                                </FieldDescription>
+                                  }}
+                                >
+                                  <Plus className="size-4" />
+                                </Button>
                               </div>
-                            </div>
+                              <FieldDescription>
+                                Sandboxes created from this snapshot must be ephemeral - set autoDeleteInterval to 0
+                                when creating the sandbox.
+                              </FieldDescription>
+                            </Field>
                           )}
                         </form.Field>
                         <form.Subscribe selector={(state) => state.values.gpu}>
-                          {(gpuEnabled) =>
-                            gpuEnabled && allowedGpuTypes.length > 0 ? (
+                          {(gpuCount) =>
+                            (gpuCount ?? 0) > 0 && allowedGpuTypes.length > 0 ? (
                               <form.Field name="gpuType">
                                 {(field) => (
                                   <Field>
@@ -461,7 +500,9 @@ export const CreateSnapshotSheet = ({
                 </form.Subscribe>
               </div>
               <FieldDescription>
-                If not specified, default values will be used (1 vCPU, 1 GiB memory, 3 GiB storage).
+                {selectedGpuCount > 0
+                  ? 'If not specified, GPU default values will be used (16 vCPU, 192 GiB memory, 512 GiB storage).'
+                  : 'If not specified, default values will be used (1 vCPU, 1 GiB memory, 3 GiB storage).'}
               </FieldDescription>
             </div>
 

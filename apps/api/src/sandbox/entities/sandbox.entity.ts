@@ -359,6 +359,13 @@ export class Sandbox {
   }
 
   /**
+   * Whether this is a GPU sandbox (requests one or more GPU units).
+   */
+  isGpu(): boolean {
+    return this.gpu > 0
+  }
+
+  /**
    * Asserts that the current entity state is valid.
    */
   assertValid(): void {

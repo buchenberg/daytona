@@ -113,9 +113,9 @@ export class OrganizationUsageService {
           maxMemoryPerSandbox: rq.maxMemoryPerSandbox,
           maxDiskPerSandbox: rq.maxDiskPerSandbox,
           maxDiskPerNonEphemeralSandbox: rq.maxDiskPerNonEphemeralSandbox,
-          maxCpuPerGpuSandbox: rq.maxCpuPerGpuSandbox,
-          maxMemoryPerGpuSandbox: rq.maxMemoryPerGpuSandbox,
-          maxDiskPerGpuSandbox: rq.maxDiskPerGpuSandbox,
+          maxCpuPerGpu: rq.maxCpuPerGpu,
+          maxMemoryPerGpu: rq.maxMemoryPerGpu,
+          maxDiskPerGpu: rq.maxDiskPerGpu,
         }
         if (rq.allowedGpuTypes) {
           usage.allowedGpuTypes = rq.allowedGpuTypes

@@ -56,10 +56,10 @@ import {
   persistSnapshotFromSandbox,
   PersistSnapshotFromSandboxParams,
 } from '../utils/persist-snapshot-from-sandbox.util'
-import { GPU_REGION } from '../constants/dedicated-regions.constant'
 import { getRunnerSandboxClass } from '../utils/sandbox-class.util'
 import { resolveGpuTypePreferences } from '../utils/gpu-type-preferences.util'
 import { BuildInfoService } from './build-info.service'
+import { assertGpuTypeRequiresGpu, normalizeSandboxResourcesForCreate } from '../utils/gpu-resource-policy.util'
 
 const IMAGE_NAME_REGEX = /^[a-zA-Z0-9_.\-:]+(\/[a-zA-Z0-9_.\-:]+)*(@sha256:[a-f0-9]{64})?$/
 
@@ -121,6 +121,22 @@ export class SnapshotService {
     return null
   }
 
+  private normalizeGpuSnapshotCreateRequest(createSnapshotDto: CreateSnapshotDto): void {
+    assertGpuTypeRequiresGpu(createSnapshotDto.gpu, createSnapshotDto.gpuType)
+
+    const normalized = normalizeSandboxResourcesForCreate({
+      cpu: createSnapshotDto.cpu,
+      memory: createSnapshotDto.memory,
+      disk: createSnapshotDto.disk,
+      gpu: createSnapshotDto.gpu,
+    })
+
+    createSnapshotDto.cpu = normalized.cpu
+    createSnapshotDto.memory = normalized.memory
+    createSnapshotDto.disk = normalized.disk
+    createSnapshotDto.gpu = normalized.gpu
+  }
+
   private processEntrypoint(entrypoint?: string[]): string[] | undefined {
     if (!entrypoint || entrypoint.length === 0) {
       return undefined
@@ -173,15 +189,7 @@ export class SnapshotService {
       throw new BadRequestException('Must specify an image name')
     }
 
-    if (createSnapshotDto.gpu) {
-      // if (region.id !== GPU_REGION) {
-      //   throw new BadRequestException(`GPUs not available in this region`)
-      // }
-
-      if (createSnapshotDto.gpu > 1) {
-        throw new BadRequestException(`Only one GPU per sandbox is allowed`)
-      }
-    }
+    this.normalizeGpuSnapshotCreateRequest(createSnapshotDto)
 
     try {
       const entrypoint = createSnapshotDto.entrypoint
@@ -302,15 +310,7 @@ export class SnapshotService {
     let pendingSnapshotCountIncrement: number | undefined
     let entrypoint: string[] | undefined = undefined
 
-    if (createSnapshotDto.gpu) {
-      // if (region.id !== GPU_REGION) {
-      //   throw new BadRequestException(`GPUs not available in this region`)
-      // }
-
-      if (createSnapshotDto.gpu > 1) {
-        throw new BadRequestException(`Only one GPU per sandbox is allowed`)
-      }
-    }
+    this.normalizeGpuSnapshotCreateRequest(createSnapshotDto)
 
     try {
       const nameValidationError = this.validateSnapshotName(createSnapshotDto.name)
@@ -648,7 +648,7 @@ export class SnapshotService {
     const { maxCpuPerSandbox, maxMemoryPerSandbox, maxDiskPerSandbox } = getEffectivePerSandboxLimits(
       organization,
       regionQuota,
-      (gpu ?? 0) > 0,
+      gpu ?? 0,
     )
 
     if (cpu && cpu > maxCpuPerSandbox) {
@@ -692,9 +692,9 @@ export class SnapshotService {
   }
 
   /**
-   * Probes the scheduler to pin `snapshot.gpuType` to a concrete value
+   * Probes the live scheduler to pin `snapshot.gpuType` to a concrete value
    * whenever `gpu > 0`, so every active GPU snapshot has a stable type
-   * for sandboxes to inherit and capacity issues surface at create time
+   * for sandboxes to inherit and live capacity issues surface at create time
    * rather than leaving the snapshot stuck in PENDING.
    *
    * @throws {BadRequestError} If no runner satisfies the preference filter.
