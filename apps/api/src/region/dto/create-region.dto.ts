@@ -1,5 +1,5 @@
 import { ApiProperty, ApiSchema } from '@nestjs/swagger'
-import { IsString, IsNotEmpty } from 'class-validator'
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator'
 import { IsSafeDisplayString } from '../../common/validators'
 
 @ApiSchema({ name: 'CreateRegion' })
@@ -19,6 +19,8 @@ export class CreateRegionDto {
     nullable: true,
     required: false,
   })
+  @IsString()
+  @IsOptional()
   proxyUrl?: string
 
   @ApiProperty({
@@ -27,6 +29,8 @@ export class CreateRegionDto {
     nullable: true,
     required: false,
   })
+  @IsString()
+  @IsOptional()
   sshGatewayUrl?: string
 
   @ApiProperty({
@@ -35,6 +39,8 @@ export class CreateRegionDto {
     nullable: true,
     required: false,
   })
+  @IsString()
+  @IsOptional()
   snapshotManagerUrl?: string
 }
 

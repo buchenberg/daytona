@@ -13,6 +13,7 @@ import { ContentTypeInterceptor } from './common/interceptors/content-type.inter
 import { MetricsInterceptor } from './interceptors/metrics.interceptor'
 import { HttpsOptions } from '@nestjs/common/interfaces/external/https-options.interface'
 import { TypedConfigService } from './config/typed-config.service'
+import { validationPipeOptions } from './config/validation-pipe.options'
 import { FailedAuthTrackerService } from './auth/failed-auth-tracker.service'
 import { DataSource, MigrationExecutor } from 'typeorm'
 import { getOpenApiConfig } from './openapi.config'
@@ -69,11 +70,7 @@ async function bootstrap() {
   app.useGlobalInterceptors(new ContentTypeInterceptor())
   app.useGlobalInterceptors(new MetricsInterceptor(configService))
   app.useGlobalInterceptors(app.get(AuditInterceptor))
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-    }),
-  )
+  app.useGlobalPipes(new ValidationPipe(validationPipeOptions))
   app.useBodyParser('json', { limit: '1mb' })
   app.useBodyParser('urlencoded', { extended: true, limit: '1mb' })
 
