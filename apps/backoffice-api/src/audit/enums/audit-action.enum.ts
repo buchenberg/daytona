@@ -18,4 +18,7 @@ export enum AuditAction {
   QUOTA_REQUEST_REJECT = 'quota_request_reject',
   QUOTA_REQUEST_CANCEL = 'quota_request_cancel',
   QUOTA_REQUEST_EXPIRE = 'quota_request_expire',
+  MAINTENANCE_STATUS_CHANGE = 'maintenance_status_change',
+  MAINTENANCE_NOTE_ADD = 'maintenance_note_add',
+  FLEET_SYNC = 'fleet_sync',
 }

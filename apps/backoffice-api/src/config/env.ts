@@ -70,6 +70,29 @@ export const config = {
     createDailyBudgetGpu: intEnv(process.env.QUOTA_CREATE_DAILY_BUDGET_GPU, 50),
   },
 
+  // Runner fleet inventory + maintenance request tracking
+  fleet: {
+    inventory: {
+      // Git URL of the workspaces-playbook repo; leave empty to disable syncing
+      // (or point localPath at an existing checkout, e.g. in dev).
+      repoUrl: process.env.FLEET_INVENTORY_REPO_URL || '',
+      branch: process.env.FLEET_INVENTORY_REPO_BRANCH || 'main',
+      localPath: process.env.FLEET_INVENTORY_LOCAL_PATH || '',
+      dataDir: process.env.FLEET_INVENTORY_DATA_DIR || '/data/playbook',
+      // Playbook roots whose `<root>/inventory` directories are parsed.
+      roots: (process.env.FLEET_INVENTORY_ROOTS || 'ansible/runners,ansible/runners-vm')
+        .split(',')
+        .map((root) => root.trim()),
+      // Clamped to >= 1: a zero/negative interval would turn setInterval into a busy loop
+      syncIntervalMinutes: Math.max(1, intEnv(process.env.FLEET_INVENTORY_SYNC_INTERVAL_MINUTES, 5)),
+      // GitHub push-webhook HMAC secret; the webhook endpoint 404s while unset.
+      webhookSecret: process.env.FLEET_INVENTORY_WEBHOOK_SECRET || '',
+    },
+    // Fallback domain suffix and the boundary of "our" fleet in discrepancy
+    // checks (BYOC runners live outside it and are not drift).
+    runnerDomainSuffix: process.env.FLEET_RUNNER_DOMAIN_SUFFIX || 'daytona.work',
+  },
+
   auth: {
     mode: process.env.AUTH_MODE || 'both', // 'basic' | 'oidc' | 'both'
   },

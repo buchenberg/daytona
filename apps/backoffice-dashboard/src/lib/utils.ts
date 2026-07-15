@@ -59,6 +59,11 @@ export function getRelativeTimeString(
   }
 }
 
+/** snake_case enum value -> human label, e.g. 'ready_for_maintenance' -> 'ready for maintenance' */
+export function statusLabel(value: string): string {
+  return value.replaceAll('_', ' ')
+}
+
 export function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }

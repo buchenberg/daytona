@@ -3,6 +3,7 @@ import {
   OrganizationsApi,
   SandboxesApi,
   RunnersApi,
+  FleetApi,
   SnapshotsApi,
   OrganizationUsersApi,
   RegionQuotasApi,
@@ -54,6 +55,19 @@ import type {
   BulkInsertResponseDto,
   SandboxSyncStatusResponseDto,
   SandboxResyncResponseDto,
+  SearchFleetRunnersDto,
+  FleetRunnerSearchResponseDto,
+  FleetFilterOptionsDto,
+  FleetRunnerDetailDto,
+  DiscrepancyDto,
+  SyncStatusDto,
+  IncomingMaintenanceRequestsResponseDto,
+  MaintenanceRequestDto,
+  MaintenanceRequestDetailDto,
+  CreateMaintenanceRequestDto,
+  UpdateMaintenanceRequestDto,
+  TransitionMaintenanceRequestDto,
+  RunnerEventDto,
 } from '@daytonaio/backoffice-api-client'
 import type {
   QuotaRequestDto,
@@ -80,6 +94,7 @@ export class BackofficeApiClient {
   private organizationsApi: OrganizationsApi
   private sandboxesApi: SandboxesApi
   private runnersApi: RunnersApi
+  private fleetApi: FleetApi
   private snapshotsApi: SnapshotsApi
   private organizationUsersApi: OrganizationUsersApi
   private regionQuotasApi: RegionQuotasApi
@@ -97,6 +112,7 @@ export class BackofficeApiClient {
     this.organizationsApi = new OrganizationsApi(config)
     this.sandboxesApi = new SandboxesApi(config)
     this.runnersApi = new RunnersApi(config)
+    this.fleetApi = new FleetApi(config)
     this.snapshotsApi = new SnapshotsApi(config)
     this.organizationUsersApi = new OrganizationUsersApi(config)
     this.regionQuotasApi = new RegionQuotasApi(config)
@@ -290,6 +306,70 @@ export class BackofficeApiClient {
 
   async forceOrganizationResyncForSandbox(sandboxId: string): Promise<SandboxResyncResponseDto> {
     const response = await this.sandboxesApi.sandboxSyncStatusControllerForceOrganizationResync(sandboxId)
+    return response.data
+  }
+
+  // Fleet inventory & maintenance requests
+  async searchFleetRunners(body: SearchFleetRunnersDto): Promise<FleetRunnerSearchResponseDto> {
+    const response = await this.fleetApi.fleetRunnersControllerSearch(body)
+    return response.data
+  }
+
+  async getFleetFilterOptions(): Promise<FleetFilterOptionsDto> {
+    const response = await this.fleetApi.fleetRunnersControllerFilterOptions()
+    return response.data
+  }
+
+  async getFleetDiscrepancies(): Promise<DiscrepancyDto[]> {
+    const response = await this.fleetApi.fleetRunnersControllerDiscrepancies()
+    return response.data
+  }
+
+  async getFleetRunner(name: string): Promise<FleetRunnerDetailDto> {
+    const response = await this.fleetApi.fleetRunnersControllerDetail(name)
+    return response.data
+  }
+
+  async getFleetSyncStatus(): Promise<SyncStatusDto> {
+    const response = await this.fleetApi.fleetSyncControllerStatus()
+    return response.data
+  }
+
+  async triggerFleetSync(): Promise<SyncStatusDto> {
+    const response = await this.fleetApi.fleetSyncControllerTrigger()
+    return response.data
+  }
+
+  async listIncomingMaintenanceRequests(): Promise<IncomingMaintenanceRequestsResponseDto> {
+    const response = await this.fleetApi.maintenanceRequestsControllerIncoming()
+    return response.data
+  }
+
+  async createMaintenanceRequest(data: CreateMaintenanceRequestDto): Promise<MaintenanceRequestDto> {
+    const response = await this.fleetApi.maintenanceRequestsControllerCreate(data)
+    return response.data
+  }
+
+  async getMaintenanceRequest(id: string): Promise<MaintenanceRequestDetailDto> {
+    const response = await this.fleetApi.maintenanceRequestsControllerDetail(id)
+    return response.data
+  }
+
+  async updateMaintenanceRequest(id: string, data: UpdateMaintenanceRequestDto): Promise<MaintenanceRequestDto> {
+    const response = await this.fleetApi.maintenanceRequestsControllerUpdate(id, data)
+    return response.data
+  }
+
+  async transitionMaintenanceRequest(
+    id: string,
+    data: TransitionMaintenanceRequestDto,
+  ): Promise<MaintenanceRequestDto> {
+    const response = await this.fleetApi.maintenanceRequestsControllerTransition(id, data)
+    return response.data
+  }
+
+  async addMaintenanceNote(id: string, message: string): Promise<RunnerEventDto> {
+    const response = await this.fleetApi.maintenanceRequestsControllerAddNote(id, { message })
     return response.data
   }
 

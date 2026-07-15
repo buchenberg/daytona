@@ -3,13 +3,15 @@ import { useNavigate } from 'react-router'
 import { Button } from '@dashboard/ui/button'
 import { useTheme } from '@backoffice/contexts/ThemeContext'
 import { usePendingQuotaRequests } from '../../features/quota-requests/useQuotaRequests'
+import { useIncomingMaintenanceRequests } from '../../features/maintenance-requests/useMaintenanceRequests'
 
 export function Header() {
   const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
 
   const { data: pendingRequests } = usePendingQuotaRequests()
-  const pendingCount = pendingRequests?.total ?? 0
+  const { data: incomingRequests } = useIncomingMaintenanceRequests()
+  const pendingCount = (pendingRequests?.total ?? 0) + (incomingRequests?.total ?? 0)
 
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light')

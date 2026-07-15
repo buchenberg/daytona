@@ -13,6 +13,7 @@ import BackofficeApiClient from '../api/BackofficeApiClient'
 import { useHasPermission, useUser } from '../providers/ApiProvider'
 import { usePendingQuotaRequests } from '../features/quota-requests/useQuotaRequests'
 import { QuotaRequestDto } from '../types/quota-requests'
+import { IncomingMaintenanceRequests } from '../features/maintenance-requests/IncomingMaintenanceRequests'
 
 const hoursLeft = (expiresAt: string): string => {
   const diffMs = dayjs(expiresAt).diff(dayjs())
@@ -167,10 +168,11 @@ export const NotificationsPage = () => {
         </Button>
       </PageHeaderBase>
       <PageContent size="full">
+        <IncomingMaintenanceRequests />
         {!isLoading && requests.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <Bell className="mb-3 h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">No notifications</p>
+            <p className="text-sm text-muted-foreground">No quota bump notifications</p>
           </div>
         ) : (
           <>

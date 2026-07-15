@@ -18,6 +18,7 @@
 export type SandboxAction = 'read' | 'write' | 'write-bulk' | 'delete' | 'resync'
 export type SnapshotAction = 'read' | 'write' | 'write-bulk' | 'delete'
 export type RunnerAction = 'read' | 'write' | 'write-bulk' | 'delete'
+export type FleetAction = 'read' | 'write'
 export type OrganizationAction = 'read' | 'write' | 'write-bulk' | 'delete'
 export type OrganizationUserAction = 'read' | 'write' | 'write-bulk' | 'delete'
 export type RegionQuotaAction = 'read' | 'write' | 'write-bulk' | 'delete' | 'request'
@@ -34,6 +35,7 @@ export interface Permissions {
   sandboxes?: SandboxAction[]
   snapshots?: SnapshotAction[]
   runners?: RunnerAction[]
+  fleet?: FleetAction[]
   organizations?: OrganizationAction[]
   organizationUsers?: OrganizationUserAction[]
   regionQuotas?: RegionQuotaAction[]
@@ -59,6 +61,7 @@ export const ALL_RESOURCES: readonly PermissionResource[] = [
   'sandboxes',
   'snapshots',
   'runners',
+  'fleet',
   'organizations',
   'organizationUsers',
   'regionQuotas',
@@ -71,6 +74,7 @@ export const ACTIONS_BY_RESOURCE: { [R in PermissionResource]: readonly ActionFo
   sandboxes: ['read', 'write', 'write-bulk', 'delete', 'resync'],
   snapshots: ['read', 'write', 'write-bulk', 'delete'],
   runners: ['read', 'write', 'write-bulk', 'delete'],
+  fleet: ['read', 'write'],
   organizations: ['read', 'write', 'write-bulk', 'delete'],
   organizationUsers: ['read', 'write', 'write-bulk', 'delete'],
   regionQuotas: ['read', 'write', 'write-bulk', 'delete', 'request'],

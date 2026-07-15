@@ -10,6 +10,9 @@ import { join } from 'path'
 import { AuditLog } from './backoffice-db/entities/audit-log.entity'
 import { BackofficeUser } from './backoffice-db/entities/backoffice-user.entity'
 import { QuotaRequest } from './backoffice-db/entities/quota-request.entity'
+import { FleetRunner } from './backoffice-db/entities/fleet-runner.entity'
+import { MaintenanceRequest } from './backoffice-db/entities/maintenance-request.entity'
+import { RunnerEvent } from './backoffice-db/entities/runner-event.entity'
 import { Conversation } from './chat/entities/conversation.entity'
 import { Message } from './chat/entities/message.entity'
 import { UserSettings } from './chat/entities/user-settings.entity'
@@ -27,6 +30,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler'
 import { OrganizationsModule } from './organizations/organizations.module'
 import { SandboxesModule } from './sandboxes/sandboxes.module'
 import { RunnersModule } from './runners/runners.module'
+import { FleetModule } from './fleet/fleet.module'
 import { SnapshotsModule } from './snapshots/snapshots.module'
 import { OrganizationUsersModule } from './organization-users/organization-users.module'
 import { RegionQuotasModule } from './region-quotas/region-quotas.module'
@@ -85,6 +89,9 @@ import { HealthController } from './health.controller'
         AuditLog,
         BackofficeUser,
         QuotaRequest,
+        FleetRunner,
+        MaintenanceRequest,
+        RunnerEvent,
         Conversation,
         Message,
         UserSettings,
@@ -114,6 +121,7 @@ import { HealthController } from './health.controller'
     OrganizationsModule,
     SandboxesModule,
     RunnersModule,
+    FleetModule,
     SnapshotsModule,
     OrganizationUsersModule,
     RegionQuotasModule,

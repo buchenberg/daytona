@@ -45,7 +45,12 @@ export function Sidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {visibleRoutes.map((route) => {
-                const isActive = location.pathname === route.path || location.pathname.startsWith(route.path + '/')
+                // Maintenance request details keep their own URLs but belong
+                // to the fleet feature, so they highlight the Fleet entry.
+                const isActive =
+                  location.pathname === route.path ||
+                  location.pathname.startsWith(route.path + '/') ||
+                  (route.path === '/fleet' && location.pathname.startsWith('/maintenance-requests'))
                 const Icon = route.icon
                 return (
                   <SidebarMenuItem key={route.path}>

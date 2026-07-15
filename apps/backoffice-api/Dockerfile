@@ -3,8 +3,9 @@ FROM node:24-slim AS backoffice
 
 ENV CI=true
 
-# Install dependencies (apt instead of apk)
-RUN apt-get update && apt-get install -y --no-install-recommends bash curl && \
+# Install dependencies (apt instead of apk); git is needed at runtime by the
+# fleet inventory sync (clones the workspaces-playbook repo)
+RUN apt-get update && apt-get install -y --no-install-recommends bash curl git ca-certificates && \
   rm -rf /var/lib/apt/lists/*
 RUN npm install -g corepack && corepack enable
 

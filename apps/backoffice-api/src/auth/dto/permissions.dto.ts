@@ -5,6 +5,7 @@ import {
   SandboxAction,
   SnapshotAction,
   RunnerAction,
+  FleetAction,
   OrganizationAction,
   OrganizationUserAction,
   RegionQuotaAction,
@@ -33,6 +34,9 @@ export class PermissionsDto implements Permissions {
 
   @ApiProperty({ required: false, enum: ACTIONS_BY_RESOURCE.runners, isArray: true })
   runners?: RunnerAction[]
+
+  @ApiProperty({ required: false, enum: ACTIONS_BY_RESOURCE.fleet, isArray: true })
+  fleet?: FleetAction[]
 
   @ApiProperty({ required: false, enum: ACTIONS_BY_RESOURCE.organizations, isArray: true })
   organizations?: OrganizationAction[]

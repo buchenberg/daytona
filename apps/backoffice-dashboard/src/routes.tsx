@@ -11,6 +11,8 @@ import {
   MessageCircle,
   Bell,
   BookOpen,
+  Warehouse,
+  Wrench,
   LucideIcon,
 } from 'lucide-react'
 import { hasPermission, isSuperAdmin, PermissionResource, Permissions } from '@backoffice-api/permissions'
@@ -25,12 +27,16 @@ import { UsersPage } from './pages/UsersPage'
 import { AuditLogsPage } from './pages/AuditLogsPage'
 import { ChatPage } from './pages/ChatPage'
 import { KnowledgeBankPage } from './pages/KnowledgeBankPage'
+import { FleetPage } from './pages/FleetPage'
+import { FleetRunnerDetailPage } from './pages/FleetRunnerDetailPage'
+import { MaintenanceRequestDetailPage } from './pages/MaintenanceRequestDetailPage'
 
 export interface AppRoute {
   path: string
   name: string
   icon: LucideIcon
-  requires: PermissionResource
+  /** Resource(s) granting access — an array means any one of them suffices. */
+  requires: PermissionResource | PermissionResource[]
   superAdminOnly?: boolean
   component: ComponentType
 }
@@ -41,6 +47,7 @@ export interface AppRoute {
 export const APP_ROUTES: readonly AppRoute[] = [
   { path: '/sandboxes', name: 'Sandboxes', icon: Database, requires: 'sandboxes', component: SandboxesPage },
   { path: '/runners', name: 'Runners', icon: Server, requires: 'runners', component: RunnersPage },
+  { path: '/fleet', name: 'Fleet', icon: Warehouse, requires: 'fleet', component: FleetPage },
   { path: '/snapshots', name: 'Snapshots', icon: Camera, requires: 'snapshots', component: SnapshotsPage },
   {
     path: '/organizations',
@@ -78,19 +85,33 @@ export const APP_ROUTES: readonly AppRoute[] = [
 
 // Reached from the Header bell rather than the sidebar, so it lives outside
 // APP_ROUTES (which drives the sidebar and post-login landing precedence).
-// Quota-request notifications are part of the region-quotas feature, so access
-// follows the `regionQuotas` resource.
+// Shows quota-request and incoming-maintenance notifications, so either
+// resource grants access.
 export const NOTIFICATIONS_ROUTE: AppRoute = {
   path: '/notifications',
   name: 'Notifications',
   icon: Bell,
-  requires: 'regionQuotas',
+  requires: ['regionQuotas', 'fleet'],
   component: NotificationsPage,
 }
 
+// Detail pages reached from links inside the fleet/maintenance pages, not the
+// sidebar. Same access rules as their parent list pages.
+export const DETAIL_ROUTES: readonly AppRoute[] = [
+  { path: '/fleet/:name', name: 'Fleet Runner', icon: Warehouse, requires: 'fleet', component: FleetRunnerDetailPage },
+  {
+    path: '/maintenance-requests/:id',
+    name: 'Maintenance Request',
+    icon: Wrench,
+    requires: 'fleet',
+    component: MaintenanceRequestDetailPage,
+  },
+]
+
 export function canAccessRoute(permissions: Permissions, route: AppRoute): boolean {
   if (route.superAdminOnly) return isSuperAdmin(permissions)
-  return hasPermission(permissions, route.requires, '*')
+  const required = Array.isArray(route.requires) ? route.requires : [route.requires]
+  return required.some((resource) => hasPermission(permissions, resource, '*'))
 }
 
 export function firstAccessibleRoute(permissions: Permissions): AppRoute | null {

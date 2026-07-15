@@ -22,6 +22,7 @@ export interface PermissionsDto {
     'sandboxes'?: Array<PermissionsDtoSandboxesEnum>;
     'snapshots'?: Array<PermissionsDtoSnapshotsEnum>;
     'runners'?: Array<PermissionsDtoRunnersEnum>;
+    'fleet'?: Array<PermissionsDtoFleetEnum>;
     'organizations'?: Array<PermissionsDtoOrganizationsEnum>;
     'organizationUsers'?: Array<PermissionsDtoOrganizationUsersEnum>;
     'regionQuotas'?: Array<PermissionsDtoRegionQuotasEnum>;
@@ -55,6 +56,12 @@ export const PermissionsDtoRunnersEnum = {
 } as const;
 
 export type PermissionsDtoRunnersEnum = typeof PermissionsDtoRunnersEnum[keyof typeof PermissionsDtoRunnersEnum];
+export const PermissionsDtoFleetEnum = {
+    READ: 'read',
+    WRITE: 'write',
+} as const;
+
+export type PermissionsDtoFleetEnum = typeof PermissionsDtoFleetEnum[keyof typeof PermissionsDtoFleetEnum];
 export const PermissionsDtoOrganizationsEnum = {
     READ: 'read',
     WRITE: 'write',

@@ -23,6 +23,7 @@ async function bootstrap() {
 
     const app = await NestFactory.create(AppModule, {
       logger: ['error', 'warn', 'log'],
+      rawBody: true, // fleet inventory webhook verifies the GitHub HMAC over the raw payload
     })
 
     // CLI support for backoffice database migrations

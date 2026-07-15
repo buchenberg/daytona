@@ -18,6 +18,7 @@ export * from './api/audit-logs-api';
 export * from './api/authentication-api';
 export * from './api/chat-api';
 export * from './api/conversations-api';
+export * from './api/fleet-api';
 export * from './api/health-api';
 export * from './api/organization-users-api';
 export * from './api/organizations-api';

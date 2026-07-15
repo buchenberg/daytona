@@ -10,7 +10,14 @@ import { CautionBanner } from './components/layout/CautionBanner'
 import { SidebarProvider, SidebarInset, useSidebar } from '@dashboard/ui/sidebar'
 import { BannerProvider } from '@dashboard/components/Banner'
 import { Toaster } from 'sonner'
-import { APP_ROUTES, NOTIFICATIONS_ROUTE, AppRoute, canAccessRoute, firstAccessibleRoute } from './routes'
+import {
+  APP_ROUTES,
+  DETAIL_ROUTES,
+  NOTIFICATIONS_ROUTE,
+  AppRoute,
+  canAccessRoute,
+  firstAccessibleRoute,
+} from './routes'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,7 +81,7 @@ function Dashboard() {
           <main className={`flex-1 bg-background ${isChat ? 'overflow-hidden' : 'overflow-y-auto'}`}>
             <Routes>
               <Route path="/" element={<HomeRedirect />} />
-              {[...APP_ROUTES, NOTIFICATIONS_ROUTE].map((route) => {
+              {[...APP_ROUTES, ...DETAIL_ROUTES, NOTIFICATIONS_ROUTE].map((route) => {
                 const Page = route.component
                 return (
                   <Route

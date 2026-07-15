@@ -5,6 +5,9 @@ import { config } from './env'
 import { AuditLog } from '../backoffice-db/entities/audit-log.entity'
 import { BackofficeUser } from '../backoffice-db/entities/backoffice-user.entity'
 import { QuotaRequest } from '../backoffice-db/entities/quota-request.entity'
+import { FleetRunner } from '../backoffice-db/entities/fleet-runner.entity'
+import { MaintenanceRequest } from '../backoffice-db/entities/maintenance-request.entity'
+import { RunnerEvent } from '../backoffice-db/entities/runner-event.entity'
 import { Conversation } from '../chat/entities/conversation.entity'
 import { Message } from '../chat/entities/message.entity'
 import { UserSettings } from '../chat/entities/user-settings.entity'
@@ -18,7 +21,19 @@ export const BackofficeDataSource = new DataSource({
   username: config.backofficeDb.username,
   password: config.backofficeDb.password,
   database: config.backofficeDb.database,
-  entities: [AuditLog, BackofficeUser, QuotaRequest, Conversation, Message, UserSettings, ThreadCollaborator, Memory],
+  entities: [
+    AuditLog,
+    BackofficeUser,
+    QuotaRequest,
+    FleetRunner,
+    MaintenanceRequest,
+    RunnerEvent,
+    Conversation,
+    Message,
+    UserSettings,
+    ThreadCollaborator,
+    Memory,
+  ],
   migrations: [join(__dirname, '../migrations-backoffice/**/*{.ts,.js}')],
   synchronize: false,
   migrationsRun: config.backofficeDb.migrationsRun,
