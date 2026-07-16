@@ -194,6 +194,17 @@ function getUnknownErrorMessage(error: unknown) {
   return String(error)
 }
 
+// TEMP: Windows sandbox images currently return HTTP 503 from the computeruse/process-status endpoint
+// due to a bug in the Windows image. This detects that specific status so the VNC flow can bypass the
+// broken status probe on Windows sandboxes. Remove once the Windows image is fixed.
+function isServiceUnavailableError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { response?: { status?: number } }).response?.status === 503
+  )
+}
+
 interface UseSandboxesPageWsSyncOptions {
   currentSandboxIds: ReadonlySet<string>
   updateSandboxInCache: (sandboxId: string, updates: Partial<Sandbox>) => unknown
@@ -640,9 +651,19 @@ const Sandboxes: React.FC = () => {
     mutationFn: async ({ sandboxId }: { sandboxId: string }) => {
       toast.info('Checking VNC desktop status...')
 
+      const isWindowsSandbox = getSandboxById(sandboxId)?.sandboxClass === SandboxClass.WINDOWS
+
       try {
-        const statusResponse = await toolboxApi.getComputerUseStatus(sandboxId, selectedOrganization?.id)
-        const status = statusResponse.data.status
+        let status: string | undefined
+        try {
+          const statusResponse = await toolboxApi.getComputerUseStatus(sandboxId, selectedOrganization?.id)
+          status = statusResponse.data.status
+        } catch (statusError) {
+          // TEMP: Windows returns 503 from process-status (broken image probe); bypass and start anyway.
+          if (!(isWindowsSandbox && isServiceUnavailableError(statusError))) {
+            throw statusError
+          }
+        }
 
         if (status === 'active') {
           const vncUrl = await getVncUrl(sandboxId)
