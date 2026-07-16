@@ -13,9 +13,10 @@ export const META_DEDICATED_REGION = 'meta-dedicated'
 export const META_LARGE_SANDBOX_REGION = 'us-central-1'
 
 /*
- * Meta sandboxes exceeding either of these thresholds (GB) are pinned to
+ * Meta sandboxes exceeding any of these thresholds are pinned to
  * META_LARGE_SANDBOX_REGION with no fallback and no spillover.
  */
+const META_LARGE_SANDBOX_CPU_CORES = 16
 const META_LARGE_SANDBOX_MEMORY_GB = 16
 const META_LARGE_SANDBOX_DISK_GB = 32
 export const DEEPTUNE_AND_MILLION_DEDICATED_REGION = 'deeptune-dedicated'
@@ -268,7 +269,9 @@ export function resolveEffectiveRegion(
   // fallback and no spillover, regardless of the base region.
   if (
     META_LARGE_SANDBOX_ORGS.has(organizationId) &&
-    (resources.memory > META_LARGE_SANDBOX_MEMORY_GB || resources.disk > META_LARGE_SANDBOX_DISK_GB)
+    (resources.cpu > META_LARGE_SANDBOX_CPU_CORES ||
+      resources.memory > META_LARGE_SANDBOX_MEMORY_GB ||
+      resources.disk > META_LARGE_SANDBOX_DISK_GB)
   ) {
     return META_LARGE_SANDBOX_REGION
   }
