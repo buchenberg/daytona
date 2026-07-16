@@ -655,13 +655,16 @@ const Sandboxes: React.FC = () => {
 
       try {
         let status: string | undefined
-        try {
-          const statusResponse = await toolboxApi.getComputerUseStatus(sandboxId, selectedOrganization?.id)
-          status = statusResponse.data.status
-        } catch (statusError) {
-          // TEMP: Windows returns 503 from process-status (broken image probe); bypass and start anyway.
-          if (!(isWindowsSandbox && isServiceUnavailableError(statusError))) {
-            throw statusError
+
+        if (!isWindowsSandbox) {
+          try {
+            const statusResponse = await toolboxApi.getComputerUseStatus(sandboxId, selectedOrganization?.id)
+            status = statusResponse.data.status
+          } catch (statusError) {
+            // TEMP: Windows returns 503 from process-status (broken image probe); bypass and start anyway.
+            if (!(isWindowsSandbox && isServiceUnavailableError(statusError))) {
+              throw statusError
+            }
           }
         }
 
