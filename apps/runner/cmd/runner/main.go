@@ -204,13 +204,15 @@ func run() int {
 		dockerClient.StartNetleashReconcile(ctx)
 	}
 
-	// Bring up the shared secret-injection proxy (if enabled) and re-register
-	// secret bindings for sandboxes that survived a runner restart. The proxy's
-	// fixed address and persisted CA stay valid across the restart; this restores
-	// the in-memory per-sandbox bindings the registry lost.
-	if cfg.NetleashEnabled && cfg.NetleashSecretsEnabled {
-		if err := dockerClient.EnableSecretInjection(ctx); err != nil {
-			logger.Error("Failed to enable secret injection proxy; continuing without it", "error", err)
+	// Bring up the shared egress proxy — it enforces domain allow lists by
+	// hostname for allowlisted sandboxes and injects secrets when that is
+	// enabled — and re-register per-sandbox policy bindings for sandboxes that
+	// survived a runner restart. The proxy's fixed address and persisted CA stay
+	// valid across the restart; this restores the in-memory per-sandbox bindings
+	// the registry lost.
+	if cfg.NetleashEnabled {
+		if err := dockerClient.EnableEgressProxy(ctx); err != nil {
+			logger.Error("Failed to enable egress proxy; continuing without it", "error", err)
 		} else {
 			dockerClient.StartSecretReconcile(ctx)
 		}

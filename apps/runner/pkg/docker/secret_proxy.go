@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/daytonaio/daytona/libs/netleash/pkg/manager"
+	"github.com/daytonaio/daytona/libs/netleash/pkg/proxy"
 	"github.com/daytonaio/daytona/libs/netleash/pkg/secrets"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
@@ -24,14 +25,16 @@ import (
 // builds of wget. Keep the path in sync with cacert.DefaultProxyCAPath.
 const secretCAContainerPath = "/etc/daytona/netleash/ca.crt"
 
-// EnableSecretInjection brings up the runner's shared secret-injection proxy:
-// it resolves the sandbox bridge gateway, starts the netleash shared MITM proxy
-// bound to "<gateway>:<port>", and records the proxy address and CA bundle path
-// so they can be injected into secret-using sandboxes. Idempotent and a no-op
-// when secret injection is disabled. Failures are returned but are non-fatal to
-// the runner — the caller logs and continues without secret injection.
-func (d *DockerClient) EnableSecretInjection(ctx context.Context) error {
-	if !d.secretProxyEnabled || d.netleashManager == nil {
+// EnableEgressProxy brings up the runner's shared egress proxy — the
+// hostname-aware MITM proxy that injects secrets and, for proxy-enforced
+// sandboxes, is the mandatory path for web-port egress: it resolves the sandbox
+// bridge gateway, starts the netleash shared proxy bound to "<gateway>:<port>",
+// and records the proxy address and CA bundle path so they can be injected into
+// proxy-wired sandboxes. Idempotent and a no-op when neither secret injection
+// nor proxy enforcement is enabled. Failures are returned but are non-fatal to
+// the runner — the caller logs and continues without the proxy.
+func (d *DockerClient) EnableEgressProxy(ctx context.Context) error {
+	if !d.egressProxyEnabled || d.netleashManager == nil {
 		return nil
 	}
 
@@ -49,7 +52,7 @@ func (d *DockerClient) EnableSecretInjection(ctx context.Context) error {
 		caDir = "/var/lib/netleash"
 	}
 
-	handle, err := d.netleashManager.EnableSecretInjection(manager.SecretInjectionConfig{
+	handle, err := d.netleashManager.EnableEgressProxy(manager.EgressProxyConfig{
 		ListenAddr: net.JoinHostPort(gatewayIP, fmt.Sprintf("%d", port)),
 		CACertPath: filepath.Join(caDir, "secret-ca.crt"),
 		CAKeyPath:  filepath.Join(caDir, "secret-ca.key"),
@@ -73,9 +76,10 @@ func (d *DockerClient) EnableSecretInjection(ctx context.Context) error {
 	d.secretProxyAddr = handle.Addr
 	d.secretProxyCACert = handle.CACertFile
 	if err != nil {
-		d.logger.ErrorContext(ctx, "Secret injection proxy enabled with partial failures", "error", err)
+		d.logger.ErrorContext(ctx, "Egress proxy enabled with partial failures", "error", err)
 	}
-	d.logger.InfoContext(ctx, "Secret injection proxy enabled", "addr", handle.Addr, "gateway", gatewayIP)
+	d.logger.InfoContext(ctx, "Egress proxy enabled", "addr", handle.Addr, "gateway", gatewayIP,
+		"secretInjection", d.secretProxyEnabled, "proxyEnforcement", d.proxyEnforcementEnabled)
 	return nil
 }
 
@@ -157,7 +161,7 @@ func firstHostIP(cidr string) string {
 }
 
 // sandboxUsesSecrets reports whether any of the sandbox's env values is a
-// Daytona secret placeholder — the signal that the sandbox needs the secret
+// Daytona secret placeholder — the signal that the sandbox needs the egress
 // proxy wired in (HTTP(S)_PROXY + CA) and a per-sandbox binding registered.
 func sandboxUsesSecrets(env map[string]string) bool {
 	for _, v := range env {
@@ -168,19 +172,69 @@ func sandboxUsesSecrets(env map[string]string) bool {
 	return false
 }
 
-// secretProxyEnvVars returns the env vars that route a sandbox's HTTP(S) traffic
-// through the shared proxy and trust its CA. Empty when secret injection is off
-// or the sandbox uses no secrets, so non-secret sandboxes are untouched.
-func (d *DockerClient) secretProxyEnvVars(env map[string]string) []string {
-	if !sandboxUsesSecrets(env) {
+// sandboxNeedsProxyWiring reports whether a sandbox must be wired through the
+// shared egress proxy (HTTP(S)_PROXY env + trusted CA): it uses secrets, or
+// proxy enforcement is on and it has a domain allow list — in which case the
+// proxy is the mandatory path for its web traffic and enforces the allow list
+// on the requested hostname.
+func (d *DockerClient) sandboxNeedsProxyWiring(env map[string]string, domainAllowList string) bool {
+	if sandboxUsesSecrets(env) {
+		return true
+	}
+	return d.proxyEnforcementEnabled && len(splitDomainAllowList(domainAllowList)) > 0
+}
+
+// sandboxProxyEnforced reports whether a sandbox's web-port egress must be gated
+// through the shared proxy (hostname-level allow-list enforcement) — i.e. the
+// eBPF connect4 hook should transparently redirect its TCP 80/443 to the proxy,
+// which enforces the allow list on the requested SNI/Host.
+//
+// Crucially this does NOT require the sandbox to carry the proxy wiring
+// (HTTP(S)_PROXY env + mounted CA): connect4 redirects transparently without the
+// workload's cooperation, and connections to allowed hosts with no secret are
+// spliced end-to-end (the client validates the real server certificate, so no
+// proxy CA is needed). This lets enforcement also cover a sandbox whose domain
+// allow list was applied AFTER creation — when the wiring can no longer be
+// injected — which would otherwise be left on the spoofable IP-based allow list:
+// a sandbox that resolved an allowed domain on a shared CDN IP could reach any
+// co-hosted domain by dialing that IP with a forged Host/SNI.
+//
+// A secret-using sandbox is the one exception: its secret-injection hosts are
+// MITM'd, so it must trust the proxy CA (present only with the wiring) or its TLS
+// to those hosts would break. Such sandboxes always receive the wiring at
+// creation, so gating them on it costs nothing.
+func (d *DockerClient) sandboxProxyEnforced(env map[string]string, domainAllowList string) bool {
+	if !d.proxyEnforcementEnabled || d.secretProxyAddr == "" {
+		return false
+	}
+	if len(splitDomainAllowList(domainAllowList)) == 0 {
+		return false
+	}
+	return d.hasProxyWiring(env) || !sandboxUsesSecrets(env)
+}
+
+// proxyWiringEnvVars returns the env vars that route a sandbox's HTTP(S)
+// traffic through the shared proxy and trust its CA. Empty when the proxy is
+// off or the sandbox needs no wiring, so unaffected sandboxes are untouched.
+func (d *DockerClient) proxyWiringEnvVars(env map[string]string, domainAllowList string) []string {
+	if !d.sandboxNeedsProxyWiring(env, domainAllowList) {
 		return nil
 	}
 	return d.secretProxyWiringEnvVars()
 }
 
+// hasProxyWiring reports whether a container's env carries the proxy wiring the
+// runner injects (HTTPS_PROXY pointing at the shared proxy). It is the signal
+// that eBPF web-port gating is safe to enforce for this container — a sandbox
+// created before the proxy existed (or before enforcement was enabled) has no
+// wiring, and gating it would break its web egress instead of redirecting it.
+func (d *DockerClient) hasProxyWiring(env map[string]string) bool {
+	return d.secretProxyAddr != "" && env["HTTPS_PROXY"] == "http://"+d.secretProxyAddr
+}
+
 // secretProxyWiringEnvVars returns the wiring env entries injected into
-// secret-using sandboxes, regardless of whether a particular sandbox uses
-// secrets. Empty when secret injection is off.
+// proxy-wired sandboxes, regardless of whether a particular sandbox needs
+// them. Empty when the shared proxy is off.
 func (d *DockerClient) secretProxyWiringEnvVars() []string {
 	if d.secretProxyAddr == "" {
 		return nil
@@ -196,10 +250,16 @@ func (d *DockerClient) secretProxyWiringEnvVars() []string {
 		"NO_PROXY=localhost,127.0.0.1,::1",
 		"no_proxy=localhost,127.0.0.1,::1",
 		// Point common TLS stacks at the proxy CA bundle so MITM'd connections verify.
+		// (Connections to hosts with no secret are spliced end-to-end and validate the
+		// real server cert, so they don't rely on these — only secret-injection hosts,
+		// which the proxy MITMs, do.)
 		"SSL_CERT_FILE=" + secretCAContainerPath,
 		"NODE_EXTRA_CA_CERTS=" + secretCAContainerPath,
 		"REQUESTS_CA_BUNDLE=" + secretCAContainerPath,
 		"CURL_CA_BUNDLE=" + secretCAContainerPath,
+		// Deno consults neither the system trust store nor the other CA-bundle vars;
+		// DENO_CERT is its only env hook for an extra CA (bucket 6).
+		"DENO_CERT=" + secretCAContainerPath,
 	}
 }
 
@@ -210,25 +270,35 @@ func (d *DockerClient) secretProxyWiringEnv() map[string]string {
 	return envSliceToMap(d.secretProxyWiringEnvVars())
 }
 
-// secretProxyCABind returns the bind mount (host CA bundle → in-container path,
-// read-only) for a secret-using sandbox, or "" when not applicable.
-func (d *DockerClient) secretProxyCABind(env map[string]string) string {
-	if d.secretProxyCACert == "" || !sandboxUsesSecrets(env) {
+// proxyCABind returns the bind mount (host CA bundle → in-container path,
+// read-only) for a proxy-wired sandbox, or "" when not applicable.
+func (d *DockerClient) proxyCABind(env map[string]string, domainAllowList string) string {
+	if d.secretProxyCACert == "" || !d.sandboxNeedsProxyWiring(env, domainAllowList) {
 		return ""
 	}
 	return fmt.Sprintf("%s:%s:ro", d.secretProxyCACert, secretCAContainerPath)
 }
 
-// persistedSecretBinding is the durable record of a sandbox's secret binding,
-// written when the binding is registered. It lets the runner re-register
-// bindings after a restart (the in-memory registry is lost, but the proxy
-// address and CA are stable) — the sandbox secrets token isn't otherwise
-// recoverable from a running container.
+// persistedSecretBinding is the durable record of a sandbox's proxy policy
+// binding, written when the binding is registered. It lets the runner
+// re-register bindings after a restart (the in-memory registry is lost, but the
+// proxy address and CA are stable) — the sandbox secrets token isn't otherwise
+// recoverable from a running container. SecretsToken is empty for
+// enforcement-only bindings (domain allow list, no secrets).
 type persistedSecretBinding struct {
 	SandboxID    string   `json:"sandboxId"`
 	SecretsToken string   `json:"secretsToken"`
 	AllowAll     bool     `json:"allowAll"`
 	Domains      []string `json:"domains,omitempty"`
+}
+
+// bindingResolver returns the secret resolver for a persisted binding, or nil
+// for an enforcement-only binding (no secrets token).
+func (d *DockerClient) bindingResolver(b persistedSecretBinding) proxy.SecretResolver {
+	if b.SecretsToken == "" {
+		return nil
+	}
+	return secrets.NewAPIResolver(d.daytonaApiUrl, b.SandboxID, b.SecretsToken)
 }
 
 // secretBindingsDir is where per-container binding records live (one JSON file
@@ -241,45 +311,52 @@ func (d *DockerClient) secretBindingsDir() string {
 	return filepath.Join(caDir, "secret-bindings")
 }
 
-// registerSandboxSecrets registers (and persists) the shared-proxy binding for a
-// secret-using sandbox: it maps the container's IP to a resolver that fetches the
-// sandbox's secrets from the API authenticating as that sandbox. No-op when
-// secret injection is off or the sandbox uses no secrets. containerID is the full
-// Docker ID (the manager workload key, matching Remove); sandboxID is used for
-// the API call. domainAllowList empty means unrestricted egress (allow-all).
-func (d *DockerClient) registerSandboxSecrets(ctx context.Context, containerID, sandboxID string, secretsToken *string, containerIP, domainAllowList string, env map[string]string) {
-	if d.secretProxyAddr == "" || !sandboxUsesSecrets(env) {
+// registerSandboxPolicy registers (and persists) the shared-proxy binding for a
+// sandbox that is wired through the proxy: its host allow list and — for a
+// secret-using sandbox — a resolver that fetches the sandbox's secrets from the
+// API authenticating as that sandbox. Sandboxes without secrets get an
+// enforcement-only binding when proxy enforcement is on and they have a domain
+// allow list (the proxy is their mandatory web-egress path, so it must know
+// their policy). No-op when the proxy is off or the sandbox needs no wiring.
+// containerID is the full Docker ID (the manager workload key, matching
+// Remove); sandboxID is used for the API call. domainAllowList empty means
+// unrestricted egress (allow-all).
+func (d *DockerClient) registerSandboxPolicy(ctx context.Context, containerID, sandboxID string, secretsToken *string, containerIP, domainAllowList string, env map[string]string) {
+	if d.secretProxyAddr == "" || !d.sandboxNeedsProxyWiring(env, domainAllowList) {
 		return
 	}
-	if secretsToken == nil || *secretsToken == "" {
-		d.logger.WarnContext(ctx, "Sandbox uses secrets but has no secrets token; skipping secret injection", "sandboxId", sandboxID)
-		return
+	usesSecrets := sandboxUsesSecrets(env)
+	if usesSecrets && (secretsToken == nil || *secretsToken == "") {
+		d.logger.WarnContext(ctx, "Sandbox uses secrets but has no secrets token; registering policy without secret injection", "sandboxId", sandboxID)
+		usesSecrets = false
 	}
 	if containerIP == "" {
-		d.logger.WarnContext(ctx, "Sandbox uses secrets but has no IP; skipping secret injection", "sandboxId", sandboxID)
+		d.logger.WarnContext(ctx, "Sandbox needs a proxy policy but has no IP; skipping registration", "sandboxId", sandboxID)
 		return
 	}
 
 	domains := splitDomainAllowList(domainAllowList)
-	allowAll := len(domains) == 0
-
-	if err := d.persistSecretBinding(containerID, persistedSecretBinding{
-		SandboxID:    sandboxID,
-		SecretsToken: *secretsToken,
-		AllowAll:     allowAll,
-		Domains:      domains,
-	}); err != nil {
-		d.logger.WarnContext(ctx, "Failed to persist secret binding (won't survive runner restart)", "sandboxId", sandboxID, "error", err)
+	binding := persistedSecretBinding{
+		SandboxID: sandboxID,
+		AllowAll:  len(domains) == 0,
+		Domains:   domains,
+	}
+	if usesSecrets {
+		binding.SecretsToken = *secretsToken
 	}
 
-	if err := d.netleashManager.RegisterSandboxSecrets(containerID, manager.SandboxSecretConfig{
+	if err := d.persistSecretBinding(containerID, binding); err != nil {
+		d.logger.WarnContext(ctx, "Failed to persist proxy policy binding (won't survive runner restart)", "sandboxId", sandboxID, "error", err)
+	}
+
+	if err := d.netleashManager.RegisterSandboxPolicy(containerID, manager.SandboxPolicyConfig{
 		ClientIP:          containerIP,
-		AllowAll:          allowAll,
+		AllowAll:          binding.AllowAll,
 		AllowedDomains:    domains,
-		Resolver:          secrets.NewAPIResolver(d.daytonaApiUrl, sandboxID, *secretsToken),
+		Resolver:          d.bindingResolver(binding),
 		PlaceholderMarker: secrets.DaytonaPlaceholderPrefix,
 	}); err != nil {
-		d.logger.ErrorContext(ctx, "Failed to register sandbox secrets", "sandboxId", sandboxID, "error", err)
+		d.logger.ErrorContext(ctx, "Failed to register sandbox proxy policy", "sandboxId", sandboxID, "error", err)
 	}
 }
 
@@ -299,11 +376,12 @@ func (d *DockerClient) removeSecretBindingFile(containerID string) {
 	_ = os.Remove(filepath.Join(d.secretBindingsDir(), containerID+".json"))
 }
 
-// StartSecretReconcile re-registers persisted secret bindings on startup and
-// then periodically, and tears down bindings whose container is gone. This is
-// what makes secret injection survive a runner restart: the shared proxy
-// re-binds its fixed address and reloads its persisted CA, while this restores
-// the per-sandbox bindings the in-memory registry lost. No-op when disabled.
+// StartSecretReconcile re-registers persisted proxy policy bindings on startup
+// and then periodically, and tears down bindings whose container is gone. This
+// is what makes secret injection and proxy enforcement survive a runner
+// restart: the shared proxy re-binds its fixed address and reloads its
+// persisted CA, while this restores the per-sandbox bindings the in-memory
+// registry lost. No-op when disabled.
 func (d *DockerClient) StartSecretReconcile(ctx context.Context) {
 	if d.secretProxyAddr == "" {
 		return
@@ -364,11 +442,11 @@ func (d *DockerClient) ReconcileSecretBindings(ctx context.Context) {
 
 		st, present := state[containerID]
 		if !present || st == "exited" || st == "dead" || st == "removing" {
-			d.netleashManager.UnregisterSandboxSecrets(containerID)
+			d.netleashManager.UnregisterSandboxPolicy(containerID)
 			d.removeSecretBindingFile(containerID)
 			continue
 		}
-		if d.netleashManager.HasSandboxSecrets(containerID) {
+		if d.netleashManager.HasSandboxPolicy(containerID) {
 			continue // already registered
 		}
 
@@ -390,52 +468,67 @@ func (d *DockerClient) ReconcileSecretBindings(ctx context.Context) {
 			continue
 		}
 
-		if err := d.netleashManager.RegisterSandboxSecrets(containerID, manager.SandboxSecretConfig{
+		if err := d.netleashManager.RegisterSandboxPolicy(containerID, manager.SandboxPolicyConfig{
 			ClientIP:          ip,
 			AllowAll:          b.AllowAll,
 			AllowedDomains:    b.Domains,
-			Resolver:          secrets.NewAPIResolver(d.daytonaApiUrl, b.SandboxID, b.SecretsToken),
+			Resolver:          d.bindingResolver(b),
 			PlaceholderMarker: secrets.DaytonaPlaceholderPrefix,
 		}); err != nil {
 			d.logger.ErrorContext(ctx, "secret reconcile: failed to re-register binding", "containerId", containerID, "error", err)
 			continue
 		}
-		d.logger.InfoContext(ctx, "secret reconcile: re-registered sandbox secrets", "containerId", containerID, "sandboxId", b.SandboxID)
+		d.logger.InfoContext(ctx, "secret reconcile: re-registered sandbox proxy policy", "containerId", containerID, "sandboxId", b.SandboxID)
 	}
 }
 
-// updateSandboxSecretDomains re-syncs an already-registered sandbox's proxy
-// allow list when its domain allow list changes (via UpdateNetworkSettings),
-// reusing the persisted auth token. No-op when the sandbox has no secret binding.
-func (d *DockerClient) updateSandboxSecretDomains(ctx context.Context, containerID, containerIP, domainAllowList string, env map[string]string) {
-	if d.secretProxyAddr == "" || !sandboxUsesSecrets(env) {
+// updateSandboxPolicyDomains re-syncs a sandbox's proxy allow list when its
+// domain allow list changes (via UpdateNetworkSettings), reusing any persisted
+// auth token. A sandbox routed through the proxy but without a persisted binding
+// (e.g. one whose record was lost, or one whose allow list was applied after
+// creation) gets a fresh enforcement-only binding, since the proxy is its
+// mandatory web-egress path and an unknown client would be rejected. No-op when
+// the proxy is off or the sandbox neither carries the wiring nor is transparently
+// enforced.
+func (d *DockerClient) updateSandboxPolicyDomains(ctx context.Context, containerID, sandboxID, containerIP, domainAllowList string, env map[string]string) {
+	// Register the binding whenever the sandbox routes through the proxy: either
+	// it carries the proxy wiring (secret-using / explicitly-proxied sandboxes) or
+	// its web-port egress is transparently gated through the proxy by eBPF
+	// (sandboxProxyEnforced — e.g. an allow list applied after creation). Without
+	// the binding the proxy can't map the client IP to an allow list and would
+	// reject its redirected traffic, so enforcement without registration would
+	// break the sandbox's egress instead of scoping it.
+	if d.secretProxyAddr == "" || (!d.hasProxyWiring(env) && !d.sandboxProxyEnforced(env, domainAllowList)) {
 		return
 	}
 	b, err := d.readSecretBinding(containerID)
 	if err != nil {
-		return // no persisted binding → nothing registered to update
+		// No persisted record: the sandbox is wired through the proxy, so it still
+		// needs a policy binding for its new allow list (without secrets — the
+		// token is not recoverable here).
+		b = persistedSecretBinding{SandboxID: sandboxID}
 	}
 	domains := splitDomainAllowList(domainAllowList)
 	b.AllowAll = len(domains) == 0
 	b.Domains = domains
 	if err := d.persistSecretBinding(containerID, b); err != nil {
-		d.logger.WarnContext(ctx, "Failed to persist updated secret binding", "containerId", containerID, "error", err)
+		d.logger.WarnContext(ctx, "Failed to persist updated proxy policy binding", "containerId", containerID, "error", err)
 	}
-	if err := d.netleashManager.RegisterSandboxSecrets(containerID, manager.SandboxSecretConfig{
+	if err := d.netleashManager.RegisterSandboxPolicy(containerID, manager.SandboxPolicyConfig{
 		ClientIP:          containerIP,
 		AllowAll:          b.AllowAll,
 		AllowedDomains:    domains,
-		Resolver:          secrets.NewAPIResolver(d.daytonaApiUrl, b.SandboxID, b.SecretsToken),
+		Resolver:          d.bindingResolver(b),
 		PlaceholderMarker: secrets.DaytonaPlaceholderPrefix,
 	}); err != nil {
-		d.logger.ErrorContext(ctx, "Failed to update sandbox secret domains", "containerId", containerID, "error", err)
+		d.logger.ErrorContext(ctx, "Failed to update sandbox proxy policy domains", "containerId", containerID, "error", err)
 	}
 }
 
-// refreshSandboxSecretBinding re-registers an existing secret binding (same IP,
+// refreshSandboxSecretBinding re-registers an existing policy binding (same IP,
 // domains and token) so the shared proxy's injector drops its cached resolution
-// and re-fetches the sandbox's secrets immediately. No-op when secret injection
-// is off or the sandbox has no persisted binding.
+// and re-fetches the sandbox's secrets immediately. No-op when the proxy is off
+// or the sandbox has no persisted binding.
 func (d *DockerClient) refreshSandboxSecretBinding(ctx context.Context, containerID, containerIP string) {
 	if d.secretProxyAddr == "" {
 		return
@@ -444,15 +537,24 @@ func (d *DockerClient) refreshSandboxSecretBinding(ctx context.Context, containe
 	if err != nil {
 		return
 	}
-	if err := d.netleashManager.RegisterSandboxSecrets(containerID, manager.SandboxSecretConfig{
+	if err := d.netleashManager.RegisterSandboxPolicy(containerID, manager.SandboxPolicyConfig{
 		ClientIP:          containerIP,
 		AllowAll:          b.AllowAll,
 		AllowedDomains:    b.Domains,
-		Resolver:          secrets.NewAPIResolver(d.daytonaApiUrl, b.SandboxID, b.SecretsToken),
+		Resolver:          d.bindingResolver(b),
 		PlaceholderMarker: secrets.DaytonaPlaceholderPrefix,
 	}); err != nil {
 		d.logger.ErrorContext(ctx, "Failed to refresh sandbox secret binding", "containerId", containerID, "error", err)
 	}
+}
+
+// derefString returns *s, or "" when s is nil — for optional DTO fields like
+// DomainAllowList.
+func derefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 // envSliceToMap converts a container's "KEY=VALUE" env slice to a map, for the

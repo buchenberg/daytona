@@ -42,6 +42,43 @@ func TestInjector_HasSecrets(t *testing.T) {
 	}
 }
 
+func TestInjector_TargetsHost(t *testing.T) {
+	inj := NewInjector([]SecretConfig{{
+		Name: "K", Placeholder: "__ph__", Value: "v", Hosts: []string{"api.openai.com", "*.github.com"},
+	}})
+
+	// The proxy uses TargetsHost to choose MITM (true) vs splice (false).
+	if !inj.TargetsHost("api.openai.com") {
+		t.Error("exact host should be a MITM target")
+	}
+	if !inj.TargetsHost("api.openai.com:443") {
+		t.Error("host with port should be a MITM target")
+	}
+	if !inj.TargetsHost("sub.github.com") {
+		t.Error("wildcard-matched host should be a MITM target")
+	}
+	if inj.TargetsHost("example.com") {
+		t.Error("unrelated host must be spliced, not MITM'd")
+	}
+
+	// Empty injector never targets any host → everything splices.
+	if NewInjector(nil).TargetsHost("api.openai.com") {
+		t.Error("empty injector should target no host")
+	}
+
+	// An unrestricted ("*") secret makes every host a MITM target.
+	star := NewInjector([]SecretConfig{{Name: "K", Placeholder: "__ph__", Value: "v", Hosts: []string{MatchAllHosts}}})
+	if !star.TargetsHost("anything.example") {
+		t.Error("unrestricted secret should target every host")
+	}
+
+	// A secret with no real value can't be injected, so it isn't a MITM target.
+	novalue := NewInjector([]SecretConfig{{Name: "K", Placeholder: "__ph__", Value: "", Hosts: []string{"api.openai.com"}}})
+	if novalue.TargetsHost("api.openai.com") {
+		t.Error("secret with empty value should not force MITM")
+	}
+}
+
 func TestInjector_ReplaceBody_AllowedHost(t *testing.T) {
 	inj := NewInjector([]SecretConfig{{
 		Name:        "API_KEY",

@@ -146,3 +146,42 @@ func TestDomainToWireFormat_DeepSubdomain(t *testing.T) {
 		}
 	}
 }
+
+func TestParseIPv4Port(t *testing.T) {
+	ip, port, err := parseIPv4Port("172.20.0.1:18080")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ip.String() != "172.20.0.1" || port != 18080 {
+		t.Fatalf("got %s:%d, want 172.20.0.1:18080", ip, port)
+	}
+
+	for _, bad := range []string{
+		"",                  // empty
+		"172.20.0.1",        // no port
+		"proxy.local:8080",  // hostname, not IP
+		"[::1]:8080",        // IPv6
+		"172.20.0.1:0",      // zero port
+		"172.20.0.1:notnum", // non-numeric port
+	} {
+		if _, _, err := parseIPv4Port(bad); err == nil {
+			t.Errorf("parseIPv4Port(%q) should fail", bad)
+		}
+	}
+}
+
+// SetProxyEnforcement must refuse to turn the web-port gate on when the
+// firewall has no proxy_config map (adopted from a pin set that predates the
+// feature) or when no valid proxy address is available — gating web ports with
+// no reachable proxy would brick all HTTP(S) egress. Disabling must always
+// succeed so legacy firewalls stay manageable.
+func TestSetProxyEnforcement_RequiresMapAndAddr(t *testing.T) {
+	fw := New(Config{})
+
+	if err := fw.SetProxyEnforcement("172.20.0.1:18080", true); err == nil {
+		t.Fatal("expected error: no proxy_config map handle")
+	}
+	if err := fw.SetProxyEnforcement("", false); err != nil {
+		t.Fatalf("disabling without a map must succeed, got: %v", err)
+	}
+}

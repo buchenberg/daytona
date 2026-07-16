@@ -124,7 +124,7 @@ func TestStartSecretProxy_InjectsResolvedSecret(t *testing.T) {
 	}
 }
 
-func TestSharedSecretInjection_EndToEnd(t *testing.T) {
+func TestSharedEgressProxy_EndToEnd(t *testing.T) {
 	backendCA, err := proxy.GenerateCA()
 	if err != nil {
 		t.Fatalf("GenerateCA failed: %v", err)
@@ -149,25 +149,25 @@ func TestSharedSecretInjection_EndToEnd(t *testing.T) {
 	defer m.Close()
 
 	dir := t.TempDir()
-	handle, err := m.EnableSecretInjection(SecretInjectionConfig{
+	handle, err := m.EnableEgressProxy(EgressProxyConfig{
 		ListenAddr: "127.0.0.1:0",
 		CACertPath: filepath.Join(dir, "ca.crt"),
 		CAKeyPath:  filepath.Join(dir, "ca.key"),
 	})
 	if err != nil {
-		t.Fatalf("EnableSecretInjection failed: %v", err)
+		t.Fatalf("EnableEgressProxy failed: %v", err)
 	}
 	// Idempotent: a second call returns the same running proxy.
-	again, err := m.EnableSecretInjection(SecretInjectionConfig{
+	again, err := m.EnableEgressProxy(EgressProxyConfig{
 		ListenAddr: "127.0.0.1:0",
 		CACertPath: filepath.Join(dir, "ca.crt"),
 		CAKeyPath:  filepath.Join(dir, "ca.key"),
 	})
 	if err != nil || again.Addr != handle.Addr {
-		t.Fatalf("EnableSecretInjection not idempotent: addr1=%s addr2=%s err=%v", handle.Addr, again.Addr, err)
+		t.Fatalf("EnableEgressProxy not idempotent: addr1=%s addr2=%s err=%v", handle.Addr, again.Addr, err)
 	}
 
-	if err := m.RegisterSandboxSecrets("sb-1", SandboxSecretConfig{
+	if err := m.RegisterSandboxPolicy("sb-1", SandboxPolicyConfig{
 		ClientIP:       "127.0.0.1",
 		AllowedDomains: []string{"localhost"},
 		Resolver: proxy.ResolverFunc(func(ctx context.Context) ([]proxy.SecretConfig, error) {
@@ -175,7 +175,7 @@ func TestSharedSecretInjection_EndToEnd(t *testing.T) {
 		}),
 		PlaceholderMarker: "dtn_secret_",
 	}); err != nil {
-		t.Fatalf("RegisterSandboxSecrets failed: %v", err)
+		t.Fatalf("RegisterSandboxPolicy failed: %v", err)
 	}
 
 	caPEM, err := os.ReadFile(handle.CACertFile)
@@ -214,10 +214,10 @@ func TestSharedSecretInjection_EndToEnd(t *testing.T) {
 	}
 }
 
-func TestRegisterSandboxSecrets_RequiresEnable(t *testing.T) {
+func TestRegisterSandboxPolicy_RequiresEnable(t *testing.T) {
 	m := quietManager()
 	defer m.Close()
-	err := m.RegisterSandboxSecrets("sb", SandboxSecretConfig{
+	err := m.RegisterSandboxPolicy("sb", SandboxPolicyConfig{
 		ClientIP: "127.0.0.1",
 		Resolver: proxy.ResolverFunc(func(ctx context.Context) ([]proxy.SecretConfig, error) { return nil, nil }),
 	})
@@ -277,5 +277,99 @@ func TestStartSecretProxy_ReplaceClosesOld(t *testing.T) {
 	}
 	if first.Addr == second.Addr {
 		t.Fatal("expected the replacement proxy to bind a fresh ephemeral port")
+	}
+}
+
+// A workload without secrets can still be bound to the shared egress proxy for
+// hostname-level allow-list enforcement: a nil Resolver registers an
+// enforcement-only binding — allowed hosts are reached (without any injection),
+// everything else is rejected.
+func TestSharedEgressProxy_EnforcementOnlyBinding(t *testing.T) {
+	backendCA, err := proxy.GenerateCA()
+	if err != nil {
+		t.Fatalf("GenerateCA failed: %v", err)
+	}
+
+	var gotAuth string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+	})
+	backendLn, backendAddr := startHTTPSBackend(t, backendCA, mux)
+	defer backendLn.Close()
+
+	pool := x509.NewCertPool()
+	pool.AppendCertsFromPEM(backendCA.PEM)
+	orig := http.DefaultTransport
+	http.DefaultTransport = &http.Transport{TLSClientConfig: &tls.Config{RootCAs: pool}}
+	t.Cleanup(func() { http.DefaultTransport = orig })
+
+	m := quietManager()
+	defer m.Close()
+
+	dir := t.TempDir()
+	handle, err := m.EnableEgressProxy(EgressProxyConfig{
+		ListenAddr: "127.0.0.1:0",
+		CACertPath: filepath.Join(dir, "ca.crt"),
+		CAKeyPath:  filepath.Join(dir, "ca.key"),
+	})
+	if err != nil {
+		t.Fatalf("EnableEgressProxy failed: %v", err)
+	}
+
+	// No Resolver: enforcement-only policy. Because no secret targets any host,
+	// the proxy splices such connections end-to-end (no TLS termination) rather
+	// than MITM'ing — it still enforces the allow list on the requested host, but
+	// the client completes TLS with the real backend, preserving pinning/h2/ws.
+	if err := m.RegisterSandboxPolicy("sb-1", SandboxPolicyConfig{
+		ClientIP:       "127.0.0.1",
+		AllowedDomains: []string{"localhost"},
+	}); err != nil {
+		t.Fatalf("RegisterSandboxPolicy failed: %v", err)
+	}
+
+	// Spliced connections are end-to-end, so the client validates the real backend
+	// certificate (not a proxy-minted one) — it must trust the backend CA.
+	clientPool := x509.NewCertPool()
+	clientPool.AppendCertsFromPEM(backendCA.PEM)
+	proxyURL, _ := url.Parse("http://" + handle.Addr)
+	client := &http.Client{Transport: &http.Transport{
+		Proxy:           http.ProxyURL(proxyURL),
+		TLSClientConfig: &tls.Config{RootCAs: clientPool},
+	}}
+
+	// Allowed host: forwarded, and the header passes through untouched (a spliced
+	// connection copies bytes verbatim; there is no injector to rewrite it anyway).
+	req, _ := http.NewRequest("GET", fmt.Sprintf("https://%s/api", backendAddr), nil)
+	req.Header.Set("Authorization", "Bearer not-a-placeholder")
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("request through proxy failed: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 for allowed host, got %d", resp.StatusCode)
+	}
+	if gotAuth != "Bearer not-a-placeholder" {
+		t.Fatalf("enforcement-only binding must not rewrite headers, backend saw %q", gotAuth)
+	}
+
+	// Non-allowed host: the CONNECT is rejected with 403 before any tunnel.
+	blocked, _ := http.NewRequest("GET", "https://blocked.example.com/", nil)
+	if _, err := client.Do(blocked); err == nil {
+		t.Fatal("expected CONNECT to a non-allowed host to fail")
+	}
+
+	// A client with no registered binding is rejected outright.
+	m.UnregisterSandboxPolicy("sb-1")
+	httpOnly := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
+	resp2, err := httpOnly.Get("http://localhost/api")
+	if err != nil {
+		t.Fatalf("post-unregister request failed: %v", err)
+	}
+	resp2.Body.Close()
+	if resp2.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 for unregistered client, got %d", resp2.StatusCode)
 	}
 }

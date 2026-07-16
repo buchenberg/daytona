@@ -345,7 +345,7 @@ func (d *DockerClient) Create(ctx context.Context, sandboxDto dto.CreateSandboxD
 	if sandboxDto.DomainAllowList != nil {
 		domainAllowList = *sandboxDto.DomainAllowList
 	}
-	d.registerSandboxSecrets(context.Background(), runningContainer.ID, sandboxDto.Id, sandboxDto.SecretsToken, ip, domainAllowList, sandboxDto.Env)
+	d.registerSandboxPolicy(context.Background(), runningContainer.ID, sandboxDto.Id, sandboxDto.SecretsToken, ip, domainAllowList, sandboxDto.Env)
 
 	return c.ID, daemonVersion, nil
 }

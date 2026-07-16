@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/ebpf"
@@ -227,6 +228,83 @@ func (fw *Firewall) allowProxyIP() error {
 		return nil
 	}
 	return fw.AllowIP(fw.cfg.ProxyAddr)
+}
+
+// populateProxyConfig seeds the eBPF proxy_config map from Config.ProxyAddr and
+// Config.EnforceProxy during Setup. With enforcement on, the egress programs
+// gate the standard web ports (TCP 80/443, UDP 443) so HTTP(S) can only reach
+// the proxy — which then enforces the domain allow list on the requested
+// hostname (SNI/Host) rather than on DNS-learned IPs. A zeroed map (the
+// default) leaves the gate off.
+func (fw *Firewall) populateProxyConfig() error {
+	if !fw.cfg.EnforceProxy && fw.cfg.ProxyAddr == "" {
+		return nil
+	}
+	return fw.SetProxyEnforcement(fw.cfg.ProxyAddr, fw.cfg.EnforceProxy)
+}
+
+// SetProxyEnforcement updates the egress-proxy gate of a live (or adopted)
+// firewall in place: proxyAddr ("ip:port") is the hostname-aware proxy web
+// traffic must use, and enforce turns the web-port gate on or off. Enabling
+// enforcement requires a resolvable IPv4 proxy address — gating web ports with
+// no reachable proxy would silently brick all HTTP(S) egress. Disabling always
+// succeeds (for firewalls that have the map). Firewalls adopted from a pin set
+// that predates proxy enforcement have no proxy_config map (and no gate in
+// their programs); enabling on those returns an error.
+func (fw *Firewall) SetProxyEnforcement(proxyAddr string, enforce bool) error {
+	if fw.maps.ProxyConfig == nil {
+		if enforce {
+			return fmt.Errorf("firewall predates proxy enforcement (no proxy_config map); rebuild it to enable gating")
+		}
+		return nil
+	}
+
+	var val firewallProxyCfg
+	if proxyAddr != "" {
+		ip4, port, err := parseIPv4Port(proxyAddr)
+		if err != nil {
+			if enforce {
+				return fmt.Errorf("proxy enforcement requires a valid IPv4 proxy address, got %q: %w", proxyAddr, err)
+			}
+		} else {
+			// Store both fields exactly as the eBPF program reads them off the wire:
+			// the raw network-byte-order bytes loaded as native integers (matching
+			// AllowIP's key encoding for allowed_ips).
+			val.ProxyIp = binary.LittleEndian.Uint32(ip4)
+			val.ProxyPort = binary.LittleEndian.Uint16([]byte{byte(port >> 8), byte(port)})
+		}
+	} else if enforce {
+		return fmt.Errorf("proxy enforcement requires a proxy address")
+	}
+	if enforce {
+		val.Enforce = 1
+	}
+
+	if err := fw.maps.ProxyConfig.Put(uint32(0), &val); err != nil {
+		return fmt.Errorf("updating proxy_config: %w", err)
+	}
+	fw.cfg.ProxyAddr = proxyAddr
+	fw.cfg.EnforceProxy = enforce
+	fw.log.Debug("proxy enforcement updated", "proxy", proxyAddr, "enforce", enforce)
+	return nil
+}
+
+// parseIPv4Port splits an "ip:port" address into its IPv4 bytes and port,
+// erroring on hostnames, IPv6, or a missing/invalid port.
+func parseIPv4Port(addr string) (net.IP, uint16, error) {
+	host, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, 0, err
+	}
+	ip := net.ParseIP(host)
+	if ip == nil || ip.To4() == nil {
+		return nil, 0, fmt.Errorf("not an IPv4 address: %q", host)
+	}
+	port, err := strconv.ParseUint(portStr, 10, 16)
+	if err != nil || port == 0 {
+		return nil, 0, fmt.Errorf("invalid port: %q", portStr)
+	}
+	return ip.To4(), uint16(port), nil
 }
 
 // AllowIP adds addr (an "ip" or "ip:port") to the egress allow_ips map of a live

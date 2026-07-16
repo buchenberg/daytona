@@ -407,3 +407,93 @@ func TestExec_OnExecBlockedCallback(t *testing.T) {
 		t.Fatalf("expected blocked path to contain 'id', got %q", p)
 	}
 }
+
+// With EnforceProxy, web traffic is steered through the MITM proxy by the eBPF
+// connect4 hook — transparently, so it works whether or not the client honors
+// the injected HTTP(S)_PROXY env. A curl that honors the env and a curl that
+// bypasses it (--noproxy '*') both reach an allowed domain (the second via
+// transparent redirect + splice), while a no-SNI connection (IP literal) that
+// the proxy can't map to an allowed host is dropped — enforcement still holds.
+func TestExec_EnforceProxy(t *testing.T) {
+	requireRoot(t)
+	requireCurl(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	// Through the proxy (default env wiring): allowed.
+	var stderr bytes.Buffer
+	exitCode, err := jail.Exec(ctx, jail.Config{
+		Domains:      []string{"example.com"},
+		EnforceProxy: true,
+		Stdout:       &bytes.Buffer{},
+		Stderr:       &stderr,
+		Logger:       quiet,
+	}, []string{"curl", "-sf", "--max-time", "15", "-o", "/dev/null", "https://example.com"})
+	if err != nil {
+		t.Fatalf("Exec failed: %v", err)
+	}
+	if exitCode != 0 {
+		t.Fatalf("expected exit code 0 through the proxy, got %d (stderr: %s)", exitCode, stderr.String())
+	}
+
+	// Bypassing the proxy env: the direct TCP 443 connect() is transparently
+	// redirected to the proxy by connect4, which splices it to the allowed host —
+	// so it now succeeds too. This is the fix for clients that ignore proxy env
+	// vars (Node's global fetch/undici, Deno, gRPC), which previously timed out.
+	var stderr2 bytes.Buffer
+	exitCode, err = jail.Exec(ctx, jail.Config{
+		Domains:      []string{"example.com"},
+		EnforceProxy: true,
+		Stdout:       &bytes.Buffer{},
+		Stderr:       &stderr2,
+		Logger:       quiet,
+	}, []string{"curl", "-sf", "--noproxy", "*", "--max-time", "15", "-o", "/dev/null", "https://example.com"})
+	if err != nil {
+		t.Fatalf("Exec failed: %v", err)
+	}
+	if exitCode != 0 {
+		t.Fatalf("expected transparently-redirected direct egress to an allowed host to succeed, got %d (stderr: %s)", exitCode, stderr2.String())
+	}
+
+	// A direct TLS connection to an IP literal carries no SNI, so the proxy can't
+	// map it to an allowed host: it must be dropped (fail closed), proving the
+	// redirect doesn't become an open bypass.
+	exitCode, err = jail.Exec(ctx, jail.Config{
+		Domains:      []string{"example.com"},
+		EnforceProxy: true,
+		Stdout:       &bytes.Buffer{},
+		Stderr:       &bytes.Buffer{},
+		Logger:       quiet,
+	}, []string{"curl", "-sf", "--noproxy", "*", "--max-time", "5", "-o", "/dev/null", "https://1.1.1.1"})
+	if err != nil {
+		t.Fatalf("Exec failed: %v", err)
+	}
+	if exitCode == 0 {
+		t.Fatal("expected a no-SNI (IP-literal) web connection to be dropped under EnforceProxy")
+	}
+}
+
+// Without EnforceProxy, direct web egress to an allowed domain keeps working —
+// the gate must stay off by default.
+func TestExec_NoEnforceProxy_DirectAllowed(t *testing.T) {
+	requireRoot(t)
+	requireCurl(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	var stderr bytes.Buffer
+	exitCode, err := jail.Exec(ctx, jail.Config{
+		Domains: []string{"example.com"},
+		Stdout:  &bytes.Buffer{},
+		Stderr:  &stderr,
+		Logger:  quiet,
+	}, []string{"curl", "-sf", "--noproxy", "*", "--max-time", "15", "-o", "/dev/null", "https://example.com"})
+	if err != nil {
+		t.Fatalf("Exec failed: %v", err)
+	}
+	if exitCode != 0 {
+		t.Fatalf("expected direct egress to allowed domain to work without enforcement, got %d (stderr: %s)", exitCode, stderr.String())
+	}
+}
