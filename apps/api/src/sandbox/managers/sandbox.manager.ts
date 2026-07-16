@@ -1088,15 +1088,17 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
     }
 
     try {
-      const sandboxes = await this.sandboxRepository.find({
-        where: {
-          state: SandboxState.PENDING_BUILD,
-          pending: true,
-          organizationId: Not(DEDICATED_PENDING_BUILD_ORGANIZATION_ID),
-        },
-        select: ['id'],
-        take: 250,
-      })
+      // Randomize the order so that when there are more matching sandboxes than
+      // the limit, we don't repeatedly process the same subset and starve the rest.
+      const sandboxes = await this.sandboxRepository
+        .createQueryBuilder('sandbox')
+        .select('sandbox.id', 'id')
+        .where('sandbox.state = :state', { state: SandboxState.PENDING_BUILD })
+        .andWhere('sandbox.pending = true')
+        .andWhere('sandbox.organizationId <> :orgId', { orgId: DEDICATED_PENDING_BUILD_ORGANIZATION_ID })
+        .orderBy('RANDOM()')
+        .limit(250)
+        .getRawMany<{ id: string }>()
 
       const pendingProcesses: Promise<void>[] = []
       const concurrencyLimit = 25
