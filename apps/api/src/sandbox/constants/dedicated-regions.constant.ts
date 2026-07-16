@@ -141,7 +141,11 @@ export const WRITER_ORGS = [
   '13dd8c35-0468-444a-a248-398e0d2d02d2',
 ]
 
-const META_ORGS = new Set(['fd4f4489-5a9b-4d7b-b62e-dbd26113115c'])
+const META_ORGS = new Set([
+  'fd4f4489-5a9b-4d7b-b62e-dbd26113115c', // AAI Meta
+  '683acf39-5b83-49eb-9c43-f8056cec924a', // Drydock
+  'bfd70412-3a0f-4973-bd7c-f8234d933dfd', // Meta AAI Labs
+])
 
 /*
  * Orgs whose large sandboxes (over the thresholds below) are pinned to
@@ -149,11 +153,15 @@ const META_ORGS = new Set(['fd4f4489-5a9b-4d7b-b62e-dbd26113115c'])
  */
 const META_LARGE_SANDBOX_ORGS = new Set([
   'fd4f4489-5a9b-4d7b-b62e-dbd26113115c', // Meta
+  '683acf39-5b83-49eb-9c43-f8056cec924a', // Drydock
+  'bfd70412-3a0f-4973-bd7c-f8234d933dfd', // Meta AAI Labs
   'aeffef97-aab0-460b-bcb1-75cec66d0a65', // testing
 ])
 
 export const SPILLOVER_ON_ERROR_ORGS = new Set<string>([
   'fd4f4489-5a9b-4d7b-b62e-dbd26113115c', // Meta
+  '683acf39-5b83-49eb-9c43-f8056cec924a', // Drydock
+  'bfd70412-3a0f-4973-bd7c-f8234d933dfd', // Meta AAI Labs
   'c0a5d258-844b-44da-aac0-706f31c3027f', // deeptune
   'c8789392-ea10-4be4-9b24-71c23a6c30da', // deeptune
 ])
