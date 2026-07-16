@@ -1646,6 +1646,10 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "ephemeral": {
+                    "description": "Ephemeral indicates the sandbox is ephemeral (API-side: autoDeleteInterval == 0).\nNullable for backward compatibility.",
+                    "type": "boolean"
+                },
                 "fromVolumeId": {
                     "type": "string"
                 },

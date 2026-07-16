@@ -51,6 +51,11 @@ definitions:
         additionalProperties:
           type: string
         type: object
+      ephemeral:
+        description: |-
+          Ephemeral indicates the sandbox is ephemeral (API-side: autoDeleteInterval == 0).
+          Nullable for backward compatibility.
+        type: boolean
       fromVolumeId:
         type: string
       gpuQuota:

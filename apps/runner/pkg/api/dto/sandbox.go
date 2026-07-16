@@ -29,6 +29,10 @@ type CreateSandboxDTO struct {
 	OtelEndpoint *string `json:"otelEndpoint,omitempty"`
 	SkipStart    *bool   `json:"skipStart,omitempty"`
 
+	// Ephemeral indicates the sandbox is ephemeral (API-side: autoDeleteInterval == 0).
+	// Nullable for backward compatibility.
+	Ephemeral *bool `json:"ephemeral,omitempty"`
+
 	// Optional for backward compatibility, but when provided, indicates the class of sandbox to create.
 	SandboxClass *string `json:"sandboxClass,omitempty"`
 

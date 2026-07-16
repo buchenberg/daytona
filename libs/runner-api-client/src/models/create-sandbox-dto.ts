@@ -26,6 +26,10 @@ export interface CreateSandboxDTO {
     'domainAllowList'?: string;
     'entrypoint'?: Array<string>;
     'env'?: { [key: string]: string; };
+    /**
+     * Ephemeral indicates the sandbox is ephemeral (API-side: autoDeleteInterval == 0). Nullable for backward compatibility.
+     */
+    'ephemeral'?: boolean;
     'fromVolumeId'?: string;
     'gpuQuota'?: number;
     'id': string;

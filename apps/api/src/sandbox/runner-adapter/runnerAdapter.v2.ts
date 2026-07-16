@@ -23,6 +23,7 @@ import { Job } from '../entities/job.entity'
 import { BuildInfo } from '../entities/build-info.entity'
 import { DockerRegistry } from '../../docker-registry/entities/docker-registry.entity'
 import { stripRegistryScheme } from '../../common/utils/registry-url.util'
+import { isEphemeral } from '../utils/ephemeral.util'
 import { SandboxState } from '../enums/sandbox-state.enum'
 import { SandboxClass } from '../enums/sandbox-class.enum'
 import { JobType } from '../enums/job-type.enum'
@@ -191,6 +192,7 @@ export class RunnerAdapterV2 implements RunnerAdapter {
       regionId: sandbox.region,
       linkedSandboxId: sandbox.linkedSandboxId ?? undefined,
       sandboxClass: sandbox.sandboxClass,
+      ephemeral: isEphemeral(sandbox),
     }
 
     await this.jobService.createJob(
