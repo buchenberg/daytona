@@ -428,6 +428,71 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
     }
   }
 
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'ttl-check' })
+  @TrackJobExecution()
+  @LogExecution('ttl-check')
+  @WithInstrumentation()
+  async ttlCheck(): Promise<void> {
+    const lockKey = 'ttl-check-worker-selected'
+    //  lock the sync to only run one instance at a time
+    if (!(await this.redisLockProvider.lock(lockKey, 60))) {
+      return
+    }
+
+    try {
+      //  ttl applies to every state (including archived and runnerless sandboxes),
+      //  so unlike the other auto-action checks this query is not grouped by runner
+      const sandboxes = await this.sandboxRepository
+        .createQueryBuilder('sandbox')
+        .where('sandbox."autoDestroyAt" IS NOT NULL')
+        .andWhere('sandbox."autoDestroyAt" < NOW()')
+        .andWhere('sandbox."organizationId" != :warmPoolOrg', {
+          warmPoolOrg: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+        })
+        .andWhere('sandbox."desiredState" != :desiredState', {
+          desiredState: SandboxDesiredState.DESTROYED,
+        })
+        .andWhere('sandbox.pending != true')
+        .orderBy('sandbox."autoDestroyAt"', 'ASC')
+        .limit(100)
+        .getMany()
+
+      await Promise.all(
+        sandboxes.map(async (sandbox) => {
+          const lockKey = getStateChangeLockKey(sandbox.id)
+          const acquired = await this.redisLockProvider.lock(lockKey, 30)
+          if (!acquired) {
+            return
+          }
+
+          try {
+            const updateData = Sandbox.getSoftDeleteUpdate(sandbox)
+            await this.sandboxRepository.updateWhere(
+              sandbox.id,
+              {
+                updateData,
+                whereCondition: { pending: false, state: sandbox.state, autoDestroyAt: sandbox.autoDestroyAt },
+              },
+              async (em) => {
+                await this.eventEmitter.emitAsync(SandboxEvents.TTL_EXPIRED, new SandboxAutoActionEvent(sandbox, em))
+              },
+            )
+
+            this.syncInstanceState(sandbox.id).catch((err) =>
+              this.logger.error(`Error syncing instance state for sandbox ${sandbox.id}:`, err),
+            )
+          } catch (error) {
+            this.logger.error(`Error processing ttl expiry for sandbox ${sandbox.id}:`, error)
+          } finally {
+            await this.redisLockProvider.unlock(lockKey)
+          }
+        }),
+      )
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
   @Cron(CronExpression.EVERY_10_SECONDS, { name: 'draining-runner-sandboxes-check' })
   @TrackJobExecution()
   @LogExecution('draining-runner-sandboxes-check')

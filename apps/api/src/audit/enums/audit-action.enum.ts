@@ -28,6 +28,7 @@ export enum AuditAction {
   UPDATE_PUBLIC_STATUS = 'update_public_status',
   SET_AUTO_STOP_INTERVAL = 'set_auto_stop_interval',
   SET_AUTO_PAUSE_INTERVAL = 'set_auto_pause_interval',
+  SET_TTL = 'set_ttl',
   SET_AUTO_ARCHIVE_INTERVAL = 'set_auto_archive_interval',
   SET_AUTO_DELETE_INTERVAL = 'set_auto_delete_interval',
   ARCHIVE = 'archive',
@@ -55,4 +56,5 @@ export enum AuditAction {
   AUTO_STOP = 'auto_stop',
   AUTO_ARCHIVE = 'auto_archive',
   AUTO_DELETE = 'auto_delete',
+  TTL_EXPIRE = 'ttl_expire',
 }

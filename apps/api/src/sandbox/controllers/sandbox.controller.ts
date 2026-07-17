@@ -270,6 +270,7 @@ export class SandboxController {
         disk: req.body?.disk,
         autoStopInterval: req.body?.autoStopInterval,
         autoPauseInterval: req.body?.autoPauseInterval,
+        ttlMinutes: req.body?.ttlMinutes,
         autoArchiveInterval: req.body?.autoArchiveInterval,
         autoDeleteInterval: req.body?.autoDeleteInterval,
         volumes: req.body?.volumes,
@@ -1069,6 +1070,49 @@ export class SandboxController {
       interval,
       authContext.organizationId,
     )
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Post(':sandboxIdOrName/ttl/:ttlMinutes')
+  @ApiOperation({
+    summary: 'Set sandbox TTL',
+    operationId: 'setTtl',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiParam({
+    name: 'ttlMinutes',
+    description:
+      'Maximum time to live in minutes, re-anchored from the current time (0 to disable). When it elapses the sandbox is destroyed, even if it is stopped, paused, or archived',
+    type: 'number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'TTL has been set',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.SET_TTL,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      params: (req) => ({
+        ttlMinutes: req.params.ttlMinutes,
+      }),
+    },
+  })
+  async setTtl(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Param('ttlMinutes') ttlMinutes: number,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.setTtl(sandboxIdOrName, ttlMinutes, authContext.organizationId)
     return this.sandboxService.toSandboxDto(sandbox)
   }
 

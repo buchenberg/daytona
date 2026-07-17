@@ -760,6 +760,10 @@ export class SandboxService {
         sandbox.autoDeleteInterval = createSandboxDto.autoDeleteInterval
       }
 
+      if (createSandboxDto.ttlMinutes != null) {
+        Object.assign(sandbox, this.resolveTtl(createSandboxDto.ttlMinutes))
+      }
+
       if (resolvedVolumes !== undefined) {
         sandbox.volumes = resolvedVolumes
       }
@@ -894,6 +898,10 @@ export class SandboxService {
       updateData.autoDeleteInterval = 0
     } else if (createSandboxDto.autoDeleteInterval !== undefined) {
       updateData.autoDeleteInterval = createSandboxDto.autoDeleteInterval
+    }
+
+    if (createSandboxDto.ttlMinutes != null) {
+      Object.assign(updateData, this.resolveTtl(createSandboxDto.ttlMinutes))
     }
 
     this.validateNetworkSettingsCompatibility(
@@ -1122,6 +1130,10 @@ export class SandboxService {
         sandbox.autoDeleteInterval = createSandboxDto.autoDeleteInterval
       }
 
+      if (createSandboxDto.ttlMinutes != null) {
+        Object.assign(sandbox, this.resolveTtl(createSandboxDto.ttlMinutes))
+      }
+
       if (resolvedVolumes !== undefined) {
         sandbox.volumes = resolvedVolumes
       }
@@ -1318,6 +1330,7 @@ export class SandboxService {
       forkedSandbox.autoPauseInterval = sourceSandbox.autoPauseInterval
       forkedSandbox.autoArchiveInterval = sourceSandbox.autoArchiveInterval
       forkedSandbox.autoDeleteInterval = sourceSandbox.autoDeleteInterval
+      forkedSandbox.autoDestroyAt = sourceSandbox.autoDestroyAt
       forkedSandbox.volumes = sourceSandbox.volumes?.map((volume) => ({ ...volume }))
       forkedSandbox.networkBlockAll = sourceSandbox.networkBlockAll
       forkedSandbox.networkAllowList = sourceSandbox.networkAllowList
@@ -3486,6 +3499,14 @@ export class SandboxService {
     return await this.sandboxRepository.update(sandbox.id, { updateData, entity: sandbox })
   }
 
+  async setTtl(sandboxIdOrName: string, ttlMinutes: number, organizationId?: string): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+
+    const updateData: Partial<Sandbox> = this.resolveTtl(ttlMinutes)
+
+    return await this.sandboxRepository.update(sandbox.id, { updateData, entity: sandbox })
+  }
+
   async setAutoDeleteInterval(sandboxIdOrName: string, interval: number, organizationId?: string): Promise<Sandbox> {
     const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
 
@@ -3795,6 +3816,18 @@ export class SandboxService {
     }
 
     return autoStopInterval
+  }
+
+  //  resolves the ttlMinutes request input into the autoDestroyAt deadline, anchored at the current time
+  //  (sliding: every call re-anchors, so setting a new ttl extends or shortens the deadline from now)
+  private resolveTtl(ttlMinutes: number): Pick<Partial<Sandbox>, 'autoDestroyAt'> {
+    if (ttlMinutes < 0) {
+      throw new BadRequestError('TTL must be non-negative')
+    }
+
+    return {
+      autoDestroyAt: ttlMinutes === 0 ? null : new Date(Date.now() + ttlMinutes * 60 * 1000),
+    }
   }
 
   private resolveAutoPauseInterval(sandboxClass: SandboxClass, autoPauseInterval: number): number {

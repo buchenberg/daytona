@@ -211,6 +211,16 @@ export class CreateSandboxDto {
   autoDeleteInterval?: number
 
   @ApiPropertyOptional({
+    description:
+      'Maximum time to live in minutes, counted as wall-clock time since creation regardless of sandbox state (0 means disabled). When it elapses the sandbox is destroyed, even if it is stopped, paused, or archived.',
+    example: 1440,
+    type: 'integer',
+  })
+  @IsOptional()
+  @IsNumber()
+  ttlMinutes?: number
+
+  @ApiPropertyOptional({
     description: 'Array of volumes to attach to the sandbox',
     type: [SandboxVolume],
     required: false,

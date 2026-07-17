@@ -193,6 +193,7 @@ export class SandboxTypeormSearchAdapter implements SandboxSearchAdapter {
       autoPauseInterval: sandbox.autoPauseInterval,
       autoArchiveInterval: sandbox.autoArchiveInterval,
       autoDeleteInterval: sandbox.autoDeleteInterval,
+      autoDestroyAt: sandbox.autoDestroyAt ? new Date(sandbox.autoDestroyAt).toISOString() : undefined,
       createdAt: sandbox.createdAt ? new Date(sandbox.createdAt).toISOString() : undefined,
       updatedAt: sandbox.updatedAt ? new Date(sandbox.updatedAt).toISOString() : undefined,
       lastActivityAt: sandbox.lastActivityAt?.lastActivityAt

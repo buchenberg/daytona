@@ -245,6 +245,13 @@ export class Sandbox {
   @Column({ default: -1, type: 'int' })
   autoDeleteInterval: number | undefined = -1
 
+  //  wall-clock deadline after which the sandbox is destroyed regardless of its state,
+  //  even if stopped, paused, or archived; null means no ttl
+  //  computed from the ttlMinutes request input, re-anchored from the current time on every setTtl;
+  //  forks inherit the parent's deadline as-is
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  autoDestroyAt: Date | null = null
+
   @Column({ default: false, type: 'boolean' })
   pending: boolean | undefined = false
 

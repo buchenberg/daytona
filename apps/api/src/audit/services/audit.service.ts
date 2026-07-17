@@ -220,6 +220,11 @@ export class AuditService implements OnApplicationBootstrap {
     await this.createSystemActionSandboxAuditLog(AuditAction.AUTO_DELETE, event)
   }
 
+  @OnAsyncEvent({ event: SandboxEvents.TTL_EXPIRED })
+  async handleTtlExpired(event: SandboxAutoActionEvent): Promise<void> {
+    await this.createSystemActionSandboxAuditLog(AuditAction.TTL_EXPIRE, event)
+  }
+
   private async createSystemActionSandboxAuditLog(action: AuditAction, event: SandboxAutoActionEvent): Promise<void> {
     await this.createLog(
       {

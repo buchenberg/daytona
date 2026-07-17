@@ -240,6 +240,15 @@ export class SandboxDto {
   autoDeleteInterval?: number
 
   @ApiPropertyOptional({
+    description:
+      'When the sandbox will be automatically destroyed, regardless of its state (only set when a TTL is configured)',
+    example: '2026-07-15T12:00:00.000Z',
+    required: false,
+  })
+  @IsOptional()
+  autoDestroyAt?: string
+
+  @ApiPropertyOptional({
     description: 'Array of volumes attached to the sandbox',
     type: [SandboxVolume],
     required: false,
@@ -350,6 +359,7 @@ export class SandboxDto {
       autoPauseInterval: sandbox.autoPauseInterval,
       autoArchiveInterval: sandbox.autoArchiveInterval,
       autoDeleteInterval: sandbox.autoDeleteInterval,
+      autoDestroyAt: sandbox.autoDestroyAt ? new Date(sandbox.autoDestroyAt).toISOString() : undefined,
       sandboxClass: sandbox.sandboxClass,
       createdAt: sandbox.createdAt ? new Date(sandbox.createdAt).toISOString() : undefined,
       updatedAt: sandbox.updatedAt ? new Date(sandbox.updatedAt).toISOString() : undefined,
