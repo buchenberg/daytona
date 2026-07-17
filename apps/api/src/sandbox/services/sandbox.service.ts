@@ -1560,6 +1560,8 @@ export class SandboxService {
         pendingSnapshotCountIncrement = 1
       }
 
+      const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+
       const updatedSandbox = await this.sandboxRepository.updateWhere(sandbox.id, {
         updateData: {
           state: SandboxState.SNAPSHOTTING,
@@ -1571,26 +1573,48 @@ export class SandboxService {
         },
       })
 
-      const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+      // Create the Snapshot row up front in the SNAPSHOTTING state so the
+      // user can track the operation from the start. It is transitioned to
+      // ACTIVE (or ERROR) once the runner finishes producing the image.
+      try {
+        await this.snapshotService.createSnapshotFromSandboxEntry({
+          organizationId: organization.id,
+          name: dto.name,
+          regionId: sandbox.region,
+          sandboxClass: sandbox.sandboxClass,
+          cpu: sandbox.cpu,
+          gpu: sandbox.gpu,
+          gpuType: sandbox.gpuType ?? null,
+          mem: sandbox.mem,
+          disk: sandbox.disk,
+          initialRunnerId: runner.id,
+        })
+      } catch (error) {
+        await this.revertSandboxSnapshottingState(sandbox)
+        throw error
+      }
+
+      // The CREATED event has incremented current snapshot usage, so release
+      // the pending reservation to complete the transfer - otherwise the
+      // operation is counted twice against the quota until the reservation's
+      // TTL expires. The row's own state transitions (-> ERROR / removal) own
+      // the rollback from here on; clearing the local increment keeps the
+      // outer catch from decrementing pending a second time.
+      await this.snapshotService.releasePendingSnapshotUsage(organization.id, pendingSnapshotCountIncrement)
+      pendingSnapshotCountIncrement = undefined
 
       // v2 runners enqueue a SNAPSHOT_SANDBOX job and resolve immediately
-      // with `undefined`; the job state handler will persist the resulting
-      // Snapshot on completion.
+      // with `undefined`; the job state handler will transition the Snapshot
+      // row to ACTIVE (or ERROR) on completion.
       //
       // v0 runners (Docker, container class) don't have jobs - the adapter
       // performs a synchronous HTTP call to the runner's commit+push
       // endpoint, which can take several minutes. We don't want to block
       // the API request that long, so for v0 we kick the call off in the
       // background and immediately return the SNAPSHOTTING sandbox to the
-      // caller. The background promise persists the snapshot or reverts
-      // sandbox state on failure.
+      // caller. The background promise completes or fails the snapshot
+      // entry and reverts sandbox state.
       if (runner.apiVersion === '0') {
-        // Hand off pending-quota ownership to the background driver - it must
-        // roll back on failure since the outer try/catch returns successfully
-        // here.
-        const inheritedPendingIncrement = pendingSnapshotCountIncrement
-        pendingSnapshotCountIncrement = undefined
-
         void this.runV0SnapshotFromSandbox({
           sandbox,
           previousState: sandbox.state,
@@ -1599,19 +1623,21 @@ export class SandboxService {
           registry,
           runner,
           runnerAdapter,
-          pendingSnapshotCountIncrement: inheritedPendingIncrement,
         })
       } else {
         try {
           await runnerAdapter.createSnapshotFromSandbox(sandbox.id, dto.name, organization.id, registry, includeMemory)
         } catch (error) {
-          await this.sandboxRepository.updateWhere(sandbox.id, {
-            updateData: {
-              state: sandbox.state,
-              pending: false,
-            },
-            whereCondition: { state: SandboxState.SNAPSHOTTING },
-          })
+          await this.revertSandboxSnapshottingState(sandbox)
+          await this.snapshotService
+            .failSnapshotFromSandbox({
+              organizationId: organization.id,
+              name: dto.name,
+              errorReason: error.message || String(error),
+            })
+            .catch((err) =>
+              this.logger.error(`Failed to mark snapshot "${dto.name}" as errored for sandbox ${sandbox.id}:`, err),
+            )
 
           throw error
         }
@@ -1619,9 +1645,23 @@ export class SandboxService {
 
       return updatedSandbox
     } catch (error) {
-      await this.snapshotService.rollbackPendingUsage(organization.id, pendingSnapshotCountIncrement)
+      await this.snapshotService.releasePendingSnapshotUsage(organization.id, pendingSnapshotCountIncrement)
       throw error
     }
+  }
+
+  /**
+   * Reverts a sandbox from SNAPSHOTTING back to its previous state after a
+   * failure to start the snapshot operation.
+   */
+  private async revertSandboxSnapshottingState(sandbox: Sandbox): Promise<void> {
+    await this.sandboxRepository.updateWhere(sandbox.id, {
+      updateData: {
+        state: sandbox.state,
+        pending: false,
+      },
+      whereCondition: { state: SandboxState.SNAPSHOTTING },
+    })
   }
 
   /**
@@ -1632,8 +1672,9 @@ export class SandboxService {
    * user-facing API request can return immediately with state=SNAPSHOTTING,
    * mirroring the v2 (job-driven) UX.
    *
-   * Errors are intentionally swallowed - sandbox state is the source of
-   * truth. On any failure we restore state and refund the pending quota.
+   * Errors are intentionally swallowed - entity state is the source of
+   * truth. On any failure we restore the sandbox state and transition the
+   * snapshot entry to ERROR.
    */
   private async runV0SnapshotFromSandbox(params: {
     sandbox: Sandbox
@@ -1643,27 +1684,16 @@ export class SandboxService {
     registry?: DockerRegistry
     runner: Runner
     runnerAdapter: RunnerAdapter
-    pendingSnapshotCountIncrement?: number
   }): Promise<void> {
-    const {
-      sandbox,
-      previousState,
-      snapshotName,
-      organizationId,
-      registry,
-      runner,
-      runnerAdapter,
-      pendingSnapshotCountIncrement,
-    } = params
+    const { sandbox, previousState, snapshotName, organizationId, registry, runner, runnerAdapter } = params
 
-    let succeeded = false
     try {
       const result = await runnerAdapter.createSnapshotFromSandbox(sandbox.id, snapshotName, organizationId, registry)
       if (!result) {
         throw new Error('runner returned no snapshot result')
       }
 
-      await this.snapshotService.persistSnapshotFromSandbox({
+      const completed = await this.snapshotService.completeSnapshotFromSandbox({
         organizationId,
         name: snapshotName,
         ref: result.ref,
@@ -1677,12 +1707,26 @@ export class SandboxService {
         disk: sandbox.disk,
         sizeGB: result.sizeGB,
       })
-      succeeded = true
+
+      if (!completed) {
+        this.logger.warn(
+          `Snapshot "${snapshotName}" for sandbox ${sandbox.id} is no longer in the snapshotting state; skipping activation`,
+        )
+      }
     } catch (error) {
       this.logger.error(`v0 snapshotFromSandbox failed for sandbox ${sandbox.id}:`, error)
+      await this.snapshotService
+        .failSnapshotFromSandbox({
+          organizationId,
+          name: snapshotName,
+          errorReason: error.message || String(error),
+        })
+        .catch((err) =>
+          this.logger.error(`Failed to mark snapshot "${snapshotName}" as errored for sandbox ${sandbox.id}:`, err),
+        )
     }
 
-    // Always clear SNAPSHOTTING - whether the snapshot was persisted or not,
+    // Always clear SNAPSHOTTING - whether the snapshot succeeded or not,
     // the sandbox itself should return to its previous state.
     await this.sandboxRepository
       .updateWhere(sandbox.id, {
@@ -1690,12 +1734,6 @@ export class SandboxService {
         whereCondition: { state: SandboxState.SNAPSHOTTING },
       })
       .catch((err) => this.logger.error(`Failed to clear SNAPSHOTTING state for sandbox ${sandbox.id}:`, err))
-
-    if (!succeeded) {
-      await this.snapshotService
-        .rollbackPendingUsage(organizationId, pendingSnapshotCountIncrement)
-        .catch((err) => this.logger.error(`Failed to roll back pending snapshot quota for org ${organizationId}:`, err))
-    }
   }
 
   async findAllPaginatedDeprecated(
@@ -3426,14 +3464,9 @@ export class SandboxService {
             whereCondition: { state: SandboxState.SNAPSHOTTING, desiredState: sandbox.desiredState },
           })
 
-          await this.snapshotService
-            .rollbackPendingUsage(sandbox.organizationId, 1)
-            .catch((err) =>
-              this.logger.error(
-                `Failed to roll back pending snapshot quota for org ${sandbox.organizationId} during stale recovery:`,
-                err,
-              ),
-            )
+          // No pending-usage rollback here: the reservation was released when
+          // the Snapshot row was created, and the row's SNAPSHOTTING -> ERROR
+          // timeout transition decrements current usage.
 
           this.logger.warn(
             `Recovered stale SNAPSHOTTING sandbox ${sandbox.id} (v0 runner ${sandbox.runnerId}), restored to ${restoredState}`,

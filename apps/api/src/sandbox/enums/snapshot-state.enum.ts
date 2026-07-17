@@ -2,6 +2,8 @@ export enum SnapshotState {
   BUILDING = 'building',
   PENDING = 'pending',
   PULLING = 'pulling',
+  //  snapshot is being created from a sandbox (sandbox is in the SNAPSHOTTING state)
+  SNAPSHOTTING = 'snapshotting',
   ACTIVE = 'active',
   INACTIVE = 'inactive',
   ERROR = 'error',

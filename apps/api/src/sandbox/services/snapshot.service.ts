@@ -53,8 +53,12 @@ import { SnapshotActivatedEvent } from '../events/snapshot-activated.event'
 import { LogExecution } from '../../common/decorators/log-execution.decorator'
 import { WithInstrumentation } from '../../common/decorators/otel.decorator'
 import {
-  persistSnapshotFromSandbox,
-  PersistSnapshotFromSandboxParams,
+  createSnapshotFromSandboxEntry,
+  CreateSnapshotFromSandboxEntryParams,
+  completeSnapshotFromSandbox,
+  CompleteSnapshotFromSandboxParams,
+  failSnapshotFromSandbox,
+  FailSnapshotFromSandboxParams,
 } from '../utils/persist-snapshot-from-sandbox.util'
 import { getRunnerSandboxClass } from '../utils/sandbox-class.util'
 import { resolveGpuTypePreferences } from '../utils/gpu-type-preferences.util'
@@ -278,6 +282,12 @@ export class SnapshotService {
 
         this.eventEmitter.emit(SnapshotEvents.CREATED, new SnapshotCreatedEvent(insertedSnapshot))
 
+        // The CREATED event has incremented current snapshot usage - release
+        // the pending reservation to complete the transfer so the snapshot
+        // isn't counted twice until the reservation's TTL expires
+        await this.releasePendingSnapshotUsage(organization.id, pendingSnapshotCountIncrement)
+        pendingSnapshotCountIncrement = undefined
+
         return insertedSnapshot
       } catch (error) {
         if (error.code === '23505') {
@@ -289,7 +299,7 @@ export class SnapshotService {
         throw error
       }
     } catch (error) {
-      await this.rollbackPendingUsage(organization.id, pendingSnapshotCountIncrement)
+      await this.releasePendingSnapshotUsage(organization.id, pendingSnapshotCountIncrement)
       throw error
     }
   }
@@ -424,6 +434,12 @@ export class SnapshotService {
 
         this.eventEmitter.emit(SnapshotEvents.CREATED, new SnapshotCreatedEvent(insertedSnapshot))
 
+        // The CREATED event has incremented current snapshot usage - release
+        // the pending reservation to complete the transfer so the snapshot
+        // isn't counted twice until the reservation's TTL expires
+        await this.releasePendingSnapshotUsage(organization.id, pendingSnapshotCountIncrement)
+        pendingSnapshotCountIncrement = undefined
+
         return insertedSnapshot
       } catch (error) {
         if (error.code === '23505') {
@@ -435,13 +451,35 @@ export class SnapshotService {
         throw error
       }
     } catch (error) {
-      await this.rollbackPendingUsage(organization.id, pendingSnapshotCountIncrement)
+      await this.releasePendingSnapshotUsage(organization.id, pendingSnapshotCountIncrement)
       throw error
     }
   }
 
-  async persistSnapshotFromSandbox(params: PersistSnapshotFromSandboxParams): Promise<Snapshot> {
-    return persistSnapshotFromSandbox(
+  async createSnapshotFromSandboxEntry(params: CreateSnapshotFromSandboxEntryParams): Promise<Snapshot> {
+    return createSnapshotFromSandboxEntry(
+      {
+        snapshotRepository: this.snapshotRepository,
+        snapshotRunnerRepository: this.snapshotRunnerRepository,
+        eventEmitter: this.eventEmitter,
+      },
+      params,
+    )
+  }
+
+  async completeSnapshotFromSandbox(params: CompleteSnapshotFromSandboxParams): Promise<Snapshot | null> {
+    return completeSnapshotFromSandbox(
+      {
+        snapshotRepository: this.snapshotRepository,
+        snapshotRunnerRepository: this.snapshotRunnerRepository,
+        eventEmitter: this.eventEmitter,
+      },
+      params,
+    )
+  }
+
+  async failSnapshotFromSandbox(params: FailSnapshotFromSandboxParams): Promise<Snapshot | null> {
+    return failSnapshotFromSandbox(
       {
         snapshotRepository: this.snapshotRepository,
         snapshotRunnerRepository: this.snapshotRunnerRepository,
@@ -682,7 +720,7 @@ export class SnapshotService {
         throw new BadRequestError(`Snapshot quota exceeded. Maximum allowed: ${organization.snapshotQuota}`)
       }
     } catch (error) {
-      await this.rollbackPendingUsage(organization.id, addedSnapshotCount)
+      await this.releasePendingSnapshotUsage(organization.id, addedSnapshotCount)
       throw error
     }
 
@@ -716,7 +754,18 @@ export class SnapshotService {
     return runner.gpuType
   }
 
-  async rollbackPendingUsage(organizationId: string, pendingSnapshotCountIncrement?: number): Promise<void> {
+  /**
+   * Releases a pending snapshot reservation taken by validateOrganizationQuotas.
+   *
+   * Called on failure to roll the reservation back, and on success to
+   * complete the pending -> current transfer once the Snapshot row itself
+   * counts toward current usage (via the CREATED / state-updated events) -
+   * otherwise the operation is counted twice against the quota until the
+   * reservation's TTL expires.
+   *
+   * Errors are logged, not thrown; the reservation self-heals via its TTL.
+   */
+  async releasePendingSnapshotUsage(organizationId: string, pendingSnapshotCountIncrement?: number): Promise<void> {
     if (!pendingSnapshotCountIncrement) {
       return
     }
@@ -724,7 +773,7 @@ export class SnapshotService {
     try {
       await this.organizationUsageService.decrementPendingSnapshotUsage(organizationId, pendingSnapshotCountIncrement)
     } catch (error) {
-      this.logger.error(`Error rolling back pending snapshot usage: ${error}`)
+      this.logger.error(`Error releasing pending snapshot usage: ${error}`)
     }
   }
 
@@ -816,9 +865,16 @@ export class SnapshotService {
 
       this.eventEmitter.emit(SnapshotEvents.ACTIVATED, new SnapshotActivatedEvent(updatedSnapshot))
 
+      // The INACTIVE -> PENDING state transition has incremented current
+      // snapshot usage - release the pending reservation to complete the
+      // transfer so the snapshot isn't counted twice until the reservation's
+      // TTL expires
+      await this.releasePendingSnapshotUsage(organization.id, pendingSnapshotCountIncrement)
+      pendingSnapshotCountIncrement = undefined
+
       return updatedSnapshot
     } catch (error) {
-      await this.rollbackPendingUsage(organization.id, pendingSnapshotCountIncrement)
+      await this.releasePendingSnapshotUsage(organization.id, pendingSnapshotCountIncrement)
       throw error
     } finally {
       await this.redisLockProvider.unlock(lockKey)
