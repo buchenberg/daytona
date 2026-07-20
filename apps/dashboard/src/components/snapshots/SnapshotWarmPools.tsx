@@ -11,7 +11,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
+import { useRegionLookup } from '@/hooks/queries/useRegionsQuery'
 import { useCreateWarmPoolMutation } from '@/hooks/mutations/useCreateWarmPoolMutation'
 import { useDeleteWarmPoolMutation } from '@/hooks/mutations/useDeleteWarmPoolMutation'
 import { useUpdateWarmPoolMutation } from '@/hooks/mutations/useUpdateWarmPoolMutation'
@@ -20,6 +22,7 @@ import { useSelectedOrganization } from '@/hooks/useSelectedOrganization'
 import { useWarmPoolWsSync } from '@/hooks/useWarmPoolWsSync'
 import { FeatureFlags } from '@/enums/FeatureFlags'
 import { handleApiError } from '@/lib/error-handling'
+import { cn } from '@/lib/utils'
 import {
   OrganizationRolePermissionsEnum,
   SnapshotDto,
@@ -40,7 +43,8 @@ export function SnapshotWarmPools({ snapshot }: { snapshot: SnapshotDto }) {
     return null
   }
 
-  return <SnapshotWarmPoolsSection snapshot={snapshot} />
+  // Keyed by snapshot so picker/size state resets when the sheet navigates to another snapshot.
+  return <SnapshotWarmPoolsSection key={snapshot.id} snapshot={snapshot} />
 }
 
 function SnapshotWarmPoolsSection({ snapshot }: { snapshot: SnapshotDto }) {
@@ -53,6 +57,9 @@ function SnapshotWarmPoolsSection({ snapshot }: { snapshot: SnapshotDto }) {
   const deleteWarmPoolMutation = useDeleteWarmPoolMutation()
 
   const [newPoolSize, setNewPoolSize] = useState(1)
+  const [newPoolRegionId, setNewPoolRegionId] = useState('')
+
+  const { getRegionName } = useRegionLookup(selectedOrganization?.id)
   const [warmPoolToEdit, setWarmPoolToEdit] = useState<WarmPool | null>(null)
   const [warmPoolToDelete, setWarmPoolToDelete] = useState<WarmPool | null>(null)
 
@@ -61,7 +68,19 @@ function SnapshotWarmPoolsSection({ snapshot }: { snapshot: SnapshotDto }) {
 
   // Warm pools store the resolved snapshot name (see WarmPoolService.createWarmPool).
   const pools = warmPools.filter((pool) => pool.snapshot === snapshot.name)
-  const canAdd = writePermitted && snapshot.state === SnapshotState.ACTIVE && !snapshot.gpu
+
+  // The section shows one region at a time, from the regions the snapshot is available in.
+  const regionOptions = snapshot.regionIds ?? []
+  const orgDefaultRegionId = selectedOrganization?.defaultRegionId
+
+  // The user's pick, else a region that already has a pool, else the org default, else the first.
+  const selectedRegionId =
+    newPoolRegionId ||
+    pools[0]?.target ||
+    (orgDefaultRegionId && regionOptions.includes(orgDefaultRegionId) ? orgDefaultRegionId : regionOptions[0])
+  const pool = pools.find((pool) => pool.target === selectedRegionId)
+
+  const canAdd = writePermitted && snapshot.state === SnapshotState.ACTIVE && !snapshot.gpu && !!selectedRegionId
 
   if (!pools.length && !canAdd) {
     return null
@@ -70,7 +89,7 @@ function SnapshotWarmPoolsSection({ snapshot }: { snapshot: SnapshotDto }) {
   const handleCreate = async () => {
     try {
       await createWarmPoolMutation.mutateAsync({
-        warmPool: { snapshot: snapshot.name, pool: newPoolSize },
+        warmPool: { snapshot: snapshot.name, pool: newPoolSize, target: selectedRegionId },
         organizationId: selectedOrganization?.id,
       })
       setNewPoolSize(1)
@@ -110,9 +129,34 @@ function SnapshotWarmPoolsSection({ snapshot }: { snapshot: SnapshotDto }) {
 
   return (
     <InfoSection title="Warm Pool">
-      {pools.map((pool) => (
-        <div key={pool.id}>
-          <InfoRow label="Region">{pool.target}</InfoRow>
+      {regionOptions.length > 0 && (
+        <div className="mb-2 flex items-center gap-1">
+          <Select value={selectedRegionId} onValueChange={setNewPoolRegionId} disabled={regionOptions.length === 1}>
+            <SelectTrigger
+              size="xs"
+              aria-label="Select region"
+              className={cn(
+                'w-auto max-w-40 gap-x-2 border bg-secondary px-2 text-secondary-foreground lowercase hover:bg-secondary/80 data-popup-open:bg-secondary/80',
+                {
+                  'pointer-events-none select-none disabled:opacity-100 [&>svg]:hidden': regionOptions.length === 1,
+                },
+              )}
+            >
+              <SelectValue placeholder="Region" />
+            </SelectTrigger>
+            <SelectContent className="min-w-24 max-w-48" align="start">
+              {regionOptions.map((regionId) => (
+                <SelectItem key={regionId} value={regionId} className="lowercase">
+                  {getRegionName(regionId) ?? regionId}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {pool ? (
+        <div>
           <InfoRow label="Ready">
             <Badge variant={pool.currentSize >= pool.pool ? 'success' : 'warning'}>
               {pool.currentSize} / {pool.pool}
@@ -140,9 +184,7 @@ function SnapshotWarmPoolsSection({ snapshot }: { snapshot: SnapshotDto }) {
             </div>
           )}
         </div>
-      ))}
-
-      {!pools.length && canAdd && (
+      ) : canAdd ? (
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">
             Keep sandboxes pre-warmed from this snapshot so they start instantly. Warm sandboxes count against your
@@ -161,14 +203,16 @@ function SnapshotWarmPoolsSection({ snapshot }: { snapshot: SnapshotDto }) {
               variant="outline"
               size="sm"
               onClick={handleCreate}
-              disabled={createWarmPoolMutation.isPending || newPoolSize < 1 || !selectedOrganization?.id}
+              disabled={
+                createWarmPoolMutation.isPending || newPoolSize < 1 || !selectedOrganization?.id || !selectedRegionId
+              }
             >
               {createWarmPoolMutation.isPending && <Spinner />}
               Add warm pool
             </Button>
           </div>
         </div>
-      )}
+      ) : null}
 
       {warmPoolToEdit && (
         <EditWarmPoolDialog
