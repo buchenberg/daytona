@@ -4521,6 +4521,10 @@ paths:
               schema:
                 type: boolean
           description: User access status to the sandbox
+        "404":
+          description: "Sandbox not found. For members of the owning organization\
+            \ whose sandbox was deleted, the body carries code \"SANDBOX_DESTROYED\"\
+            ."
       security:
       - bearer: []
       - oauth2:

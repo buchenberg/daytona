@@ -207,6 +207,31 @@ func (p *Proxy) hasSandboxAccess(ctx context.Context, sandboxId string, authToke
 	return false, nil
 }
 
+// Must match SANDBOX_DESTROYED_ERROR_CODE in the API.
+const sandboxDestroyedErrorCode = "SANDBOX_DESTROYED"
+
+// isSandboxDeletedForCaller reports whether the sandbox was deleted, checked with
+// the caller's own token. The API returns this code only to owning-org members,
+// so a positive result never leaks existence to unauthorized callers.
+func (p *Proxy) isSandboxDeletedForCaller(ctx *gin.Context, sandboxId string) bool {
+	bearerToken := p.getBearerToken(ctx)
+	if bearerToken == "" {
+		return false
+	}
+
+	apiClient := p.getUserApiClient(ctx, bearerToken)
+	_, _, err := apiClient.PreviewAPI.HasSandboxAccess(context.Background(), sandboxId).Execute()
+	if err == nil {
+		return false
+	}
+
+	var customErr *common_errors.CustomError
+	if errors.As(common_errors.ConvertOpenAPIError(err), &customErr) {
+		return customErr.Code == sandboxDestroyedErrorCode
+	}
+	return false
+}
+
 func (p *Proxy) getUserApiClient(ctx context.Context, authToken string) *apiclient.APIClient {
 	clientConfig := apiclient.NewConfiguration()
 	clientConfig.Servers = apiclient.ServerConfigurations{

@@ -28,6 +28,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let statusCode: number
     let error: string
     let message: string
+    let code: string | undefined
 
     // If the exception is a NotFoundException and the request path is not an API request,
     // redirect root requests to the dashboard and serve the dashboard index.html file for everything else
@@ -65,6 +66,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
         message = Array.isArray(responseMessage)
           ? responseMessage.join(', ')
           : (responseMessage as string) || exception.message
+        const responseCode = (exceptionResponse as Record<string, unknown>).code
+        if (typeof responseCode === 'string') {
+          code = responseCode
+        }
       }
     } else {
       this.logger.error(exception)
@@ -79,6 +84,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       statusCode,
       error,
       message,
+      ...(code ? { code } : {}),
     })
   }
 }

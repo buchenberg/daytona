@@ -7,6 +7,7 @@ import { TypedConfigService } from '../../config/typed-config.service'
 import { SandboxEvents } from '../constants/sandbox-events.constants'
 import { SandboxArchivedEvent } from '../events/sandbox-archived.event'
 import { SandboxAuthTokenRotatedEvent } from '../events/sandbox-auth-token-rotated.event'
+import { SandboxDestroyedEvent } from '../events/sandbox-destroyed.event'
 import { SandboxPublicStatusUpdatedEvent } from '../events/sandbox-public-status-updated.event'
 
 @Injectable()
@@ -43,6 +44,13 @@ export class ProxyCacheInvalidationService implements OnModuleInit, OnModuleDest
 
   @OnEvent(SandboxEvents.ARCHIVED)
   async handleSandboxArchived(event: SandboxArchivedEvent): Promise<void> {
+    await this.invalidateRunnerCache(event.sandbox.id)
+  }
+
+  // Evict the cached runner info on destroy so the proxy stops routing requests
+  // to the (now gone) container and instead re-resolves via the API.
+  @OnEvent(SandboxEvents.DESTROYED)
+  async handleSandboxDestroyed(event: SandboxDestroyedEvent): Promise<void> {
     await this.invalidateRunnerCache(event.sandbox.id)
   }
 
@@ -95,7 +103,7 @@ export class ProxyCacheInvalidationService implements OnModuleInit, OnModuleDest
       // leaving the existing proxy entry to expire. Skip proxy eviction; do not throw (the visibility
       // change must still succeed). The entry self-expires at its TTL.
       this.logger.warn(
-        `Failed to invalidate API public-status cache for sandbox ${sandboxId}; skipping proxy eviction to avoid re-priming: ${error.message}`,
+        `Failed to invalidate API public-status cache for sandbox ${sandboxId}; skipping proxy eviction to avoid re-priming: ${(error as Error).message}`,
       )
       return
     }
@@ -138,7 +146,7 @@ export class ProxyCacheInvalidationService implements OnModuleInit, OnModuleDest
       // leaving the existing proxy entry to expire. Skip proxy eviction; do not throw (rotation must
       // still succeed). The entry self-expires at its ~120s TTL.
       this.logger.warn(
-        `Failed to invalidate API auth-token cache for sandbox ${sandboxId}; skipping proxy eviction to avoid re-priming: ${error.message}`,
+        `Failed to invalidate API auth-token cache for sandbox ${sandboxId}; skipping proxy eviction to avoid re-priming: ${(error as Error).message}`,
       )
       return
     }

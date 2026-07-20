@@ -65,8 +65,10 @@ func getProxyTarget(ctx *gin.Context) (*url.URL, map[string]string, error) {
 	err = utils.RetryWithExponentialBackoff(ctx.Request.Context(), "resolve container IP", 3, 100*time.Millisecond, 500*time.Millisecond, func() error {
 		container, err := runner.Docker.ContainerInspect(ctx.Request.Context(), sandboxId)
 		if err != nil {
-			containerNotFound = true
-			return &utils.NonRetryableError{Err: fmt.Errorf("sandbox container not found: %w", err)}
+			// Only a genuine "no such container" counts as not-found; other
+			// inspect failures must not be misreported as a deleted sandbox.
+			containerNotFound = common_errors.IsNotFoundError(err)
+			return &utils.NonRetryableError{Err: fmt.Errorf("failed to inspect sandbox container %s: %w", sandboxId, err)}
 		}
 
 		for _, network := range container.NetworkSettings.Networks {
@@ -82,7 +84,10 @@ func getProxyTarget(ctx *gin.Context) (*url.URL, map[string]string, error) {
 	})
 	if err != nil {
 		if containerNotFound {
-			ctx.Error(common_errors.NewNotFoundError(err))
+			// Return a clean 404 instead of the nested Docker error; keep the
+			// underlying error in the logs for diagnostics.
+			slog.WarnContext(ctx.Request.Context(), "sandbox container not found", "sandboxId", sandboxId, "error", err)
+			ctx.Error(common_errors.NewNotFoundError(fmt.Errorf("sandbox %s not found, it may have been deleted or stopped - inspect audit logs for more info", sandboxId)))
 		} else {
 			ctx.Error(common_errors.NewBadRequestError(fmt.Errorf("%w. Is the Sandbox started?", err)))
 		}

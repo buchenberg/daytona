@@ -1,6 +1,9 @@
 import Redis from 'ioredis'
 import { Controller, Get, Param, Query, Logger, NotFoundException, Req, UseGuards } from '@nestjs/common'
 import { SandboxService } from '../services/sandbox.service'
+import { Sandbox } from '../entities/sandbox.entity'
+import { SandboxState } from '../enums/sandbox-state.enum'
+import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
 import { ApiResponse, ApiOperation, ApiParam, ApiQuery, ApiTags, ApiOAuth2, ApiBearerAuth } from '@nestjs/swagger'
 import { InjectRedis } from '@nestjs-modules/ioredis'
 import { OrganizationUserService } from '../../organization/services/organization-user.service'
@@ -9,6 +12,10 @@ import { AuthStrategy } from '../../auth/decorators/auth-strategy.decorator'
 import { AuthenticatedRateLimitGuard } from '../../common/guards/authenticated-rate-limit.guard'
 import { ProxyAuthContextGuard } from '../guards/proxy-auth-context.guard'
 import { PreviewWarningDto } from '../dto/preview-warning.dto'
+
+// Attached to a 404 only for org members whose sandbox was deleted, so the proxy
+// can report "sandbox deleted" without leaking existence to other callers.
+export const SANDBOX_DESTROYED_ERROR_CODE = 'SANDBOX_DESTROYED'
 
 @Controller('preview')
 @ApiTags('preview')
@@ -169,29 +176,77 @@ export class PreviewController {
     description: 'User access status to the sandbox',
     type: Boolean,
   })
+  @ApiResponse({
+    status: 404,
+    description:
+      'Sandbox not found. For members of the owning organization whose sandbox was deleted, the body carries code "SANDBOX_DESTROYED".',
+  })
   @AuthStrategy([AuthStrategyType.API_KEY, AuthStrategyType.JWT])
   async hasSandboxAccess(@Req() req: Request, @Param('sandboxId') sandboxId: string): Promise<boolean> {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     const userId = req.user?.userId
 
-    const cached = await this.redis.get(`preview:access:${sandboxId}:${userId}`)
+    const cacheKey = `preview:access:${sandboxId}:${userId}`
+    const cached = await this.redis.get(cacheKey)
     if (cached) {
       if (cached === '1') {
         return true
       }
+      if (cached === 'gone') {
+        throw this.sandboxDeletedException(sandboxId)
+      }
       throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
     }
 
-    const sandbox = await this.sandboxService.findOne(sandboxId)
-    const hasAccess = await this.organizationUserService.exists(sandbox.organizationId, userId)
-    if (!hasAccess) {
-      await this.redis.setex(`preview:access:${sandboxId}:${userId}`, 3, '0')
+    let sandbox: Sandbox
+    try {
+      sandbox = await this.sandboxService.findOne(sandboxId, true)
+    } catch (ex) {
+      if (!(ex instanceof NotFoundException)) {
+        throw ex
+      }
+      await this.redis.setex(cacheKey, 3, '0')
+      throw ex
+    }
+
+    const isOrgMember = await this.organizationUserService.exists(sandbox.organizationId, userId)
+
+    // A destroyed sandbox (or one erroring on its way to destruction) is not
+    // accessible, matching SandboxService.findOne's default not-found semantics.
+    const isDestroyed = sandbox.state === SandboxState.DESTROYED
+    const isErroredDestroying =
+      [SandboxState.ERROR, SandboxState.BUILD_FAILED].includes(sandbox.state) &&
+      sandbox.desiredState === SandboxDesiredState.DESTROYED
+
+    if (isDestroyed || isErroredDestroying) {
+      // Both states are treated as non-existent. Disclose deletion only to a
+      // member of the owning org; everyone else gets a uniform 404 so existence
+      // can't be probed.
+      if (isOrgMember) {
+        await this.redis.setex(cacheKey, 3, 'gone')
+        throw this.sandboxDeletedException(sandboxId)
+      }
+      await this.redis.setex(cacheKey, 3, '0')
+      throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
+    }
+
+    if (!isOrgMember) {
+      await this.redis.setex(cacheKey, 3, '0')
       throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
     }
     //  if user has access, keep it in cache longer
-    await this.redis.setex(`preview:access:${sandboxId}:${userId}`, 30, '1')
+    await this.redis.setex(cacheKey, 30, '1')
     return true
+  }
+
+  // A 404 tagged with a code so the proxy can distinguish a deleted sandbox from
+  // a generic not-found without changing the status.
+  private sandboxDeletedException(sandboxId: string): NotFoundException {
+    return new NotFoundException({
+      message: `Sandbox with ID ${sandboxId} has been deleted`,
+      code: SANDBOX_DESTROYED_ERROR_CODE,
+    })
   }
 
   @Get(':signedPreviewToken/:port/sandbox-id')

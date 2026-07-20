@@ -2280,7 +2280,8 @@ export class SandboxService {
       where: {
         id: sandboxId,
       },
-      select: ['runnerId'],
+      // Include the id because if the runnerId is null, entire "sandbox" variable would also be null and return the wrong exception
+      select: ['id', 'runnerId'],
       loadEagerRelations: false,
     })
 

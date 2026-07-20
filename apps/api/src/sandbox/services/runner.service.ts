@@ -48,6 +48,8 @@ import { SandboxRepository } from '../repositories/sandbox.repository'
 import { SnapshotRepository } from '../repositories/snapshot.repository'
 import { RunnerServiceInfo } from '../common/runner-service-info'
 
+export const SANDBOX_NO_RUNNER_ERROR_CODE = 'SANDBOX_NO_RUNNER'
+
 /**
  * Sandbox states whose GPU units are NOT counted as reserved on their runner.
  *
@@ -287,13 +289,17 @@ export class RunnerService {
   async findBySandboxId(sandboxId: string): Promise<Runner | null> {
     const sandbox = await this.sandboxRepository.findOne({
       where: { id: sandboxId, state: Not(SandboxState.DESTROYED) },
-      select: ['runnerId'],
+      // Include the id because if the runnerId is null, entire "sandbox" var would also be null and return the wrong exception
+      select: ['id', 'runnerId'],
     })
     if (!sandbox) {
       throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
     }
     if (!sandbox.runnerId) {
-      throw new NotFoundException(`Sandbox with ID ${sandboxId} does not have a runner`)
+      throw new NotFoundException({
+        message: `Sandbox with ID ${sandboxId} does not have a runner`,
+        code: SANDBOX_NO_RUNNER_ERROR_CODE,
+      })
     }
 
     return this.findOne(sandbox.runnerId)

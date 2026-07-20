@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	common_errors "github.com/daytonaio/common-go/pkg/errors"
@@ -72,7 +73,12 @@ func (p *Proxy) Authenticate(ctx *gin.Context, sandboxIdOrSignedToken string, po
 		}
 	}
 
-	if !ctx.GetBool(IS_TOOLBOX_REQUEST_KEY) {
+	isToolboxRequest := ctx.GetBool(IS_TOOLBOX_REQUEST_KEY)
+	isBrowserPreview := !isToolboxRequest &&
+		strconv.Itoa(int(port)) != TOOLBOX_PORT &&
+		isBrowser(ctx.Request.UserAgent())
+
+	if !isToolboxRequest {
 		cookieDomain := p.getCookieDomain(ctx.Request.Host)
 		sandboxId, err = p.getSandboxIdFromSignedPreviewUrlToken(ctx, sandboxIdOrSignedToken, port, cookieDomain)
 		if err == nil {
@@ -81,13 +87,15 @@ func (p *Proxy) Authenticate(ctx *gin.Context, sandboxIdOrSignedToken string, po
 			authErrors = append(authErrors, err.Error())
 		}
 
-		// All authentication methods failed, redirect to auth URL
-		authUrl, err := p.getAuthUrl(ctx, sandboxIdOrSignedToken)
-		if err != nil {
-			return sandboxIdOrSignedToken, false, fmt.Errorf("failed to get auth URL: %w", err)
-		}
+		if isBrowserPreview {
+			// All authentication methods failed, redirect to auth URL
+			authUrl, err := p.getAuthUrl(ctx, sandboxIdOrSignedToken)
+			if err != nil {
+				return sandboxIdOrSignedToken, false, fmt.Errorf("failed to get auth URL: %w", err)
+			}
 
-		ctx.Redirect(http.StatusTemporaryRedirect, authUrl)
+			ctx.Redirect(http.StatusTemporaryRedirect, authUrl)
+		}
 	}
 
 	// Return error with details about what failed
@@ -98,7 +106,7 @@ func (p *Proxy) Authenticate(ctx *gin.Context, sandboxIdOrSignedToken string, po
 		errorMsg = "missing authentication: provide a preview access token (via header, query parameter, or cookie) or use an API key or JWT"
 	}
 
-	return sandboxIdOrSignedToken, !ctx.GetBool(IS_TOOLBOX_REQUEST_KEY), common_errors.NewUnauthorizedError(errors.New(errorMsg))
+	return sandboxIdOrSignedToken, isBrowserPreview, common_errors.NewUnauthorizedError(errors.New(errorMsg))
 }
 
 func (p *Proxy) getBearerToken(ctx *gin.Context) string {

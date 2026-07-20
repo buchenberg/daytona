@@ -70,6 +70,15 @@ func (p *Proxy) GetProxyTarget(ctx *gin.Context) (*url.URL, map[string]string, e
 		sandboxId, didRedirect, err = p.Authenticate(ctx, sandboxIdOrSignedToken, float32(portFloat))
 		if err != nil {
 			if !didRedirect {
+				// A deleted sandbox fails auth the same way a bad token does. For
+				// toolbox requests - including preview-style calls to the toolbox
+				// port - re-check with the caller's token and return a clean 404
+				// instead of a misleading 401 when it was deleted.
+				if (ctx.GetBool(IS_TOOLBOX_REQUEST_KEY) || targetPort == TOOLBOX_PORT) && p.isSandboxDeletedForCaller(ctx, sandboxIdOrSignedToken) {
+					notFoundErr := common_errors.NewNotFoundError(fmt.Errorf("sandbox %s not found (it has been deleted)", sandboxIdOrSignedToken))
+					ctx.Error(notFoundErr)
+					return nil, nil, notFoundErr
+				}
 				ctx.Error(err)
 			}
 			return nil, nil, err
@@ -78,6 +87,17 @@ func (p *Proxy) GetProxyTarget(ctx *gin.Context) (*url.URL, map[string]string, e
 
 	runnerInfo, err := p.getSandboxRunnerInfo(ctx, sandboxId)
 	if err != nil {
+		if isSandboxWithoutRunner(err) {
+			badReqErr := common_errors.NewBadRequestError(fmt.Errorf("sandbox %s does not have a runner", sandboxId))
+			ctx.Error(badReqErr)
+			return nil, nil, badReqErr
+		}
+		// A 404 means the sandbox is gone; return a clean not-found, not a 400.
+		if isSandboxNotFound(err) {
+			notFoundErr := common_errors.NewNotFoundError(fmt.Errorf("sandbox %s not found", sandboxId))
+			ctx.Error(notFoundErr)
+			return nil, nil, notFoundErr
+		}
 		ctx.Error(common_errors.NewBadRequestError(fmt.Errorf("failed to get runner info: %w", err)))
 		return nil, nil, fmt.Errorf("failed to get runner info: %w", err)
 	}
@@ -116,6 +136,32 @@ func (p *Proxy) GetProxyTarget(ctx *gin.Context) (*url.URL, map[string]string, e
 		"X-Daytona-Authorization": fmt.Sprintf("Bearer %s", runnerInfo.ApiKey),
 		"X-Forwarded-Host":        ctx.Request.Host,
 	}, nil
+}
+
+// Must match SANDBOX_NO_RUNNER_ERROR_CODE in the API.
+const sandboxNoRunnerErrorCode = "SANDBOX_NO_RUNNER"
+
+func isSandboxWithoutRunner(err error) bool {
+	if err == nil {
+		return false
+	}
+	var customErr *common_errors.CustomError
+	if errors.As(err, &customErr) {
+		return customErr.Code == sandboxNoRunnerErrorCode
+	}
+	return false
+}
+
+// isSandboxNotFound reports whether err is a definitive HTTP 404 from the API.
+func isSandboxNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	var customErr *common_errors.CustomError
+	if errors.As(err, &customErr) {
+		return customErr.StatusCode == http.StatusNotFound
+	}
+	return false
 }
 
 func (p *Proxy) getSandboxRunnerInfo(ctx context.Context, sandboxId string) (*RunnerInfo, error) {
