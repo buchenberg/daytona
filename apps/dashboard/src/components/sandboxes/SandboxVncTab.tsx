@@ -6,7 +6,7 @@ import { useStartVncMutation } from '@/hooks/mutations/useStartVncMutation'
 import { useVncInitialStatusQuery, useVncPollStatusQuery } from '@/hooks/queries/useVncStatusQuery'
 import { useVncSessionQuery } from '@/hooks/queries/useVncSessionQuery'
 import { isStoppable } from '@/lib/utils/sandbox'
-import { SandboxListItem } from '@daytona/api-client'
+import { SandboxClass, SandboxListItem } from '@daytona/api-client'
 import { Spinner } from '@/components/ui/spinner'
 import { ArrowUpRight, Monitor, Play, RefreshCw } from 'lucide-react'
 
@@ -16,7 +16,11 @@ export function SandboxVncTab({ sandbox }: { sandbox: SandboxListItem }) {
   const running = isStoppable(sandbox)
 
   // 1. Check initial VNC availability & status
-  const initialStatusQuery = useVncInitialStatusQuery(sandbox.id, running)
+  const initialStatusQuery = useVncInitialStatusQuery(
+    sandbox.id,
+    running,
+    sandbox.sandboxClass === SandboxClass.WINDOWS,
+  )
 
   const isMissingDeps = (initialStatusQuery.error as Error | null)?.message === VNC_MISSING_DEPS_MSG
   const alreadyActive = initialStatusQuery.data === 'active'
@@ -28,7 +32,11 @@ export function SandboxVncTab({ sandbox }: { sandbox: SandboxListItem }) {
   const startMissingDeps = startError === VNC_MISSING_DEPS_MSG
 
   // 3. Poll until active after starting
-  const pollStatusQuery = useVncPollStatusQuery(sandbox.id, startMutation.isSuccess)
+  const pollStatusQuery = useVncPollStatusQuery(
+    sandbox.id,
+    startMutation.isSuccess,
+    sandbox.sandboxClass === SandboxClass.WINDOWS,
+  )
 
   const vncReady = alreadyActive || pollStatusQuery.data === 'active'
 
