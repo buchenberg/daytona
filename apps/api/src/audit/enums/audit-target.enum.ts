@@ -10,6 +10,7 @@ export enum AuditTarget {
   SNAPSHOT = 'snapshot',
   USER = 'user',
   VOLUME = 'volume',
+  WARM_POOL = 'warm_pool',
   REGION = 'region',
   SECRET = 'secret',
 }

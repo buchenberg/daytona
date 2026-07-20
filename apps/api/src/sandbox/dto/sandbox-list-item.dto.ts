@@ -38,6 +38,7 @@ interface SandboxListItemDtoFields {
   updatedAt?: string
   lastActivityAt?: string
   daemonVersion?: string
+  warmPoolId?: string
 }
 
 @ApiSchema({ name: 'SandboxListItem' })
@@ -267,6 +268,13 @@ export class SandboxListItemDto {
   @IsOptional()
   daemonVersion?: string
 
+  @ApiPropertyOptional({
+    description: 'Id of the warm pool this sandbox waits in; set only while it is an unclaimed member',
+    required: false,
+  })
+  @IsOptional()
+  warmPoolId?: string
+
   @ApiProperty({
     description: 'The toolbox proxy URL for the sandbox',
     example: 'https://proxy.app.daytona.io/toolbox',
@@ -304,6 +312,7 @@ export class SandboxListItemDto {
     updatedAt,
     lastActivityAt,
     daemonVersion,
+    warmPoolId,
   }: SandboxListItemDtoFields) {
     this.id = id
     this.organizationId = organizationId
@@ -334,6 +343,7 @@ export class SandboxListItemDto {
     this.updatedAt = updatedAt
     this.lastActivityAt = lastActivityAt
     this.daemonVersion = daemonVersion
+    this.warmPoolId = warmPoolId
     this.toolboxProxyUrl = ''
   }
 

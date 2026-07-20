@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Cron, CronExpression } from '@nestjs/schedule'
-import { FindOptionsWhere, In, MoreThan, Not, Repository } from 'typeorm'
+import { FindOptionsWhere, In, IsNull, MoreThan, Not, Repository } from 'typeorm'
 import { RedisLockProvider } from '../common/redis-lock.provider'
 import { SandboxRepository } from '../repositories/sandbox.repository'
 import { Sandbox } from '../entities/sandbox.entity'
@@ -19,9 +19,9 @@ import { SandboxState } from '../enums/sandbox-state.enum'
 import { Runner } from '../entities/runner.entity'
 import { WarmPoolTopUpRequested } from '../events/warmpool-topup-requested.event'
 import { WarmPoolEvents } from '../constants/warmpool-events.constants'
+import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
 import { InjectRedis } from '@nestjs-modules/ioredis'
 import { Redis } from 'ioredis'
-import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
 import { isValidUuid } from '../../common/utils/uuid'
 import { LogExecution } from '../../common/decorators/log-execution.decorator'
 import { WithInstrumentation } from '../../common/decorators/otel.decorator'
@@ -57,6 +57,10 @@ export class SandboxWarmPoolService {
     @InjectRedis() private readonly redis: Redis,
   ) {}
 
+  static skipKey(organizationId: string, snapshotId: string): string {
+    return `warm-pool:skip:${organizationId}:${snapshotId}`
+  }
+
   async fetchWarmPoolSandbox(params: FetchWarmPoolSandboxParams): Promise<Sandbox | null> {
     //  validate snapshot
     let snapshot: Snapshot | null = null
@@ -87,21 +91,32 @@ export class SandboxWarmPoolService {
       snapshot = params.snapshot
     }
 
-    //  check if sandbox is warm pool
-    const warmPoolItem = await this.warmPoolRepository.findOne({
-      where: {
-        snapshot: snapshot.name,
-        target: params.target,
-        cpu: params.cpu,
-        mem: params.mem,
-        disk: params.disk,
-        gpu: params.gpu,
-        osUser: params.osUser,
-        env: params.env,
-        pool: MoreThan(0),
-      },
-    })
+    //  Prefer the requesting organization's own self-serve warm pool, then fall back to a global pool.
+    const warmPoolMatch = {
+      snapshot: snapshot.name,
+      target: params.target,
+      cpu: params.cpu,
+      mem: params.mem,
+      disk: params.disk,
+      gpu: params.gpu,
+      osUser: params.osUser,
+      env: params.env,
+      pool: MoreThan(0),
+    }
+    const warmPoolItem =
+      (await this.warmPoolRepository.findOne({
+        where: { ...warmPoolMatch, organizationId: params.organizationId },
+      })) ??
+      (await this.warmPoolRepository.findOne({
+        where: { ...warmPoolMatch, organizationId: IsNull() },
+      }))
+
     if (warmPoolItem) {
+      // Self-serve pool sandboxes live under the real organization and link back via warmPoolId;
+      // global pool sandboxes live under the sentinel organization with no pool link.
+      const selfServe = !!warmPoolItem.organizationId
+      const candidateOrganizationId = selfServe ? params.organizationId : SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION
+
       const availabilityScoreThreshold = this.configService.getOrThrow<number>('runnerScore.thresholds.availability')
 
       // Build subquery to find excluded runners (unschedulable OR low score)
@@ -119,9 +134,11 @@ export class SandboxWarmPoolService {
         .andWhere('sandbox.snapshot = :snapshot', { snapshot: snapshot.name })
         .andWhere('sandbox.osUser = :osUser', { osUser: warmPoolItem.osUser })
         .andWhere('sandbox.env = :env', { env: warmPoolItem.env })
-        .andWhere('sandbox.organizationId = :organizationId', {
-          organizationId: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
-        })
+        .andWhere('sandbox.organizationId = :organizationId', { organizationId: candidateOrganizationId })
+        .andWhere(
+          selfServe ? 'sandbox."warmPoolId" = :warmPoolId' : 'sandbox."warmPoolId" IS NULL',
+          selfServe ? { warmPoolId: warmPoolItem.id } : {},
+        )
         .andWhere('sandbox.region = :region', { region: warmPoolItem.target })
         .andWhere('sandbox.state = :state', { state: SandboxState.STARTED })
         .andWhere(`sandbox.runnerId NOT IN (${excludedRunnersSubquery.getQuery()})`)
@@ -146,11 +163,51 @@ export class SandboxWarmPoolService {
       }
 
       return warmPoolSandbox
-    } else {
-      //  no warm pool config exists for this snapshot — cache it so callers can skip
-      await this.redis.set(`warm-pool:skip:${snapshot.id}`, '1', 'EX', 60)
     }
+    // Cache the miss so creates skip the pool lookup; pool create/resize clears the key, the TTL
+    // covers out-of-band changes.
+    await this.redis.set(SandboxWarmPoolService.skipKey(params.organizationId, snapshot.id), '1', 'EX', 60)
     return null
+  }
+
+  async countPoolMembers(warmPoolItem: WarmPool): Promise<number> {
+    return this.sandboxRepository.count({ where: this.poolMemberCountWhere(warmPoolItem) })
+  }
+
+  // The single definition of a warm pool's members, shared by top-up, trimming and the displayed
+  // pool size. Self-serve pools are matched by warmPoolId under the owning organization; global
+  // pools are matched by spec under the sentinel organization. Pass `errored` to match the failed
+  // members instead of the live ones.
+  poolMemberCountWhere(warmPoolItem: WarmPool, errored = false): FindOptionsWhere<Sandbox> {
+    const activeStates: Pick<FindOptionsWhere<Sandbox>, 'desiredState' | 'state'> = errored
+      ? { state: In([SandboxState.ERROR, SandboxState.BUILD_FAILED]) }
+      : {
+          desiredState: SandboxDesiredState.STARTED,
+          // Exclude terminal/teardown states so destroyed-but-not-yet-reaped rows don't inflate the
+          // count (they're hidden from the sandbox list, which would otherwise disagree).
+          state: Not(
+            In([SandboxState.ERROR, SandboxState.BUILD_FAILED, SandboxState.DESTROYED, SandboxState.DESTROYING]),
+          ),
+        }
+    if (warmPoolItem.organizationId) {
+      return {
+        organizationId: warmPoolItem.organizationId,
+        warmPoolId: warmPoolItem.id,
+        ...activeStates,
+      }
+    }
+    return {
+      snapshot: warmPoolItem.snapshot,
+      organizationId: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+      osUser: warmPoolItem.osUser,
+      env: warmPoolItem.env,
+      region: warmPoolItem.target,
+      cpu: warmPoolItem.cpu,
+      gpu: warmPoolItem.gpu,
+      mem: warmPoolItem.mem,
+      disk: warmPoolItem.disk,
+      ...activeStates,
+    }
   }
 
   //  todo: make frequency configurable or more efficient
@@ -167,38 +224,59 @@ export class SandboxWarmPoolService {
           return
         }
 
-        const sandboxCount = await this.sandboxRepository.count({
-          where: {
-            snapshot: warmPoolItem.snapshot,
-            organizationId: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
-            osUser: warmPoolItem.osUser,
-            env: warmPoolItem.env,
-            region: warmPoolItem.target,
-            cpu: warmPoolItem.cpu,
-            gpu: warmPoolItem.gpu,
-            mem: warmPoolItem.mem,
-            disk: warmPoolItem.disk,
-            desiredState: SandboxDesiredState.STARTED,
-            state: Not(In([SandboxState.ERROR, SandboxState.BUILD_FAILED])),
-          },
-        })
+        try {
+          const sandboxCount = await this.sandboxRepository.count({
+            where: this.poolMemberCountWhere(warmPoolItem),
+          })
+          const erroredCount = await this.sandboxRepository.count({
+            where: this.poolMemberCountWhere(warmPoolItem, true),
+          })
 
-        const missingCount = warmPoolItem.pool - sandboxCount
-        if (missingCount > 0) {
-          const promises = []
-          this.logger.debug(`Creating ${missingCount} sandboxes for warm pool id ${warmPoolItem.id}`)
+          // Errored members count against the pool budget, so a persistent snapshot/runner failure
+          // can't make the cron respawn failed sandboxes without bound: total (live + errored) never
+          // exceeds the target.
+          const missingCount = warmPoolItem.pool - sandboxCount - erroredCount
+          if (missingCount > 0) {
+            // Top-ups are guaranteed to fail while the snapshot is not active — skip them and
+            // surface the reason instead. Same snapshot filter as createForWarmPool.
+            const activeSnapshot = await this.snapshotRepository.findOne({
+              where: [
+                {
+                  organizationId: warmPoolItem.organizationId ?? SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+                  name: warmPoolItem.snapshot,
+                  state: SnapshotState.ACTIVE,
+                },
+                { general: true, name: warmPoolItem.snapshot, state: SnapshotState.ACTIVE },
+              ],
+            })
+            if (!activeSnapshot) {
+              const errorReason = `Snapshot ${warmPoolItem.snapshot} is not active`
+              if (warmPoolItem.organizationId && warmPoolItem.errorReason !== errorReason) {
+                await this.warmPoolRepository.update(warmPoolItem.id, { errorReason })
+              }
+              return
+            }
 
-          for (let i = 0; i < missingCount; i++) {
-            promises.push(
-              this.eventEmitter.emitAsync(WarmPoolEvents.TOPUP_REQUESTED, new WarmPoolTopUpRequested(warmPoolItem)),
-            )
+            // Fill gradually: bounds the per-tick burst of a freshly created pool, and of a pool
+            // stuck above quota (quota-failed creates never become ERROR members, so missingCount
+            // stays high and would retry in full every tick).
+            const maxTopUpsPerTick = this.configService.getOrThrow<number>('warmPool.maxTopUpsPerTick')
+            const createCount = Math.min(missingCount, maxTopUpsPerTick)
+            const promises = []
+            this.logger.debug(`Creating ${createCount}/${missingCount} sandboxes for warm pool id ${warmPoolItem.id}`)
+
+            for (let i = 0; i < createCount; i++) {
+              promises.push(
+                this.eventEmitter.emitAsync(WarmPoolEvents.TOPUP_REQUESTED, new WarmPoolTopUpRequested(warmPoolItem)),
+              )
+            }
+
+            // Wait for all promises to settle before releasing the lock. Otherwise, another worker could start creating sandboxes
+            await Promise.allSettled(promises)
           }
-
-          // Wait for all promises to settle before releasing the lock. Otherwise, another worker could start creating sandboxes
-          await Promise.allSettled(promises)
+        } finally {
+          await this.redisLockProvider.unlock(lockKey)
         }
-
-        await this.redisLockProvider.unlock(lockKey)
       }),
     )
   }
@@ -208,8 +286,11 @@ export class SandboxWarmPoolService {
     if (event.newOrganizationId === SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION) {
       return
     }
+    // Only the global pool refills on an organization swap; self-serve pools are kept topped up by
+    // the cron and never change their sandboxes' organization on claim.
     const warmPoolItem = await this.warmPoolRepository.findOne({
       where: {
+        organizationId: IsNull(),
         snapshot: event.sandbox.snapshot,
         cpu: event.sandbox.cpu,
         mem: event.sandbox.mem,
@@ -226,19 +307,7 @@ export class SandboxWarmPoolService {
     }
 
     const sandboxCount = await this.sandboxRepository.count({
-      where: {
-        snapshot: warmPoolItem.snapshot,
-        organizationId: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
-        osUser: warmPoolItem.osUser,
-        env: warmPoolItem.env,
-        region: warmPoolItem.target,
-        cpu: warmPoolItem.cpu,
-        gpu: warmPoolItem.gpu,
-        mem: warmPoolItem.mem,
-        disk: warmPoolItem.disk,
-        desiredState: SandboxDesiredState.STARTED,
-        state: Not(In([SandboxState.ERROR, SandboxState.BUILD_FAILED])),
-      },
+      where: this.poolMemberCountWhere(warmPoolItem),
     })
 
     if (warmPoolItem.pool <= sandboxCount) {

@@ -11,6 +11,7 @@ import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
 import { Runner } from '../entities/runner.entity'
 import { SshAccess } from '../entities/ssh-access.entity'
 import { SandboxFork } from '../entities/sandbox-fork.entity'
+import { WarmPool } from '../entities/warm-pool.entity'
 import { RunnerService } from './runner.service'
 import { VolumeService } from './volume.service'
 import { TypedConfigService } from '../../config/typed-config.service'
@@ -76,6 +77,7 @@ describe('SandboxService.updateNetworkSettings', () => {
       undefined as unknown as SnapshotRepository,
       undefined as unknown as Repository<Runner>,
       undefined as unknown as Repository<SshAccess>,
+      undefined as unknown as Repository<WarmPool>,
       runnerService as unknown as RunnerService,
       undefined as unknown as VolumeService,
       undefined as unknown as TypedConfigService,

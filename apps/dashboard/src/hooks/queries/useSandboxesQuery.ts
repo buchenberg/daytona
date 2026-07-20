@@ -34,6 +34,7 @@ export interface SandboxFilters {
   createdAtBefore?: Date
   isPublic?: boolean
   isRecoverable?: boolean
+  includeWarm?: boolean
 }
 
 export interface SandboxSorting {
@@ -92,6 +93,8 @@ export function useSandboxesQuery(params: SandboxQueryParams) {
         filters.name,
         filters.labels ? JSON.stringify(filters.labels) : undefined,
         filters.includeErroredDeleted,
+        // includeWarm: warm pool sandboxes are excluded by default; the "Warm pool" filter opts in
+        filters.includeWarm,
         filters.states,
         filters.snapshots,
         filters.regions,

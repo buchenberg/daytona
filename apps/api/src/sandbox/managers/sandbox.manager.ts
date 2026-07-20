@@ -129,6 +129,8 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
             .andWhere('sandbox."organizationId" != :warmPoolOrg', {
               warmPoolOrg: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
             })
+            // Unclaimed self-serve warm pool members must stay running until claimed.
+            .andWhere('sandbox."warmPoolId" IS NULL')
             .andWhere('sandbox.state = :state', { state: SandboxState.STARTED })
             .andWhere('sandbox."desiredState" = :desiredState', {
               desiredState: SandboxDesiredState.STARTED,
@@ -303,6 +305,8 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
         .where('sandbox."organizationId" != :warmPoolOrg', {
           warmPoolOrg: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
         })
+        // Unclaimed self-serve warm pool members must stay running until claimed.
+        .andWhere('sandbox."warmPoolId" IS NULL')
         .andWhere('sandbox.state = :state', { state: SandboxState.STOPPED })
         .andWhere('sandbox."desiredState" = :desiredState', {
           desiredState: SandboxDesiredState.STOPPED,
@@ -496,6 +500,8 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
             .andWhere('sandbox."organizationId" != :warmPoolOrg', {
               warmPoolOrg: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
             })
+            // Unclaimed self-serve warm pool members must stay running until claimed.
+            .andWhere('sandbox."warmPoolId" IS NULL')
             .andWhere('sandbox.state = :state', { state: SandboxState.STOPPED })
             .andWhere('sandbox."desiredState" = :desiredState', {
               desiredState: SandboxDesiredState.STOPPED,

@@ -3597,6 +3597,7 @@ type SandboxAPIListSandboxesRequest struct {
 	name *string
 	labels *string
 	includeErroredDeleted *bool
+	includeWarm *bool
 	states *[]SandboxState
 	snapshots *[]string
 	regionIds *[]string
@@ -3656,6 +3657,12 @@ func (r SandboxAPIListSandboxesRequest) Labels(labels string) SandboxAPIListSand
 // Include results with errored state and deleted desired state
 func (r SandboxAPIListSandboxesRequest) IncludeErroredDeleted(includeErroredDeleted bool) SandboxAPIListSandboxesRequest {
 	r.includeErroredDeleted = &includeErroredDeleted
+	return r
+}
+
+// Include unclaimed warm pool sandboxes (excluded by default)
+func (r SandboxAPIListSandboxesRequest) IncludeWarm(includeWarm bool) SandboxAPIListSandboxesRequest {
+	r.includeWarm = &includeWarm
 	return r
 }
 
@@ -3832,6 +3839,13 @@ func (a *SandboxAPIService) ListSandboxesExecute(r SandboxAPIListSandboxesReques
 		var defaultValue bool = false
 		parameterAddToHeaderOrQuery(localVarQueryParams, "includeErroredDeleted", defaultValue, "form", "")
 		r.includeErroredDeleted = &defaultValue
+	}
+	if r.includeWarm != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "includeWarm", r.includeWarm, "form", "")
+	} else {
+		var defaultValue bool = false
+		parameterAddToHeaderOrQuery(localVarQueryParams, "includeWarm", defaultValue, "form", "")
+		r.includeWarm = &defaultValue
 	}
 	if r.states != nil {
 		t := *r.states

@@ -132,6 +132,8 @@ export class UsageService implements TrackableJobExecutions, OnApplicationShutdo
     usagePeriod.region = event.sandbox.region
     usagePeriod.sandboxClass = event.sandbox.sandboxClass
     usagePeriod.regionType = await this.getRegionType(event.sandbox.region)
+    // The claim's synthetic STARTED→STARTED event closes the warm period and opens a regular one.
+    usagePeriod.warmPool = !!event.sandbox.warmPoolId
 
     await this.sandboxUsagePeriodRepository.save(usagePeriod)
   }

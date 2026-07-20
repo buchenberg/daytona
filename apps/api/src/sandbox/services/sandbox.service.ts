@@ -9,7 +9,7 @@ import {
   HttpStatus,
 } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Not, Repository, LessThan, In, JsonContains, FindOptionsWhere, ILike, MoreThanOrEqual } from 'typeorm'
+import { Not, Repository, LessThan, In, IsNull, JsonContains, FindOptionsWhere, ILike, MoreThanOrEqual } from 'typeorm'
 import { Sandbox } from '../entities/sandbox.entity'
 import { SandboxFork } from '../entities/sandbox-fork.entity'
 import { CreateSandboxDto } from '../dto/create-sandbox.dto'
@@ -55,6 +55,7 @@ import { TypedConfigService } from '../../config/typed-config.service'
 import { WarmPool } from '../entities/warm-pool.entity'
 import { SandboxDto, SandboxVolume } from '../dto/sandbox.dto'
 import { isValidUuid } from '../../common/utils/uuid'
+import { truncateErrorMessage } from '../../common/utils/truncate-error-message'
 import { RunnerAdapter, RunnerAdapterFactory } from '../runner-adapter/runnerAdapter'
 import {
   assertNetworkSettingsCompatible,
@@ -147,6 +148,8 @@ export class SandboxService {
     private readonly runnerRepository: Repository<Runner>,
     @InjectRepository(SshAccess)
     private readonly sshAccessRepository: Repository<SshAccess>,
+    @InjectRepository(WarmPool)
+    private readonly warmPoolRepository: Repository<WarmPool>,
     private readonly runnerService: RunnerService,
     private readonly volumeService: VolumeService,
     private readonly configService: TypedConfigService,
@@ -441,7 +444,11 @@ export class SandboxService {
   async createForWarmPool(warmPoolItem: WarmPool): Promise<Sandbox> {
     const sandbox = new Sandbox({ region: warmPoolItem.target })
 
-    sandbox.organizationId = SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION
+    // Self-serve warm pools are owned by a real organization and their members link back to the
+    // pool via warmPoolId; legacy/global warm pools keep using the all-zero sentinel organization.
+    const isSelfServe = !!warmPoolItem.organizationId
+    sandbox.organizationId = warmPoolItem.organizationId ?? SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION
+    sandbox.warmPoolId = isSelfServe ? warmPoolItem.id : null
 
     sandbox.snapshot = warmPoolItem.snapshot
     //  TODO: default user should be configurable
@@ -460,7 +467,7 @@ export class SandboxService {
       ],
     })
     if (!snapshot) {
-      throw new BadRequestError(`Snapshot ${sandbox.snapshot} not found while creating warm pool sandbox`)
+      throw new BadRequestError(`Snapshot ${sandbox.snapshot} not found or inactive while creating warm pool sandbox`)
     }
 
     sandbox.gpuType = snapshot.gpuType ?? null
@@ -469,7 +476,41 @@ export class SandboxService {
 
     sandbox.sandboxClass = snapshot.sandboxClass
 
+    // Self-serve warm sandboxes count against the owning organization's quota, so a pool can never
+    // exceed it. Reserve pending usage up front and roll it back if provisioning fails.
+    let pendingCpuIncrement: number | undefined
+    let pendingMemoryIncrement: number | undefined
+    let pendingDiskIncrement: number | undefined
+    let pendingGpuIncrement: number | undefined
+
     try {
+      if (isSelfServe) {
+        const organization = await this.organizationService.findOne(sandbox.organizationId)
+        if (!organization) {
+          throw new BadRequestError(`Organization ${sandbox.organizationId} not found for warm pool`)
+        }
+        const region = await this.regionService.findOne(sandbox.region)
+        if (!region) {
+          throw new BadRequestError(`Region ${sandbox.region} not found for warm pool`)
+        }
+
+        const { pendingCpuIncremented, pendingMemoryIncremented, pendingDiskIncremented, pendingGpuIncremented } =
+          await this.validateOrganizationQuotas(
+            organization,
+            region,
+            sandbox.sandboxClass,
+            sandbox.cpu,
+            sandbox.mem,
+            sandbox.disk,
+            sandbox.gpu,
+            false,
+          )
+        if (pendingCpuIncremented) pendingCpuIncrement = sandbox.cpu
+        if (pendingMemoryIncremented) pendingMemoryIncrement = sandbox.mem
+        if (pendingDiskIncremented) pendingDiskIncrement = sandbox.disk
+        if (pendingGpuIncremented) pendingGpuIncrement = sandbox.gpu
+      }
+
       // Same global GPU runner assignment serialization as createFromSnapshot.
       if (sandbox.isGpu()) {
         await this.redisLockProvider.waitForLock(GPU_RUNNER_ASSIGNMENT_LOCK_KEY, 60, 30000)
@@ -498,6 +539,19 @@ export class SandboxService {
       }
 
       return sandbox
+    } catch (error) {
+      if (isSelfServe) {
+        await this.rollbackPendingUsage(
+          sandbox.organizationId,
+          sandbox.region,
+          sandbox.sandboxClass,
+          pendingCpuIncrement,
+          pendingMemoryIncrement,
+          pendingDiskIncrement,
+          pendingGpuIncrement,
+        )
+      }
+      throw error
     } finally {
       if (gpuRunnerAssignmentLockKey) {
         await this.redisLockProvider
@@ -603,31 +657,6 @@ export class SandboxService {
 
       sandboxClass = snapshot.sandboxClass
 
-      const { pendingCpuIncremented, pendingMemoryIncremented, pendingDiskIncremented, pendingGpuIncremented } =
-        await this.validateOrganizationQuotas(
-          organization,
-          region,
-          snapshot.sandboxClass,
-          cpu,
-          mem,
-          disk,
-          gpu,
-          isEphemeral(createSandboxDto),
-        )
-
-      if (pendingCpuIncremented) {
-        pendingCpuIncrement = cpu
-      }
-      if (pendingMemoryIncremented) {
-        pendingMemoryIncrement = mem
-      }
-      if (pendingDiskIncremented) {
-        pendingDiskIncrement = disk
-      }
-      if (pendingGpuIncremented) {
-        pendingGpuIncrement = gpu
-      }
-
       // Resolve volume names to UUIDs before runner assignment, so invalid references fail fast
       const resolvedVolumes = await this.resolveVolumes(organization.id, createSandboxDto.volumes)
 
@@ -637,17 +666,18 @@ export class SandboxService {
       // reserved for their lifetime and are auto-deleted on first stop. Skip the
       // warm-pool path entirely so we always provision a fresh container on a
       // GPU runner with current live capacity.
+      let warmPoolSandbox: Sandbox | null = null
       if (
         gpu <= 0 &&
         !linkedSandbox &&
         (!createSandboxDto.volumes || createSandboxDto.volumes.length === 0) &&
         resolvedSecretMounts.length === 0
       ) {
-        const skipWarmPool = false
-        // const skipWarmPool = (await this.redis.exists(`warm-pool:skip:${snapshot.id}`)) === 1
+        const skipWarmPool =
+          (await this.redis.exists(SandboxWarmPoolService.skipKey(organization.id, snapshot.id))) === 1
 
         if (!skipWarmPool) {
-          const warmPoolSandbox = await this.warmPoolService.fetchWarmPoolSandbox({
+          warmPoolSandbox = await this.warmPoolService.fetchWarmPoolSandbox({
             organizationId: organization.id,
             snapshot: snapshot,
             target: region.id,
@@ -659,11 +689,44 @@ export class SandboxService {
             env: createSandboxDto.env,
             state: SandboxState.STARTED,
           })
-
-          if (warmPoolSandbox) {
-            return await this.assignWarmPoolSandbox(warmPoolSandbox, createSandboxDto, organization)
-          }
         }
+      }
+
+      // A self-serve claim reuses a sandbox the organization already owns and already counts
+      // against its quota, so it skips the quota gate — otherwise a full pool would sit at the
+      // ceiling and reject its own claims. Cold creates and global-pool claims (which re-home a
+      // sentinel-org sandbox, growing the organization's usage) still pass it.
+      const isSelfServeClaim = !!warmPoolSandbox && warmPoolSandbox.organizationId === organization.id
+
+      if (!isSelfServeClaim) {
+        const { pendingCpuIncremented, pendingMemoryIncremented, pendingDiskIncremented, pendingGpuIncremented } =
+          await this.validateOrganizationQuotas(
+            organization,
+            region,
+            snapshot.sandboxClass,
+            cpu,
+            mem,
+            disk,
+            gpu,
+            isEphemeral(createSandboxDto),
+          )
+
+        if (pendingCpuIncremented) {
+          pendingCpuIncrement = cpu
+        }
+        if (pendingMemoryIncremented) {
+          pendingMemoryIncrement = mem
+        }
+        if (pendingDiskIncremented) {
+          pendingDiskIncrement = disk
+        }
+        if (pendingGpuIncremented) {
+          pendingGpuIncrement = gpu
+        }
+      }
+
+      if (warmPoolSandbox) {
+        return await this.assignWarmPoolSandbox(warmPoolSandbox, createSandboxDto, organization)
       }
 
       // Serialize GPU runner assignment globally: runner selection reads reserved
@@ -872,6 +935,10 @@ export class SandboxService {
       labels: createSandboxDto.labels || {},
       organizationId: organization.id,
       createdAt: now,
+      // Claiming releases the sandbox from its pool. For self-serve pools the organization is
+      // unchanged (the sandbox was already owned by it); for the global pool the swap above
+      // re-homes it from the sentinel organization.
+      warmPoolId: null,
     }
 
     if (createSandboxDto.name) {
@@ -949,17 +1016,21 @@ export class SandboxService {
       )
     }
 
+    // Captured before the update below mutates the entity with the new organization.
+    const previousOrganizationId = warmPoolSandbox.organizationId
+
     const updatedSandbox = await this.sandboxRepository.update(warmPoolSandbox.id, {
       updateData,
       entity: warmPoolSandbox,
     })
 
-    // Defensive invalidation of orgId cache since the sandbox moved from unassigned to a real organization
+    // Defensive invalidation of orgId cache. For the global pool the sandbox moved from the
+    // sentinel organization to a real one; for self-serve pools the organization is unchanged.
     this.sandboxLookupCacheInvalidationService.invalidateOrgId({
       sandboxId: warmPoolSandbox.id,
       organizationId: organization.id,
       name: warmPoolSandbox.name,
-      previousOrganizationId: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+      previousOrganizationId,
     })
 
     // The otel collector caches the resolved OTEL config by sandbox auth token. Drop the entry
@@ -1775,6 +1846,8 @@ export class SandboxService {
 
     const baseFindOptions: FindOptionsWhere<Sandbox> = {
       organizationId,
+      // Unclaimed warm pool sandboxes are never surfaced through the deprecated listing.
+      warmPoolId: IsNull(),
       ...(id ? { id: ILike(`${id}%`) } : {}),
       ...(name ? { name: ILike(`${name}%`) } : {}),
       ...(labels ? { labels: JsonContains(labels) } : {}),
@@ -1864,6 +1937,7 @@ export class SandboxService {
         namePrefix: query.name,
         labels: parsedLabels,
         includeErroredDeleted: query.includeErroredDeleted,
+        includeWarm: query.includeWarm,
         states: query.states,
         snapshots: query.snapshots,
         regionIds: query.regionIds,
@@ -3243,7 +3317,7 @@ export class SandboxService {
     return region.proxyUrl + '/sandboxes/' + sandbox.id + '/build-logs'
   }
 
-  private async getValidatedOrDefaultRegion(organization: Organization, regionIdOrName?: string): Promise<Region> {
+  async getValidatedOrDefaultRegion(organization: Organization, regionIdOrName?: string): Promise<Region> {
     if (!organization.defaultRegionId) {
       throw new DefaultRegionRequiredException()
     }
@@ -3709,7 +3783,24 @@ export class SandboxService {
 
   @OnEvent(WarmPoolEvents.TOPUP_REQUESTED)
   private async createWarmPoolSandbox(event: WarmPoolTopUpRequested) {
-    await this.createForWarmPool(event.warmPool)
+    try {
+      await this.createForWarmPool(event.warmPool)
+      // The event payload is a stale row snapshot, so clear unconditionally: a reason written after
+      // the cron loaded the pool (failed sibling event, inactive-snapshot gate) must not stick.
+      if (event.warmPool.organizationId) {
+        await this.warmPoolRepository.update(event.warmPool.id, { errorReason: null })
+      }
+    } catch (error) {
+      // A self-serve pool that has hit its organization's quota (or any transient provisioning
+      // failure) must not crash the top-up loop - it is retried on the next warm-pool-check tick.
+      // Surface the reason on the pool row so the dashboard can explain a pool that never fills.
+      this.logger.debug(`Failed to create warm pool sandbox for pool ${event.warmPool.id}: ${error?.message ?? error}`)
+      if (event.warmPool.organizationId) {
+        await this.warmPoolRepository
+          .update(event.warmPool.id, { errorReason: truncateErrorMessage(String(error?.message ?? error)) })
+          .catch(() => undefined)
+      }
+    }
   }
 
   @Cron(CronExpression.EVERY_MINUTE, { name: 'handle-unschedulable-runners' })

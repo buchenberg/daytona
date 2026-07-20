@@ -35,6 +35,11 @@ export class SandboxTypeormSearchAdapter implements SandboxSearchAdapter {
     // Base filters
     qb.andWhere('sandbox.organizationId = :organizationId', { organizationId: filters.organizationId })
 
+    // Unclaimed warm pool sandboxes are hidden unless explicitly requested
+    if (!filters.includeWarm) {
+      qb.andWhere('sandbox."warmPoolId" IS NULL')
+    }
+
     if (filters.idPrefix) {
       qb.andWhere('LOWER(sandbox.id) LIKE LOWER(:idPrefix)', { idPrefix: `${filters.idPrefix}%` })
     }
@@ -201,6 +206,7 @@ export class SandboxTypeormSearchAdapter implements SandboxSearchAdapter {
         ? new Date(sandbox.lastActivityAt.lastActivityAt).toISOString()
         : undefined,
       daemonVersion: sandbox.daemonVersion,
+      warmPoolId: sandbox.warmPoolId ?? undefined,
     })
   }
 

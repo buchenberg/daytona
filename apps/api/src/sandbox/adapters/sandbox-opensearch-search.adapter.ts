@@ -110,6 +110,7 @@ export class SandboxOpenSearchSearchAdapter implements SandboxSearchAdapter, OnM
               osUser: { type: 'keyword' },
               errorReason: { type: 'text' },
               recoverable: { type: 'boolean' },
+              warmPoolId: { type: 'keyword' },
               public: { type: 'boolean' },
               cpu: { type: 'integer' },
               gpu: { type: 'integer' },
@@ -148,6 +149,12 @@ export class SandboxOpenSearchSearchAdapter implements SandboxSearchAdapter, OnM
 
     // Organization filter (required)
     must.push({ term: { organizationId: filters.organizationId } })
+
+    // Unclaimed warm pool sandboxes are hidden unless explicitly requested. Documents missing the
+    // field (indexed before warm pools existed) are treated as claimed and remain visible.
+    if (!filters.includeWarm) {
+      mustNot.push({ exists: { field: 'warmPoolId' } })
+    }
 
     // Exclude errored/deleted unless explicitly requested
     if (!filters.includeErroredDeleted) {
@@ -367,6 +374,7 @@ export class SandboxOpenSearchSearchAdapter implements SandboxSearchAdapter, OnM
       user: source.osUser,
       errorReason: source.errorReason,
       recoverable: source.recoverable,
+      warmPoolId: source.warmPoolId,
       public: source.public,
       cpu: source.cpu,
       gpu: source.gpu,

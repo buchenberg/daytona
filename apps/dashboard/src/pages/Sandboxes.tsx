@@ -140,6 +140,7 @@ const sandboxViewSearchParams = {
   createdAtBefore: parseAsIsoDateTime,
   isPublic: parseAsBoolean,
   isRecoverable: parseAsBoolean,
+  includeWarm: parseAsBoolean,
   sort: parseAsString.withDefault(DEFAULT_SANDBOX_SORTING.field ?? SandboxListSortField.LAST_ACTIVITY_AT),
   order: parseAsString.withDefault(DEFAULT_SANDBOX_SORTING.direction ?? SandboxListSortDirection.DESC),
 }
@@ -342,6 +343,7 @@ const Sandboxes: React.FC = () => {
     if (viewParams.createdAtBefore) nextFilters.createdAtBefore = viewParams.createdAtBefore
     if (viewParams.isPublic !== null) nextFilters.isPublic = viewParams.isPublic
     if (viewParams.isRecoverable !== null) nextFilters.isRecoverable = viewParams.isRecoverable
+    if (viewParams.includeWarm !== null) nextFilters.includeWarm = viewParams.includeWarm
 
     return nextFilters
   }, [
@@ -349,6 +351,7 @@ const Sandboxes: React.FC = () => {
     viewParams.createdAtBefore,
     viewParams.isPublic,
     viewParams.isRecoverable,
+    viewParams.includeWarm,
     viewParams.labels,
     viewParams.lastEventAfter,
     viewParams.lastEventBefore,
@@ -448,6 +451,7 @@ const Sandboxes: React.FC = () => {
         createdAtBefore: newFilters.createdAtBefore ?? null,
         isPublic: newFilters.isPublic ?? null,
         isRecoverable: newFilters.isRecoverable ?? null,
+        includeWarm: newFilters.includeWarm ?? null,
       })
       resetCursor()
     },

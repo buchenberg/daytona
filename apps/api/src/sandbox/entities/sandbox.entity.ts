@@ -32,6 +32,7 @@ import { SandboxSecret } from './sandbox-secret.entity'
 @Index('sandbox_runnerid_idx', ['runnerId'])
 @Index('sandbox_runner_state_idx', ['runnerId', 'state'])
 @Index('sandbox_organizationid_idx', ['organizationId'])
+@Index('sandbox_warmpoolid_idx', ['organizationId', 'warmPoolId'], { where: '"warmPoolId" IS NOT NULL' })
 @Index('sandbox_region_idx', ['region'])
 @Index('sandbox_org_region_class_active_idx', ['organizationId', 'region', 'sandboxClass'], {
   where: `"state" <> ALL (ARRAY['destroyed'::sandbox_state_enum, 'error'::sandbox_state_enum, 'build_failed'::sandbox_state_enum, 'archived'::sandbox_state_enum])`,
@@ -119,6 +120,12 @@ export class Sandbox {
 
   @Column({ default: false, type: 'boolean' })
   recoverable = false
+
+  // Set while this sandbox is an unclaimed member of a self-serve (per-organization) warm pool;
+  // cleared when it is claimed. Unlike the global pool (which uses the all-zero sentinel
+  // organization), these are owned by the real organization and count against its quota.
+  @Column({ type: 'uuid', nullable: true })
+  warmPoolId?: string | null
 
   @Column({
     type: 'jsonb',

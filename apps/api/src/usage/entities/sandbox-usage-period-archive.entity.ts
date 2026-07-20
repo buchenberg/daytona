@@ -56,6 +56,10 @@ export class SandboxUsagePeriodArchive {
   @Column({ type: 'character varying', default: RegionType.SHARED })
   regionType: string
 
+  // Set while the sandbox was an unclaimed warm pool member, so billing can price warm time differently.
+  @Column({ default: false })
+  warmPool: boolean
+
   public static fromUsagePeriod(usagePeriod: SandboxUsagePeriod) {
     const usagePeriodEntity = new SandboxUsagePeriodArchive()
     usagePeriodEntity.sandboxId = usagePeriod.sandboxId
@@ -70,6 +74,7 @@ export class SandboxUsagePeriodArchive {
     usagePeriodEntity.region = usagePeriod.region
     usagePeriodEntity.sandboxClass = usagePeriod.sandboxClass
     usagePeriodEntity.regionType = usagePeriod.regionType
+    usagePeriodEntity.warmPool = usagePeriod.warmPool
     return usagePeriodEntity
   }
 }

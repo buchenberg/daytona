@@ -17,6 +17,7 @@ import { SnapshotDto, SnapshotState } from '@daytona/api-client'
 import { MagnifyingGlassIcon } from '@phosphor-icons/react'
 import { ChevronDown, ChevronUp, CircleAlert, Pause, Play, Trash2, X } from 'lucide-react'
 import React, { Ref, useImperativeHandle, useState } from 'react'
+import { SnapshotWarmPools } from './SnapshotWarmPools'
 
 export interface SnapshotSheetRef {
   open: () => void
@@ -423,6 +424,8 @@ export function SnapshotSheet({
                   <span className="text-sm text-muted-foreground">-</span>
                 )}
               </InfoSection>
+
+              <SnapshotWarmPools snapshot={activeSnapshot} />
 
               {activeSnapshot.buildInfo && (
                 <InfoSection title="Build">

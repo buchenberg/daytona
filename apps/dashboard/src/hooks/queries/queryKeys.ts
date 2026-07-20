@@ -123,6 +123,10 @@ export const queryKeys = {
     all: ['volumes'] as const,
     list: (organizationId: string) => [...queryKeys.volumes.all, organizationId, 'list'] as const,
   },
+  warmPools: {
+    all: ['warm-pools'] as const,
+    list: (organizationId: string) => [...queryKeys.warmPools.all, organizationId, 'list'] as const,
+  },
   audit: {
     all: ['audit'] as const,
     logs: (organizationId: string, params: AuditLogsQueryParams) =>

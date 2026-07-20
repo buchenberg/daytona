@@ -20,6 +20,8 @@ import { DockerRegistry } from '../docker-registry/entities/docker-registry.enti
 import { RedisLockProvider } from './common/redis-lock.provider'
 import { OrganizationModule } from '../organization/organization.module'
 import { SandboxWarmPoolService } from './services/sandbox-warm-pool.service'
+import { WarmPoolService } from './services/warm-pool.service'
+import { WarmPoolController } from './controllers/warm-pool.controller'
 import { WarmPool } from './entities/warm-pool.entity'
 import { PreviewController } from './controllers/preview.controller'
 import { SnapshotRepository } from './repositories/snapshot.repository'
@@ -102,12 +104,14 @@ import { BillingModule } from '../billing/billing.module'
     PreviewController,
     VolumeController,
     JobController,
+    WarmPoolController,
   ],
   providers: [
     SandboxService,
     SandboxManager,
     BackupManager,
     SandboxWarmPoolService,
+    WarmPoolService,
     RunnerService,
     SnapshotService,
     BuildInfoService,

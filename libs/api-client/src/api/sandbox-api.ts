@@ -1299,6 +1299,7 @@ export const SandboxApiAxiosParamCreator = function (configuration?: Configurati
          * @param {string} [name] Filter by name prefix (case-insensitive)
          * @param {string} [labels] JSON encoded labels to filter by
          * @param {boolean} [includeErroredDeleted] Include results with errored state and deleted desired state
+         * @param {boolean} [includeWarm] Include unclaimed warm pool sandboxes (excluded by default)
          * @param {Array<SandboxState>} [states] List of states to filter by.
          * @param {Array<string>} [snapshots] List of snapshot names to filter by
          * @param {Array<string>} [regionIds] List of regions IDs to filter by
@@ -1320,7 +1321,7 @@ export const SandboxApiAxiosParamCreator = function (configuration?: Configurati
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        listSandboxes: async (xDaytonaOrganizationID?: string, cursor?: string, limit?: number, id?: string, name?: string, labels?: string, includeErroredDeleted?: boolean, states?: Array<SandboxState>, snapshots?: Array<string>, regionIds?: Array<string>, sandboxClasses?: Array<SandboxClass>, minCpu?: number, maxCpu?: number, minMemoryGiB?: number, maxMemoryGiB?: number, minDiskGiB?: number, maxDiskGiB?: number, isPublic?: boolean, isRecoverable?: boolean, createdAtAfter?: Date, createdAtBefore?: Date, lastEventAfter?: Date, lastEventBefore?: Date, sort?: SandboxListSortField, order?: SandboxListSortDirection, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        listSandboxes: async (xDaytonaOrganizationID?: string, cursor?: string, limit?: number, id?: string, name?: string, labels?: string, includeErroredDeleted?: boolean, includeWarm?: boolean, states?: Array<SandboxState>, snapshots?: Array<string>, regionIds?: Array<string>, sandboxClasses?: Array<SandboxClass>, minCpu?: number, maxCpu?: number, minMemoryGiB?: number, maxMemoryGiB?: number, minDiskGiB?: number, maxDiskGiB?: number, isPublic?: boolean, isRecoverable?: boolean, createdAtAfter?: Date, createdAtBefore?: Date, lastEventAfter?: Date, lastEventBefore?: Date, sort?: SandboxListSortField, order?: SandboxListSortDirection, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/sandbox`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -1361,6 +1362,10 @@ export const SandboxApiAxiosParamCreator = function (configuration?: Configurati
 
             if (includeErroredDeleted !== undefined) {
                 localVarQueryParameter['includeErroredDeleted'] = includeErroredDeleted;
+            }
+
+            if (includeWarm !== undefined) {
+                localVarQueryParameter['includeWarm'] = includeWarm;
             }
 
             if (states) {
@@ -2881,6 +2886,7 @@ export const SandboxApiFp = function(configuration?: Configuration) {
          * @param {string} [name] Filter by name prefix (case-insensitive)
          * @param {string} [labels] JSON encoded labels to filter by
          * @param {boolean} [includeErroredDeleted] Include results with errored state and deleted desired state
+         * @param {boolean} [includeWarm] Include unclaimed warm pool sandboxes (excluded by default)
          * @param {Array<SandboxState>} [states] List of states to filter by.
          * @param {Array<string>} [snapshots] List of snapshot names to filter by
          * @param {Array<string>} [regionIds] List of regions IDs to filter by
@@ -2902,8 +2908,8 @@ export const SandboxApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async listSandboxes(xDaytonaOrganizationID?: string, cursor?: string, limit?: number, id?: string, name?: string, labels?: string, includeErroredDeleted?: boolean, states?: Array<SandboxState>, snapshots?: Array<string>, regionIds?: Array<string>, sandboxClasses?: Array<SandboxClass>, minCpu?: number, maxCpu?: number, minMemoryGiB?: number, maxMemoryGiB?: number, minDiskGiB?: number, maxDiskGiB?: number, isPublic?: boolean, isRecoverable?: boolean, createdAtAfter?: Date, createdAtBefore?: Date, lastEventAfter?: Date, lastEventBefore?: Date, sort?: SandboxListSortField, order?: SandboxListSortDirection, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ListSandboxesResponse>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.listSandboxes(xDaytonaOrganizationID, cursor, limit, id, name, labels, includeErroredDeleted, states, snapshots, regionIds, sandboxClasses, minCpu, maxCpu, minMemoryGiB, maxMemoryGiB, minDiskGiB, maxDiskGiB, isPublic, isRecoverable, createdAtAfter, createdAtBefore, lastEventAfter, lastEventBefore, sort, order, options);
+        async listSandboxes(xDaytonaOrganizationID?: string, cursor?: string, limit?: number, id?: string, name?: string, labels?: string, includeErroredDeleted?: boolean, includeWarm?: boolean, states?: Array<SandboxState>, snapshots?: Array<string>, regionIds?: Array<string>, sandboxClasses?: Array<SandboxClass>, minCpu?: number, maxCpu?: number, minMemoryGiB?: number, maxMemoryGiB?: number, minDiskGiB?: number, maxDiskGiB?: number, isPublic?: boolean, isRecoverable?: boolean, createdAtAfter?: Date, createdAtBefore?: Date, lastEventAfter?: Date, lastEventBefore?: Date, sort?: SandboxListSortField, order?: SandboxListSortDirection, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ListSandboxesResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listSandboxes(xDaytonaOrganizationID, cursor, limit, id, name, labels, includeErroredDeleted, includeWarm, states, snapshots, regionIds, sandboxClasses, minCpu, maxCpu, minMemoryGiB, maxMemoryGiB, minDiskGiB, maxDiskGiB, isPublic, isRecoverable, createdAtAfter, createdAtBefore, lastEventAfter, lastEventBefore, sort, order, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['SandboxApi.listSandboxes']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
@@ -3532,6 +3538,7 @@ export const SandboxApiFactory = function (configuration?: Configuration, basePa
          * @param {string} [name] Filter by name prefix (case-insensitive)
          * @param {string} [labels] JSON encoded labels to filter by
          * @param {boolean} [includeErroredDeleted] Include results with errored state and deleted desired state
+         * @param {boolean} [includeWarm] Include unclaimed warm pool sandboxes (excluded by default)
          * @param {Array<SandboxState>} [states] List of states to filter by.
          * @param {Array<string>} [snapshots] List of snapshot names to filter by
          * @param {Array<string>} [regionIds] List of regions IDs to filter by
@@ -3553,8 +3560,8 @@ export const SandboxApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        listSandboxes(xDaytonaOrganizationID?: string, cursor?: string, limit?: number, id?: string, name?: string, labels?: string, includeErroredDeleted?: boolean, states?: Array<SandboxState>, snapshots?: Array<string>, regionIds?: Array<string>, sandboxClasses?: Array<SandboxClass>, minCpu?: number, maxCpu?: number, minMemoryGiB?: number, maxMemoryGiB?: number, minDiskGiB?: number, maxDiskGiB?: number, isPublic?: boolean, isRecoverable?: boolean, createdAtAfter?: Date, createdAtBefore?: Date, lastEventAfter?: Date, lastEventBefore?: Date, sort?: SandboxListSortField, order?: SandboxListSortDirection, options?: RawAxiosRequestConfig): AxiosPromise<ListSandboxesResponse> {
-            return localVarFp.listSandboxes(xDaytonaOrganizationID, cursor, limit, id, name, labels, includeErroredDeleted, states, snapshots, regionIds, sandboxClasses, minCpu, maxCpu, minMemoryGiB, maxMemoryGiB, minDiskGiB, maxDiskGiB, isPublic, isRecoverable, createdAtAfter, createdAtBefore, lastEventAfter, lastEventBefore, sort, order, options).then((request) => request(axios, basePath));
+        listSandboxes(xDaytonaOrganizationID?: string, cursor?: string, limit?: number, id?: string, name?: string, labels?: string, includeErroredDeleted?: boolean, includeWarm?: boolean, states?: Array<SandboxState>, snapshots?: Array<string>, regionIds?: Array<string>, sandboxClasses?: Array<SandboxClass>, minCpu?: number, maxCpu?: number, minMemoryGiB?: number, maxMemoryGiB?: number, minDiskGiB?: number, maxDiskGiB?: number, isPublic?: boolean, isRecoverable?: boolean, createdAtAfter?: Date, createdAtBefore?: Date, lastEventAfter?: Date, lastEventBefore?: Date, sort?: SandboxListSortField, order?: SandboxListSortDirection, options?: RawAxiosRequestConfig): AxiosPromise<ListSandboxesResponse> {
+            return localVarFp.listSandboxes(xDaytonaOrganizationID, cursor, limit, id, name, labels, includeErroredDeleted, includeWarm, states, snapshots, regionIds, sandboxClasses, minCpu, maxCpu, minMemoryGiB, maxMemoryGiB, minDiskGiB, maxDiskGiB, isPublic, isRecoverable, createdAtAfter, createdAtBefore, lastEventAfter, lastEventBefore, sort, order, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -4142,6 +4149,7 @@ export class SandboxApi extends BaseAPI {
      * @param {string} [name] Filter by name prefix (case-insensitive)
      * @param {string} [labels] JSON encoded labels to filter by
      * @param {boolean} [includeErroredDeleted] Include results with errored state and deleted desired state
+     * @param {boolean} [includeWarm] Include unclaimed warm pool sandboxes (excluded by default)
      * @param {Array<SandboxState>} [states] List of states to filter by.
      * @param {Array<string>} [snapshots] List of snapshot names to filter by
      * @param {Array<string>} [regionIds] List of regions IDs to filter by
@@ -4163,8 +4171,8 @@ export class SandboxApi extends BaseAPI {
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    public listSandboxes(xDaytonaOrganizationID?: string, cursor?: string, limit?: number, id?: string, name?: string, labels?: string, includeErroredDeleted?: boolean, states?: Array<SandboxState>, snapshots?: Array<string>, regionIds?: Array<string>, sandboxClasses?: Array<SandboxClass>, minCpu?: number, maxCpu?: number, minMemoryGiB?: number, maxMemoryGiB?: number, minDiskGiB?: number, maxDiskGiB?: number, isPublic?: boolean, isRecoverable?: boolean, createdAtAfter?: Date, createdAtBefore?: Date, lastEventAfter?: Date, lastEventBefore?: Date, sort?: SandboxListSortField, order?: SandboxListSortDirection, options?: RawAxiosRequestConfig) {
-        return SandboxApiFp(this.configuration).listSandboxes(xDaytonaOrganizationID, cursor, limit, id, name, labels, includeErroredDeleted, states, snapshots, regionIds, sandboxClasses, minCpu, maxCpu, minMemoryGiB, maxMemoryGiB, minDiskGiB, maxDiskGiB, isPublic, isRecoverable, createdAtAfter, createdAtBefore, lastEventAfter, lastEventBefore, sort, order, options).then((request) => request(this.axios, this.basePath));
+    public listSandboxes(xDaytonaOrganizationID?: string, cursor?: string, limit?: number, id?: string, name?: string, labels?: string, includeErroredDeleted?: boolean, includeWarm?: boolean, states?: Array<SandboxState>, snapshots?: Array<string>, regionIds?: Array<string>, sandboxClasses?: Array<SandboxClass>, minCpu?: number, maxCpu?: number, minMemoryGiB?: number, maxMemoryGiB?: number, minDiskGiB?: number, maxDiskGiB?: number, isPublic?: boolean, isRecoverable?: boolean, createdAtAfter?: Date, createdAtBefore?: Date, lastEventAfter?: Date, lastEventBefore?: Date, sort?: SandboxListSortField, order?: SandboxListSortDirection, options?: RawAxiosRequestConfig) {
+        return SandboxApiFp(this.configuration).listSandboxes(xDaytonaOrganizationID, cursor, limit, id, name, labels, includeErroredDeleted, includeWarm, states, snapshots, regionIds, sandboxClasses, minCpu, maxCpu, minMemoryGiB, maxMemoryGiB, minDiskGiB, maxDiskGiB, isPublic, isRecoverable, createdAtAfter, createdAtBefore, lastEventAfter, lastEventBefore, sort, order, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

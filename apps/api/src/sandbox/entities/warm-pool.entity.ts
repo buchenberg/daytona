@@ -2,9 +2,20 @@ import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, Update
 
 @Entity()
 @Index('warm_pool_find_idx', ['snapshot', 'target', 'cpu', 'mem', 'disk', 'gpu', 'osUser', 'env'])
+// Per-organization dedup key for self-serve pools; legacy/global pools (null org) are exempt.
+@Index('warm_pool_org_snapshot_target_unique', ['organizationId', 'snapshot', 'target'], {
+  unique: true,
+  where: '"organizationId" IS NOT NULL',
+})
 export class WarmPool {
   @PrimaryGeneratedColumn('uuid')
   id: string
+
+  // Owning organization for self-serve warm pools. Null marks a legacy/global warm pool whose
+  // sandboxes use the all-zero sentinel organization instead.
+  @Column({ type: 'uuid', nullable: true })
+  @Index('warm_pool_organizationid_idx')
+  organizationId?: string | null
 
   @Column()
   pool: number

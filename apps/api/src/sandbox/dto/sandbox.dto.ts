@@ -193,6 +193,13 @@ export class SandboxDto {
    * @deprecated Backup state is no longer exposed and will always be undefined.
    */
   @ApiPropertyOptional({
+    description: 'Id of the warm pool this sandbox waits in; set only while it is an unclaimed member.',
+    required: false,
+  })
+  @IsOptional()
+  warmPoolId?: string
+
+  @ApiPropertyOptional({
     description: 'The state of the backup',
     enum: BackupState,
     example: Object.values(BackupState)[0],
@@ -368,6 +375,7 @@ export class SandboxDto {
       // Deprecated: intentionally not populated, kept in the schema for backward compatibility
       backupState: undefined,
       backupCreatedAt: undefined,
+      warmPoolId: sandbox.warmPoolId ?? undefined,
       autoStopInterval: sandbox.autoStopInterval,
       autoPauseInterval: sandbox.autoPauseInterval,
       autoArchiveInterval: sandbox.autoArchiveInterval,

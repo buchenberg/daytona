@@ -178,6 +178,9 @@ export function convertApiFiltersToTableFilters(filters: SandboxFilters): Column
   if (filters.isRecoverable !== undefined) {
     columnFilters.push({ id: 'isRecoverable', value: filters.isRecoverable })
   }
+  if (filters.includeWarm !== undefined) {
+    columnFilters.push({ id: 'includeWarm', value: filters.includeWarm })
+  }
 
   return columnFilters
 }
@@ -271,6 +274,9 @@ export function convertTableFiltersToApiFilters(tableFilters: ColumnFiltersState
         break
       case 'isRecoverable':
         filters.isRecoverable = filter.value as boolean
+        break
+      case 'includeWarm':
+        filters.includeWarm = filter.value as boolean
         break
     }
   }

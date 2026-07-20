@@ -30,6 +30,10 @@ export interface SandboxSearchFilters {
    */
   includeErroredDeleted?: boolean
   /**
+   * Include unclaimed warm pool sandboxes (excluded by default)
+   */
+  includeWarm?: boolean
+  /**
    * Filter by states
    */
   states?: SandboxState[]

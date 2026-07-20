@@ -477,6 +477,7 @@ const configuration = {
   runnerUnresponsiveOnUnhealthySysbox: process.env.RUNNER_UNRESPONSIVE_ON_UNHEALTHY_SYSBOX === 'true',
   warmPool: {
     candidateLimit: parseInt(process.env.WARM_POOL_CANDIDATE_LIMIT || '300', 10),
+    maxTopUpsPerTick: parseInt(process.env.WARM_POOL_MAX_TOPUPS_PER_TICK || '100', 10),
   },
   otelCollector: {
     endpointUrl: process.env.OTEL_COLLECTOR_ENDPOINT_URL || process.env.SANDBOX_OTEL_ENDPOINT_URL,

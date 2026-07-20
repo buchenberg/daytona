@@ -42,6 +42,7 @@ import { OnAsyncEvent } from '../../common/decorators/on-async-event.decorator'
 import { RunnerEvents } from '../constants/runner-events'
 import { RunnerDeletedEvent } from '../events/runner-deleted.event'
 import { SnapshotRegion } from '../entities/snapshot-region.entity'
+import { WarmPool } from '../entities/warm-pool.entity'
 import { RegionType } from '../../region/enums/region-type.enum'
 import { SnapshotEvents } from '../constants/snapshot-events'
 import { SnapshotCreatedEvent } from '../events/snapshot-created.event'
@@ -80,6 +81,8 @@ export class SnapshotService {
     private readonly regionRepository: Repository<Region>,
     @InjectRepository(SnapshotRegion)
     private readonly snapshotRegionRepository: Repository<SnapshotRegion>,
+    @InjectRepository(WarmPool)
+    private readonly warmPoolRepository: Repository<WarmPool>,
     private readonly organizationService: OrganizationService,
     private readonly organizationUsageService: OrganizationUsageService,
     private readonly redisLockProvider: RedisLockProvider,
@@ -506,6 +509,22 @@ export class SnapshotService {
     }
 
     await this.snapshotRepository.update(snapshotId, { updateData, entity: snapshot })
+
+    // Drop the org's warm pools for this name right away — claiming requires the pool row, so this
+    // stops stale claims and lets a same-named recreate start with a fresh pool. A general snapshot
+    // with the same name keeps the pool; the cleanup cron covers deletion paths that bypass this.
+    if (snapshot.organizationId) {
+      try {
+        const general = await this.snapshotRepository.findOne({
+          where: { general: true, name: snapshot.name, state: Not(SnapshotState.REMOVING) },
+        })
+        if (!general) {
+          await this.warmPoolRepository.delete({ organizationId: snapshot.organizationId, snapshot: snapshot.name })
+        }
+      } catch (error) {
+        this.logger.error(`Failed to remove warm pools for deleted snapshot ${snapshot.name}`, error)
+      }
+    }
   }
 
   async getAllSnapshots(

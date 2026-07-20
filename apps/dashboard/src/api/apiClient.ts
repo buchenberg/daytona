@@ -19,6 +19,7 @@ import {
   SnapshotsApi,
   UsersApi,
   VolumesApi,
+  WarmPoolsApi,
   WebhooksApi,
 } from '@daytona/api-client'
 import axios, { AxiosError } from 'axios'
@@ -40,6 +41,7 @@ export class ApiClient {
   private _regionsApi: RegionsApi
   private _runnersApi: RunnersApi
   private _secretApi: SecretApi
+  private _warmPoolsApi: WarmPoolsApi
   private _webhooksApi: WebhooksApi
   private _analyticsUsageApi: AnalyticsUsageApi | null
   private _analyticsTelemetryApi: AnalyticsTelemetryApi | null
@@ -91,6 +93,7 @@ export class ApiClient {
     this._regionsApi = new RegionsApi(this.config, undefined, axiosInstance)
     this._runnersApi = new RunnersApi(this.config, undefined, axiosInstance)
     this._secretApi = new SecretApi(this.config, undefined, axiosInstance)
+    this._warmPoolsApi = new WarmPoolsApi(this.config, undefined, axiosInstance)
     this._webhooksApi = new WebhooksApi(this.config, undefined, axiosInstance)
 
     if (config.analyticsApiUrl) {
@@ -165,6 +168,10 @@ export class ApiClient {
 
   public get secretApi() {
     return this._secretApi
+  }
+
+  public get warmPoolsApi() {
+    return this._warmPoolsApi
   }
 
   public get webhooksApi() {

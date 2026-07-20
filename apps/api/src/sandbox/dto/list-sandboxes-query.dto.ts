@@ -86,6 +86,18 @@ export class ListSandboxesQueryDto {
   includeErroredDeleted?: boolean
 
   @ApiProperty({
+    name: 'includeWarm',
+    description: 'Include unclaimed warm pool sandboxes (excluded by default)',
+    required: false,
+    type: Boolean,
+    default: false,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  includeWarm?: boolean
+
+  @ApiProperty({
     name: 'states',
     description: `List of states to filter by.`,
     required: false,

@@ -138,8 +138,13 @@ const columns: ColumnDef<SandboxListItem>[] = [
     cell: ({ row }) => {
       const displayName = getDisplayName(row.original)
       return (
-        <div className="w-full truncate">
+        <div className="w-full truncate flex items-center gap-2">
           <span className="block truncate">{displayName}</span>
+          {row.original.warmPoolId && (
+            <Badge variant="secondary" className="shrink-0">
+              Warm
+            </Badge>
+          )}
         </div>
       )
     },
@@ -400,6 +405,11 @@ const columns: ColumnDef<SandboxListItem>[] = [
   },
   {
     id: 'isRecoverable',
+    enableHiding: false,
+    enableSorting: false,
+  },
+  {
+    id: 'includeWarm',
     enableHiding: false,
     enableSorting: false,
   },

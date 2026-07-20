@@ -8,6 +8,7 @@ import {
   Camera,
   Cpu,
   Eye,
+  Flame,
   Globe,
   HardDrive,
   ListFilter,
@@ -86,6 +87,7 @@ type SandboxFacetFilterId =
   | 'createdAt'
   | 'visibility'
   | 'recovery'
+  | 'includeWarm'
 
 type SandboxFacetFilter = {
   id: SandboxFacetFilterId
@@ -117,6 +119,7 @@ export function SandboxTableHeader({
   const hasCreatedAtFilter = ((table.getColumn('createdAt')?.getFilterValue() as Date[]) || []).length > 0
   const hasIsPublicFilter = table.getColumn('isPublic')?.getFilterValue() !== undefined
   const hasIsRecoverableFilter = table.getColumn('isRecoverable')?.getFilterValue() !== undefined
+  const hasIncludeWarmFilter = table.getColumn('includeWarm')?.getFilterValue() !== undefined
   const resourceFilterValue = (table.getColumn('resources')?.getFilterValue() as ResourceFilterValue | undefined) ?? {}
   const hasResourceFilter = RESOURCE_FILTERS.some(({ type }) => Boolean(resourceFilterValue[type]))
 
@@ -130,6 +133,7 @@ export function SandboxTableHeader({
     hasCreatedAtFilter ||
     hasIsPublicFilter ||
     hasIsRecoverableFilter ||
+    hasIncludeWarmFilter ||
     hasResourceFilter
 
   const pushFilter = (filterId: SandboxFacetFilterId) => {
@@ -292,6 +296,22 @@ export function SandboxTableHeader({
           onFilterChange={(value) => {
             table.getColumn('isRecoverable')?.setFilterValue(value)
             pushFilter('recovery')
+          }}
+        />
+      ),
+    },
+    {
+      id: 'includeWarm',
+      active: hasIncludeWarmFilter,
+      filter: (
+        <BooleanFilterIndicator
+          key="includeWarm"
+          label="Warm pool"
+          icon={<Flame className="size-4" />}
+          value={table.getColumn('includeWarm')?.getFilterValue() as boolean | undefined}
+          onFilterChange={(value) => {
+            table.getColumn('includeWarm')?.setFilterValue(value)
+            pushFilter('includeWarm')
           }}
         />
       ),
@@ -497,6 +517,22 @@ export function SandboxTableHeader({
                         pushFilter('recovery')
                       }}
                       value={table.getColumn('isRecoverable')?.getFilterValue() as boolean | undefined}
+                    />
+                  </DropdownMenuPanelContent>
+                </DropdownMenuPanel>
+                <DropdownMenuPanel>
+                  <DropdownMenuPanelTrigger>
+                    <Flame className="w-4 h-4" />
+                    Warm pool
+                  </DropdownMenuPanelTrigger>
+                  <DropdownMenuPanelContent className="p-2 w-48">
+                    <BooleanFilter
+                      label="Warm pool"
+                      onFilterChange={(value) => {
+                        table.getColumn('includeWarm')?.setFilterValue(value)
+                        pushFilter('includeWarm')
+                      }}
+                      value={table.getColumn('includeWarm')?.getFilterValue() as boolean | undefined}
                     />
                   </DropdownMenuPanelContent>
                 </DropdownMenuPanel>
