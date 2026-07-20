@@ -41,17 +41,19 @@ import { BackupState } from '../enums/backup-state.enum'
 import { OnAsyncEvent } from '../../common/decorators/on-async-event.decorator'
 import { sanitizeSandboxError } from '../utils/sanitize-error.util'
 import { isEphemeral } from '../utils/ephemeral.util'
+import { isVmSandboxClass, VM_SANDBOX_CLASSES } from '../utils/sandbox-class.util'
 import { Sandbox } from '../entities/sandbox.entity'
 import { Runner } from '../entities/runner.entity'
 import { RunnerAdapterFactory } from '../runner-adapter/runnerAdapter'
 import { DockerRegistryService } from '../../docker-registry/services/docker-registry.service'
+import { DockerRegistry } from '../../docker-registry/entities/docker-registry.entity'
 import { OrganizationService } from '../../organization/services/organization.service'
 import { OrganizationUsageService } from '../../organization/services/organization-usage.service'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { BackupManager } from './backup.manager'
 import { InjectRedis } from '@nestjs-modules/ioredis'
 import Redis from 'ioredis'
-import { BACKUP_DISABLED_REGIONS, BACKUP_DISABLED_SANDBOX_CLASSES } from '../constants/dedicated-regions.constant'
+import { AUTO_ARCHIVE_EXCLUDED_CLASSES, BACKUP_DISABLED_REGIONS } from '../constants/dedicated-regions.constant'
 import { InjectDataSource } from '@nestjs/typeorm'
 import { DataSource } from 'typeorm'
 import { RunnerState } from '../enums/runner-state.enum'
@@ -61,6 +63,9 @@ import { SandboxAutoActionEvent } from '../events/sandbox-auto-action.event'
 export const SYNC_INSTANCE_STATE_LOCK_KEY = 'sync-instance-state-'
 
 const DEDICATED_PENDING_BUILD_ORGANIZATION_ID = 'fd4f4489-5a9b-4d7b-b62e-dbd26113115c'
+
+// Global safety cap on how many sandboxes a single eviction run will process across all runners.
+const MAX_EVICTIONS_PER_RUN = 1000
 
 @Injectable()
 export class SandboxManager implements TrackableJobExecutions, OnApplicationShutdown {
@@ -306,8 +311,8 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
         .andWhere('sandbox.region NOT IN (:...backupDisabledRegions)', {
           backupDisabledRegions: BACKUP_DISABLED_REGIONS,
         })
-        .andWhere('sandbox.sandboxClass NOT IN (:...backupDisabledClasses)', {
-          backupDisabledClasses: BACKUP_DISABLED_SANDBOX_CLASSES,
+        .andWhere('sandbox.sandboxClass NOT IN (:...autoArchiveExcludedClasses)', {
+          autoArchiveExcludedClasses: AUTO_ARCHIVE_EXCLUDED_CLASSES,
         })
         .andWhere('activity."lastActivityAt" < NOW() - INTERVAL \'1 minute\' * sandbox."autoArchiveInterval"')
         .orderBy('sandbox."lastBackupAt"', 'ASC')
@@ -344,6 +349,121 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
             this.logger.error(`Error processing auto-archive state for sandbox ${sandbox.id}:`, error)
           } finally {
             await this.redisLockProvider.unlock(lockKey)
+          }
+        }),
+      )
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  // System-driven archival for VM classes (linux-vm / windows), which are excluded from the ad-hoc
+  // archival paths - they're never archived by users, inactivity, or runner draining. Instead, when a VM
+  // runner's disk fills up, the API evicts the least-recently-used stopped/paused VM sandboxes from it by
+  // setting desiredState = ARCHIVED. Backups are kept ready on stop/pause, so SandboxArchiveAction can
+  // archive immediately (it destroys the sandbox on the runner once the backup is COMPLETED, freeing disk).
+  // Paused sandboxes keep a memory-inclusive backup, so they restore as paused; stopped ones as stopped.
+  @Cron(CronExpression.EVERY_5_MINUTES, { name: 'evict-runner-sandboxes' })
+  @TrackJobExecution()
+  @LogExecution('evict-runner-sandboxes')
+  @WithInstrumentation()
+  async evictRunnerSandboxes(): Promise<void> {
+    const lockKey = 'evict-runner-sandboxes-worker-selected'
+    //  lock the sync to only run one instance at a time
+    if (!(await this.redisLockProvider.lock(lockKey, 60))) {
+      return
+    }
+
+    try {
+      const diskThreshold = this.configService.getOrThrow('runnerEvictionDiskThresholdPercent')
+      const sandboxesPerPercentage = this.configService.getOrThrow('runnerEvictionSandboxesPerPercentage')
+
+      // Rank the least-recently-used (oldest updatedAt) resting VM sandboxes per overloaded VM runner in a
+      // single windowed query. A VM runner is "overloaded" once its disk usage crosses the threshold; the
+      // number evicted scales with how far over it is: ceil((diskUsage - threshold) * sandboxesPerPercentage).
+      // Both STOPPED and PAUSED are eligible (pending != true guarantees state === desiredState, i.e. at rest);
+      // backupState=COMPLETED means archival frees disk immediately.
+      const candidates = await this.dataSource
+        .createQueryBuilder()
+        .select('ranked.id', 'id')
+        // Quote runnerId so Postgres preserves the camelCase derived-table column name.
+        .addSelect('ranked."runnerId"', 'runnerId')
+        .addSelect('ranked.state', 'state')
+        .addSelect('ranked.rn', 'rn')
+        .from((qb) => {
+          return (
+            qb
+              .select('sandbox.id', 'id')
+              .addSelect('sandbox."runnerId"', 'runnerId')
+              .addSelect('sandbox.state', 'state')
+              .addSelect('r."currentDiskUsagePercentage"', 'diskUsage')
+              .addSelect(
+                `ROW_NUMBER() OVER (
+                PARTITION BY sandbox."runnerId"
+                ORDER BY sandbox."updatedAt" ASC
+              )`,
+                'rn',
+              )
+              .from(Sandbox, 'sandbox')
+              .innerJoin('runner', 'r', 'r.id = sandbox."runnerId"')
+              .where('sandbox.state IN (:...restingStates)')
+              .andWhere('sandbox."desiredState" IN (:...restingDesiredStates)')
+              .andWhere('sandbox.pending != true')
+              .andWhere('sandbox."backupState" = :backupState')
+              // Guard against archiving a sandbox with no restorable backup reference (matches the
+              // other archival/migration paths). Archival destroys the sandbox on the runner once the
+              // backup is COMPLETED, so a null snapshot would leave it archived but unrestorable.
+              .andWhere('sandbox."backupSnapshot" IS NOT NULL')
+              .andWhere('sandbox."organizationId" != :warmPoolOrg')
+              .andWhere('r.state = :ready')
+              .andWhere('r.sandboxClass IN (:...vmClasses)')
+              .andWhere('r."currentDiskUsagePercentage" > :diskThreshold')
+              // Set params on the subquery builder so IN (:...x) array expansion resolves here.
+              .setParameters({
+                restingStates: [SandboxState.STOPPED, SandboxState.PAUSED],
+                restingDesiredStates: [SandboxDesiredState.STOPPED, SandboxDesiredState.PAUSED],
+                backupState: BackupState.COMPLETED,
+                warmPoolOrg: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+                ready: RunnerState.READY,
+                vmClasses: [...VM_SANDBOX_CLASSES],
+                diskThreshold,
+              })
+          )
+        }, 'ranked')
+        // Per-runner cap scales with how far over the threshold the runner is.
+        .where('ranked.rn <= CEIL((ranked."diskUsage" - :diskThreshold) * :sandboxesPerPercentage)', {
+          diskThreshold,
+          sandboxesPerPercentage,
+        })
+        // rn-first ordering distributes the global limit round-robin across runners, so no single runner
+        // starves the rest. runnerId is only a deterministic tiebreaker.
+        .orderBy('ranked.rn', 'ASC')
+        .addOrderBy('ranked."runnerId"', 'ASC')
+        .limit(MAX_EVICTIONS_PER_RUN)
+        .getRawMany<{ id: string; runnerId: string; state: SandboxState; rn: string }>()
+
+      await Promise.all(
+        candidates.map(async ({ id, state }) => {
+          const sandboxLockKey = getStateChangeLockKey(id)
+          const acquired = await this.redisLockProvider.lock(sandboxLockKey, 30)
+          if (!acquired) {
+            return
+          }
+
+          try {
+            // Guard on the resting state we observed so we don't clobber a concurrent transition.
+            await this.sandboxRepository.updateWhere(id, {
+              updateData: { desiredState: SandboxDesiredState.ARCHIVED },
+              whereCondition: { pending: false, state },
+            })
+
+            this.syncInstanceState(id).catch((err) =>
+              this.logger.error(`Error syncing instance state for sandbox ${id}:`, err),
+            )
+          } catch (error) {
+            this.logger.error(`Error evicting sandbox ${id}:`, error)
+          } finally {
+            await this.redisLockProvider.unlock(sandboxLockKey)
           }
         }),
       )
@@ -662,7 +782,7 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
         backupSnapshot: Not(IsNull()),
         pending: false,
         region: Not(In(BACKUP_DISABLED_REGIONS)),
-        sandboxClass: Not(In(BACKUP_DISABLED_SANDBOX_CLASSES)),
+        sandboxClass: Not(In(AUTO_ARCHIVE_EXCLUDED_CLASSES)),
       },
       take: 100,
     })
@@ -705,7 +825,7 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
         backupState: BackupState.COMPLETED,
         backupSnapshot: Not(IsNull()),
         region: Not(In(BACKUP_DISABLED_REGIONS)),
-        sandboxClass: Not(In(BACKUP_DISABLED_SANDBOX_CLASSES)),
+        sandboxClass: Not(In(AUTO_ARCHIVE_EXCLUDED_CLASSES)),
       },
       take: 100,
     })
@@ -928,13 +1048,19 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
       return
     }
 
-    if (!sandbox.backupRegistryId) {
-      throw new Error(`Sandbox ${sandbox.id} has no backup registry`)
-    }
+    // VM-backed classes (linux-vm, windows) back up to runner-managed storage with no registry ref,
+    // so there's nothing to look up or pass through - the runner locates the backup by its snapshot name.
+    let registry: DockerRegistry | undefined
+    if (!isVmSandboxClass(sandbox.sandboxClass)) {
+      if (!sandbox.backupRegistryId) {
+        throw new Error(`Sandbox ${sandbox.id} has no backup registry`)
+      }
 
-    const registry = await this.dockerRegistryService.findOne(sandbox.backupRegistryId)
-    if (!registry) {
-      throw new Error(`Registry ${sandbox.backupRegistryId} not found for sandbox ${sandbox.id}`)
+      const found = await this.dockerRegistryService.findOne(sandbox.backupRegistryId)
+      if (!found) {
+        throw new Error(`Registry ${sandbox.backupRegistryId} not found for sandbox ${sandbox.id}`)
+      }
+      registry = found
     }
 
     const organization = await this.organizationService.findOne(sandbox.organizationId)
@@ -1253,7 +1379,7 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
       .createQueryBuilder('sandbox')
       .leftJoin('runner', 'r', 'r.id = sandbox.runnerId')
       .where('sandbox.state IN (:...states)', {
-        states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.ERROR],
+        states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.PAUSED, SandboxState.ERROR],
       })
       .andWhere('sandbox.desiredState = :desiredState', { desiredState: SandboxDesiredState.ARCHIVED })
       .andWhere('( sandbox.runnerId IS NULL OR r.state =:ready )', { ready: RunnerState.READY })
@@ -1282,7 +1408,7 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
       .createQueryBuilder('sandbox')
       .leftJoin('runner', 'r', 'r.id = sandbox.runnerId')
       .where('sandbox.state IN (:...states)', {
-        states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.ERROR],
+        states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.PAUSED, SandboxState.ERROR],
       })
       .andWhere('sandbox.desiredState = :desiredState', { desiredState: SandboxDesiredState.ARCHIVED })
       .andWhere('sandbox.backupState = :backupState', { backupState: BackupState.COMPLETED })

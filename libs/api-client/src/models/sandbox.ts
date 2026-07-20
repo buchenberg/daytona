@@ -116,10 +116,12 @@ export interface Sandbox {
     'recoverable'?: boolean;
     /**
      * The state of the backup
+     * @deprecated
      */
     'backupState'?: SandboxBackupStateEnum;
     /**
      * The creation timestamp of the last backup
+     * @deprecated
      */
     'backupCreatedAt'?: string;
     /**

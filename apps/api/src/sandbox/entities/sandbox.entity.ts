@@ -285,6 +285,10 @@ export class Sandbox {
   @Column({ nullable: true })
   linkedSandboxId?: string | null
 
+  // Whether the sandbox's stopped/archived state preserves memory
+  @Column({ type: 'boolean', default: false })
+  includesMemory: boolean
+
   constructor(params?: { region: string; name?: string }) {
     if (!params) return
     this.id = uuidv4()
@@ -431,6 +435,7 @@ export class Sandbox {
             SandboxState.ARCHIVED,
             SandboxState.ARCHIVING,
             SandboxState.STOPPED,
+            SandboxState.PAUSED,
             SandboxState.ERROR,
             SandboxState.BUILD_FAILED,
           ].includes(this.state)

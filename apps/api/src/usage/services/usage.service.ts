@@ -20,6 +20,7 @@ import { SandboxDesiredStateUpdatedEvent } from '../../sandbox/events/sandbox-de
 import { SandboxDesiredState } from '../../sandbox/enums/sandbox-desired-state.enum'
 import { Region } from '../../region/entities/region.entity'
 import { RegionType } from '../../region/enums/region-type.enum'
+import { isArchiveStateHiddenClass } from '../../sandbox/utils/archive-state-mapping.util'
 
 @Injectable()
 export class UsageService implements TrackableJobExecutions, OnApplicationShutdown {
@@ -82,22 +83,21 @@ export class UsageService implements TrackableJobExecutions, OnApplicationShutdo
         // Safeguards if STOPPING / PAUSING state is skipped
         case SandboxState.STOPPED:
         case SandboxState.PAUSED: {
-          const cpuUsagePeriod = await this.sandboxUsagePeriodRepository.findOne({
-            where: {
-              sandboxId: event.sandbox.id,
-              endAt: IsNull(),
-              cpu: Not(0),
-            },
-          })
-          if (cpuUsagePeriod) {
+          await this.ensureDiskOnlyUsagePeriod(event)
+          break
+        }
+        case SandboxState.ARCHIVED: {
+          // For classes whose archived state is billed the same as stopped/paused (linux-vm, windows),
+          // keep the existing disk-only usage period running instead of closing it on archive.
+          if (isArchiveStateHiddenClass(event.sandbox.sandboxClass)) {
+            await this.ensureDiskOnlyUsagePeriod(event)
+          } else {
             await this.closeUsagePeriod(event.sandbox.id)
-            await this.createUsagePeriod(event, true)
           }
           break
         }
         case SandboxState.ERROR:
         case SandboxState.BUILD_FAILED:
-        case SandboxState.ARCHIVED:
         case SandboxState.DESTROYING:
         case SandboxState.DESTROYED: {
           await this.closeUsagePeriod(event.sandbox.id)
@@ -134,6 +134,22 @@ export class UsageService implements TrackableJobExecutions, OnApplicationShutdo
     usagePeriod.regionType = await this.getRegionType(event.sandbox.region)
 
     await this.sandboxUsagePeriodRepository.save(usagePeriod)
+  }
+
+  // Ensures only a disk-only usage period remains open: if a cpu/mem-billed period is still open, it is
+  // closed and reopened as disk-only. Used for stopped/paused, and for archived on classes billed as stopped.
+  private async ensureDiskOnlyUsagePeriod(event: SandboxStateUpdatedEvent) {
+    const cpuUsagePeriod = await this.sandboxUsagePeriodRepository.findOne({
+      where: {
+        sandboxId: event.sandbox.id,
+        endAt: IsNull(),
+        cpu: Not(0),
+      },
+    })
+    if (cpuUsagePeriod) {
+      await this.closeUsagePeriod(event.sandbox.id)
+      await this.createUsagePeriod(event, true)
+    }
   }
 
   private async closeUsagePeriod(sandboxId: string) {
@@ -191,19 +207,28 @@ export class UsageService implements TrackableJobExecutions, OnApplicationShutdo
           usagePeriod.endAt = closeTime
           await transactionalEntityManager.save(usagePeriod)
 
+          // Archived sandboxes of classes billed as stopped (linux-vm, windows) keep accruing disk usage.
+          const archivedBilledAsStopped =
+            sandbox?.state === SandboxState.ARCHIVED && isArchiveStateHiddenClass(sandbox.sandboxClass)
+
           if (
             sandbox &&
             (sandbox.state === SandboxState.STARTED ||
               sandbox.state === SandboxState.STOPPED ||
               sandbox.state === SandboxState.STOPPING ||
               sandbox.state === SandboxState.PAUSED ||
-              sandbox.state === SandboxState.PAUSING)
+              sandbox.state === SandboxState.PAUSING ||
+              archivedBilledAsStopped)
           ) {
             // Create new usage period
             const newUsagePeriod = SandboxUsagePeriod.fromUsagePeriod(usagePeriod)
             newUsagePeriod.startAt = closeTime
             newUsagePeriod.endAt = null
-            if (sandbox.state === SandboxState.STOPPED || sandbox.state === SandboxState.PAUSED) {
+            if (
+              sandbox.state === SandboxState.STOPPED ||
+              sandbox.state === SandboxState.PAUSED ||
+              archivedBilledAsStopped
+            ) {
               newUsagePeriod.cpu = 0
               newUsagePeriod.gpu = 0
               newUsagePeriod.gpuType = null

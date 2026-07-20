@@ -44,7 +44,6 @@ import { SandboxEvents } from '../constants/sandbox-events.constants'
 import { isApiRecoverableError } from '../constants/errors-for-recovery'
 import { SandboxStateUpdatedEvent } from '../events/sandbox-state-updated.event'
 import { generateBuildInfoHash as generateBuildSnapshotRef } from '../entities/build-info.entity'
-import { SandboxBackupCreatedEvent } from '../events/sandbox-backup-created.event'
 import { SandboxDestroyedEvent } from '../events/sandbox-destroyed.event'
 import { SandboxStartedEvent } from '../events/sandbox-started.event'
 import { SandboxStoppedEvent } from '../events/sandbox-stopped.event'
@@ -69,7 +68,8 @@ import { VolumeService } from './volume.service'
 import {
   resolveEffectiveRegion,
   BUILD_INFO_BLOCKED_ORGS,
-  isBackupDisabled,
+  GPU_REGION,
+  forbidUserArchiveCalls,
 } from '../constants/dedicated-regions.constant'
 import { PaginatedList } from '../../common/interfaces/paginated-list.interface'
 import {
@@ -404,7 +404,7 @@ export class SandboxService {
 
     this.assertSandboxNotErrored(sandbox)
 
-    if (isBackupDisabled(sandbox)) {
+    if (forbidUserArchiveCalls(sandbox)) {
       throw new SandboxError('Sandboxes in this region or class cannot be archived')
     }
 
@@ -1254,26 +1254,6 @@ export class SandboxService {
           .catch((err) => this.logger.error('Failed to release GPU runner assignment lock', err))
       }
     }
-  }
-
-  async createBackup(sandboxIdOrName: string, organizationId?: string): Promise<Sandbox> {
-    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
-
-    if (isEphemeral(sandbox)) {
-      throw new SandboxError('Ephemeral sandboxes cannot be backed up')
-    }
-
-    if (isBackupDisabled(sandbox)) {
-      throw new SandboxError('Sandboxes in this region or class cannot be backed up')
-    }
-
-    if (![BackupState.COMPLETED, BackupState.NONE].includes(sandbox.backupState)) {
-      throw new SandboxError('Sandbox backup is already in progress')
-    }
-
-    this.eventEmitter.emit(SandboxEvents.BACKUP_CREATED, new SandboxBackupCreatedEvent(sandbox))
-
-    return sandbox
   }
 
   async forkSandbox(sandboxIdOrName: string, organization: Organization, dto: ForkSandboxDto): Promise<Sandbox> {

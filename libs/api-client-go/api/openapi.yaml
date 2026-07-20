@@ -2573,6 +2573,9 @@ paths:
       - sandbox
   /sandbox/{sandboxIdOrName}/backup:
     post:
+      deprecated: true
+      description: "Deprecated: backups are managed automatically. This endpoint is\
+        \ a no-op kept for compatibility."
       operationId: createBackup
       parameters:
       - description: Use with JWT to specify the organization ID
@@ -2597,7 +2600,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Sandbox"
-          description: Sandbox backup has been initiated
+          description: Sandbox backup request acknowledged (no-op)
       security:
       - bearer: []
       - oauth2:
@@ -9111,6 +9114,7 @@ components:
           example: true
           type: boolean
         backupState:
+          deprecated: true
           description: The state of the backup
           enum:
           - None
@@ -9121,6 +9125,7 @@ components:
           example: None
           type: string
         backupCreatedAt:
+          deprecated: true
           description: The creation timestamp of the last backup
           example: 2024-10-01T12:00:00Z
           type: string

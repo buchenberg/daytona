@@ -41,14 +41,19 @@ type SandboxAPI interface {
 	/*
 	CreateBackup Create sandbox backup
 
+	Deprecated: backups are managed automatically. This endpoint is a no-op kept for compatibility.
+
 	@param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
 	@param sandboxIdOrName ID or name of the sandbox
 	@return SandboxAPICreateBackupRequest
+
+	Deprecated
 	*/
 	CreateBackup(ctx context.Context, sandboxIdOrName string) SandboxAPICreateBackupRequest
 
 	// CreateBackupExecute executes the request
 	//  @return Sandbox
+	// Deprecated
 	CreateBackupExecute(r SandboxAPICreateBackupRequest) (*Sandbox, *http.Response, error)
 
 	/*
@@ -771,9 +776,13 @@ func (r SandboxAPICreateBackupRequest) Execute() (*Sandbox, *http.Response, erro
 /*
 CreateBackup Create sandbox backup
 
+Deprecated: backups are managed automatically. This endpoint is a no-op kept for compatibility.
+
  @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  @param sandboxIdOrName ID or name of the sandbox
  @return SandboxAPICreateBackupRequest
+
+Deprecated
 */
 func (a *SandboxAPIService) CreateBackup(ctx context.Context, sandboxIdOrName string) SandboxAPICreateBackupRequest {
 	return SandboxAPICreateBackupRequest{
@@ -785,6 +794,7 @@ func (a *SandboxAPIService) CreateBackup(ctx context.Context, sandboxIdOrName st
 
 // Execute executes the request
 //  @return Sandbox
+// Deprecated
 func (a *SandboxAPIService) CreateBackupExecute(r SandboxAPICreateBackupRequest) (*Sandbox, *http.Response, error) {
 	var (
 		localVarHTTPMethod   = http.MethodPost

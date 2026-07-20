@@ -296,6 +296,11 @@ const configuration = {
   cronTimeZone: process.env.CRON_TIMEZONE,
   maxConcurrentBackupsPerRunner: parseInt(process.env.MAX_CONCURRENT_BACKUPS_PER_RUNNER || '6', 10),
   backupRetryIntervalHours: parseInt(process.env.BACKUP_RETRY_INTERVAL_HOURS || '6', 10),
+  // Disk usage % above which a VM runner is considered overloaded and its stopped VM sandboxes are evicted.
+  runnerEvictionDiskThresholdPercent: parseInt(process.env.RUNNER_EVICTION_DISK_THRESHOLD_PERCENT || '70', 10),
+  // Sandboxes to evict per whole percentage point a VM runner is over the threshold
+  // (e.g. threshold 70, value 1: a runner at 78% evicts up to ceil((78-70)*1)=8 sandboxes).
+  runnerEvictionSandboxesPerPercentage: parseFloat(process.env.RUNNER_EVICTION_SANDBOXES_PER_PERCENTAGE || '1'),
   webhook: {
     authToken: process.env.SVIX_AUTH_TOKEN,
     serverUrl: process.env.SVIX_SERVER_URL,

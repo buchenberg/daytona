@@ -29,10 +29,12 @@ export class SandboxArchiveAction extends SandboxAction {
 
   @WithSpan()
   async run(sandbox: Sandbox, lockCode: LockCode): Promise<SyncState> {
-    // Only proceed with archiving if the sandbox is in STOPPED, ARCHIVING or ERROR (runner draining) state.
-    // For all other states, do not proceed with archiving.
+    // Only proceed with archiving if the sandbox is in STOPPED, PAUSED, ARCHIVING or ERROR (runner draining)
+    // state. PAUSED applies to VM classes evicted from overloaded runners; their backup is memory-inclusive so
+    // they restore as paused. For all other states, do not proceed with archiving.
     if (
       sandbox.state !== SandboxState.STOPPED &&
+      sandbox.state !== SandboxState.PAUSED &&
       sandbox.state !== SandboxState.ARCHIVING &&
       sandbox.state !== SandboxState.ERROR
     ) {

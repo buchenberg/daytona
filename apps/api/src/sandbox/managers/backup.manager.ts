@@ -32,11 +32,8 @@ import { WithInstrumentation } from '../../common/decorators/otel.decorator'
 import { DockerRegistry } from '../../docker-registry/entities/docker-registry.entity'
 import { SandboxService } from '../services/sandbox.service'
 import { SandboxRepository } from '../repositories/sandbox.repository'
-import {
-  BACKUP_DISABLED_REGIONS,
-  BACKUP_DISABLED_SANDBOX_CLASSES,
-  isBackupDisabled,
-} from '../constants/dedicated-regions.constant'
+import { BACKUP_DISABLED_REGIONS, isBackupDisabledRegion } from '../constants/dedicated-regions.constant'
+import { isVmSandboxClass } from '../utils/sandbox-class.util'
 import { getBackupRegistryOverride } from '../constants/backup-registry-overrides.constant'
 import { Job } from '../entities/job.entity'
 import { JobStatus } from '../enums/job-status.enum'
@@ -145,7 +142,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         .createQueryBuilder('sandbox')
         .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
         .where('sandbox.state IN (:...states)', {
-          states: [SandboxState.ARCHIVING, SandboxState.STOPPED],
+          states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.PAUSED],
         })
         .andWhere('sandbox.backupState IN (:...backupStates)', {
           backupStates: [BackupState.PENDING],
@@ -154,9 +151,6 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         .andWhere('r.state = :ready', { ready: RunnerState.READY })
         .andWhere('sandbox.region NOT IN (:...backupDisabledRegions)', {
           backupDisabledRegions: BACKUP_DISABLED_REGIONS,
-        })
-        .andWhere('sandbox.sandboxClass NOT IN (:...backupDisabledClasses)', {
-          backupDisabledClasses: BACKUP_DISABLED_SANDBOX_CLASSES,
         })
         .andWhere('sandbox.organizationId != :dedicatedBackupOrgId', {
           dedicatedBackupOrgId: DEDICATED_BACKUP_ORG_ID,
@@ -271,7 +265,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
         .where('sandbox.organizationId = :dedicatedBackupOrgId', { dedicatedBackupOrgId: DEDICATED_BACKUP_ORG_ID })
         .andWhere('sandbox.state IN (:...states)', {
-          states: [SandboxState.ARCHIVING, SandboxState.STOPPED],
+          states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.PAUSED],
         })
         .andWhere('sandbox.backupState IN (:...backupStates)', {
           backupStates: [BackupState.PENDING],
@@ -280,9 +274,6 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         .andWhere('r.state = :ready', { ready: RunnerState.READY })
         .andWhere('sandbox.region NOT IN (:...backupDisabledRegions)', {
           backupDisabledRegions: BACKUP_DISABLED_REGIONS,
-        })
-        .andWhere('sandbox.sandboxClass NOT IN (:...backupDisabledClasses)', {
-          backupDisabledClasses: BACKUP_DISABLED_SANDBOX_CLASSES,
         })
         // Prioritize manual archival action, then auto-archive poller
         .addSelect(
@@ -392,7 +383,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
             .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
             .where('sandbox.runnerId = :runnerId', { runnerId: runner.id })
             .andWhere('sandbox.state IN (:...states)', {
-              states: [SandboxState.ARCHIVING, SandboxState.STOPPED],
+              states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.PAUSED],
             })
             .andWhere('sandbox.backupState IN (:...backupStates)', {
               backupStates: [BackupState.PENDING],
@@ -401,9 +392,6 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
             .andWhere('r.state = :ready', { ready: RunnerState.READY })
             .andWhere('sandbox.region NOT IN (:...backupDisabledRegions)', {
               backupDisabledRegions: BACKUP_DISABLED_REGIONS,
-            })
-            .andWhere('sandbox.sandboxClass NOT IN (:...backupDisabledClasses)', {
-              backupDisabledClasses: BACKUP_DISABLED_SANDBOX_CLASSES,
             })
             .andWhere('sandbox.organizationId != :backupExcludedOrgId', {
               backupExcludedOrgId: DEDICATED_BACKUP_ORG_ID,
@@ -519,7 +507,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         .addSelect('RANDOM()', 'rand')
         .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
         .where('sandbox.state IN (:...states)', {
-          states: [SandboxState.ARCHIVING, SandboxState.STOPPED],
+          states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.PAUSED],
         })
         .andWhere('sandbox.backupState IN (:...backupStates)', {
           backupStates: [BackupState.IN_PROGRESS],
@@ -694,13 +682,12 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
       const sandboxes = await this.sandboxRepository
         .createQueryBuilder('sandbox')
         .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
-        .where('sandbox.state IN (:...states)', { states: [SandboxState.ARCHIVING, SandboxState.STOPPED] })
+        .where('sandbox.state IN (:...states)', {
+          states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.PAUSED],
+        })
         .andWhere('sandbox.backupState = :none', { none: BackupState.NONE })
         .andWhere('sandbox.region NOT IN (:...backupDisabledRegions)', {
           backupDisabledRegions: BACKUP_DISABLED_REGIONS,
-        })
-        .andWhere('sandbox.sandboxClass NOT IN (:...backupDisabledClasses)', {
-          backupDisabledClasses: BACKUP_DISABLED_SANDBOX_CLASSES,
         })
         .andWhere('sandbox.desiredState != :destroyed', { destroyed: SandboxDesiredState.DESTROYED })
         .andWhere('r.state = :ready', { ready: RunnerState.READY })
@@ -786,7 +773,7 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
   }
 
   async setBackupPending(sandbox: Sandbox): Promise<void> {
-    if (isBackupDisabled(sandbox)) {
+    if (isBackupDisabledRegion(sandbox.region)) {
       return
     }
 
@@ -794,19 +781,32 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
       return
     }
 
-    // Allow backups for STARTED sandboxes, STOPPED/ERROR sandboxes with runnerId, or ARCHIVING sandboxes
+    // Allow backups for STARTED sandboxes, STOPPED/PAUSED/ERROR sandboxes with runnerId, or ARCHIVING sandboxes
     if (
       !(
         sandbox.state === SandboxState.STARTED ||
         sandbox.state === SandboxState.ARCHIVING ||
         (sandbox.state === SandboxState.STOPPED && sandbox.runnerId) ||
+        (sandbox.state === SandboxState.PAUSED && sandbox.runnerId) ||
         (sandbox.state === SandboxState.ERROR && sandbox.runnerId)
       )
     ) {
-      throw new BadRequestError('Sandbox must be started, stopped, or errored with assigned runner to create a backup')
+      throw new BadRequestError(
+        'Sandbox must be started, stopped, paused, or errored with assigned runner to create a backup',
+      )
     }
 
     if (sandbox.backupState === BackupState.IN_PROGRESS || sandbox.backupState === BackupState.PENDING) {
+      return
+    }
+
+    // VM-backed classes (linux-vm, windows) manage their own backup storage on the runner. We don't
+    // resolve a registry or build a registry/image/tag ref for them - just a sandbox-id + timestamp
+    // snapshot name (the runner uses/infers the rest), and no registry is associated with the backup.
+    if (isVmSandboxClass(sandbox.sandboxClass)) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const backupSnapshot = `${sandbox.id}:${timestamp}`
+      await this.sandboxService.updateSandboxBackupState(sandbox.id, BackupState.PENDING, backupSnapshot, null)
       return
     }
 
@@ -966,7 +966,17 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
   }
 
   private async deleteSandboxBackupRepositoryFromRegistry(sandbox: Sandbox): Promise<void> {
+    // VM-backed classes (linux-vm, windows) store backups in runner-managed storage with no registry ref,
+    // so there's no registry repository to delete.
+    if (isVmSandboxClass(sandbox.sandboxClass) || !sandbox.backupRegistryId) {
+      return
+    }
+
     const registry = await this.dockerRegistryService.findOne(sandbox.backupRegistryId)
+    if (!registry) {
+      this.logger.warn(`Registry ${sandbox.backupRegistryId} not found for backup repository ${sandbox.id}`)
+      return
+    }
 
     try {
       await this.dockerRegistryService.deleteSandboxRepository(sandbox.id, registry)
@@ -1026,9 +1036,14 @@ export class BackupManager implements TrackableJobExecutions, OnApplicationShutd
         return
       }
 
-      const registry = await this.dockerRegistryService.findOne(sandbox.backupRegistryId)
-      if (!registry) {
-        throw new Error('Registry not found')
+      // VM-backed classes back up to runner-managed storage, so there's no registry to look up or send.
+      let registry: DockerRegistry | undefined
+      if (!isVmSandboxClass(sandbox.sandboxClass)) {
+        const found = await this.dockerRegistryService.findOne(sandbox.backupRegistryId)
+        if (!found) {
+          throw new Error('Registry not found')
+        }
+        registry = found
       }
 
       const runner = await this.runnerService.findOneOrFail(sandbox.runnerId)

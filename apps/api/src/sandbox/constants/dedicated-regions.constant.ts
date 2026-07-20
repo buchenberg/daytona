@@ -33,11 +33,14 @@ export const EXPERIMENTAL_REGION = 'experimental'
 export const BACKUP_DISABLED_REGIONS: string[] = [LARGE_SANDBOX_SHARED_REGION, EXPERIMENTAL_REGION]
 
 /**
- * Sandbox classes where automatic backups and archiving are disabled.
+ * Sandbox classes excluded from the ad-hoc archival paths (user-initiated archive,
+ * inactivity auto-archive, and runner-draining archival).
  *
- * Sandboxes of these classes are never backed up and cannot be archived.
+ * These classes are still backed up, and are still archived by the system - but only
+ * via the dedicated runner-eviction flow (see evictRunnerSandboxes), never through the
+ * usual archival triggers.
  */
-export const BACKUP_DISABLED_SANDBOX_CLASSES: SandboxClass[] = [SandboxClass.LINUX_VM, SandboxClass.WINDOWS]
+export const AUTO_ARCHIVE_EXCLUDED_CLASSES: SandboxClass[] = [SandboxClass.LINUX_VM, SandboxClass.WINDOWS]
 
 /**
  * @returns true if backups and archiving are disabled for the given region
@@ -47,18 +50,22 @@ export function isBackupDisabledRegion(region: string): boolean {
 }
 
 /**
- * @returns true if backups and archiving are disabled for the given sandbox class
+ * @returns true if the given sandbox class is excluded from the ad-hoc archival paths
+ * (user, inactivity, draining). Its archival is instead managed by runner eviction.
  */
-export function isBackupDisabledClass(sandboxClass: SandboxClass): boolean {
-  return BACKUP_DISABLED_SANDBOX_CLASSES.includes(sandboxClass)
+export function isAutoArchiveExcludedClass(sandboxClass: SandboxClass): boolean {
+  return AUTO_ARCHIVE_EXCLUDED_CLASSES.includes(sandboxClass)
 }
 
 /**
- * @returns true if backups and archiving are disabled for the given sandbox,
- * either because of its region or its class
+ * @returns true if users are forbidden from archiving the given sandbox (via the archive
+ * endpoint or by setting an autoArchiveInterval), either because of its region or its class.
+ *
+ * Note: this only governs user-initiated archiving. The system may still archive these
+ * sandboxes (e.g. runner eviction). It is intentionally decoupled from whether backups run.
  */
-export function isBackupDisabled(sandbox: { region: string; sandboxClass: SandboxClass }): boolean {
-  return isBackupDisabledRegion(sandbox.region) || isBackupDisabledClass(sandbox.sandboxClass)
+export function forbidUserArchiveCalls(sandbox: { region: string; sandboxClass: SandboxClass }): boolean {
+  return isBackupDisabledRegion(sandbox.region) || isAutoArchiveExcludedClass(sandbox.sandboxClass)
 }
 
 /**

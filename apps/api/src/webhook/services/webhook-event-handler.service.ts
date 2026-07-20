@@ -50,6 +50,12 @@ export class WebhookEventHandlerService {
 
     try {
       const payload = SandboxStateUpdatedWebhookDto.fromEvent(event, WebhookEvent.SANDBOX_STATE_UPDATED)
+      // For classes whose archive lifecycle is hidden (linux-vm, windows), archiving/archived are surfaced
+      // as stopped/paused. A real transition between hidden states (e.g. STOPPED -> ARCHIVING -> ARCHIVED)
+      // therefore collapses to an identical client-facing state - don't emit a spurious no-op webhook.
+      if (event.oldState !== event.newState && payload.oldState === payload.newState) {
+        return
+      }
       await this.webhookService.sendWebhook(event.sandbox.organizationId, WebhookEvent.SANDBOX_STATE_UPDATED, payload)
     } catch (error) {
       this.logger.error(`Failed to send webhook for sandbox state updated: ${error.message}`)

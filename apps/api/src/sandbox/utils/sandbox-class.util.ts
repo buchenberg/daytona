@@ -23,3 +23,18 @@ export function getRunnerSandboxClass(sandboxClass: SandboxClass): SandboxClass 
 export function isRegistryBasedSandboxClass(sandboxClass: SandboxClass): boolean {
   return sandboxClass !== SandboxClass.WINDOWS
 }
+
+/**
+ * VM-backed sandbox classes (as opposed to container-backed). They differ from containers in several
+ * ways handled across the codebase: their archive state is hidden from users and surfaced as
+ * stopped/paused, their archival is system-managed (runner eviction), and their backups are managed by
+ * the runner itself - the API does not hand them a registry/image/tag ref, only a sandbox-id + timestamp.
+ */
+export const VM_SANDBOX_CLASSES: ReadonlySet<SandboxClass> = new Set([SandboxClass.LINUX_VM, SandboxClass.WINDOWS])
+
+/**
+ * @returns true if the sandbox class is VM-backed (linux-vm, windows).
+ */
+export function isVmSandboxClass(sandboxClass?: SandboxClass | null): boolean {
+  return !!sandboxClass && VM_SANDBOX_CLASSES.has(sandboxClass)
+}

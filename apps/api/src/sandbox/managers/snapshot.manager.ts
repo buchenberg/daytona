@@ -45,7 +45,7 @@ import { SnapshotCreatedEvent } from '../events/snapshot-created.event'
 import { SnapshotService } from '../services/snapshot.service'
 import { OnAsyncEvent } from '../../common/decorators/on-async-event.decorator'
 import { parseDockerImage } from '../../common/utils/docker-image.util'
-import { getRunnerSandboxClass, isRegistryBasedSandboxClass } from '../utils/sandbox-class.util'
+import { getRunnerSandboxClass, isRegistryBasedSandboxClass, isVmSandboxClass } from '../utils/sandbox-class.util'
 import { SandboxClass } from '../enums/sandbox-class.enum'
 import { SandboxState } from '../enums/sandbox-state.enum'
 import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
@@ -1106,15 +1106,25 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       const regionForRegistry = getFallbackRegion(runner.region) ?? runner.region
       const snapshot = await this.snapshotRepository.findOne({ where: { ref: snapshotRunner.snapshotRef } })
       let sandboxClass = snapshot?.sandboxClass
+      // A Snapshot row means this is a base snapshot ref; otherwise it's a sandbox backup ref. This
+      // matters for the registry rule below: base linux-vm snapshots ARE registry-based, but linux-vm
+      // backups are runner-managed with no registry.
+      let isBackupRef = false
       if (!sandboxClass) {
         // Backup-snapshot refs do not have a Snapshot row; fall back to the owning sandbox's class.
         const sandbox = await this.sandboxRepository.findOne({
           where: { backupSnapshot: snapshotRunner.snapshotRef },
         })
         sandboxClass = sandbox?.sandboxClass
+        isBackupRef = !!sandbox
       }
       let internalRegistry: DockerRegistry | undefined
-      if (!sandboxClass || isRegistryBasedSandboxClass(sandboxClass)) {
+      // Backup refs: registry-backed only for non-VM classes. Base snapshots (or unknown refs): use the
+      // registry unless the class stores its ref outside a registry (e.g. windows S3 VHD).
+      const needsRegistry = isBackupRef
+        ? !isVmSandboxClass(sandboxClass)
+        : !sandboxClass || isRegistryBasedSandboxClass(sandboxClass)
+      if (needsRegistry) {
         const found = await this.dockerRegistryService.findInternalRegistryBySnapshotRef(
           snapshotRunner.snapshotRef,
           regionForRegistry,
@@ -1249,18 +1259,19 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
                   }
 
                   // Find the backup registry to use as source for the pull.
-                  // Non-registry-based classes (e.g. Windows) reference an S3 key rather than a
-                  // Docker registry, so skip the registry lookup for them.
+                  // VM-backed classes (linux-vm, windows) store backups in runner-managed storage with no
+                  // registry ref, so skip the registry lookup for them - the runner locates the backup by
+                  // its snapshot name.
                   const registry = sandbox.backupRegistryId
                     ? await this.dockerRegistryService.findOne(sandbox.backupRegistryId)
-                    : isRegistryBasedSandboxClass(sandbox.sandboxClass)
+                    : !isVmSandboxClass(sandbox.sandboxClass)
                       ? await this.dockerRegistryService.findInternalRegistryBySnapshotRef(
                           sandbox.backupSnapshot,
                           targetRunner.region,
                         )
                       : undefined
 
-                  if (isRegistryBasedSandboxClass(sandbox.sandboxClass) && !registry) {
+                  if (!isVmSandboxClass(sandbox.sandboxClass) && !registry) {
                     this.logger.warn(
                       `No registry found for backup snapshot ${sandbox.backupSnapshot} of sandbox ${sandbox.id}`,
                     )

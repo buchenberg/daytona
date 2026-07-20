@@ -11,6 +11,7 @@ import { SnapshotStateUpdatedEvent } from '../../sandbox/events/snapshot-state-u
 import { SnapshotRemovedEvent } from '../../sandbox/events/snapshot-removed.event'
 import { VolumeCreatedEvent } from '../../sandbox/events/volume-created.event'
 import { VolumeStateUpdatedEvent } from '../../sandbox/events/volume-state-updated.event'
+import { mapStateForClient } from '../../sandbox/utils/archive-state-mapping.util'
 
 export abstract class BaseWebhookEventDto {
   @ApiProperty({
@@ -71,7 +72,7 @@ export class SandboxCreatedWebhookDto extends BaseWebhookEventDto {
       timestamp: new Date().toISOString(),
       id: event.sandbox.id,
       organizationId: event.sandbox.organizationId,
-      state: event.sandbox.state,
+      state: mapStateForClient(event.sandbox.state, event.sandbox.sandboxClass, event.sandbox.includesMemory),
       sandboxClass: event.sandbox.sandboxClass,
       createdAt: event.sandbox.createdAt.toISOString(),
     }
@@ -119,8 +120,8 @@ export class SandboxStateUpdatedWebhookDto extends BaseWebhookEventDto {
       timestamp: new Date().toISOString(),
       id: event.sandbox.id,
       organizationId: event.sandbox.organizationId,
-      oldState: event.oldState,
-      newState: event.newState,
+      oldState: mapStateForClient(event.oldState, event.sandbox.sandboxClass, event.sandbox.includesMemory),
+      newState: mapStateForClient(event.newState, event.sandbox.sandboxClass, event.sandbox.includesMemory),
       updatedAt: event.sandbox.updatedAt.toISOString(),
     }
   }

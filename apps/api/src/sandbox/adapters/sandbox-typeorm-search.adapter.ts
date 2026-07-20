@@ -175,6 +175,7 @@ export class SandboxTypeormSearchAdapter implements SandboxSearchAdapter {
       target: sandbox.region,
       runnerId: sandbox.runnerId,
       sandboxClass: sandbox.sandboxClass,
+      includesMemory: sandbox.includesMemory,
       state: sandbox.state,
       desiredState: sandbox.desiredState,
       snapshot: sandbox.snapshot,

@@ -8,7 +8,10 @@ import {
   SANDBOX_STATES_CONDITIONALLY_CONSUMING_COMPUTE,
   SANDBOX_STATES_CONSUMING_COMPUTE,
 } from '../constants/sandbox-states-consuming-compute.constant'
-import { SANDBOX_STATES_CONSUMING_DISK } from '../constants/sandbox-states-consuming-disk.constant'
+import {
+  getSandboxStatesConsumingDisk,
+  sandboxStateConsumesDisk,
+} from '../constants/sandbox-states-consuming-disk.constant'
 import { SNAPSHOT_STATES_CONSUMING_RESOURCES } from '../constants/snapshot-states-consuming-resources.constant'
 import { VOLUME_STATES_CONSUMING_RESOURCES } from '../constants/volume-states-consuming-resources.constant'
 import { OrganizationUsageOverviewDto, RegionUsageOverviewDto } from '../dto/organization-usage-overview.dto'
@@ -320,7 +323,7 @@ export class OrganizationUsageService {
       gpuToSubtract = excludedSandbox.gpu
     }
 
-    if (SANDBOX_STATES_CONSUMING_DISK.includes(excludedSandbox.state)) {
+    if (sandboxStateConsumesDisk(excludedSandbox.sandboxClass, excludedSandbox.state)) {
       diskToSubtract = excludedSandbox.disk
     }
 
@@ -684,7 +687,8 @@ export class OrganizationUsageService {
         `sandbox.state <> ALL (ARRAY['destroyed'::sandbox_state_enum, 'error'::sandbox_state_enum, 'build_failed'::sandbox_state_enum, 'archived'::sandbox_state_enum])`,
       )
       .setParameter('statesConsumingCompute', SANDBOX_STATES_CONSUMING_COMPUTE)
-      .setParameter('statesConsumingDisk', SANDBOX_STATES_CONSUMING_DISK)
+      // Disk-consuming states are class-aware: VM classes free disk when at rest (stopped/paused/archiving).
+      .setParameter('statesConsumingDisk', getSandboxStatesConsumingDisk(sandboxClass))
       .setParameter('statesConditionallyConsumingCompute', SANDBOX_STATES_CONDITIONALLY_CONSUMING_COMPUTE)
       .setParameter('startedDesiredState', SandboxDesiredState.STARTED)
       .getRawOne()
@@ -928,7 +932,7 @@ export class OrganizationUsageService {
           shouldIncrementGpu = false
         }
 
-        if (SANDBOX_STATES_CONSUMING_DISK.includes(excludedSandbox.state)) {
+        if (sandboxStateConsumesDisk(excludedSandbox.sandboxClass, excludedSandbox.state)) {
           shouldIncrementDisk = false
         }
       }
@@ -1428,7 +1432,7 @@ export class OrganizationUsageService {
         event.sandbox.disk,
         event.oldState,
         event.newState,
-        SANDBOX_STATES_CONSUMING_DISK,
+        getSandboxStatesConsumingDisk(event.sandbox.sandboxClass),
       )
 
       const gpuDelta = this.calculateQuotaUsageDelta(

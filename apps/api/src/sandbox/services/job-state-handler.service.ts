@@ -246,6 +246,9 @@ export class JobStateHandlerService {
         this.logger.debug(`STOP_SANDBOX job ${job.id} completed successfully, marking sandbox ${sandboxId} as STOPPED`)
         updateData.state = SandboxState.STOPPED
         updateData.errorReason = null
+        // A stopped sandbox does not preserve memory. If this class is later archived, it is surfaced
+        // to the client as stopped (see mapStateForClient).
+        updateData.includesMemory = false
         Object.assign(updateData, Sandbox.getBackupStateUpdate(sandbox, BackupState.NONE))
       } else if (job.status === JobStatus.FAILED) {
         this.logger.error(`STOP_SANDBOX job ${job.id} failed for sandbox ${sandboxId}: ${job.errorMessage}`)
@@ -285,6 +288,12 @@ export class JobStateHandlerService {
         this.logger.debug(`PAUSE_SANDBOX job ${job.id} completed successfully, marking sandbox ${sandboxId} as PAUSED`)
         updateData.state = SandboxState.PAUSED
         updateData.errorReason = null
+        // A paused sandbox preserves memory. If this class is later archived, it is surfaced to the
+        // client as paused (see mapStateForClient).
+        updateData.includesMemory = true
+        // Reset backup state so a fresh backup is taken for the paused sandbox, keeping a
+        // restorable backup ready at all times (mirrors the stop flow).
+        Object.assign(updateData, Sandbox.getBackupStateUpdate(sandbox, BackupState.NONE))
       } else if (job.status === JobStatus.FAILED) {
         this.logger.error(`PAUSE_SANDBOX job ${job.id} failed for sandbox ${sandboxId}: ${job.errorMessage}`)
         updateData.state = SandboxState.ERROR
@@ -608,6 +617,8 @@ export class JobStateHandlerService {
         updateData.state = SandboxState.STOPPED
         updateData.errorReason = null
         updateData.recoverable = false
+        // Recovery lands the sandbox in STOPPED (no preserved memory); clear any stale paused flag.
+        updateData.includesMemory = false
         this.clearResolvedBackupState(sandbox, updateData)
       } else if (job.status === JobStatus.FAILED) {
         this.logger.error(`RECOVER_SANDBOX job ${job.id} failed for sandbox ${sandboxId}: ${job.errorMessage}`)

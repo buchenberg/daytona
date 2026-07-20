@@ -127,11 +127,12 @@ export const SandboxApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * 
+         * Deprecated: backups are managed automatically. This endpoint is a no-op kept for compatibility.
          * @summary Create sandbox backup
          * @param {string} sandboxIdOrName ID or name of the sandbox
          * @param {string} [xDaytonaOrganizationID] Use with JWT to specify the organization ID
          * @param {*} [options] Override http request option.
+         * @deprecated
          * @throws {RequiredError}
          */
         createBackup: async (sandboxIdOrName: string, xDaytonaOrganizationID?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
@@ -2521,11 +2522,12 @@ export const SandboxApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * 
+         * Deprecated: backups are managed automatically. This endpoint is a no-op kept for compatibility.
          * @summary Create sandbox backup
          * @param {string} sandboxIdOrName ID or name of the sandbox
          * @param {string} [xDaytonaOrganizationID] Use with JWT to specify the organization ID
          * @param {*} [options] Override http request option.
+         * @deprecated
          * @throws {RequiredError}
          */
         async createBackup(sandboxIdOrName: string, xDaytonaOrganizationID?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Sandbox>> {
@@ -3240,11 +3242,12 @@ export const SandboxApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.archiveSandbox(sandboxIdOrName, xDaytonaOrganizationID, options).then((request) => request(axios, basePath));
         },
         /**
-         * 
+         * Deprecated: backups are managed automatically. This endpoint is a no-op kept for compatibility.
          * @summary Create sandbox backup
          * @param {string} sandboxIdOrName ID or name of the sandbox
          * @param {string} [xDaytonaOrganizationID] Use with JWT to specify the organization ID
          * @param {*} [options] Override http request option.
+         * @deprecated
          * @throws {RequiredError}
          */
         createBackup(sandboxIdOrName: string, xDaytonaOrganizationID?: string, options?: RawAxiosRequestConfig): AxiosPromise<Sandbox> {
@@ -3826,11 +3829,12 @@ export class SandboxApi extends BaseAPI {
     }
 
     /**
-     * 
+     * Deprecated: backups are managed automatically. This endpoint is a no-op kept for compatibility.
      * @summary Create sandbox backup
      * @param {string} sandboxIdOrName ID or name of the sandbox
      * @param {string} [xDaytonaOrganizationID] Use with JWT to specify the organization ID
      * @param {*} [options] Override http request option.
+     * @deprecated
      * @throws {RequiredError}
      */
     public createBackup(sandboxIdOrName: string, xDaytonaOrganizationID?: string, options?: RawAxiosRequestConfig) {

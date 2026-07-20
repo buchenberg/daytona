@@ -31,8 +31,8 @@ import { InjectRedis } from '@nestjs-modules/ioredis'
 import Redis from 'ioredis'
 import { WithSpan } from '../../../common/decorators/otel.decorator'
 import { SandboxActivityService } from '../../services/sandbox-activity.service'
-import { getRunnerSandboxClass, isRegistryBasedSandboxClass } from '../../utils/sandbox-class.util'
 import { SECRET_PLACEHOLDER_PREFIX } from '../../../secret/constants/secret.constants'
+import { getRunnerSandboxClass, isRegistryBasedSandboxClass, isVmSandboxClass } from '../../utils/sandbox-class.util'
 import {
   resolveGpuTypeSelector,
   runnerMatchesGpuTypeSelector,
@@ -999,13 +999,19 @@ export class SandboxStartAction extends SandboxAction {
       }
     }
 
-    if (!sandbox.backupRegistryId) {
-      throw new Error('No registry found for backup')
-    }
+    // VM-backed classes (linux-vm, windows) back up to runner-managed storage with no registry ref,
+    // so there's nothing to look up or pass through - the runner locates the backup by its snapshot name.
+    let registry: DockerRegistry | undefined
+    if (!isVmSandboxClass(sandbox.sandboxClass)) {
+      if (!sandbox.backupRegistryId) {
+        throw new Error('No registry found for backup')
+      }
 
-    const registry = await this.dockerRegistryService.findOne(sandbox.backupRegistryId)
-    if (!registry) {
-      throw new Error('No registry found for backup')
+      const found = await this.dockerRegistryService.findOne(sandbox.backupRegistryId)
+      if (!found) {
+        throw new Error('No registry found for backup')
+      }
+      registry = found
     }
 
     //  make sure we pick a runner that has the base snapshot
@@ -1086,32 +1092,44 @@ export class SandboxStartAction extends SandboxAction {
 
     const runnerAdapter = await this.runnerAdapterFactory.create(runner)
 
-    const existingBackups = sandbox.existingBackupSnapshots
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .map((existingSnapshot) => existingSnapshot.snapshotName)
-
     let validBackup: string | null = null
     let exists = false
 
-    for (const existingBackup of existingBackups) {
-      try {
-        if (!validBackup && sandbox.backupSnapshot) {
-          //  last snapshot is the current snapshot, so we don't need to check it
-          //  just in case, we'll use the value from the backupSnapshot property
-          validBackup = sandbox.backupSnapshot
-        } else {
-          validBackup = existingBackup
-        }
+    if (isVmSandboxClass(sandbox.sandboxClass)) {
+      // VM-backed classes (linux-vm, windows) store backups in runner-managed storage with no registry
+      // ref, so the API can't (and shouldn't) verify them - the runner locates the backup by its snapshot
+      // name when creating the sandbox. The caller already gated on backupState === COMPLETED, so trust the
+      // domain state and pass the backup snapshot straight through.
+      validBackup = sandbox.backupSnapshot
+      exists = !!validBackup
+    } else {
+      const existingBackups = sandbox.existingBackupSnapshots
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .map((existingSnapshot) => existingSnapshot.snapshotName)
 
-        if (!validBackup) {
-          continue
-        }
+      for (const existingBackup of existingBackups) {
+        try {
+          if (!validBackup && sandbox.backupSnapshot) {
+            //  last snapshot is the current snapshot, so we don't need to check it
+            //  just in case, we'll use the value from the backupSnapshot property
+            validBackup = sandbox.backupSnapshot
+          } else {
+            validBackup = existingBackup
+          }
 
-        await runnerAdapter.inspectSnapshotInRegistry(validBackup, registry)
-        exists = true
-        break
-      } catch (error) {
-        this.logger.error(`Failed to check if backup snapshot ${validBackup} exists in registry ${registry.id}:`, error)
+          if (!validBackup) {
+            continue
+          }
+
+          await runnerAdapter.inspectSnapshotInRegistry(validBackup, registry)
+          exists = true
+          break
+        } catch (error) {
+          this.logger.error(
+            `Failed to check if backup snapshot ${validBackup} exists in registry ${registry?.id}:`,
+            error,
+          )
+        }
       }
     }
 

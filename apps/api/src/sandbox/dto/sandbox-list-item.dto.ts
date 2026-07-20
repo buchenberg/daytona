@@ -5,6 +5,7 @@ import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
 import { SandboxClass } from '../enums/sandbox-class.enum'
 import { BackupState } from '../enums/backup-state.enum'
 import { GpuType } from '../enums/gpu-type.enum'
+import { mapDesiredStateForClient, mapStateForClient } from '../utils/archive-state-mapping.util'
 
 interface SandboxListItemDtoFields {
   id: string
@@ -13,6 +14,7 @@ interface SandboxListItemDtoFields {
   target: string
   runnerId?: string
   sandboxClass?: SandboxClass
+  includesMemory?: boolean | null
   state: SandboxState
   desiredState?: SandboxDesiredState
   snapshot?: string
@@ -278,6 +280,7 @@ export class SandboxListItemDto {
     target,
     runnerId,
     sandboxClass,
+    includesMemory,
     state,
     desiredState,
     snapshot,
@@ -308,8 +311,8 @@ export class SandboxListItemDto {
     this.target = target
     this.runnerId = runnerId
     this.sandboxClass = sandboxClass
-    this.state = SandboxListItemDto.deriveState(state, desiredState)
-    this.desiredState = desiredState
+    this.state = mapStateForClient(SandboxListItemDto.deriveState(state, desiredState), sandboxClass, includesMemory)
+    this.desiredState = mapDesiredStateForClient(desiredState, sandboxClass, includesMemory)
     this.snapshot = snapshot
     this.user = user
     this.errorReason = errorReason

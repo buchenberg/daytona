@@ -7,6 +7,7 @@ import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
 import { BuildInfoDto } from './build-info.dto'
 import { SandboxClass } from '../enums/sandbox-class.enum'
 import { GpuType } from '../enums/gpu-type.enum'
+import { mapDesiredStateForClient, mapStateForClient } from '../utils/archive-state-mapping.util'
 
 @ApiSchema({ name: 'SandboxVolume' })
 export class SandboxVolume {
@@ -188,20 +189,28 @@ export class SandboxDto {
   @IsOptional()
   recoverable?: boolean
 
+  /**
+   * @deprecated Backup state is no longer exposed and will always be undefined.
+   */
   @ApiPropertyOptional({
     description: 'The state of the backup',
     enum: BackupState,
     example: Object.values(BackupState)[0],
     required: false,
+    deprecated: true,
   })
   @IsEnum(BackupState)
   @IsOptional()
   backupState?: BackupState
 
+  /**
+   * @deprecated Backup timestamp is no longer exposed and will always be undefined.
+   */
   @ApiPropertyOptional({
     description: 'The creation timestamp of the last backup',
     example: '2024-10-01T12:00:00Z',
     required: false,
+    deprecated: true,
   })
   @IsOptional()
   backupCreatedAt?: string
@@ -330,6 +339,9 @@ export class SandboxDto {
   toolboxProxyUrl: string
 
   static fromSandbox(sandbox: Sandbox, toolboxProxyUrl: string): SandboxDto {
+    const state = mapStateForClient(this.getSandboxState(sandbox), sandbox.sandboxClass, sandbox.includesMemory)
+    const desiredState = mapDesiredStateForClient(sandbox.desiredState, sandbox.sandboxClass, sandbox.includesMemory)
+
     return {
       id: sandbox.id,
       organizationId: sandbox.organizationId,
@@ -349,12 +361,13 @@ export class SandboxDto {
       domainAllowList: sandbox.domainAllowList,
       labels: sandbox.labels,
       volumes: sandbox.volumes,
-      state: this.getSandboxState(sandbox),
-      desiredState: sandbox.desiredState,
+      state,
+      desiredState,
       errorReason: sandbox.errorReason,
       recoverable: sandbox.recoverable,
-      backupState: sandbox.backupState,
-      backupCreatedAt: sandbox.lastBackupAt ? new Date(sandbox.lastBackupAt).toISOString() : undefined,
+      // Deprecated: intentionally not populated, kept in the schema for backward compatibility
+      backupState: undefined,
+      backupCreatedAt: undefined,
       autoStopInterval: sandbox.autoStopInterval,
       autoPauseInterval: sandbox.autoPauseInterval,
       autoArchiveInterval: sandbox.autoArchiveInterval,

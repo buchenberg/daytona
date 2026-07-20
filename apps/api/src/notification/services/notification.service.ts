@@ -27,6 +27,7 @@ import { SandboxService } from '../../sandbox/services/sandbox.service'
 import { InjectRedis } from '@nestjs-modules/ioredis'
 import { Redis } from 'ioredis'
 import { SANDBOX_EVENT_CHANNEL } from '../../common/constants/constants'
+import { mapDesiredStateForClient, mapStateForClient } from '../../sandbox/utils/archive-state-mapping.util'
 
 @Injectable()
 export class NotificationService {
@@ -60,14 +61,28 @@ export class NotificationService {
   @OnEvent(SandboxEvents.STATE_UPDATED)
   async handleSandboxStateUpdated(event: SandboxStateUpdatedEvent) {
     const dto = await this.sandboxService.toSandboxDto(event.sandbox)
-    this.notificationEmitter.emitSandboxStateUpdated(dto, event.oldState, event.newState)
+    // Clients apply these transition states directly, so map them like the DTO's state (hides archive
+    // lifecycle for linux-vm/windows). The raw event on SANDBOX_EVENT_CHANNEL is internal-only.
+    const oldState = mapStateForClient(event.oldState, event.sandbox.sandboxClass, event.sandbox.includesMemory)
+    const newState = mapStateForClient(event.newState, event.sandbox.sandboxClass, event.sandbox.includesMemory)
+    this.notificationEmitter.emitSandboxStateUpdated(dto, oldState, newState)
     this.redis.publish(SANDBOX_EVENT_CHANNEL, JSON.stringify(event))
   }
 
   @OnEvent(SandboxEvents.DESIRED_STATE_UPDATED)
   async handleSandboxDesiredStateUpdated(event: SandboxDesiredStateUpdatedEvent) {
     const dto = await this.sandboxService.toSandboxDto(event.sandbox)
-    this.notificationEmitter.emitSandboxDesiredStateUpdated(dto, event.oldDesiredState, event.newDesiredState)
+    const oldDesiredState = mapDesiredStateForClient(
+      event.oldDesiredState,
+      event.sandbox.sandboxClass,
+      event.sandbox.includesMemory,
+    )
+    const newDesiredState = mapDesiredStateForClient(
+      event.newDesiredState,
+      event.sandbox.sandboxClass,
+      event.sandbox.includesMemory,
+    )
+    this.notificationEmitter.emitSandboxDesiredStateUpdated(dto, oldDesiredState, newDesiredState)
     this.redis.publish(SANDBOX_EVENT_CHANNEL, JSON.stringify(event))
   }
 

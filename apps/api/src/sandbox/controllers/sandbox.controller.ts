@@ -765,10 +765,17 @@ export class SandboxController {
     return this.sandboxService.toSandboxDto(sandbox)
   }
 
+  /**
+   * @deprecated Backup creation is managed automatically and this endpoint is a no-op.
+   * It is kept for backwards compatibility and will be removed in a future release.
+   */
   @Post(':sandboxIdOrName/backup')
+  @HttpCode(200)
   @ApiOperation({
     summary: 'Create sandbox backup',
     operationId: 'createBackup',
+    deprecated: true,
+    description: 'Deprecated: backups are managed automatically. This endpoint is a no-op kept for compatibility.',
   })
   @ApiParam({
     name: 'sandboxIdOrName',
@@ -777,22 +784,18 @@ export class SandboxController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Sandbox backup has been initiated',
+    description: 'Sandbox backup request acknowledged (no-op)',
     type: SandboxDto,
   })
   @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
   @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
-  @Audit({
-    action: AuditAction.CREATE_BACKUP,
-    targetType: AuditTarget.SANDBOX,
-    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
-    targetIdFromResult: (result: SandboxDto) => result?.id,
-  })
   async createBackup(
     @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
     @Param('sandboxIdOrName') sandboxIdOrName: string,
   ): Promise<SandboxDto> {
-    const sandbox = await this.sandboxService.createBackup(sandboxIdOrName, authContext.organizationId)
+    // Deprecated no-op: backups are managed automatically. The sandbox is still loaded and
+    // returned so existing clients that deserialize the previous SandboxDto response keep working.
+    const sandbox = await this.sandboxService.findOneByIdOrName(sandboxIdOrName, authContext.organizationId)
     return this.sandboxService.toSandboxDto(sandbox)
   }
 
