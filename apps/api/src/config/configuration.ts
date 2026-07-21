@@ -296,11 +296,26 @@ const configuration = {
   cronTimeZone: process.env.CRON_TIMEZONE,
   maxConcurrentBackupsPerRunner: parseInt(process.env.MAX_CONCURRENT_BACKUPS_PER_RUNNER || '6', 10),
   backupRetryIntervalHours: parseInt(process.env.BACKUP_RETRY_INTERVAL_HOURS || '6', 10),
-  // Disk usage % above which a VM runner is considered overloaded and its stopped VM sandboxes are evicted.
-  runnerEvictionDiskThresholdPercent: parseInt(process.env.RUNNER_EVICTION_DISK_THRESHOLD_PERCENT || '70', 10),
-  // Sandboxes to evict per whole percentage point a VM runner is over the threshold
-  // (e.g. threshold 70, value 1: a runner at 78% evicts up to ceil((78-70)*1)=8 sandboxes).
-  runnerEvictionSandboxesPerPercentage: parseFloat(process.env.RUNNER_EVICTION_SANDBOXES_PER_PERCENTAGE || '1'),
+  // Disk-pressure eviction on overloaded runners. Evicts stopped VM sandboxes and/or runner-local
+  // snapshot copies, scaling the amount evicted with how far disk usage is over the threshold.
+  runnerEviction: {
+    sandboxes: {
+      diskThresholdPercent: parseInt(process.env.RUNNER_EVICTION_DISK_THRESHOLD_PERCENT || '70', 10),
+      // Per whole percentage point over threshold (e.g. at 78% with threshold 70: ceil((78-70)*1) = 8).
+      sandboxesPerPercentage: parseFloat(process.env.RUNNER_EVICTION_SANDBOXES_PER_PERCENTAGE || '1'),
+    },
+    // Evicts runner-local snapshot copies (snapshotRef starting with "daytona-") by marking them REMOVING.
+    snapshots: {
+      enabled: process.env.RUNNER_SNAPSHOT_EVICTION_ENABLED !== 'false',
+      diskThresholdPercent: parseInt(process.env.RUNNER_SNAPSHOT_EVICTION_DISK_THRESHOLD_PERCENT || '75', 10),
+      gpuDiskThresholdPercent: parseInt(process.env.RUNNER_SNAPSHOT_EVICTION_GPU_DISK_THRESHOLD_PERCENT || '50', 10),
+      // Per whole percentage point over threshold (e.g. at 83% with threshold 75: ceil((83-75)*1) = 8).
+      snapshotsPerPercentage: parseFloat(process.env.RUNNER_SNAPSHOT_EVICTION_SNAPSHOTS_PER_PERCENTAGE || '1'),
+      maxPerRun: parseInt(process.env.RUNNER_SNAPSHOT_EVICTION_MAX_PER_RUN || '1000', 10),
+      // Grace period: skip copies whose last state change is newer than this.
+      minUnusedMinutes: parseInt(process.env.RUNNER_SNAPSHOT_EVICTION_MIN_UNUSED_MINUTES || '60', 10),
+    },
+  },
   webhook: {
     authToken: process.env.SVIX_AUTH_TOKEN,
     serverUrl: process.env.SVIX_SERVER_URL,

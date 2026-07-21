@@ -2295,6 +2295,100 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     }
   }
 
+  // Disk-pressure eviction of runner-local snapshot copies (snapshotRef LIKE 'daytona-%'). Marks the oldest
+  // READY copies as REMOVING so sync-removing deletes them. Budget per runner: ceil((disk% - threshold) * perPct).
+  // 5-min cadence matches sandbox eviction — disk metrics and async removal lag behind marking by several minutes.
+  @Cron(CronExpression.EVERY_5_MINUTES, { name: 'evict-runner-snapshots', waitForCompletion: true })
+  @TrackJobExecution()
+  @LogExecution('evict-runner-snapshots')
+  @WithInstrumentation()
+  async evictRunnerSnapshots(): Promise<void> {
+    if (!this.configService.getOrThrow('runnerEviction.snapshots.enabled')) {
+      return
+    }
+
+    const lockKey = 'evict-runner-snapshots-lock'
+    if (!(await this.redisLockProvider.lock(lockKey, 60))) {
+      return
+    }
+
+    try {
+      const diskThreshold = this.configService.getOrThrow('runnerEviction.snapshots.diskThresholdPercent')
+      const gpuDiskThreshold = this.configService.getOrThrow('runnerEviction.snapshots.gpuDiskThresholdPercent')
+      const snapshotsPerPercentage = this.configService.getOrThrow('runnerEviction.snapshots.snapshotsPerPercentage')
+      const maxPerRun = this.configService.getOrThrow('runnerEviction.snapshots.maxPerRun')
+      const minUnusedMinutes = this.configService.getOrThrow('runnerEviction.snapshots.minUnusedMinutes')
+
+      if (snapshotsPerPercentage <= 0 || diskThreshold >= 100 || maxPerRun <= 0) {
+        return
+      }
+
+      const minUnusedCutoff = new Date(Date.now() - minUnusedMinutes * 60 * 1000)
+
+      const candidates = await this.snapshotRunnerRepository.manager
+        .createQueryBuilder()
+        .select('ranked.id', 'id')
+        .from((qb) => {
+          return qb
+            .select('sr.id', 'id')
+            .addSelect('r."currentDiskUsagePercentage"', 'diskUsage')
+            .addSelect(
+              `CASE WHEN COALESCE(r.gpu, 0) > 0 THEN COALESCE(reg."snapshotEvictionDiskThresholdGpu", :gpuDiskThreshold) ELSE COALESCE(reg."snapshotEvictionDiskThreshold", :diskThreshold) END`,
+              'effectiveThreshold',
+            )
+            .addSelect(
+              `ROW_NUMBER() OVER (
+                PARTITION BY sr."runnerId"
+                ORDER BY sr."updatedAt" ASC
+              )`,
+              'rn',
+            )
+            .from(SnapshotRunner, 'sr')
+            .innerJoin('runner', 'r', 'r.id = sr."runnerId"::uuid')
+            .innerJoin('region', 'reg', 'reg.id = r.region')
+            .where('sr.state = :readyState')
+            .andWhere('sr."snapshotRef" LIKE \'daytona-%\'')
+            .andWhere('sr."updatedAt" < :minUnusedCutoff')
+            .andWhere('r.state = :ready')
+            .andWhere(
+              `r."currentDiskUsagePercentage" > CASE WHEN COALESCE(r.gpu, 0) > 0 THEN COALESCE(reg."snapshotEvictionDiskThresholdGpu", :gpuDiskThreshold) ELSE COALESCE(reg."snapshotEvictionDiskThreshold", :diskThreshold) END`,
+            )
+            .setParameters({
+              readyState: SnapshotRunnerState.READY,
+              ready: RunnerState.READY,
+              diskThreshold,
+              gpuDiskThreshold,
+              minUnusedCutoff,
+            })
+        }, 'ranked')
+        .where('ranked.rn <= CEIL((ranked."diskUsage" - ranked."effectiveThreshold") * :snapshotsPerPercentage)', {
+          snapshotsPerPercentage,
+        })
+        .orderBy('ranked.rn', 'ASC')
+        .limit(maxPerRun)
+        .getRawMany<{ id: string }>()
+
+      if (candidates.length === 0) {
+        return
+      }
+
+      const ids = candidates.map((candidate) => candidate.id)
+
+      const result = await this.snapshotRunnerRepository.update(
+        { id: In(ids), state: SnapshotRunnerState.READY },
+        { state: SnapshotRunnerState.REMOVING },
+      )
+
+      if (result.affected && result.affected > 0) {
+        this.logger.log(`Marked ${result.affected} runner-local snapshot copies for removal due to disk pressure`)
+      }
+    } catch (error) {
+      this.logger.error(`Failed to evict runner snapshots: ${fromAxiosError(error)}`)
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
   private async processSnapshotDigest(
     snapshot: Snapshot,
     internalRegistry: DockerRegistry,

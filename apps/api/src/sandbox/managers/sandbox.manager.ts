@@ -379,8 +379,8 @@ export class SandboxManager implements TrackableJobExecutions, OnApplicationShut
     }
 
     try {
-      const diskThreshold = this.configService.getOrThrow('runnerEvictionDiskThresholdPercent')
-      const sandboxesPerPercentage = this.configService.getOrThrow('runnerEvictionSandboxesPerPercentage')
+      const diskThreshold = this.configService.getOrThrow('runnerEviction.sandboxes.diskThresholdPercent')
+      const sandboxesPerPercentage = this.configService.getOrThrow('runnerEviction.sandboxes.sandboxesPerPercentage')
 
       // Rank the least-recently-used (oldest updatedAt) resting VM sandboxes per overloaded VM runner in a
       // single windowed query. A VM runner is "overloaded" once its disk usage crosses the threshold; the

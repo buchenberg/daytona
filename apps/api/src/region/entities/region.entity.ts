@@ -87,6 +87,12 @@ export class Region {
   @Column({ nullable: true })
   snapshotManagerUrl: string | null
 
+  @Column({ type: 'integer', nullable: true })
+  snapshotEvictionDiskThreshold: number | null
+
+  @Column({ type: 'integer', nullable: true })
+  snapshotEvictionDiskThresholdGpu: number | null
+
   constructor(params?: {
     name: string
     enforceQuotas: boolean
