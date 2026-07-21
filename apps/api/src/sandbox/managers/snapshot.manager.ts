@@ -2389,6 +2389,46 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     }
   }
 
+  @Cron(CronExpression.EVERY_10_MINUTES, { name: 'cleanup-orphaned-backup-snapshot-runners' })
+  @TrackJobExecution()
+  @LogExecution('cleanup-orphaned-backup-snapshot-runners')
+  @WithInstrumentation()
+  async cleanupOrphanedBackupSnapshotRunners() {
+    const lockKey = 'cleanup-orphaned-backup-snapshot-runners-lock'
+    if (!(await this.redisLockProvider.lock(lockKey, 300))) {
+      return
+    }
+
+    try {
+      const staleEntries = await this.snapshotRunnerRepository
+        .createQueryBuilder('sr')
+        .select('sr.id')
+        .where('sr.state != :removingState', { removingState: SnapshotRunnerState.REMOVING })
+        .andWhere(`sr."snapshotRef" LIKE '%/backup-%'`)
+        .andWhere(`NOT EXISTS (SELECT 1 FROM sandbox sb WHERE sb."backupSnapshot" = sr."snapshotRef")`)
+        .limit(500)
+        .getMany()
+
+      if (staleEntries.length === 0) {
+        return
+      }
+
+      const ids = staleEntries.map((sr) => sr.id)
+      const result = await this.snapshotRunnerRepository.update(
+        { id: In(ids) },
+        { state: SnapshotRunnerState.REMOVING },
+      )
+
+      if (result.affected > 0) {
+        this.logger.debug(`Marked ${result.affected} orphaned backup SnapshotRunners for removal`)
+      }
+    } catch (error) {
+      this.logger.error(`Failed to mark orphaned backup SnapshotRunners for removal: ${fromAxiosError(error)}`)
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
   private async processSnapshotDigest(
     snapshot: Snapshot,
     internalRegistry: DockerRegistry,
