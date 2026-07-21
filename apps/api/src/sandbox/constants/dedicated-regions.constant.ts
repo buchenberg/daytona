@@ -155,6 +155,7 @@ const META_ORGS = new Set([
   '37424cf2-c171-45a7-9628-e0ccc0f17750', // Meta TBR
   '1fa758b9-6ef2-4ef0-9d2c-6477d4666f07', // Pytorch
   'cbd6042b-5425-4bce-8fad-e5673fded021', // Meta AI Workflows
+  'bac16d29-0ad6-49ab-93fa-bb0d9131be56', // Snorkel-AI-Prod
 ])
 
 /*
@@ -168,6 +169,7 @@ const META_LARGE_SANDBOX_ORGS = new Set([
   '37424cf2-c171-45a7-9628-e0ccc0f17750', // Meta TBR
   '1fa758b9-6ef2-4ef0-9d2c-6477d4666f07', // Pytorch
   'cbd6042b-5425-4bce-8fad-e5673fded021', // Meta AI Workflows
+  'bac16d29-0ad6-49ab-93fa-bb0d9131be56', // Snorkel-AI-Prod
   'aeffef97-aab0-460b-bcb1-75cec66d0a65', // testing
 ])
 
@@ -178,6 +180,7 @@ export const SPILLOVER_ON_ERROR_ORGS = new Set<string>([
   '37424cf2-c171-45a7-9628-e0ccc0f17750', // Meta TBR
   '1fa758b9-6ef2-4ef0-9d2c-6477d4666f07', // Pytorch
   'cbd6042b-5425-4bce-8fad-e5673fded021', // Meta AI Workflows
+  'bac16d29-0ad6-49ab-93fa-bb0d9131be56', // Snorkel-AI-Prod
   'c0a5d258-844b-44da-aac0-706f31c3027f', // deeptune
   'c8789392-ea10-4be4-9b24-71c23a6c30da', // deeptune
 ])
