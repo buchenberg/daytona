@@ -153,6 +153,8 @@ const META_ORGS = new Set([
   '683acf39-5b83-49eb-9c43-f8056cec924a', // Drydock
   'bfd70412-3a0f-4973-bd7c-f8234d933dfd', // Meta AAI Labs
   '37424cf2-c171-45a7-9628-e0ccc0f17750', // Meta TBR
+  '1fa758b9-6ef2-4ef0-9d2c-6477d4666f07', // Pytorch
+  'cbd6042b-5425-4bce-8fad-e5673fded021', // Meta AI Workflows
 ])
 
 /*
@@ -164,6 +166,8 @@ const META_LARGE_SANDBOX_ORGS = new Set([
   '683acf39-5b83-49eb-9c43-f8056cec924a', // Drydock
   'bfd70412-3a0f-4973-bd7c-f8234d933dfd', // Meta AAI Labs
   '37424cf2-c171-45a7-9628-e0ccc0f17750', // Meta TBR
+  '1fa758b9-6ef2-4ef0-9d2c-6477d4666f07', // Pytorch
+  'cbd6042b-5425-4bce-8fad-e5673fded021', // Meta AI Workflows
   'aeffef97-aab0-460b-bcb1-75cec66d0a65', // testing
 ])
 
@@ -172,6 +176,8 @@ export const SPILLOVER_ON_ERROR_ORGS = new Set<string>([
   '683acf39-5b83-49eb-9c43-f8056cec924a', // Drydock
   'bfd70412-3a0f-4973-bd7c-f8234d933dfd', // Meta AAI Labs
   '37424cf2-c171-45a7-9628-e0ccc0f17750', // Meta TBR
+  '1fa758b9-6ef2-4ef0-9d2c-6477d4666f07', // Pytorch
+  'cbd6042b-5425-4bce-8fad-e5673fded021', // Meta AI Workflows
   'c0a5d258-844b-44da-aac0-706f31c3027f', // deeptune
   'c8789392-ea10-4be4-9b24-71c23a6c30da', // deeptune
 ])
