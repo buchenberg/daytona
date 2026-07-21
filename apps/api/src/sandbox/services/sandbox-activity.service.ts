@@ -9,12 +9,18 @@ import { SandboxLastActivity } from '../entities/sandbox-last-activity.entity'
 import { LogExecution } from '../../common/decorators/log-execution.decorator'
 import { WithInstrumentation } from '../../common/decorators/otel.decorator'
 import { TypedConfigService } from '../../config/typed-config.service'
+import { SandboxActivitySource, isSandboxActivitySource } from '../common/sandbox-activity-source'
 
 const REDIS_ACTIVITY_KEY = 'sandbox:activity'
+const REDIS_ACTIVITY_SOURCE_PREFIX = 'sandbox:activity:source:'
+// Kept comfortably longer than the flush interval so a pending timestamp's source is never lost before
+// it is flushed; keys for destroyed sandboxes self-expire without any explicit cleanup.
+const ACTIVITY_SOURCE_TTL_SECONDS = 300
 
 interface SandboxActivityUpdate {
   sandboxId: string
   lastActivityAt: Date
+  lastActivitySource: SandboxActivitySource | null
 }
 
 @Injectable()
@@ -31,9 +37,13 @@ export class SandboxActivityService {
   /**
    * Buffers a last activity timestamp in Redis (throttled to once per configured throttle TTL).
    *
+   * The timestamp and its source are written atomically: a `source` is stored under a short-lived
+   * per-sandbox key, and a source-less touch clears any previously buffered source so it cannot later be
+   * misattributed to this newer timestamp.
+   *
    * Relies on the periodic flush to the database.
    */
-  async updateLastActivityAt(sandboxId: string, lastActivityAt: Date): Promise<void> {
+  async updateLastActivityAt(sandboxId: string, lastActivityAt: Date, source?: SandboxActivitySource): Promise<void> {
     const lockKey = `sandbox:update-last-activity:${sandboxId}`
     const acquired = await this.redisLockProvider.lock(
       lockKey,
@@ -42,7 +52,14 @@ export class SandboxActivityService {
     if (!acquired) {
       return
     }
-    await this.redis.zadd(REDIS_ACTIVITY_KEY, lastActivityAt.getTime(), sandboxId)
+    const sourceKey = `${REDIS_ACTIVITY_SOURCE_PREFIX}${sandboxId}`
+    const tx = this.redis.multi().zadd(REDIS_ACTIVITY_KEY, lastActivityAt.getTime(), sandboxId)
+    if (source) {
+      tx.set(sourceKey, source, 'EX', ACTIVITY_SOURCE_TTL_SECONDS)
+    } else {
+      tx.del(sourceKey)
+    }
+    await tx.exec()
   }
 
   /**
@@ -90,13 +107,15 @@ export class SandboxActivityService {
         return
       }
 
-      const updates: SandboxActivityUpdate[] = []
+      const timestamps: Array<Pick<SandboxActivityUpdate, 'sandboxId' | 'lastActivityAt'>> = []
       for (let i = 0; i < entries.length; i += 2) {
-        updates.push({
+        timestamps.push({
           sandboxId: entries[i],
           lastActivityAt: new Date(Number(entries[i + 1])),
         })
       }
+
+      const updates = await this.attachActivitySources(timestamps)
 
       for (let offset = 0; offset < updates.length; offset += batchSize) {
         const batch = updates.slice(offset, offset + batchSize)
@@ -117,17 +136,44 @@ export class SandboxActivityService {
   }
 
   /**
+   * Resolves each buffered timestamp's source from Redis.
+   *
+   * A missing or unrecognized value resolves to `null` so the flush unsets the stored source rather
+   * than leaving a stale one attached to the newer timestamp.
+   */
+  private async attachActivitySources(
+    timestamps: Array<Pick<SandboxActivityUpdate, 'sandboxId' | 'lastActivityAt'>>,
+  ): Promise<SandboxActivityUpdate[]> {
+    if (timestamps.length === 0) {
+      return []
+    }
+
+    const sourceKeys = timestamps.map((timestamp) => `${REDIS_ACTIVITY_SOURCE_PREFIX}${timestamp.sandboxId}`)
+    const sources = await this.redis.mget(sourceKeys)
+
+    return timestamps.map((timestamp, index) => {
+      const source = sources[index]
+      return {
+        ...timestamp,
+        lastActivitySource: source && isSandboxActivitySource(source) ? source : null,
+      }
+    })
+  }
+
+  /**
    * Builds a query to upsert activity timestamps into the database.
    *
-   * Uses a conditional upsert that only updates when the incoming timestamp is newer, preventing updates to stale buffered values.
+   * The advance-only guard writes the row only when the incoming timestamp is newer, and
+   * `lastActivitySource` always moves with it — including being unset to null when the buffered source is
+   * missing, so a newer timestamp never keeps a stale source.
    */
-  private buildUpsertQuery(values: SandboxActivityUpdate | SandboxActivityUpdate[]) {
+  private buildUpsertQuery(values: SandboxActivityUpdate[]) {
     return this.dataSource
       .createQueryBuilder()
       .insert()
       .into(SandboxLastActivity)
       .values(values)
-      .orUpdate(['lastActivityAt'], ['sandboxId'], {
+      .orUpdate(['lastActivityAt', 'lastActivitySource'], ['sandboxId'], {
         overwriteCondition: {
           where: [
             { lastActivityAt: IsNull() },
@@ -157,7 +203,7 @@ export class SandboxActivityService {
         )
         for (const update of updates) {
           try {
-            await this.buildUpsertQuery(update).execute()
+            await this.buildUpsertQuery([update]).execute()
           } catch (error) {
             if (error.code === '23503') {
               this.logger.warn(`Skipping activity flush for sandbox ${update.sandboxId} (deleted)`)

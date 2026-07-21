@@ -212,7 +212,9 @@ export class SandboxRepository extends BaseRepository<Sandbox> {
     sandboxId: string,
     lastActivityAt: Date,
   ): Promise<void> {
-    await entityManager.upsert(SandboxLastActivity, { sandboxId, lastActivityAt }, ['sandboxId'])
+    await entityManager.upsert(SandboxLastActivity, { sandboxId, lastActivityAt, lastActivitySource: 'lifecycle' }, [
+      'sandboxId',
+    ])
   }
 
   /**

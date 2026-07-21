@@ -30,7 +30,10 @@ import {
   ApiHeader,
   ApiBearerAuth,
   ApiExcludeEndpoint,
+  ApiBody,
 } from '@nestjs/swagger'
+import { UpdateLastActivityDto } from '../dto/update-last-activity.dto'
+import { deriveSandboxActivitySource } from '../common/sandbox-activity-source'
 import { SandboxDto, SandboxLabelsDto } from '../dto/sandbox.dto'
 import { ResizeSandboxDto } from '../dto/resize-sandbox.dto'
 import { UpdateSandboxStateDto } from '../dto/update-sandbox-state.dto'
@@ -980,12 +983,18 @@ export class SandboxController {
     status: 201,
     description: 'Last activity has been updated',
   })
+  @ApiBody({ type: UpdateLastActivityDto, required: false })
   @UseGuards(
     OrGuard([OrganizationAuthContextGuard, ProxyAuthContextGuard, SshGatewayAuthContextGuard]),
     SandboxAccessGuard,
   )
-  async updateLastActivity(@Param('sandboxId') sandboxId: string): Promise<void> {
-    await this.sandboxService.updateLastActivityAt(sandboxId, new Date())
+  async updateLastActivity(
+    @IsBaseAuthContext() authContext: BaseAuthContext,
+    @Param('sandboxId') sandboxId: string,
+    @Body() body?: UpdateLastActivityDto,
+  ): Promise<void> {
+    const source = deriveSandboxActivitySource(authContext, body?.activityType)
+    await this.sandboxService.updateLastActivityAt(sandboxId, new Date(), source)
   }
 
   @Post(':sandboxIdOrName/autostop/:interval')

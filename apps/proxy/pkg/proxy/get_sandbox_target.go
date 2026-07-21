@@ -104,8 +104,12 @@ func (p *Proxy) GetProxyTarget(ctx *gin.Context) (*url.URL, map[string]string, e
 
 	// Skip last activity update if header is set
 	if ctx.Request.Header.Get(SKIP_LAST_ACTIVITY_UPDATE_HEADER) != "true" {
+		activityType := "preview"
+		if ctx.GetBool(IS_TOOLBOX_REQUEST_KEY) {
+			activityType = "toolbox"
+		}
 		doneCh := make(chan struct{})
-		go p.updateLastActivity(ctx.Request.Context(), sandboxId, true, doneCh)
+		go p.updateLastActivity(ctx.Request.Context(), sandboxId, activityType, true, doneCh)
 		ctx.Request.Header.Del(SKIP_LAST_ACTIVITY_UPDATE_HEADER)
 		ctx.Set(ACTIVITY_POLL_STOP_KEY, func() {
 			close(doneCh)
@@ -408,11 +412,11 @@ func (p *Proxy) parseHost(host string) (targetPort string, sandboxIdOrSignedToke
 
 // updateLastActivity updates the last activity timestamp for a sandbox.
 // If shouldPollUpdate is true, it starts a goroutine that updates every 50 seconds.
-func (p *Proxy) updateLastActivity(ctx context.Context, sandboxId string, shouldPollUpdate bool, doneCh chan struct{}) {
+func (p *Proxy) updateLastActivity(ctx context.Context, sandboxId string, activityType string, shouldPollUpdate bool, doneCh chan struct{}) {
 	// Poll interval is 50 seconds to avoid spamming the API which will also cache updates for 45 seconds
 	pollInterval := 50 * time.Second
 
-	p.doActivityUpdate(ctx, sandboxId, pollInterval)
+	p.doActivityUpdate(ctx, sandboxId, activityType, pollInterval)
 
 	if shouldPollUpdate {
 		go func() {
@@ -424,7 +428,7 @@ func (p *Proxy) updateLastActivity(ctx context.Context, sandboxId string, should
 				case <-ticker.C:
 					// Bound each tick so a hung API call can't stall the loop indefinitely.
 					tickCtx, cancel := context.WithTimeout(context.Background(), p.config.ApiClientTimeout())
-					p.doActivityUpdate(tickCtx, sandboxId, pollInterval)
+					p.doActivityUpdate(tickCtx, sandboxId, activityType, pollInterval)
 					cancel()
 				case <-doneCh:
 					return
@@ -438,7 +442,7 @@ func (p *Proxy) updateLastActivity(ctx context.Context, sandboxId string, should
 // request cancellation (so a completed POST never loses its cache write) but
 // stay bounded by their own deadline so a stalled cache backend can't hang the
 // caller indefinitely.
-func (p *Proxy) doActivityUpdate(ctx context.Context, sandboxId string, pollInterval time.Duration) {
+func (p *Proxy) doActivityUpdate(ctx context.Context, sandboxId string, activityType string, pollInterval time.Duration) {
 	cacheCtx, cancelCache := context.WithTimeout(context.WithoutCancel(ctx), p.config.ApiClientTimeout())
 	defer cancelCache()
 
@@ -452,7 +456,9 @@ func (p *Proxy) doActivityUpdate(ctx context.Context, sandboxId string, pollInte
 		return
 	}
 
-	_, err = p.apiclient.SandboxAPI.UpdateLastActivity(ctx, sandboxId).Execute()
+	_, err = p.apiclient.SandboxAPI.UpdateLastActivity(ctx, sandboxId).
+		UpdateLastActivity(apiclient.UpdateLastActivity{ActivityType: apiclient.PtrString(activityType)}).
+		Execute()
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return

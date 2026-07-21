@@ -70,6 +70,8 @@ import type { ToolboxProxyUrl } from '../models';
 // @ts-ignore
 import type { TraceSpan } from '../models';
 // @ts-ignore
+import type { UpdateLastActivity } from '../models';
+// @ts-ignore
 import type { UpdateSandboxNetworkSettings } from '../models';
 // @ts-ignore
 import type { UpdateSandboxSecrets } from '../models';
@@ -2224,10 +2226,11 @@ export const SandboxApiAxiosParamCreator = function (configuration?: Configurati
          * @summary Update sandbox last activity
          * @param {string} sandboxId ID of the sandbox
          * @param {string} [xDaytonaOrganizationID] Use with JWT to specify the organization ID
+         * @param {UpdateLastActivity} [updateLastActivity] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        updateLastActivity: async (sandboxId: string, xDaytonaOrganizationID?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        updateLastActivity: async (sandboxId: string, xDaytonaOrganizationID?: string, updateLastActivity?: UpdateLastActivity, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'sandboxId' is not null or undefined
             assertParamExists('updateLastActivity', 'sandboxId', sandboxId)
             const localVarPath = `/sandbox/{sandboxId}/last-activity`
@@ -2249,6 +2252,7 @@ export const SandboxApiAxiosParamCreator = function (configuration?: Configurati
 
             // authentication oauth2 required
 
+            localVarHeaderParameter['Content-Type'] = 'application/json';
 
             if (xDaytonaOrganizationID != null) {
                 localVarHeaderParameter['X-Daytona-Organization-ID'] = String(xDaytonaOrganizationID);
@@ -2256,6 +2260,7 @@ export const SandboxApiAxiosParamCreator = function (configuration?: Configurati
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(updateLastActivity, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -3144,11 +3149,12 @@ export const SandboxApiFp = function(configuration?: Configuration) {
          * @summary Update sandbox last activity
          * @param {string} sandboxId ID of the sandbox
          * @param {string} [xDaytonaOrganizationID] Use with JWT to specify the organization ID
+         * @param {UpdateLastActivity} [updateLastActivity] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async updateLastActivity(sandboxId: string, xDaytonaOrganizationID?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.updateLastActivity(sandboxId, xDaytonaOrganizationID, options);
+        async updateLastActivity(sandboxId: string, xDaytonaOrganizationID?: string, updateLastActivity?: UpdateLastActivity, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.updateLastActivity(sandboxId, xDaytonaOrganizationID, updateLastActivity, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['SandboxApi.updateLastActivity']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
@@ -3751,11 +3757,12 @@ export const SandboxApiFactory = function (configuration?: Configuration, basePa
          * @summary Update sandbox last activity
          * @param {string} sandboxId ID of the sandbox
          * @param {string} [xDaytonaOrganizationID] Use with JWT to specify the organization ID
+         * @param {UpdateLastActivity} [updateLastActivity] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        updateLastActivity(sandboxId: string, xDaytonaOrganizationID?: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-            return localVarFp.updateLastActivity(sandboxId, xDaytonaOrganizationID, options).then((request) => request(axios, basePath));
+        updateLastActivity(sandboxId: string, xDaytonaOrganizationID?: string, updateLastActivity?: UpdateLastActivity, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.updateLastActivity(sandboxId, xDaytonaOrganizationID, updateLastActivity, options).then((request) => request(axios, basePath));
         },
         /**
          * Changes outbound network policy on the runner for a running sandbox (for example block all traffic, restore access, or set a CIDR allow list).
@@ -4377,11 +4384,12 @@ export class SandboxApi extends BaseAPI {
      * @summary Update sandbox last activity
      * @param {string} sandboxId ID of the sandbox
      * @param {string} [xDaytonaOrganizationID] Use with JWT to specify the organization ID
+     * @param {UpdateLastActivity} [updateLastActivity] 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    public updateLastActivity(sandboxId: string, xDaytonaOrganizationID?: string, options?: RawAxiosRequestConfig) {
-        return SandboxApiFp(this.configuration).updateLastActivity(sandboxId, xDaytonaOrganizationID, options).then((request) => request(this.axios, this.basePath));
+    public updateLastActivity(sandboxId: string, xDaytonaOrganizationID?: string, updateLastActivity?: UpdateLastActivity, options?: RawAxiosRequestConfig) {
+        return SandboxApiFp(this.configuration).updateLastActivity(sandboxId, xDaytonaOrganizationID, updateLastActivity, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

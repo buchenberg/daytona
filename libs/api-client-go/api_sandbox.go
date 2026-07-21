@@ -5856,11 +5856,17 @@ type SandboxAPIUpdateLastActivityRequest struct {
 	ApiService SandboxAPI
 	sandboxId string
 	xDaytonaOrganizationID *string
+	updateLastActivity *UpdateLastActivity
 }
 
 // Use with JWT to specify the organization ID
 func (r SandboxAPIUpdateLastActivityRequest) XDaytonaOrganizationID(xDaytonaOrganizationID string) SandboxAPIUpdateLastActivityRequest {
 	r.xDaytonaOrganizationID = &xDaytonaOrganizationID
+	return r
+}
+
+func (r SandboxAPIUpdateLastActivityRequest) UpdateLastActivity(updateLastActivity UpdateLastActivity) SandboxAPIUpdateLastActivityRequest {
+	r.updateLastActivity = &updateLastActivity
 	return r
 }
 
@@ -5904,7 +5910,7 @@ func (a *SandboxAPIService) UpdateLastActivityExecute(r SandboxAPIUpdateLastActi
 	localVarFormParams := url.Values{}
 
 	// to determine the Content-Type header
-	localVarHTTPContentTypes := []string{}
+	localVarHTTPContentTypes := []string{"application/json"}
 
 	// set Content-Type header
 	localVarHTTPContentType := selectHeaderContentType(localVarHTTPContentTypes)
@@ -5923,6 +5929,8 @@ func (a *SandboxAPIService) UpdateLastActivityExecute(r SandboxAPIUpdateLastActi
 	if r.xDaytonaOrganizationID != nil {
 		parameterAddToHeaderOrQuery(localVarHeaderParams, "X-Daytona-Organization-ID", r.xDaytonaOrganizationID, "simple", "")
 	}
+	// body params
+	localVarPostBody = r.updateLastActivity
 	req, err := a.client.prepareRequest(r.ctx, localVarPath, localVarHTTPMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, formFiles)
 	if err != nil {
 		return nil, err

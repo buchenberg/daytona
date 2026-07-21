@@ -17,6 +17,7 @@ import { CreateSandboxSnapshotDto } from '../dto/create-sandbox-snapshot.dto'
 import { ForkSandboxDto } from '../dto/fork-sandbox.dto'
 import { ResizeSandboxDto } from '../dto/resize-sandbox.dto'
 import { SandboxState } from '../enums/sandbox-state.enum'
+import { SandboxActivitySource } from '../common/sandbox-activity-source'
 import { SandboxClass } from '../enums/sandbox-class.enum'
 import { isRegistryBasedSandboxClass } from '../utils/sandbox-class.util'
 import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
@@ -3208,8 +3209,8 @@ export class SandboxService {
     })
   }
 
-  async updateLastActivityAt(sandboxId: string, lastActivityAt: Date): Promise<void> {
-    await this.sandboxActivityService.updateLastActivityAt(sandboxId, lastActivityAt)
+  async updateLastActivityAt(sandboxId: string, lastActivityAt: Date, source?: SandboxActivitySource): Promise<void> {
+    await this.sandboxActivityService.updateLastActivityAt(sandboxId, lastActivityAt, source)
   }
 
   async getToolboxProxyUrl(sandboxId: string): Promise<string> {
