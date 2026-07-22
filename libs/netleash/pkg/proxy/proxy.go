@@ -171,9 +171,10 @@ func (s *Server) untrackConn(conn net.Conn) {
 }
 
 func (s *Server) handleConn(conn net.Conn) {
-	// Apply an idle timeout to every read/write (handshake, request parse, tunnel
-	// loop, response streaming) so a stalled or idle connection is reaped instead
-	// of pinning a goroutine + FD forever (NL-REQ-02).
+	// Apply an idle timeout to every read/write (handshake, request parse,
+	// response streaming) so a stalled or idle connection is reaped instead of
+	// pinning a goroutine + FD forever (NL-REQ-02). An established splice tunnel
+	// leaves this mode for TCP-keepalive dead-peer detection — see spliceUpstream.
 	if s.idleTimeout > 0 {
 		conn = &idleConn{Conn: conn, idle: s.idleTimeout}
 	}
@@ -525,28 +526,46 @@ func (s *Server) spliceUpstream(clientConn net.Conn, clientReader io.Reader, hos
 		s.log.Debug("proxy: failed to dial upstream for splice", "host", hostname, "port", port, "error", err)
 		return
 	}
-	// Bound the upstream half by the same idle timeout as the client half, so a
-	// silent, half-open peer can't pin a goroutine forever (the client half is
-	// already an idleConn; the raw dialed upstream is not).
-	if s.idleTimeout > 0 {
-		upstream = &idleConn{Conn: upstream, idle: s.idleTimeout}
-	}
 	defer upstream.Close()
 
-	// Copy both directions. When one side reaches EOF, half-close the peer's write
-	// side so it sees end-of-stream and can finish its own direction, rather than
-	// fully closing (which would truncate an in-flight response on the other half).
-	// Wait for both copies before the deferred Close tears everything down.
+	// The tunnel is established; switch from idle-deadline reaping to TCP
+	// keepalive dead-peer detection. A tunnel may legitimately carry no bytes
+	// for far longer than the idle timeout while both peers wait (a long-poll
+	// awaiting its response, a quiet websocket), and the peers' own TCP
+	// keepalives never reach userspace — an idle deadline would reap exactly
+	// such a healthy connection. The kernel keepalive instead fails a blocked
+	// splice read only when a peer is actually gone (see tunnelKeepAlive).
+	if ic, ok := clientConn.(*idleConn); ok {
+		ic.enterTunnelMode()
+	}
+	enableTunnelKeepAlive(clientConn)
+	enableTunnelKeepAlive(upstream)
+
+	// Copy both directions. A clean EOF half-closes the peer's write side so it
+	// sees end-of-stream and can finish its own direction (e.g. a response still
+	// in flight after the request half ended), rather than fully closing (which
+	// would truncate it). An ERROR — a write failure or a dead peer surfaced by
+	// TCP keepalive — tears down both connections instead: with no idle deadline
+	// in tunnel mode, the opposite copy could otherwise stay blocked on a silent
+	// peer forever. Wait for both copies before the deferred Close.
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		io.Copy(upstream, clientReader)
+		if _, err := io.Copy(upstream, clientReader); err != nil {
+			clientConn.Close()
+			upstream.Close()
+			return
+		}
 		halfCloseWrite(upstream)
 	}()
 	go func() {
 		defer wg.Done()
-		io.Copy(clientConn, upstream)
+		if _, err := io.Copy(clientConn, upstream); err != nil {
+			clientConn.Close()
+			upstream.Close()
+			return
+		}
 		halfCloseWrite(clientConn)
 	}()
 	wg.Wait()

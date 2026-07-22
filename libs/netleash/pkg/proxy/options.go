@@ -31,8 +31,10 @@ func WithAuthToken(token string) Option {
 }
 
 // WithIdleTimeout overrides the per-connection idle timeout (NL-REQ-02). A
-// connection with no read or write activity for this long is torn down. Zero
-// disables the timeout.
+// connection with no read or write activity for this long is torn down. It
+// covers a connection from accept until an end-to-end tunnel is established;
+// a spliced tunnel is then guarded by TCP keepalive instead, so a byte-idle
+// but alive tunnel (e.g. a long-poll) is not reaped. Zero disables the timeout.
 func WithIdleTimeout(d time.Duration) Option {
 	return func(s *Server) { s.idleTimeout = d }
 }

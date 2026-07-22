@@ -64,6 +64,35 @@ func TestAcquireConn_RejectReleasesGlobalSlot(t *testing.T) {
 	}
 }
 
+// enterTunnelMode must both stop arming new deadlines and clear the deadline
+// armed by the last pre-tunnel read — otherwise that stale deadline would still
+// fire mid-tunnel and reap a healthy, byte-idle connection.
+func TestIdleConn_TunnelModeSurvivesIdle(t *testing.T) {
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+
+	ic := &idleConn{Conn: c1, idle: 30 * time.Millisecond}
+
+	// Arm (and expire) a read deadline the way pre-tunnel traffic does.
+	if _, err := ic.Read(make([]byte, 1)); err == nil {
+		t.Fatal("expected an idle read timeout with no data available")
+	}
+
+	ic.enterTunnelMode()
+
+	// The peer answers only after several idle periods; the read must wait for
+	// the data instead of failing on a stale or newly armed deadline.
+	go func() {
+		time.Sleep(150 * time.Millisecond)
+		_, _ = c2.Write([]byte("x"))
+	}()
+	buf := make([]byte, 1)
+	if n, err := ic.Read(buf); err != nil || n != 1 {
+		t.Fatalf("read in tunnel mode failed: n=%d err=%v", n, err)
+	}
+}
+
 func TestIdleConn_ReadTimeout(t *testing.T) {
 	c1, c2 := net.Pipe()
 	defer c1.Close()

@@ -140,6 +140,81 @@ func TestServer_CONNECT_MITMsWhenSecret(t *testing.T) {
 	}
 }
 
+// TestServer_SpliceSurvivesIdleTimeout reproduces a long-poll through the
+// proxy: the backend holds the response until well past the proxy's idle
+// timeout while no bytes flow in either direction. The spliced tunnel must not
+// be reaped — established tunnels are guarded by TCP keepalive, not the idle
+// deadline — so the delayed response still reaches the client.
+func TestServer_SpliceSurvivesIdleTimeout(t *testing.T) {
+	proxyCA, err := GenerateCA()
+	if err != nil {
+		t.Fatalf("GenerateCA (proxy) failed: %v", err)
+	}
+	backendCA, err := GenerateCA()
+	if err != nil {
+		t.Fatalf("GenerateCA (backend) failed: %v", err)
+	}
+
+	const idle = 150 * time.Millisecond
+	mux := http.NewServeMux()
+	mux.HandleFunc("/slow", func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(4 * idle) // hold the tunnel byte-idle well past the timeout
+		w.Write([]byte("late"))
+	})
+	backendLn, backendAddr := startHTTPSBackendWithCA(t, backendCA, mux)
+	defer backendLn.Close()
+
+	s := NewServer("127.0.0.1:0", proxyCA, NewInjector(nil), []string{"localhost"}, "", quiet,
+		WithIdleTimeout(idle))
+	proxyAddr, err := s.Start()
+	if err != nil {
+		t.Fatalf("proxy Start failed: %v", err)
+	}
+	defer s.Close()
+
+	pool := x509.NewCertPool()
+	pool.AppendCertsFromPEM(backendCA.PEM)
+	client := &http.Client{Transport: &http.Transport{
+		Proxy:           httpProxyURL(proxyAddr),
+		TLSClientConfig: &tls.Config{RootCAs: pool},
+	}}
+
+	resp, err := client.Get(fmt.Sprintf("https://%s/slow", backendAddr))
+	if err != nil {
+		t.Fatalf("long-poll through a spliced tunnel failed (reaped by the idle timeout?): %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if string(body) != "late" {
+		t.Fatalf("expected 'late', got %q", body)
+	}
+}
+
+// TestServer_IdleTimeoutReapsSetupPhase pins the flip side: before a tunnel is
+// established the idle timeout still applies, so a client that connects and
+// sends nothing (a Slowloris opener) is reaped rather than held forever.
+func TestServer_IdleTimeoutReapsSetupPhase(t *testing.T) {
+	s := NewServer("127.0.0.1:0", nil, NewInjector(nil), []string{"allowed.example"}, "", quiet,
+		WithIdleTimeout(100*time.Millisecond))
+	proxyAddr, err := s.Start()
+	if err != nil {
+		t.Fatalf("proxy Start failed: %v", err)
+	}
+	defer s.Close()
+
+	raw, err := net.DialTimeout("tcp", proxyAddr, 2*time.Second)
+	if err != nil {
+		t.Fatalf("dial proxy failed: %v", err)
+	}
+	defer raw.Close()
+	_ = raw.SetReadDeadline(time.Now().Add(2 * time.Second))
+	// Send nothing; the proxy must close the connection at ~idleTimeout, seen
+	// here as EOF well before our own 2s guard deadline.
+	if _, err := raw.Read(make([]byte, 1)); !errors.Is(err, io.EOF) {
+		t.Fatalf("expected the proxy to reap the idle connection (EOF), got: %v", err)
+	}
+}
+
 // TestServer_TransparentTLS_BlockedHostDropped verifies the transparent path:
 // a raw TLS ClientHello (no CONNECT) whose SNI is not allowed is dropped before
 // any handshake, so the client's handshake fails.
