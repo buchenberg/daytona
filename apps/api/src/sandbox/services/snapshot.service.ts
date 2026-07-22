@@ -213,6 +213,15 @@ export class SnapshotService {
         throw new BadRequestException(imageValidationError)
       }
 
+      // A user-supplied imageName must never reference an internal Daytona snapshot registry:
+      // that resolves to another tenant's private image and the control plane would pull it with
+      // its own privileged registry credentials (cross-tenant exfiltration). Public/external images
+      // are pulled by name; internal snapshots are referenced by ref, never by naming the registry.
+      // Applies uniformly (no general exemption) — the default-snapshot seed uses a public image.
+      if (await this.dockerRegistryService.isSnapshotRegistryImageRef(createSnapshotDto.imageName)) {
+        throw new BadRequestException('imageName may not reference an internal Daytona snapshot registry')
+      }
+
       const sandboxClass = createSnapshotDto.sandboxClass ?? this.configService.getOrThrow('defaultSandboxClass')
 
       if (sandboxClass === SandboxClass.WINDOWS) {

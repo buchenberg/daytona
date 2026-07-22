@@ -2037,6 +2037,23 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       )
       await this.processBuildOnRunner(snapshot, initialRunner)
     } else {
+      // Fail closed: a user-origin (general=false) snapshot whose imageName resolves to a shared
+      // internal snapshot registry is a cross-tenant pull attempt. Enforced here — before the
+      // privileged findRegistryByImageName + inspectSnapshotInRegistry below — and independent of
+      // `ref` (the inspect writes `ref`, so `ref` is not a safe origin signal). This covers
+      // pre-existing PENDING rows and any create->pull registry TOCTOU that the create-time input
+      // gate cannot. general=true snapshots are exempt: grandfathered general/default snapshots may
+      // legitimately carry an internal `imageName` and route via `ref`, and `general` is not
+      // attacker-settable (the public create path is always general=false).
+      if (!snapshot.general && (await this.dockerRegistryService.isSnapshotRegistryImageRef(snapshot.imageName))) {
+        await this.updateSnapshotState(
+          snapshot,
+          SnapshotState.ERROR,
+          'imageName may not reference an internal Daytona snapshot registry',
+        )
+        return DONT_SYNC_AGAIN
+      }
+
       if (!snapshot.ref) {
         const runnerAdapter = await this.runnerAdapterFactory.create(initialRunner)
         const registry = await this.dockerRegistryService.findRegistryByImageName(

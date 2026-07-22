@@ -48,6 +48,14 @@ function normalizeRegistryUrl(url: string): string {
   return url.trim().replace(/\/+$/, '')
 }
 
+/**
+ * Splits a scheme-stripped "host[:port]" into [host, port]; port is undefined when absent.
+ */
+function splitHostPort(hostPort: string): [string, string | undefined] {
+  const colon = hostPort.indexOf(':')
+  return colon === -1 ? [hostPort, undefined] : [hostPort.slice(0, colon), hostPort.slice(colon + 1)]
+}
+
 export interface ImageDetails {
   digest: string
   sizeGB: number
@@ -689,6 +697,89 @@ export class DockerRegistryService {
       }
     }
     return null
+  }
+
+  /**
+   * Returns true when a user-supplied image name references a Daytona built-snapshot registry —
+   * the INTERNAL registry (and its BACKUP mirrors), where built/from-sandbox snapshots live under
+   * server-generated refs. Those refs are only ever supplied to the runner by the platform, so a
+   * user-supplied `imageName` pointing there is a cross-tenant access attempt (the control plane
+   * would pull another tenant's private image with its own privileged credentials) and must be
+   * rejected. Users pull external/public images by name and reference their own snapshots by ref.
+   *
+   * Matching is host+project (mirroring findRegistryByUrlMatch's scheme-stripped prefix + boundary
+   * rule, extended by the registry's project), NOT host alone, because in prod the INTERNAL and
+   * TRANSIENT registries share a host (e.g. cr.app.daytona.io with projects `sbox` vs
+   * `sbox-transient`). TRANSIENT registries are deliberately EXCLUDED: the local image-push flow
+   * (getTransientPushAccess) legitimately has a user push to the transient project and then create a
+   * snapshot with that imageName, so `<internalHost>/sbox-transient/...` must stay allowed while
+   * `<internalHost>/sbox/...` is blocked. (Cross-tenant reads of another org's transient image are a
+   * separate, tracked issue — the transient project is org-shared by design — and cannot be closed
+   * here without breaking the push flow; it needs per-org namespacing of transient refs.)
+   *
+   * Docker Hub (stored as a shared INTERNAL row, collapsed to 'docker.io') and public ECR are
+   * legitimate public sources and are excluded by URL. Org-owned registries are single-tenant, are
+   * not in the shared (organizationId IS NULL) candidate set, and remain pullable.
+   */
+  async isSnapshotRegistryImageRef(imageName: string): Promise<boolean> {
+    if (!imageName) {
+      return false
+    }
+
+    // Parse the reference into <host>[:port]/<project>/<repo>... The first repository segment is the
+    // project, with '.'/empty segments dropped so path tricks like '/./sbox/' can't slip past the
+    // project check.
+    const target = imageName.replace(/^(https?:\/\/)/, '').toLowerCase()
+    const firstSlash = target.indexOf('/')
+    const [targetHost, targetPort] = splitHostPort(firstSlash === -1 ? target : target.slice(0, firstSlash))
+    const targetProject =
+      firstSlash === -1
+        ? undefined
+        : target
+            .slice(firstSlash + 1)
+            .split('/')
+            .find((segment) => segment !== '' && segment !== '.')
+            ?.split(':')[0]
+
+    const candidates = await this.dockerRegistryRepository.find({
+      where: [
+        { organizationId: IsNull(), registryType: RegistryType.INTERNAL },
+        { organizationId: IsNull(), registryType: RegistryType.BACKUP },
+      ],
+    })
+
+    for (const registry of candidates) {
+      const denyUrl = registry.url.replace(/^(https?:\/\/)/, '').toLowerCase()
+      const denySlash = denyUrl.indexOf('/')
+      const [denyHost, denyPort] = splitHostPort(denySlash === -1 ? denyUrl : denyUrl.slice(0, denySlash))
+
+      // Never block legitimate public sources even though Docker Hub is stored as a shared INTERNAL
+      // row; org-owned registries are already excluded by the organizationId IS NULL filter above.
+      if (denyHost === DOCKER_HUB_URL || denyHost === DOCKER_HUB_REGISTRY || denyHost === 'public.ecr.aws') {
+        continue
+      }
+      if (targetHost !== denyHost) {
+        continue
+      }
+      // Mirror the pull resolver's port behavior: a registry URL stored WITH a port matches only that
+      // exact port (registry:5000 does not match registry:6000), while a URL stored WITHOUT a port
+      // matches any port (cr.app.daytona.io also matches cr.app.daytona.io:443 — the attack variant).
+      if (denyPort !== undefined && targetPort !== denyPort) {
+        continue
+      }
+
+      // A project embedded in the stored URL path takes precedence over the project column.
+      const denyProject =
+        denySlash === -1 ? registry.project?.toLowerCase() : denyUrl.slice(denySlash + 1).split('/')[0]
+
+      // A host-only internal registry (no project) blocks the whole host; otherwise block only the
+      // built-snapshot project so the transient project (local image-push flow) stays pullable.
+      if (!denyProject || targetProject === denyProject) {
+        return true
+      }
+    }
+
+    return false
   }
 
   private createTemporaryRegistryConfig(registryOrigin: string): DockerRegistry {
