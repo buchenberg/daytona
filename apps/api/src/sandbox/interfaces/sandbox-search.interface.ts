@@ -97,6 +97,14 @@ export interface SandboxSearchFilters {
    * Filter by last event before this timestamp
    */
   lastEventBefore?: Date
+  /**
+   * Filter by auto destroy scheduled after this timestamp
+   */
+  autoDestroyAtAfter?: Date
+  /**
+   * Filter by auto destroy scheduled before this timestamp
+   */
+  autoDestroyAtBefore?: Date
 }
 
 export interface SandboxSearchPagination {

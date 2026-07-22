@@ -3614,6 +3614,8 @@ type SandboxAPIListSandboxesRequest struct {
 	createdAtBefore *time.Time
 	lastEventAfter *time.Time
 	lastEventBefore *time.Time
+	autoDestroyAtAfter *time.Time
+	autoDestroyAtBefore *time.Time
 	sort *SandboxListSortField
 	order *SandboxListSortDirection
 }
@@ -3759,6 +3761,18 @@ func (r SandboxAPIListSandboxesRequest) LastEventAfter(lastEventAfter time.Time)
 // Include items with last event before this timestamp
 func (r SandboxAPIListSandboxesRequest) LastEventBefore(lastEventBefore time.Time) SandboxAPIListSandboxesRequest {
 	r.lastEventBefore = &lastEventBefore
+	return r
+}
+
+// Include items scheduled for auto destroy after this timestamp
+func (r SandboxAPIListSandboxesRequest) AutoDestroyAtAfter(autoDestroyAtAfter time.Time) SandboxAPIListSandboxesRequest {
+	r.autoDestroyAtAfter = &autoDestroyAtAfter
+	return r
+}
+
+// Include items scheduled for auto destroy before this timestamp
+func (r SandboxAPIListSandboxesRequest) AutoDestroyAtBefore(autoDestroyAtBefore time.Time) SandboxAPIListSandboxesRequest {
+	r.autoDestroyAtBefore = &autoDestroyAtBefore
 	return r
 }
 
@@ -3926,6 +3940,12 @@ func (a *SandboxAPIService) ListSandboxesExecute(r SandboxAPIListSandboxesReques
 	}
 	if r.lastEventBefore != nil {
 		parameterAddToHeaderOrQuery(localVarQueryParams, "lastEventBefore", r.lastEventBefore, "form", "")
+	}
+	if r.autoDestroyAtAfter != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "autoDestroyAtAfter", r.autoDestroyAtAfter, "form", "")
+	}
+	if r.autoDestroyAtBefore != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "autoDestroyAtBefore", r.autoDestroyAtBefore, "form", "")
 	}
 	if r.sort != nil {
 		parameterAddToHeaderOrQuery(localVarQueryParams, "sort", r.sort, "form", "")

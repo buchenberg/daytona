@@ -162,6 +162,8 @@ export const queryKeys = {
               createdAtBefore: params.filters.createdAtBefore?.toISOString(),
               lastEventAfter: params.filters.lastEventAfter?.toISOString(),
               lastEventBefore: params.filters.lastEventBefore?.toISOString(),
+              autoDestroyAtAfter: params.filters.autoDestroyAtAfter?.toISOString(),
+              autoDestroyAtBefore: params.filters.autoDestroyAtBefore?.toISOString(),
             },
           }),
           ...(params.sorting && { sorting: params.sorting }),

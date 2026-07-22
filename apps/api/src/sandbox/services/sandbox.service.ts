@@ -1955,6 +1955,8 @@ export class SandboxService {
         createdAtBefore: query.createdAtBefore,
         lastEventAfter: query.lastEventAfter,
         lastEventBefore: query.lastEventBefore,
+        autoDestroyAtAfter: query.autoDestroyAtAfter,
+        autoDestroyAtBefore: query.autoDestroyAtBefore,
       },
       pagination: {
         cursor: query.cursor,

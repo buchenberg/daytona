@@ -157,6 +157,9 @@ export function convertApiFiltersToTableFilters(filters: SandboxFilters): Column
   if (filters.createdAtAfter || filters.createdAtBefore) {
     columnFilters.push({ id: 'createdAt', value: [filters.createdAtAfter, filters.createdAtBefore] })
   }
+  if (filters.autoDestroyAtAfter || filters.autoDestroyAtBefore) {
+    columnFilters.push({ id: 'autoDestroyAt', value: [filters.autoDestroyAtAfter, filters.autoDestroyAtBefore] })
+  }
 
   const resourceValue: ResourceFilterValue = {}
   if (filters.minCpu !== undefined || filters.maxCpu !== undefined) {
@@ -248,6 +251,15 @@ export function convertTableFiltersToApiFilters(tableFilters: ColumnFiltersState
         const [createdAfter, createdBefore] = filter.value as (Date | undefined)[]
         filters.createdAtAfter = createdAfter
         filters.createdAtBefore = createdBefore
+        break
+      }
+      case 'autoDestroyAt': {
+        if (!Array.isArray(filter.value)) {
+          break
+        }
+        const [autoDestroyAfter, autoDestroyBefore] = filter.value as (Date | undefined)[]
+        filters.autoDestroyAtAfter = autoDestroyAfter
+        filters.autoDestroyAtBefore = autoDestroyBefore
         break
       }
       case 'resources': {

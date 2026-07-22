@@ -96,6 +96,14 @@ export class SandboxTypeormSearchAdapter implements SandboxSearchAdapter {
     if (filters.lastEventBefore) {
       qb.andWhere('lastActivity.lastActivityAt <= :lastEventBefore', { lastEventBefore: filters.lastEventBefore })
     }
+    if (filters.autoDestroyAtAfter) {
+      qb.andWhere('sandbox.autoDestroyAt >= :autoDestroyAtAfter', { autoDestroyAtAfter: filters.autoDestroyAtAfter })
+    }
+    if (filters.autoDestroyAtBefore) {
+      qb.andWhere('sandbox.autoDestroyAt <= :autoDestroyAtBefore', {
+        autoDestroyAtBefore: filters.autoDestroyAtBefore,
+      })
+    }
 
     // State filtering with error state handling
     const errorStates = [SandboxState.ERROR, SandboxState.BUILD_FAILED]

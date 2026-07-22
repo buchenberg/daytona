@@ -138,6 +138,8 @@ const sandboxViewSearchParams = {
   lastEventBefore: parseAsIsoDateTime,
   createdAtAfter: parseAsIsoDateTime,
   createdAtBefore: parseAsIsoDateTime,
+  autoDestroyAtAfter: parseAsIsoDateTime,
+  autoDestroyAtBefore: parseAsIsoDateTime,
   isPublic: parseAsBoolean,
   isRecoverable: parseAsBoolean,
   includeWarm: parseAsBoolean,
@@ -341,6 +343,8 @@ const Sandboxes: React.FC = () => {
     if (viewParams.lastEventBefore) nextFilters.lastEventBefore = viewParams.lastEventBefore
     if (viewParams.createdAtAfter) nextFilters.createdAtAfter = viewParams.createdAtAfter
     if (viewParams.createdAtBefore) nextFilters.createdAtBefore = viewParams.createdAtBefore
+    if (viewParams.autoDestroyAtAfter) nextFilters.autoDestroyAtAfter = viewParams.autoDestroyAtAfter
+    if (viewParams.autoDestroyAtBefore) nextFilters.autoDestroyAtBefore = viewParams.autoDestroyAtBefore
     if (viewParams.isPublic !== null) nextFilters.isPublic = viewParams.isPublic
     if (viewParams.isRecoverable !== null) nextFilters.isRecoverable = viewParams.isRecoverable
     if (viewParams.includeWarm !== null) nextFilters.includeWarm = viewParams.includeWarm
@@ -349,6 +353,8 @@ const Sandboxes: React.FC = () => {
   }, [
     viewParams.createdAtAfter,
     viewParams.createdAtBefore,
+    viewParams.autoDestroyAtAfter,
+    viewParams.autoDestroyAtBefore,
     viewParams.isPublic,
     viewParams.isRecoverable,
     viewParams.includeWarm,
@@ -383,6 +389,8 @@ const Sandboxes: React.FC = () => {
           createdAtBefore: filters.createdAtBefore?.toISOString(),
           lastEventAfter: filters.lastEventAfter?.toISOString(),
           lastEventBefore: filters.lastEventBefore?.toISOString(),
+          autoDestroyAtAfter: filters.autoDestroyAtAfter?.toISOString(),
+          autoDestroyAtBefore: filters.autoDestroyAtBefore?.toISOString(),
         },
         sorting,
       }),
@@ -449,6 +457,8 @@ const Sandboxes: React.FC = () => {
         lastEventBefore: newFilters.lastEventBefore ?? null,
         createdAtAfter: newFilters.createdAtAfter ?? null,
         createdAtBefore: newFilters.createdAtBefore ?? null,
+        autoDestroyAtAfter: newFilters.autoDestroyAtAfter ?? null,
+        autoDestroyAtBefore: newFilters.autoDestroyAtBefore ?? null,
         isPublic: newFilters.isPublic ?? null,
         isRecoverable: newFilters.isRecoverable ?? null,
         includeWarm: newFilters.includeWarm ?? null,

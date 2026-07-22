@@ -413,6 +413,11 @@ const columns: ColumnDef<SandboxListItem>[] = [
     enableHiding: false,
     enableSorting: false,
   },
+  {
+    id: 'autoDestroyAt',
+    enableHiding: false,
+    enableSorting: false,
+  },
 ]
 
 function getDisplayName(sandbox: SandboxListItem): string {

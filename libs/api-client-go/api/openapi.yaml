@@ -1862,6 +1862,26 @@ paths:
           format: date-time
           type: string
         style: form
+      - description: Include items scheduled for auto destroy after this timestamp
+        explode: true
+        in: query
+        name: autoDestroyAtAfter
+        required: false
+        schema:
+          example: 2024-01-01T00:00:00Z
+          format: date-time
+          type: string
+        style: form
+      - description: Include items scheduled for auto destroy before this timestamp
+        explode: true
+        in: query
+        name: autoDestroyAtBefore
+        required: false
+        schema:
+          example: 2024-12-31T23:59:59Z
+          format: date-time
+          type: string
+        style: form
       - description: Field to sort by
         explode: true
         in: query

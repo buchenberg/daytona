@@ -307,6 +307,32 @@ export class ListSandboxesQueryDto {
   lastEventBefore?: Date
 
   @ApiProperty({
+    name: 'autoDestroyAtAfter',
+    description: 'Include items scheduled for auto destroy after this timestamp',
+    required: false,
+    type: String,
+    format: 'date-time',
+    example: '2024-01-01T00:00:00Z',
+  })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  autoDestroyAtAfter?: Date
+
+  @ApiProperty({
+    name: 'autoDestroyAtBefore',
+    description: 'Include items scheduled for auto destroy before this timestamp',
+    required: false,
+    type: String,
+    format: 'date-time',
+    example: '2024-12-31T23:59:59Z',
+  })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  autoDestroyAtBefore?: Date
+
+  @ApiProperty({
     name: 'sort',
     description: 'Field to sort by',
     required: false,

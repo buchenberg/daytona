@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Square,
   Tag,
+  TimerOff,
   Wrench,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
@@ -30,6 +31,7 @@ import {
   DropdownMenuPanelContent,
   DropdownMenuPanelTrigger,
 } from '../ui/dropdown-menu-panel'
+import { AutoDestroyFilter, AutoDestroyFilterIndicator } from './filters/AutoDestroyFilter'
 import { BooleanFilter, BooleanFilterIndicator } from './filters/BooleanFilter'
 import { CreatedAtFilter, CreatedAtFilterIndicator } from './filters/CreatedAtFilter'
 import { LabelFilter, LabelFilterIndicator } from './filters/LabelFilter'
@@ -72,7 +74,13 @@ const SANDBOX_TABLE_COLUMN_LABELS: Record<string, string> = {
   createdAt: 'Created At',
 }
 
-const SANDBOX_TABLE_CONFIG_EXCLUDED_COLUMN_IDS = ['actions', 'select', 'isPublic', 'isRecoverable'] as const
+const SANDBOX_TABLE_CONFIG_EXCLUDED_COLUMN_IDS = [
+  'actions',
+  'select',
+  'isPublic',
+  'isRecoverable',
+  'autoDestroyAt',
+] as const
 
 type SandboxFacetFilterId =
   | 'state'
@@ -85,6 +93,7 @@ type SandboxFacetFilterId =
   | 'labels'
   | 'lastEvent'
   | 'createdAt'
+  | 'autoDestroyAt'
   | 'visibility'
   | 'recovery'
   | 'includeWarm'
@@ -117,6 +126,7 @@ export function SandboxTableHeader({
   const hasLabelsFilter = ((table.getColumn('labels')?.getFilterValue() as string[]) || []).length > 0
   const hasLastEventFilter = ((table.getColumn('lastEvent')?.getFilterValue() as Date[]) || []).length > 0
   const hasCreatedAtFilter = ((table.getColumn('createdAt')?.getFilterValue() as Date[]) || []).length > 0
+  const hasAutoDestroyAtFilter = ((table.getColumn('autoDestroyAt')?.getFilterValue() as Date[]) || []).length > 0
   const hasIsPublicFilter = table.getColumn('isPublic')?.getFilterValue() !== undefined
   const hasIsRecoverableFilter = table.getColumn('isRecoverable')?.getFilterValue() !== undefined
   const hasIncludeWarmFilter = table.getColumn('includeWarm')?.getFilterValue() !== undefined
@@ -131,6 +141,7 @@ export function SandboxTableHeader({
     hasLabelsFilter ||
     hasLastEventFilter ||
     hasCreatedAtFilter ||
+    hasAutoDestroyAtFilter ||
     hasIsPublicFilter ||
     hasIsRecoverableFilter ||
     hasIncludeWarmFilter ||
@@ -262,6 +273,20 @@ export function SandboxTableHeader({
           onFilterChange={(value) => {
             table.getColumn('createdAt')?.setFilterValue(value)
             pushFilter('createdAt')
+          }}
+        />
+      ),
+    },
+    {
+      id: 'autoDestroyAt',
+      active: hasAutoDestroyAtFilter,
+      filter: (
+        <AutoDestroyFilterIndicator
+          key="autoDestroyAt"
+          value={(table.getColumn('autoDestroyAt')?.getFilterValue() as Date[]) || []}
+          onFilterChange={(value) => {
+            table.getColumn('autoDestroyAt')?.setFilterValue(value)
+            pushFilter('autoDestroyAt')
           }}
         />
       ),
@@ -482,6 +507,21 @@ export function SandboxTableHeader({
                         pushFilter('createdAt')
                       }}
                       value={(table.getColumn('createdAt')?.getFilterValue() as Date[]) || []}
+                    />
+                  </DropdownMenuPanelContent>
+                </DropdownMenuPanel>
+                <DropdownMenuPanel>
+                  <DropdownMenuPanelTrigger>
+                    <TimerOff className="w-4 h-4" />
+                    Auto Destroy
+                  </DropdownMenuPanelTrigger>
+                  <DropdownMenuPanelContent className="p-3 w-92">
+                    <AutoDestroyFilter
+                      onFilterChange={(value) => {
+                        table.getColumn('autoDestroyAt')?.setFilterValue(value)
+                        pushFilter('autoDestroyAt')
+                      }}
+                      value={(table.getColumn('autoDestroyAt')?.getFilterValue() as Date[]) || []}
                     />
                   </DropdownMenuPanelContent>
                 </DropdownMenuPanel>

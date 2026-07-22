@@ -121,6 +121,7 @@ export class SandboxOpenSearchSearchAdapter implements SandboxSearchAdapter, OnM
               autoStopInterval: { type: 'integer' },
               autoArchiveInterval: { type: 'integer' },
               autoDeleteInterval: { type: 'integer' },
+              autoDestroyAt: { type: 'date' },
               labels: { type: 'flat_object' },
               backupState: { type: 'keyword' },
               daemonVersion: { type: 'keyword' },
@@ -271,6 +272,18 @@ export class SandboxOpenSearchSearchAdapter implements SandboxSearchAdapter, OnM
           lastActivityAt: {
             ...(filters.lastEventAfter && { gte: filters.lastEventAfter.toISOString() }),
             ...(filters.lastEventBefore && { lte: filters.lastEventBefore.toISOString() }),
+          },
+        },
+      })
+    }
+
+    // Auto destroy range filter
+    if (filters.autoDestroyAtAfter || filters.autoDestroyAtBefore) {
+      must.push({
+        range: {
+          autoDestroyAt: {
+            ...(filters.autoDestroyAtAfter && { gte: filters.autoDestroyAtAfter.toISOString() }),
+            ...(filters.autoDestroyAtBefore && { lte: filters.autoDestroyAtBefore.toISOString() }),
           },
         },
       })

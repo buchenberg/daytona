@@ -72,6 +72,7 @@ export const SnapshotFiltersDtoStateEnum = {
     BUILDING: 'building',
     PENDING: 'pending',
     PULLING: 'pulling',
+    SNAPSHOTTING: 'snapshotting',
     ACTIVE: 'active',
     INACTIVE: 'inactive',
     ERROR: 'error',

@@ -32,6 +32,8 @@ export interface SandboxFilters {
   lastEventBefore?: Date
   createdAtAfter?: Date
   createdAtBefore?: Date
+  autoDestroyAtAfter?: Date
+  autoDestroyAtBefore?: Date
   isPublic?: boolean
   isRecoverable?: boolean
   includeWarm?: boolean
@@ -111,6 +113,8 @@ export function useSandboxesQuery(params: SandboxQueryParams) {
         filters.createdAtBefore,
         filters.lastEventAfter,
         filters.lastEventBefore,
+        filters.autoDestroyAtAfter,
+        filters.autoDestroyAtBefore,
         sorting.field,
         sorting.direction,
       )
