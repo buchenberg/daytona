@@ -26,6 +26,7 @@ export enum AuditAction {
   REPLACE_LABELS = 'replace_labels',
   CREATE_BACKUP = 'create_backup',
   UPDATE_PUBLIC_STATUS = 'update_public_status',
+  ROTATE_SIGNING_KEY = 'rotate_signing_key',
   SET_AUTO_STOP_INTERVAL = 'set_auto_stop_interval',
   SET_AUTO_PAUSE_INTERVAL = 'set_auto_pause_interval',
   SET_TTL = 'set_ttl',

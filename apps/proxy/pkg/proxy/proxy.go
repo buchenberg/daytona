@@ -72,6 +72,7 @@ type Proxy struct {
 	sandboxPreviewWarningCache     common_cache.ICache[bool]
 	sandboxAuthKeyValidCache       common_cache.ICache[bool]
 	sandboxLastActivityUpdateCache common_cache.ICache[bool]
+	sandboxSigningKeyCache         common_cache.ICache[string]
 }
 
 func StartProxy(ctx context.Context, config *config.Config) error {
@@ -121,6 +122,10 @@ func StartProxy(ctx context.Context, config *config.Config) error {
 		if err != nil {
 			return err
 		}
+		proxy.sandboxSigningKeyCache, err = common_cache.NewRedisCache[string](config.Redis, "proxy:sandbox-signing-key:")
+		if err != nil {
+			return err
+		}
 	} else {
 		proxy.sandboxRunnerCache = common_cache.NewMapCache[RunnerInfo](ctx)
 		proxy.runnerCache = common_cache.NewMapCache[RunnerInfo](ctx)
@@ -128,6 +133,7 @@ func StartProxy(ctx context.Context, config *config.Config) error {
 		proxy.sandboxPreviewWarningCache = common_cache.NewMapCache[bool](ctx)
 		proxy.sandboxAuthKeyValidCache = common_cache.NewMapCache[bool](ctx)
 		proxy.sandboxLastActivityUpdateCache = common_cache.NewMapCache[bool](ctx)
+		proxy.sandboxSigningKeyCache = common_cache.NewMapCache[string](ctx)
 	}
 
 	if config.MetricsPort != 0 {

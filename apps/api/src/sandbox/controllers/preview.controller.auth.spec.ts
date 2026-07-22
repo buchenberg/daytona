@@ -1,8 +1,10 @@
 import { PreviewController } from './preview.controller'
 import { ProxyAuthContextGuard } from '../guards/proxy-auth-context.guard'
+import { SandboxAccessGuard } from '../guards/sandbox-access.guard'
 import { AuthStrategyType } from '../../auth/enums/auth-strategy-type.enum'
 import {
   getAuthContextGuards,
+  getResourceAccessGuards,
   getAllowedAuthStrategies,
   expectArrayMatch,
   createCoverageTracker,
@@ -48,5 +50,13 @@ describe('[AUTH] PreviewController', () => {
     expect(isPublicEndpoint(PreviewController, methodName)).toBe(false)
     expectArrayMatch(getAllowedAuthStrategies(PreviewController, methodName), [AuthStrategyType.API_KEY])
     expectArrayMatch(getAuthContextGuards(PreviewController, methodName), [ProxyAuthContextGuard])
+  })
+
+  it('getSigningKey', () => {
+    const methodName = trackMethod('getSigningKey')
+    expect(isPublicEndpoint(PreviewController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(PreviewController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(PreviewController, methodName), [ProxyAuthContextGuard])
+    expectArrayMatch(getResourceAccessGuards(PreviewController, methodName), [SandboxAccessGuard])
   })
 })

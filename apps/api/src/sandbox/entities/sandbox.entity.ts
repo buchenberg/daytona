@@ -145,6 +145,11 @@ export class Sandbox {
   @Column({ nullable: true })
   domainAllowList?: string
 
+  // HMAC key for signing sandbox URLs (e.g. pre-signed file URLs); lazily set on first use,
+  // stable across start/stop, rotated only via the dedicated endpoint.
+  @Column({ nullable: true })
+  signingKey?: string
+
   @Column('jsonb', { nullable: true })
   labels: { [key: string]: string }
 

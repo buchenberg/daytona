@@ -9,6 +9,7 @@ import { SandboxArchivedEvent } from '../events/sandbox-archived.event'
 import { SandboxAuthTokenRotatedEvent } from '../events/sandbox-auth-token-rotated.event'
 import { SandboxDestroyedEvent } from '../events/sandbox-destroyed.event'
 import { SandboxPublicStatusUpdatedEvent } from '../events/sandbox-public-status-updated.event'
+import { SandboxSigningKeyRotatedEvent } from '../events/sandbox-signing-key-rotated.event'
 
 @Injectable()
 export class ProxyCacheInvalidationService implements OnModuleInit, OnModuleDestroy {
@@ -19,6 +20,7 @@ export class ProxyCacheInvalidationService implements OnModuleInit, OnModuleDest
   private static readonly API_PUBLIC_CACHE_PREFIX = 'preview:public:'
   private static readonly AUTH_KEY_VALID_CACHE_PREFIX = 'proxy:sandbox-auth-key-valid:'
   private static readonly API_AUTH_TOKEN_CACHE_PREFIX = 'preview:token:'
+  private static readonly SIGNING_KEY_CACHE_PREFIX = 'proxy:sandbox-signing-key:'
 
   constructor(
     @InjectRedis() private readonly redis: Redis,
@@ -62,6 +64,11 @@ export class ProxyCacheInvalidationService implements OnModuleInit, OnModuleDest
   @OnEvent(SandboxEvents.AUTH_TOKEN_ROTATED)
   async handleSandboxAuthTokenRotated(event: SandboxAuthTokenRotatedEvent): Promise<void> {
     await this.invalidateAuthKeyValidCache(event.sandbox.id, event.previousAuthToken)
+  }
+
+  @OnEvent(SandboxEvents.SIGNING_KEY_ROTATED)
+  async handleSandboxSigningKeyRotated(event: SandboxSigningKeyRotatedEvent): Promise<void> {
+    await this.invalidateSigningKeyCache(event.sandboxId)
   }
 
   private async invalidateRunnerCache(sandboxId: string): Promise<void> {
@@ -119,6 +126,22 @@ export class ProxyCacheInvalidationService implements OnModuleInit, OnModuleDest
     for (const result of results) {
       if (result.status === 'rejected') {
         this.logger.warn(`Failed to invalidate public cache for sandbox ${sandboxId}: ${result.reason?.message}`)
+      }
+    }
+  }
+
+  // Unlike the decision caches below, no API-side eviction is needed here: the API serves
+  // signing keys straight from the DB (already rotated when this event fires), so a proxy
+  // re-fetch after this eviction always reads the fresh key.
+  private async invalidateSigningKeyCache(sandboxId: string): Promise<void> {
+    const proxyKey = `${ProxyCacheInvalidationService.SIGNING_KEY_CACHE_PREFIX}${sandboxId}`
+    const results = await Promise.allSettled([
+      this.deleteKey(this.redis, proxyKey, 'default'),
+      ...(this.proxyEuRedis ? [this.deleteKey(this.proxyEuRedis, proxyKey, 'EU')] : []),
+    ])
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        this.logger.warn(`Failed to invalidate signing key cache for sandbox ${sandboxId}: ${result.reason?.message}`)
       }
     }
   }

@@ -8,6 +8,7 @@ export const SandboxEvents = {
   DESTROYED: 'sandbox.destroyed',
   PUBLIC_STATUS_UPDATED: 'sandbox.public-status.updated',
   AUTH_TOKEN_ROTATED: 'sandbox.auth-token.rotated',
+  SIGNING_KEY_ROTATED: 'sandbox.signing-key.rotated',
   ORGANIZATION_UPDATED: 'sandbox.organization.updated',
   BACKUP_CREATED: 'sandbox.backup.created',
   AUTO_STOPPED: 'sandbox.auto-stopped',

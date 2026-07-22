@@ -49,6 +49,7 @@ import { SandboxDestroyedEvent } from '../events/sandbox-destroyed.event'
 import { SandboxStartedEvent } from '../events/sandbox-started.event'
 import { SandboxStoppedEvent } from '../events/sandbox-stopped.event'
 import { SandboxArchivedEvent } from '../events/sandbox-archived.event'
+import { SandboxSigningKeyRotatedEvent } from '../events/sandbox-signing-key-rotated.event'
 import { OrganizationService } from '../../organization/services/organization.service'
 import { OrganizationEvents } from '../../organization/constants/organization-events.constant'
 import { OrganizationSuspendedSandboxStoppedEvent } from '../../organization/events/organization-suspended-sandbox-stopped.event'
@@ -3213,6 +3214,48 @@ export class SandboxService {
 
   async updateLastActivityAt(sandboxId: string, lastActivityAt: Date, source?: SandboxActivitySource): Promise<void> {
     await this.sandboxActivityService.updateLastActivityAt(sandboxId, lastActivityAt, source)
+  }
+
+  async getSigningKey(sandboxId: string): Promise<string> {
+    const existing = await this.sandboxRepository.findOne({ where: { id: sandboxId } })
+    if (!existing) {
+      throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
+    }
+    if (existing.signingKey) {
+      return existing.signingKey
+    }
+
+    // Set the key only when unset so concurrent first-access requests converge on one value.
+    await this.sandboxRepository
+      .createQueryBuilder()
+      .update(Sandbox)
+      .set({ signingKey: nanoid(32) })
+      .where('id = :sandboxId', { sandboxId })
+      .andWhere('"signingKey" IS NULL')
+      .execute()
+
+    const sandbox = await this.sandboxRepository.findOneOrFail({ where: { id: sandboxId } })
+    if (!sandbox.signingKey) {
+      throw new Error(`Failed to ensure signing key for sandbox ${sandboxId}`)
+    }
+    return sandbox.signingKey
+  }
+
+  async rotateSigningKey(sandboxId: string): Promise<string> {
+    const newKey = nanoid(32)
+    const result = await this.sandboxRepository
+      .createQueryBuilder()
+      .update(Sandbox)
+      .set({ signingKey: newKey })
+      .where('id = :sandboxId', { sandboxId })
+      .execute()
+    if (!result.affected) {
+      throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
+    }
+    // Evicts the proxy-side signing key cache (see ProxyCacheInvalidationService) so old
+    // signatures stop validating and new ones validate immediately, not after the proxy TTL.
+    this.eventEmitter.emit(SandboxEvents.SIGNING_KEY_ROTATED, new SandboxSigningKeyRotatedEvent(sandboxId))
+    return newKey
   }
 
   async getToolboxProxyUrl(sandboxId: string): Promise<string> {

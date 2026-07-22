@@ -12,6 +12,7 @@ import { AuthStrategy } from '../../auth/decorators/auth-strategy.decorator'
 import { AuthenticatedRateLimitGuard } from '../../common/guards/authenticated-rate-limit.guard'
 import { ProxyAuthContextGuard } from '../guards/proxy-auth-context.guard'
 import { PreviewWarningDto } from '../dto/preview-warning.dto'
+import { SandboxAccessGuard } from '../guards/sandbox-access.guard'
 
 // Attached to a 404 only for org members whose sandbox was deleted, so the proxy
 // can report "sandbox deleted" without leaking existence to other callers.
@@ -164,6 +165,27 @@ export class PreviewController {
     }
     await this.redis.setex(`preview:token:${sandboxId}:${authToken}`, 3, '0')
     throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
+  }
+
+  @Get(':sandboxId/signing-key')
+  @ApiOperation({
+    summary: 'Get the signing key for a sandbox',
+    operationId: 'getSigningKey',
+  })
+  @ApiParam({
+    name: 'sandboxId',
+    description: 'ID of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Signing key of the sandbox',
+    type: String,
+  })
+  @AuthStrategy(AuthStrategyType.API_KEY)
+  @UseGuards(ProxyAuthContextGuard, SandboxAccessGuard)
+  async getSigningKey(@Param('sandboxId') sandboxId: string): Promise<string> {
+    return this.sandboxService.getSigningKey(sandboxId)
   }
 
   @Get(':sandboxId/access')

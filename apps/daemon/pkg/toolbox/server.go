@@ -179,6 +179,7 @@ func (s *server) Start() error {
 		// read operations
 		registerRoot(fsController, http.MethodGet, fs.ListFiles)
 		fsController.GET("/download", fs.DownloadFile)
+		fsController.HEAD("/download", fs.DownloadFile)
 		fsController.POST("/bulk-download", fs.DownloadFiles)
 		fsController.GET("/find", fs.FindInFiles)
 		fsController.GET("/info", fs.GetFileInfo)
@@ -190,6 +191,7 @@ func (s *server) Start() error {
 		fsController.POST("/permissions", fs.SetFilePermissions)
 		fsController.POST("/replace", fs.ReplaceInFiles)
 		fsController.POST("/upload", fs.UploadFile)
+		fsController.POST("/upload-v2", fs.UploadFileV2)
 		fsController.POST("/bulk-upload", fs.UploadFiles)
 
 		// delete operations

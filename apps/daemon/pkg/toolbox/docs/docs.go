@@ -2077,11 +2077,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/files/upload": {
+        "/files/upload-v2": {
             "post": {
-                "description": "Upload a file to the specified path",
+                "description": "Upload a file to the specified path. Accepts either multipart/form-data\n(field \"file\") or a raw request body (e.g. application/octet-stream).\nParent directories are created if missing; an existing file is overwritten.",
                 "consumes": [
                     "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
                 ],
                 "tags": [
                     "file-system"
@@ -2098,17 +2101,16 @@ const docTemplate = `{
                     },
                     {
                         "type": "file",
-                        "description": "File to upload",
+                        "description": "File to upload (multipart/form-data)",
                         "name": "file",
-                        "in": "formData",
-                        "required": true
+                        "in": "formData"
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/gin.H"
+                            "$ref": "#/definitions/UploadedFile"
                         }
                     },
                     "400": {
@@ -6536,6 +6538,25 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/fs.fileResult"
                     }
+                }
+            }
+        },
+        "UploadedFile": {
+            "type": "object",
+            "required": [
+                "name",
+                "path",
+                "type"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },
