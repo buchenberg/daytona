@@ -86,6 +86,9 @@ go.work.sum
 .claude/worktrees
 .claude/settings.local.json
 
+# OhMyOpenCode agent run continuation state
+.omo/run-continuation/
+
 # Java build outputs
 **/.gradle/
 **/build/
