@@ -8,9 +8,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/daytonaio/daemon/internal/util"
+	"github.com/daytonaio/daemon/pkg/common"
 	"github.com/google/uuid"
 
 	common_errors "github.com/daytonaio/common-go/pkg/errors"
@@ -20,7 +22,7 @@ import (
 func (s *SessionService) Execute(sessionId, cmdId, cmd string, async, isCombinedOutput, skipServerDemux, suppressInputEcho bool) (*SessionExecute, error) {
 	session, ok := s.sessions.Get(sessionId)
 	if !ok {
-		return nil, common_errors.NewNotFoundError(errors.New("session not found"))
+		return nil, common.NewProcessNotFoundError("session not found")
 	}
 
 	if cmdId == util.EmptyCommandID {
@@ -75,6 +77,12 @@ func (s *SessionService) Execute(sessionId, cmdId, cmd string, async, isCombined
 
 	_, err = session.stdinWriter.Write([]byte(cmdToExec))
 	if err != nil {
+		// A broken/closed stdin pipe means the session shell has exited but the
+		// reaper may not have updated ProcessState yet, so the upfront guard in
+		// SendInput-style checks cannot catch this race — classify it here.
+		if errors.Is(err, syscall.EPIPE) || errors.Is(err, os.ErrClosed) {
+			return nil, common.NewSessionEndedError("session process has exited")
+		}
 		return nil, common_errors.NewBadRequestError(fmt.Errorf("failed to write command: %w", err))
 	}
 

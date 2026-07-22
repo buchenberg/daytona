@@ -12,19 +12,29 @@ import (
 	"strings"
 	"testing"
 
+	common_errors "github.com/daytonaio/common-go/pkg/errors"
 	"github.com/gin-gonic/gin"
 )
 
 func listFilesContext(t *testing.T, path string, extraQuery string) *httptest.ResponseRecorder {
 	t.Helper()
 	recorder := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(recorder)
+	router := gin.New()
+	router.Use(common_errors.NewErrorMiddleware("DAYTONA_DAEMON", func(ctx *gin.Context, err error) common_errors.ErrorResponse {
+		return common_errors.ErrorResponse{
+			StatusCode: http.StatusInternalServerError,
+			Source:     "DAYTONA_DAEMON",
+			Code:       "INTERNAL_SERVER_ERROR",
+			Message:    err.Error(),
+		}
+	}))
+	router.GET("/files", ListFiles)
 	target := "/files?path=" + url.QueryEscape(path)
 	if extraQuery != "" {
 		target += "&" + extraQuery
 	}
-	ctx.Request = httptest.NewRequest(http.MethodGet, target, nil)
-	ListFiles(ctx)
+	req := httptest.NewRequest(http.MethodGet, target, nil)
+	router.ServeHTTP(recorder, req)
 	return recorder
 }
 

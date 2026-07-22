@@ -2,13 +2,16 @@ package pty
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
+	common_errors "github.com/daytonaio/common-go/pkg/errors"
 	"github.com/daytonaio/daemon/internal/util"
+	"github.com/daytonaio/daemon/pkg/common"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -55,25 +58,28 @@ func sendWSError(ws *websocket.Conn, message string) {
 //	@Produce		json
 //	@Param			request	body		PTYCreateRequest	true	"PTY session creation request"
 //	@Success		201		{object}	PTYCreateResponse
+//	@Failure		400		{object}	common.ErrorResponse
+//	@Failure		409		{object}	common.ErrorResponse
+//	@Failure		500		{object}	common.ErrorResponse
 //	@Router			/process/pty [post]
 //
 //	@id				CreatePtySession
 func (p *PTYController) CreatePTYSession(c *gin.Context) {
 	var req PTYCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.Error(common_errors.NewInvalidBodyRequestError(err))
 		return
 	}
 
 	// Validate session ID
 	if req.ID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "session ID is required"})
+		c.Error(common_errors.NewBadRequestError(errors.New("session ID is required")))
 		return
 	}
 
 	// Check if session with this ID already exists
 	if _, exists := ptyManager.Get(req.ID); exists {
-		c.JSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("PTY session with ID '%s' already exists", req.ID)})
+		c.Error(common_errors.NewConflictError(fmt.Errorf("PTY session with ID '%s' already exists", req.ID)))
 		return
 	}
 
@@ -89,17 +95,17 @@ func (p *PTYController) CreatePTYSession(c *gin.Context) {
 	}
 	// Set upper limits to avoid ioctl errors
 	if *req.Cols > 1000 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid value for cols - must be less than 1000"})
+		c.Error(common_errors.NewBadRequestError(errors.New("invalid value for cols - must be less than 1000")))
 		return
 	}
 	if *req.Rows > 1000 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid value for rows - must be less than 1000"})
+		c.Error(common_errors.NewBadRequestError(errors.New("invalid value for rows - must be less than 1000")))
 		return
 	}
 
 	if _, err := createAndStartSession(req.ID, req.Cwd, req.Envs, *req.Cols, *req.Rows, req.LazyStart, p.logger); err != nil {
 		p.logger.Error("failed to start PTY at create", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to start PTY session"})
+		c.Error(common_errors.NewInternalServerError(errors.New("failed to start PTY session")))
 		return
 	}
 
@@ -113,6 +119,7 @@ func (p *PTYController) CreatePTYSession(c *gin.Context) {
 //	@Tags			process
 //	@Produce		json
 //	@Success		200	{object}	PTYListResponse
+//	@Failure		500	{object}	common.ErrorResponse
 //	@Router			/process/pty [get]
 //
 //	@id				ListPtySessions
@@ -128,13 +135,15 @@ func (p *PTYController) ListPTYSessions(c *gin.Context) {
 //	@Produce		json
 //	@Param			sessionId	path		string	true	"PTY session ID"
 //	@Success		200			{object}	PTYSessionInfo
+//	@Failure		400			{object}	common.ErrorResponse
+//	@Failure		404			{object}	common.ErrorResponse
 //	@Router			/process/pty/{sessionId} [get]
 //
 //	@id				GetPtySession
 func (p *PTYController) GetPTYSession(c *gin.Context) {
 	id := c.Param("sessionId")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "session ID is required"})
+		c.Error(common_errors.NewBadRequestError(errors.New("session ID is required")))
 		return
 	}
 
@@ -142,7 +151,7 @@ func (p *PTYController) GetPTYSession(c *gin.Context) {
 		c.JSON(http.StatusOK, s.Info())
 		return
 	}
-	c.JSON(http.StatusNotFound, gin.H{"error": "PTY session not found"})
+	c.Error(common.NewProcessNotFoundError("PTY session not found"))
 }
 
 // DeletePTYSession godoc
@@ -153,13 +162,15 @@ func (p *PTYController) GetPTYSession(c *gin.Context) {
 //	@Produce		json
 //	@Param			sessionId	path		string	true	"PTY session ID"
 //	@Success		200			{object}	gin.H
+//	@Failure		400			{object}	common.ErrorResponse
+//	@Failure		404			{object}	common.ErrorResponse
 //	@Router			/process/pty/{sessionId} [delete]
 //
 //	@id				DeletePtySession
 func (p *PTYController) DeletePTYSession(c *gin.Context) {
 	id := c.Param("sessionId")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "session ID is required"})
+		c.Error(common_errors.NewBadRequestError(errors.New("session ID is required")))
 		return
 	}
 
@@ -169,7 +180,7 @@ func (p *PTYController) DeletePTYSession(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "PTY session deleted"})
 		return
 	}
-	c.JSON(http.StatusNotFound, gin.H{"error": "PTY session not found"})
+	c.Error(common.NewProcessNotFoundError("PTY session not found"))
 }
 
 // ConnectPTYSession godoc
@@ -179,13 +190,14 @@ func (p *PTYController) DeletePTYSession(c *gin.Context) {
 //	@Tags			process
 //	@Param			sessionId	path	string	true	"PTY session ID"
 //	@Success		101			"Switching Protocols - WebSocket connection established"
+//	@Failure		400			{object}	common.ErrorResponse
 //	@Router			/process/pty/{sessionId}/connect [get]
 //
 //	@id				ConnectPtySession
 func (p *PTYController) ConnectPTYSession(c *gin.Context) {
 	id := c.Param("sessionId")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "session ID is required"})
+		c.Error(common_errors.NewBadRequestError(errors.New("session ID is required")))
 		return
 	}
 
@@ -217,39 +229,42 @@ func (p *PTYController) ConnectPTYSession(c *gin.Context) {
 //	@Param			sessionId	path		string				true	"PTY session ID"
 //	@Param			request		body		PTYResizeRequest	true	"Resize request with new dimensions"
 //	@Success		200			{object}	PTYSessionInfo
+//	@Failure		400			{object}	common.ErrorResponse
+//	@Failure		410			{object}	common.ErrorResponse
+//	@Failure		500			{object}	common.ErrorResponse
 //	@Router			/process/pty/{sessionId}/resize [post]
 //
 //	@id				ResizePtySession
 func (p *PTYController) ResizePTYSession(c *gin.Context) {
 	id := c.Param("sessionId")
 	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "session ID is required"})
+		c.Error(common_errors.NewBadRequestError(errors.New("session ID is required")))
 		return
 	}
 
 	var req PTYResizeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.Error(common_errors.NewInvalidBodyRequestError(err))
 		return
 	}
 
 	if req.Cols > 1000 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "cols must be less than 1000"})
+		c.Error(common_errors.NewBadRequestError(errors.New("cols must be less than 1000")))
 		return
 	}
 	if req.Rows > 1000 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "rows must be less than 1000"})
+		c.Error(common_errors.NewBadRequestError(errors.New("rows must be less than 1000")))
 		return
 	}
 
 	session, err := ptyManager.VerifyPTYSessionForResize(id)
 	if err != nil {
-		c.JSON(http.StatusGone, gin.H{"error": err.Error()})
+		c.Error(common.NewSessionEndedError(err.Error()))
 		return
 	}
 
 	if err := session.resize(req.Cols, req.Rows); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.Error(common_errors.NewInternalServerError(err))
 		return
 	}
 	p.logger.Debug("Resized PTY session", "sessionId", id, "cols", req.Cols, "rows", req.Rows)

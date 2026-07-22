@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	common_errors "github.com/daytonaio/common-go/pkg/errors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,6 +19,8 @@ import (
 //	@Produce		json
 //	@Param			request	body	LspServerRequest	true	"LSP server request"
 //	@Success		200
+//	@Failure		400	{object}	common.ErrorResponse
+//	@Failure		500	{object}	common.ErrorResponse
 //	@Router			/lsp/start [post]
 //
 //	@id				Start
@@ -25,7 +28,7 @@ func Start(logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req LspServerRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid request body: %w", err))
+			c.Error(common_errors.NewInvalidBodyRequestError(fmt.Errorf("invalid request body: %w", err)))
 			return
 		}
 
@@ -33,7 +36,7 @@ func Start(logger *slog.Logger) gin.HandlerFunc {
 		err := service.Start(req.LanguageId, req.PathToProject)
 		if err != nil {
 			logger.Error("error starting LSP server", "error", err)
-			c.AbortWithError(http.StatusInternalServerError, errors.New("error starting LSP server"))
+			c.Error(common_errors.NewInternalServerError(errors.New("error starting LSP server")))
 			return
 		}
 
@@ -50,6 +53,8 @@ func Start(logger *slog.Logger) gin.HandlerFunc {
 //	@Produce		json
 //	@Param			request	body	LspServerRequest	true	"LSP server request"
 //	@Success		200
+//	@Failure		400	{object}	common.ErrorResponse
+//	@Failure		500	{object}	common.ErrorResponse
 //	@Router			/lsp/stop [post]
 //
 //	@id				Stop
@@ -57,7 +62,7 @@ func Stop(logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req LspServerRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid request body: %w", err))
+			c.Error(common_errors.NewInvalidBodyRequestError(fmt.Errorf("invalid request body: %w", err)))
 			return
 		}
 
@@ -65,7 +70,7 @@ func Stop(logger *slog.Logger) gin.HandlerFunc {
 		err := service.Shutdown(req.LanguageId, req.PathToProject)
 		if err != nil {
 			logger.Error("error stopping LSP server", "error", err)
-			c.AbortWithError(http.StatusInternalServerError, errors.New("error stopping LSP server"))
+			c.Error(common_errors.NewInternalServerError(errors.New("error stopping LSP server")))
 			return
 		}
 
@@ -82,6 +87,7 @@ func Stop(logger *slog.Logger) gin.HandlerFunc {
 //	@Produce		json
 //	@Param			request	body	LspDocumentRequest	true	"Document request"
 //	@Success		200
+//	@Failure		400	{object}	common.ErrorResponse
 //	@Router			/lsp/did-open [post]
 //
 //	@id				DidOpen
@@ -89,23 +95,23 @@ func DidOpen(logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req LspDocumentRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid request body: %w", err))
+			c.Error(common_errors.NewInvalidBodyRequestError(fmt.Errorf("invalid request body: %w", err)))
 			return
 		}
 
 		service := GetLSPService(logger)
 		server, err := service.Get(req.LanguageId, req.PathToProject)
 		if err != nil {
-			c.AbortWithError(http.StatusBadRequest, err)
+			abortWithLspError(c, err)
 			return
 		}
 		if !server.IsInitialized() {
-			c.AbortWithError(http.StatusBadRequest, errors.New("server not initialized"))
+			abortWithLspError(c, ErrLspServerNotInitialized)
 			return
 		}
 		err = server.HandleDidOpen(c.Request.Context(), req.Uri)
 		if err != nil {
-			c.AbortWithError(http.StatusBadRequest, err)
+			abortWithLspError(c, err)
 			return
 		}
 
@@ -122,6 +128,7 @@ func DidOpen(logger *slog.Logger) gin.HandlerFunc {
 //	@Produce		json
 //	@Param			request	body	LspDocumentRequest	true	"Document request"
 //	@Success		200
+//	@Failure		400	{object}	common.ErrorResponse
 //	@Router			/lsp/did-close [post]
 //
 //	@id				DidClose
@@ -129,23 +136,23 @@ func DidClose(logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req LspDocumentRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid request body: %w", err))
+			c.Error(common_errors.NewInvalidBodyRequestError(fmt.Errorf("invalid request body: %w", err)))
 			return
 		}
 
 		service := GetLSPService(logger)
 		server, err := service.Get(req.LanguageId, req.PathToProject)
 		if err != nil {
-			c.AbortWithError(http.StatusBadRequest, err)
+			abortWithLspError(c, err)
 			return
 		}
 		if !server.IsInitialized() {
-			c.AbortWithError(http.StatusBadRequest, errors.New("server not initialized"))
+			abortWithLspError(c, ErrLspServerNotInitialized)
 			return
 		}
 		err = server.HandleDidClose(c.Request.Context(), req.Uri)
 		if err != nil {
-			c.AbortWithError(http.StatusBadRequest, err)
+			abortWithLspError(c, err)
 			return
 		}
 
@@ -162,6 +169,7 @@ func DidClose(logger *slog.Logger) gin.HandlerFunc {
 //	@Produce		json
 //	@Param			request	body		LspCompletionParams	true	"Completion request"
 //	@Success		200		{object}	CompletionList
+//	@Failure		400		{object}	common.ErrorResponse
 //	@Router			/lsp/completions [post]
 //
 //	@id				Completions
@@ -169,18 +177,18 @@ func Completions(logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req LspCompletionParams
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid request body: %w", err))
+			c.Error(common_errors.NewInvalidBodyRequestError(fmt.Errorf("invalid request body: %w", err)))
 			return
 		}
 
 		service := GetLSPService(logger)
 		server, err := service.Get(req.LanguageId, req.PathToProject)
 		if err != nil {
-			c.AbortWithError(http.StatusBadRequest, err)
+			abortWithLspError(c, err)
 			return
 		}
 		if !server.IsInitialized() {
-			c.AbortWithError(http.StatusBadRequest, errors.New("server not initialized"))
+			abortWithLspError(c, ErrLspServerNotInitialized)
 			return
 		}
 
@@ -196,7 +204,7 @@ func Completions(logger *slog.Logger) gin.HandlerFunc {
 
 		list, err := server.HandleCompletions(c.Request.Context(), completionParams)
 		if err != nil {
-			c.AbortWithError(http.StatusBadRequest, err)
+			abortWithLspError(c, err)
 			return
 		}
 
@@ -210,10 +218,11 @@ func Completions(logger *slog.Logger) gin.HandlerFunc {
 //	@Description	Get symbols (functions, classes, etc.) from a document
 //	@Tags			lsp
 //	@Produce		json
-//	@Param			languageId		query	string	true	"Language ID (e.g., python, typescript)"
-//	@Param			pathToProject	query	string	true	"Path to project"
-//	@Param			uri				query	string	true	"Document URI"
-//	@Success		200				{array}	LspSymbol
+//	@Param			languageId		query		string	true	"Language ID (e.g., python, typescript)"
+//	@Param			pathToProject	query		string	true	"Path to project"
+//	@Param			uri				query		string	true	"Document URI"
+//	@Success		200				{array}		LspSymbol
+//	@Failure		400				{object}	common.ErrorResponse
 //	@Router			/lsp/document-symbols [get]
 //
 //	@id				DocumentSymbols
@@ -221,36 +230,36 @@ func DocumentSymbols(logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		languageId := c.Query("languageId")
 		if languageId == "" {
-			c.AbortWithError(http.StatusBadRequest, errors.New("languageId is required"))
+			c.Error(common_errors.NewBadRequestError(errors.New("languageId is required")))
 			return
 		}
 
 		pathToProject := c.Query("pathToProject")
 		if pathToProject == "" {
-			c.AbortWithError(http.StatusBadRequest, errors.New("pathToProject is required"))
+			c.Error(common_errors.NewBadRequestError(errors.New("pathToProject is required")))
 			return
 		}
 
 		uri := c.Query("uri")
 		if uri == "" {
-			c.AbortWithError(http.StatusBadRequest, errors.New("uri is required"))
+			c.Error(common_errors.NewBadRequestError(errors.New("uri is required")))
 			return
 		}
 
 		service := GetLSPService(logger)
 		server, err := service.Get(languageId, pathToProject)
 		if err != nil {
-			c.AbortWithError(http.StatusBadRequest, err)
+			abortWithLspError(c, err)
 			return
 		}
 		if !server.IsInitialized() {
-			c.AbortWithError(http.StatusBadRequest, errors.New("server not initialized"))
+			abortWithLspError(c, ErrLspServerNotInitialized)
 			return
 		}
 
 		symbols, err := server.HandleDocumentSymbols(c.Request.Context(), uri)
 		if err != nil {
-			c.AbortWithError(http.StatusBadRequest, err)
+			abortWithLspError(c, err)
 			return
 		}
 
@@ -264,10 +273,11 @@ func DocumentSymbols(logger *slog.Logger) gin.HandlerFunc {
 //	@Description	Search for symbols across the entire workspace
 //	@Tags			lsp
 //	@Produce		json
-//	@Param			query			query	string	true	"Search query"
-//	@Param			languageId		query	string	true	"Language ID (e.g., python, typescript)"
-//	@Param			pathToProject	query	string	true	"Path to project"
-//	@Success		200				{array}	LspSymbol
+//	@Param			query			query		string	true	"Search query"
+//	@Param			languageId		query		string	true	"Language ID (e.g., python, typescript)"
+//	@Param			pathToProject	query		string	true	"Path to project"
+//	@Success		200				{array}		LspSymbol
+//	@Failure		400				{object}	common.ErrorResponse
 //	@Router			/lsp/workspacesymbols [get]
 //
 //	@id				WorkspaceSymbols
@@ -275,36 +285,36 @@ func WorkspaceSymbols(logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		query := c.Query("query")
 		if query == "" {
-			c.AbortWithError(http.StatusBadRequest, errors.New("query is required"))
+			c.Error(common_errors.NewBadRequestError(errors.New("query is required")))
 			return
 		}
 
 		languageId := c.Query("languageId")
 		if languageId == "" {
-			c.AbortWithError(http.StatusBadRequest, errors.New("languageId is required"))
+			c.Error(common_errors.NewBadRequestError(errors.New("languageId is required")))
 			return
 		}
 
 		pathToProject := c.Query("pathToProject")
 		if pathToProject == "" {
-			c.AbortWithError(http.StatusBadRequest, errors.New("pathToProject is required"))
+			c.Error(common_errors.NewBadRequestError(errors.New("pathToProject is required")))
 			return
 		}
 
 		service := GetLSPService(logger)
 		server, err := service.Get(languageId, pathToProject)
 		if err != nil {
-			c.AbortWithError(http.StatusBadRequest, err)
+			abortWithLspError(c, err)
 			return
 		}
 		if !server.IsInitialized() {
-			c.AbortWithError(http.StatusBadRequest, errors.New("server not initialized"))
+			abortWithLspError(c, ErrLspServerNotInitialized)
 			return
 		}
 
 		symbols, err := server.HandleWorkspaceSymbols(c.Request.Context(), query)
 		if err != nil {
-			c.AbortWithError(http.StatusBadRequest, err)
+			abortWithLspError(c, err)
 			return
 		}
 

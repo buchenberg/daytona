@@ -9,7 +9,9 @@ import (
 	"strconv"
 	"strings"
 
+	common_errors "github.com/daytonaio/common-go/pkg/errors"
 	"github.com/daytonaio/daemon/internal/util"
+	"github.com/daytonaio/daemon/pkg/common"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,9 +23,12 @@ import (
 //	@Description	entries, depth=2 also includes their children, and so on.
 //	@Tags			file-system
 //	@Produce		json
-//	@Param			path	query	string	false	"Directory path to list (defaults to working directory)"
-//	@Param			depth	query	int		false	"How many levels deep to list (default: 1, must be >= 1)"
-//	@Success		200		{array}	FileInfo
+//	@Param			path	query		string	false	"Directory path to list (defaults to working directory)"
+//	@Param			depth	query		int		false	"How many levels deep to list (default: 1, must be >= 1)"
+//	@Success		200		{array}		FileInfo
+//	@Failure		400		{object}	common.ErrorResponse
+//	@Failure		403		{object}	common.ErrorResponse
+//	@Failure		404		{object}	common.ErrorResponse
 //	@Router			/files [get]
 //
 //	@id				ListFiles
@@ -37,7 +42,7 @@ func ListFiles(c *gin.Context) {
 	if depthStr := c.Query("depth"); depthStr != "" {
 		parsed, err := strconv.Atoi(depthStr)
 		if err != nil || parsed < 1 {
-			c.AbortWithError(http.StatusBadRequest, errors.New("depth must be an integer >= 1"))
+			c.Error(common_errors.NewBadRequestError(errors.New("depth must be an integer >= 1")))
 			return
 		}
 		depth = parsed
@@ -138,12 +143,12 @@ func listFilesRecursive(c *gin.Context, root string, depth int, stripPath bool) 
 
 func abortWithFsError(c *gin.Context, err error) {
 	if os.IsNotExist(err) {
-		c.AbortWithError(http.StatusNotFound, err)
+		c.Error(common.NewFileNotFoundError(err.Error()))
 		return
 	}
 	if os.IsPermission(err) {
-		c.AbortWithError(http.StatusForbidden, err)
+		c.Error(common.NewFileAccessDeniedError(err.Error()))
 		return
 	}
-	c.AbortWithError(http.StatusBadRequest, err)
+	c.Error(common_errors.NewBadRequestError(err))
 }

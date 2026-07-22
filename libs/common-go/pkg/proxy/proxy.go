@@ -73,7 +73,7 @@ func (bp *bufferPool) Put(b []byte) {
 //	@Failure		409			{object}	string	"Sandbox container conflict"
 //	@Failure		500			{object}	string	"Internal server error"
 //	@Router			/workspaces/{workspaceId}/{projectId}/toolbox/{path} [get]
-func NewProxyRequestHandler(getProxyTarget func(*gin.Context) (targetUrl *url.URL, extraHeaders map[string]string, err error), modifyResponse func(*http.Response) error) gin.HandlerFunc {
+func NewProxyRequestHandler(getProxyTarget func(*gin.Context) (targetUrl *url.URL, extraHeaders map[string]string, err error), modifyResponse func(*http.Response) error, errorHandler func(http.ResponseWriter, *http.Request, error)) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		target, extraHeaders, err := getProxyTarget(ctx)
 		if err != nil {
@@ -83,6 +83,22 @@ func NewProxyRequestHandler(getProxyTarget func(*gin.Context) (targetUrl *url.UR
 
 		if target == nil {
 			return
+		}
+
+		if errorHandler == nil {
+			errorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+				// Client went away; nothing to report or write.
+				if errors.Is(err, context.Canceled) {
+					return
+				}
+				// Don't log r.Host: preview hosts can embed signed tokens.
+				slog.Warn("proxy error", "method", r.Method, "path", r.URL.Path, "error", err)
+				if ctx.Writer.Written() {
+					ctx.Abort()
+					return
+				}
+				ctx.AbortWithStatus(http.StatusBadGateway)
+			}
 		}
 
 		reverseProxy := &httputil.ReverseProxy{
@@ -108,19 +124,7 @@ func NewProxyRequestHandler(getProxyTarget func(*gin.Context) (targetUrl *url.UR
 			// on bulk transfers.
 			FlushInterval:  100 * time.Millisecond,
 			ModifyResponse: modifyResponse,
-			ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
-				// Client went away; nothing to report or write.
-				if errors.Is(err, context.Canceled) {
-					return
-				}
-				// Don't log r.Host: preview hosts can embed signed tokens.
-				slog.Warn("proxy error", "method", r.Method, "path", r.URL.Path, "error", err)
-				if ctx.Writer.Written() {
-					ctx.Abort()
-					return
-				}
-				ctx.AbortWithStatus(http.StatusBadGateway)
-			},
+			ErrorHandler:   errorHandler,
 		}
 
 		reverseProxy.ServeHTTP(ctx.Writer, ctx.Request)

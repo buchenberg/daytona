@@ -1,8 +1,8 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
- * Daytona Runner API
- * Daytona Runner API
+ * Daytona Toolbox API
+ * Daytona Toolbox API. The base URL comes from the sandbox\'s `toolboxProxyUrl` field (returned in sandbox DTO by the main Daytona API) plus the sandbox ID: `{toolboxProxyUrl}/{sandboxId}/{endpoint}`. Default for Daytona Cloud: `https://proxy.app.daytona.io/toolbox/{sandboxId}`.
  *
  * The version of the OpenAPI document: v0.0.0-dev
  * 
@@ -13,12 +13,15 @@
  */
 
 
+// May contain unused imports in some cases
+// @ts-ignore
+import type { DaemonErrorCode } from './daemon-error-code';
 
 /**
  * Error response
  */
 export interface ErrorResponse {
-    'code'?: string;
+    'code'?: DaemonErrorCode;
     'message': string;
     'method'?: string;
     'path': string;
@@ -26,4 +29,6 @@ export interface ErrorResponse {
     'statusCode': number;
     'timestamp': string;
 }
+
+
 

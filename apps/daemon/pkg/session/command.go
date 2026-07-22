@@ -1,19 +1,18 @@
 package session
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
-	common_errors "github.com/daytonaio/common-go/pkg/errors"
+	"github.com/daytonaio/daemon/pkg/common"
 )
 
 func (s *SessionService) getSessionCommands(sessionId string) ([]*Command, error) {
 	session, ok := s.sessions.Get(sessionId)
 	if !ok {
-		return nil, common_errors.NewNotFoundError(errors.New("session not found"))
+		return nil, common.NewProcessNotFoundError("session not found")
 	}
 
 	commands := []*Command{}
@@ -31,12 +30,12 @@ func (s *SessionService) getSessionCommands(sessionId string) ([]*Command, error
 func (s *SessionService) GetSessionCommand(sessionId, cmdId string) (*Command, error) {
 	session, ok := s.sessions.Get(sessionId)
 	if !ok {
-		return nil, common_errors.NewNotFoundError(errors.New("session not found"))
+		return nil, common.NewProcessNotFoundError("session not found")
 	}
 
 	command, ok := session.commands.Get(cmdId)
 	if !ok {
-		return nil, common_errors.NewNotFoundError(errors.New("command not found"))
+		return nil, common.NewProcessNotFoundError("command not found")
 	}
 
 	if command.ExitCode != nil {

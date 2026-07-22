@@ -152,6 +152,9 @@ definitions:
       path:
         example: /api/resource
         type: string
+      source:
+        example: DAYTONA_DAEMON
+        type: string
       statusCode:
         example: 400
         type: integer

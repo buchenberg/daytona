@@ -6,6 +6,7 @@ import (
 	"net/rpc"
 	"strconv"
 
+	common_errors "github.com/daytonaio/common-go/pkg/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/go-plugin"
 )
@@ -478,6 +479,8 @@ func (p *ComputerUsePlugin) Client(b *plugin.MuxBroker, c *rpc.Client) (any, err
 //	@Produce		json
 //	@Param			showCursor	query		bool	false	"Whether to show cursor in screenshot"
 //	@Success		200			{object}	ScreenshotResponse
+//	@Failure		400			{object}	common.ErrorResponse
+//	@Failure		500			{object}	common.ErrorResponse
 //	@Router			/computeruse/screenshot [get]
 //
 //	@id				TakeScreenshot
@@ -485,7 +488,7 @@ func WrapScreenshotHandler(fn func(*ScreenshotRequest) (*ScreenshotResponse, err
 	return func(c *gin.Context) {
 		showCursor, err := parseShowCursorQuery(c)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewBadRequestError(err))
 			return
 		}
 
@@ -494,7 +497,7 @@ func WrapScreenshotHandler(fn func(*ScreenshotRequest) (*ScreenshotResponse, err
 		}
 		response, err := fn(req)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewInternalServerError(err))
 			return
 		}
 		c.JSON(http.StatusOK, response)
@@ -513,6 +516,8 @@ func WrapScreenshotHandler(fn func(*ScreenshotRequest) (*ScreenshotResponse, err
 //	@Param			height		query		int		true	"Height of the region"
 //	@Param			showCursor	query		bool	false	"Whether to show cursor in screenshot"
 //	@Success		200			{object}	ScreenshotResponse
+//	@Failure		400			{object}	common.ErrorResponse
+//	@Failure		500			{object}	common.ErrorResponse
 //	@Router			/computeruse/screenshot/region [get]
 //
 //	@id				TakeRegionScreenshot
@@ -520,13 +525,13 @@ func WrapRegionScreenshotHandler(fn func(*RegionScreenshotRequest) (*ScreenshotR
 	return func(c *gin.Context) {
 		req, err := parseRegionScreenshotRequest(c)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewBadRequestError(err))
 			return
 		}
 
 		response, err := fn(req)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewInternalServerError(err))
 			return
 		}
 		c.JSON(http.StatusOK, response)
@@ -544,6 +549,8 @@ func WrapRegionScreenshotHandler(fn func(*RegionScreenshotRequest) (*ScreenshotR
 //	@Param			quality		query		int		false	"JPEG quality (1-100)"
 //	@Param			scale		query		float64	false	"Scale factor (0.1-1.0)"
 //	@Success		200			{object}	ScreenshotResponse
+//	@Failure		400			{object}	common.ErrorResponse
+//	@Failure		500			{object}	common.ErrorResponse
 //	@Router			/computeruse/screenshot/compressed [get]
 //
 //	@id				TakeCompressedScreenshot
@@ -551,13 +558,13 @@ func WrapCompressedScreenshotHandler(fn func(*CompressedScreenshotRequest) (*Scr
 	return func(c *gin.Context) {
 		req, err := parseCompressedScreenshotRequest(c)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewBadRequestError(err))
 			return
 		}
 
 		response, err := fn(req)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewInternalServerError(err))
 			return
 		}
 		c.JSON(http.StatusOK, response)
@@ -579,6 +586,8 @@ func WrapCompressedScreenshotHandler(fn func(*CompressedScreenshotRequest) (*Scr
 //	@Param			quality		query		int		false	"JPEG quality (1-100)"
 //	@Param			scale		query		float64	false	"Scale factor (0.1-1.0)"
 //	@Success		200			{object}	ScreenshotResponse
+//	@Failure		400			{object}	common.ErrorResponse
+//	@Failure		500			{object}	common.ErrorResponse
 //	@Router			/computeruse/screenshot/region/compressed [get]
 //
 //	@id				TakeCompressedRegionScreenshot
@@ -586,13 +595,13 @@ func WrapCompressedRegionScreenshotHandler(fn func(*CompressedRegionScreenshotRe
 	return func(c *gin.Context) {
 		req, err := parseCompressedRegionScreenshotRequest(c)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewBadRequestError(err))
 			return
 		}
 
 		response, err := fn(req)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewInternalServerError(err))
 			return
 		}
 		c.JSON(http.StatusOK, response)
@@ -606,6 +615,7 @@ func WrapCompressedRegionScreenshotHandler(fn func(*CompressedRegionScreenshotRe
 //	@Tags			computer-use
 //	@Produce		json
 //	@Success		200	{object}	MousePositionResponse
+//	@Failure		500	{object}	common.ErrorResponse
 //	@Router			/computeruse/mouse/position [get]
 //
 //	@id				GetMousePosition
@@ -613,7 +623,7 @@ func WrapMousePositionHandler(fn func() (*MousePositionResponse, error)) gin.Han
 	return func(c *gin.Context) {
 		response, err := fn()
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewInternalServerError(err))
 			return
 		}
 		c.JSON(http.StatusOK, response)
@@ -629,6 +639,8 @@ func WrapMousePositionHandler(fn func() (*MousePositionResponse, error)) gin.Han
 //	@Produce		json
 //	@Param			request	body		MouseMoveRequest	true	"Mouse move request"
 //	@Success		200		{object}	MousePositionResponse
+//	@Failure		400		{object}	common.ErrorResponse
+//	@Failure		500		{object}	common.ErrorResponse
 //	@Router			/computeruse/mouse/move [post]
 //
 //	@id				MoveMouse
@@ -636,13 +648,13 @@ func WrapMoveMouseHandler(fn func(*MouseMoveRequest) (*MousePositionResponse, er
 	return func(c *gin.Context) {
 		var req MouseMoveRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid coordinates"})
+			c.Error(common_errors.NewInvalidBodyRequestError(err))
 			return
 		}
 
 		response, err := fn(&req)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewInternalServerError(err))
 			return
 		}
 		c.JSON(http.StatusOK, response)
@@ -658,6 +670,8 @@ func WrapMoveMouseHandler(fn func(*MouseMoveRequest) (*MousePositionResponse, er
 //	@Produce		json
 //	@Param			request	body		MouseClickRequest	true	"Mouse click request"
 //	@Success		200		{object}	MouseClickResponse
+//	@Failure		400		{object}	common.ErrorResponse
+//	@Failure		500		{object}	common.ErrorResponse
 //	@Router			/computeruse/mouse/click [post]
 //
 //	@id				Click
@@ -665,13 +679,13 @@ func WrapClickHandler(fn func(*MouseClickRequest) (*MouseClickResponse, error)) 
 	return func(c *gin.Context) {
 		var req MouseClickRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid click parameters"})
+			c.Error(common_errors.NewInvalidBodyRequestError(err))
 			return
 		}
 
 		response, err := fn(&req)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewBadRequestError(err))
 			return
 		}
 		c.JSON(http.StatusOK, response)
@@ -687,6 +701,8 @@ func WrapClickHandler(fn func(*MouseClickRequest) (*MouseClickResponse, error)) 
 //	@Produce		json
 //	@Param			request	body		MouseDragRequest	true	"Mouse drag request"
 //	@Success		200		{object}	MouseDragResponse
+//	@Failure		400		{object}	common.ErrorResponse
+//	@Failure		500		{object}	common.ErrorResponse
 //	@Router			/computeruse/mouse/drag [post]
 //
 //	@id				Drag
@@ -694,13 +710,13 @@ func WrapDragHandler(fn func(*MouseDragRequest) (*MouseDragResponse, error)) gin
 	return func(c *gin.Context) {
 		var req MouseDragRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid drag parameters"})
+			c.Error(common_errors.NewInvalidBodyRequestError(err))
 			return
 		}
 
 		response, err := fn(&req)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewInternalServerError(err))
 			return
 		}
 		c.JSON(http.StatusOK, response)
@@ -716,6 +732,8 @@ func WrapDragHandler(fn func(*MouseDragRequest) (*MouseDragResponse, error)) gin
 //	@Produce		json
 //	@Param			request	body		MouseScrollRequest	true	"Mouse scroll request"
 //	@Success		200		{object}	ScrollResponse
+//	@Failure		400		{object}	common.ErrorResponse
+//	@Failure		500		{object}	common.ErrorResponse
 //	@Router			/computeruse/mouse/scroll [post]
 //
 //	@id				Scroll
@@ -723,13 +741,13 @@ func WrapScrollHandler(fn func(*MouseScrollRequest) (*ScrollResponse, error)) gi
 	return func(c *gin.Context) {
 		var req MouseScrollRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid scroll parameters"})
+			c.Error(common_errors.NewInvalidBodyRequestError(err))
 			return
 		}
 
 		response, err := fn(&req)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewBadRequestError(err))
 			return
 		}
 		c.JSON(http.StatusOK, response)
@@ -745,6 +763,8 @@ func WrapScrollHandler(fn func(*MouseScrollRequest) (*ScrollResponse, error)) gi
 //	@Produce		json
 //	@Param			request	body		KeyboardTypeRequest	true	"Text typing request"
 //	@Success		200		{object}	Empty
+//	@Failure		400		{object}	common.ErrorResponse
+//	@Failure		500		{object}	common.ErrorResponse
 //	@Router			/computeruse/keyboard/type [post]
 //
 //	@id				TypeText
@@ -752,13 +772,13 @@ func WrapTypeTextHandler(fn func(*KeyboardTypeRequest) (*Empty, error)) gin.Hand
 	return func(c *gin.Context) {
 		var req KeyboardTypeRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+			c.Error(common_errors.NewInvalidBodyRequestError(err))
 			return
 		}
 
 		response, err := fn(&req)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewInternalServerError(err))
 			return
 		}
 		c.JSON(http.StatusOK, response)
@@ -774,6 +794,8 @@ func WrapTypeTextHandler(fn func(*KeyboardTypeRequest) (*Empty, error)) gin.Hand
 //	@Produce		json
 //	@Param			request	body		KeyboardPressRequest	true	"Key press request"
 //	@Success		200		{object}	Empty
+//	@Failure		400		{object}	common.ErrorResponse
+//	@Failure		500		{object}	common.ErrorResponse
 //	@Router			/computeruse/keyboard/key [post]
 //
 //	@id				PressKey
@@ -781,13 +803,13 @@ func WrapPressKeyHandler(fn func(*KeyboardPressRequest) (*Empty, error)) gin.Han
 	return func(c *gin.Context) {
 		var req KeyboardPressRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid key"})
+			c.Error(common_errors.NewInvalidBodyRequestError(err))
 			return
 		}
 
 		response, err := fn(&req)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewInternalServerError(err))
 			return
 		}
 		c.JSON(http.StatusOK, response)
@@ -803,6 +825,8 @@ func WrapPressKeyHandler(fn func(*KeyboardPressRequest) (*Empty, error)) gin.Han
 //	@Produce		json
 //	@Param			request	body		KeyboardHotkeyRequest	true	"Hotkey press request"
 //	@Success		200		{object}	Empty
+//	@Failure		400		{object}	common.ErrorResponse
+//	@Failure		500		{object}	common.ErrorResponse
 //	@Router			/computeruse/keyboard/hotkey [post]
 //
 //	@id				PressHotkey
@@ -810,13 +834,13 @@ func WrapPressHotkeyHandler(fn func(*KeyboardHotkeyRequest) (*Empty, error)) gin
 	return func(c *gin.Context) {
 		var req KeyboardHotkeyRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid hotkey"})
+			c.Error(common_errors.NewInvalidBodyRequestError(err))
 			return
 		}
 
 		response, err := fn(&req)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewInternalServerError(err))
 			return
 		}
 		c.JSON(http.StatusOK, response)
@@ -830,6 +854,7 @@ func WrapPressHotkeyHandler(fn func(*KeyboardHotkeyRequest) (*Empty, error)) gin
 //	@Tags			computer-use
 //	@Produce		json
 //	@Success		200	{object}	DisplayInfoResponse
+//	@Failure		500	{object}	common.ErrorResponse
 //	@Router			/computeruse/display/info [get]
 //
 //	@id				GetDisplayInfo
@@ -837,7 +862,7 @@ func WrapDisplayInfoHandler(fn func() (*DisplayInfoResponse, error)) gin.Handler
 	return func(c *gin.Context) {
 		response, err := fn()
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewInternalServerError(err))
 			return
 		}
 		c.JSON(http.StatusOK, response)
@@ -851,6 +876,7 @@ func WrapDisplayInfoHandler(fn func() (*DisplayInfoResponse, error)) gin.Handler
 //	@Tags			computer-use
 //	@Produce		json
 //	@Success		200	{object}	WindowsResponse
+//	@Failure		500	{object}	common.ErrorResponse
 //	@Router			/computeruse/display/windows [get]
 //
 //	@id				GetWindows
@@ -858,7 +884,7 @@ func WrapWindowsHandler(fn func() (*WindowsResponse, error)) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		response, err := fn()
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewInternalServerError(err))
 			return
 		}
 		c.JSON(http.StatusOK, response)
@@ -872,6 +898,7 @@ func WrapWindowsHandler(fn func() (*WindowsResponse, error)) gin.HandlerFunc {
 //	@Tags			computer-use
 //	@Produce		json
 //	@Success		200	{object}	ComputerUseStatusResponse
+//	@Failure		500	{object}	common.ErrorResponse
 //	@Router			/computeruse/status [get]
 //
 //	@id				GetComputerUseSystemStatus
@@ -879,7 +906,7 @@ func WrapStatusHandler(fn func() (*ComputerUseStatusResponse, error)) gin.Handle
 	return func(c *gin.Context) {
 		response, err := fn()
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Error(common_errors.NewInternalServerError(err))
 			return
 		}
 		c.JSON(http.StatusOK, response)

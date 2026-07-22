@@ -16,13 +16,25 @@ type fileResult struct {
 	Bytes int64  `json:"bytes"`
 }
 
+// UploadFilesResponse is the bulk-upload response for both full success and
+// partial failure. Unlike every other daemon endpoint it is NOT the
+// ErrorResponse envelope: a bulk upload can partially succeed, so the 400
+// body reports per-file errors alongside the files that were written. This
+// wire shape predates the typed-error refactor and is preserved for
+// backward compatibility with existing SDK clients.
+type UploadFilesResponse struct {
+	Errors []string     `json:"errors,omitempty"`
+	Files  []fileResult `json:"files"`
+} // @name UploadFilesResponse
+
 // UploadFiles godoc
 //
 //	@Summary		Upload multiple files
 //	@Description	Upload multiple files with their destination paths
 //	@Tags			file-system
 //	@Accept			multipart/form-data
-//	@Success		200
+//	@Success		200	{object}	UploadFilesResponse
+//	@Failure		400	{object}	UploadFilesResponse
 //	@Router			/files/bulk-upload [post]
 //
 //	@id				UploadFiles
@@ -32,7 +44,7 @@ func UploadFiles(c *gin.Context) {
 	reader, err := c.Request.MultipartReader()
 	if err != nil {
 		drainBody(c)
-		c.JSON(http.StatusBadRequest, gin.H{"errors": []string{"invalid multipart form"}})
+		c.JSON(http.StatusBadRequest, UploadFilesResponse{Errors: []string{"invalid multipart form"}, Files: []fileResult{}})
 		return
 	}
 
@@ -46,6 +58,9 @@ func UploadFiles(c *gin.Context) {
 			break
 		}
 		if err != nil {
+			// The multipart reader is unrecoverable after a non-EOF error
+			// (subsequent calls return the same error forever), so we must
+			// stop iterating to avoid an infinite loop / OOM.
 			errs = append(errs, fmt.Sprintf("reading part: %v", err))
 			break
 		}
@@ -111,12 +126,20 @@ func UploadFiles(c *gin.Context) {
 
 	drainBody(c)
 
+	if files == nil {
+		files = []fileResult{}
+	}
 	if len(errs) > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"errors": errs, "files": files})
+		c.JSON(http.StatusBadRequest, UploadFilesResponse{Errors: errs, Files: files})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"files": files})
+	c.JSON(http.StatusOK, UploadFilesResponse{Files: files})
+}
+
+func extractIndex(fieldName string) string {
+	s := strings.TrimPrefix(fieldName, "files[")
+	return strings.TrimSuffix(strings.TrimSuffix(s, "].path"), "].file")
 }
 
 // drainBody consumes remaining request body bytes before a response is sent.
@@ -133,9 +156,4 @@ func drainBody(c *gin.Context) {
 func enableFullDuplex(c *gin.Context) {
 	rc := http.NewResponseController(c.Writer)
 	_ = rc.EnableFullDuplex()
-}
-
-func extractIndex(fieldName string) string {
-	s := strings.TrimPrefix(fieldName, "files[")
-	return strings.TrimSuffix(strings.TrimSuffix(s, "].path"), "].file")
 }

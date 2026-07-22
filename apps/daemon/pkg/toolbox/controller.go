@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	common_errors "github.com/daytonaio/common-go/pkg/errors"
 	"github.com/daytonaio/daemon/internal"
 	"github.com/gin-gonic/gin"
 )
@@ -24,7 +25,7 @@ func (s *server) Initialize(otelServiceName string, entrypointLogFilePath string
 	return func(ctx *gin.Context) {
 		var req InitializeRequest
 		if err := ctx.ShouldBindJSON(&req); err != nil {
-			ctx.AbortWithError(http.StatusBadRequest, err)
+			ctx.Error(common_errors.NewInvalidBodyRequestError(err))
 			return
 		}
 
@@ -32,7 +33,7 @@ func (s *server) Initialize(otelServiceName string, entrypointLogFilePath string
 
 		err := s.initTelemetry(ctx.Request.Context(), otelServiceName, entrypointLogFilePath, labels)
 		if err != nil {
-			ctx.AbortWithError(http.StatusBadRequest, err)
+			ctx.Error(common_errors.NewBadRequestError(err))
 			return
 		}
 
@@ -50,13 +51,15 @@ func (s *server) Initialize(otelServiceName string, entrypointLogFilePath string
 //	@Produce		json
 //	@Param			request	body		UpdateEnvRequest	true	"Environment update request"
 //	@Success		200		{object}	map[string]string
+//	@Failure		400		{object}	common.ErrorResponse
+//	@Failure		500		{object}	common.ErrorResponse
 //	@Router			/env [post]
 //
 //	@id				UpdateEnv
 func (s *server) UpdateEnv(ctx *gin.Context) {
 	var req UpdateEnvRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+		ctx.Error(common_errors.NewInvalidBodyRequestError(err))
 		return
 	}
 
@@ -70,7 +73,7 @@ func (s *server) UpdateEnv(ctx *gin.Context) {
 				continue
 			}
 			if err := os.Unsetenv(key); err != nil {
-				ctx.AbortWithError(http.StatusInternalServerError, err)
+				ctx.Error(common_errors.NewInternalServerError(err))
 				return
 			}
 		}
@@ -78,14 +81,14 @@ func (s *server) UpdateEnv(ctx *gin.Context) {
 
 	for _, key := range req.Unset {
 		if err := os.Unsetenv(key); err != nil {
-			ctx.AbortWithError(http.StatusInternalServerError, err)
+			ctx.Error(common_errors.NewInternalServerError(err))
 			return
 		}
 	}
 
 	for key, value := range req.Set {
 		if err := os.Setenv(key, value); err != nil {
-			ctx.AbortWithError(http.StatusInternalServerError, err)
+			ctx.Error(common_errors.NewInternalServerError(err))
 			return
 		}
 	}
@@ -126,7 +129,7 @@ func (s *server) GetWorkDir(ctx *gin.Context) {
 func (s *server) GetUserHomeDir(ctx *gin.Context) {
 	userHomeDir, err := os.UserHomeDir()
 	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		ctx.Error(common_errors.NewInternalServerError(err))
 		return
 	}
 	userHomeDirResponse := UserHomeDirResponse{

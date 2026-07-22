@@ -14,6 +14,7 @@ package toolbox
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
@@ -26,6 +27,7 @@ import (
 	common_proxy "github.com/daytonaio/common-go/pkg/proxy"
 	"github.com/daytonaio/common-go/pkg/telemetry"
 	"github.com/daytonaio/daemon/internal"
+	"github.com/daytonaio/daemon/pkg/common"
 	"github.com/daytonaio/daemon/pkg/recording"
 	session_svc "github.com/daytonaio/daemon/pkg/session"
 	"github.com/daytonaio/daemon/pkg/toolbox/computeruse"
@@ -149,12 +151,7 @@ func (s *server) Start() error {
 		ctx.Next()
 	})
 	r.Use(sloggin.New(s.logger))
-	errMiddleware := common_errors.NewErrorMiddleware(func(ctx *gin.Context, err error) common_errors.ErrorResponse {
-		return common_errors.ErrorResponse{
-			StatusCode: http.StatusInternalServerError,
-			Message:    err.Error(),
-		}
-	}, false)
+	errMiddleware := common_errors.NewErrorMiddleware(common.SourceDaemon, nil)
 
 	noTelemetryRouter.Use(sloggin.New(s.logger))
 	r.Use(errMiddleware)
@@ -394,7 +391,7 @@ func (s *server) Start() error {
 
 	proxyController := noTelemetryRouter.Group("/proxy")
 	{
-		proxyController.Any("/:port/*path", common_proxy.NewProxyRequestHandler(proxy.GetProxyTarget, nil))
+		proxyController.Any("/:port/*path", common_proxy.NewProxyRequestHandler(proxy.GetProxyTarget, nil, proxyErrorHandler))
 	}
 
 	go portDetector.Start(context.Background())
@@ -452,4 +449,25 @@ func (s *server) Shutdown() {
 		s.logger.Info("Shutting down logger provider")
 		telemetry.ShutdownLogger(s.logger, s.telemetry.LoggerProvider)
 	}
+}
+
+// proxyErrorHandler emits the daemon error envelope on httputil.ReverseProxy
+// transport failures (target unreachable, connection refused, etc.). Without
+// it the stdlib writes a bare 502 with no body and the SDK loses the typed
+// envelope every other daemon endpoint produces.
+func proxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
+	// Keep the low-level transport error (which can include internal upstream
+	// host/port detail) server-side only; clients get a generic message.
+	slog.Error("toolbox proxy upstream error", "path", r.URL.Path, "method", r.Method, "error", err)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusBadGateway)
+	body, _ := json.Marshal(common.ErrorResponse{
+		StatusCode: http.StatusBadGateway,
+		Message:    "proxy upstream error",
+		Source:     common.SourceDaemon,
+		Timestamp:  time.Now().UTC(),
+		Path:       r.URL.Path,
+		Method:     r.Method,
+	})
+	_, _ = w.Write(body)
 }

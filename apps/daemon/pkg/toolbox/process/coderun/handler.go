@@ -2,7 +2,6 @@ package coderun
 
 import (
 	"bytes"
-	"errors"
 	"log/slog"
 	"net/http"
 	"os/exec"
@@ -26,6 +25,9 @@ import (
 //	@Produce		json
 //	@Param			request	body		CodeRunRequest	true	"Code execution request"
 //	@Success		200		{object}	CodeRunResponse
+//	@Failure		400		{object}	common.ErrorResponse
+//	@Failure		408		{object}	common.ErrorResponse
+//	@Failure		500		{object}	common.ErrorResponse
 //	@Router			/process/code-run [post]
 //
 //	@id				CodeRun
@@ -81,7 +83,7 @@ func CodeRun(logger *slog.Logger) gin.HandlerFunc {
 		exitCode, waitErr := childreap.Wait(cmd)
 		output := outputBuf.Bytes()
 		if timeoutReached.Load() {
-			c.Error(common_errors.NewRequestTimeoutError(errors.New("command execution timeout")))
+			c.Error(common.NewProcessExecutionTimeoutError("command execution timeout"))
 			return
 		}
 		if waitErr != nil {

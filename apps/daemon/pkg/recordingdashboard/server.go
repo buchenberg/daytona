@@ -1,6 +1,7 @@
 package recordingdashboard
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -9,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	common_errors "github.com/daytonaio/common-go/pkg/errors"
+	"github.com/daytonaio/daemon/pkg/common"
 	"github.com/daytonaio/daemon/pkg/recording"
 	recordingcontroller "github.com/daytonaio/daemon/pkg/toolbox/computeruse/recording"
 	"github.com/daytonaio/daemon/pkg/toolbox/config"
@@ -34,6 +37,7 @@ func (s *DashboardServer) Start() error {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery())
+	r.Use(common_errors.NewErrorMiddleware(common.SourceDaemon, nil))
 
 	// Prepare the embedded frontend files
 	// Serve the files from the embedded filesystem
@@ -68,12 +72,12 @@ func (s *DashboardServer) serveVideo(ctx *gin.Context) {
 	// filepath.Rel returns a path with ".." if target is outside base directory
 	rel, err := filepath.Rel(recordingsDir, filePath)
 	if err != nil || strings.Contains(rel, "..") {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
+		ctx.Error(common_errors.NewForbiddenError(errors.New("access denied")))
 		return
 	}
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+		ctx.Error(common_errors.NewNotFoundError(errors.New("file not found")))
 		return
 	}
 
@@ -83,7 +87,7 @@ func (s *DashboardServer) serveVideo(ctx *gin.Context) {
 func (s *DashboardServer) listRecordings(ctx *gin.Context) {
 	recordings, err := s.recordingService.ListRecordings()
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.Error(common_errors.NewInternalServerError(err))
 		return
 	}
 
@@ -102,7 +106,7 @@ type deleteRequest struct {
 func (s *DashboardServer) deleteRecordings(ctx *gin.Context) {
 	var req deleteRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		ctx.Error(common_errors.NewInvalidBodyRequestError(err))
 		return
 	}
 
