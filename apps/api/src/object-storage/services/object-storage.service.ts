@@ -125,6 +125,7 @@ export class ObjectStorageService {
       storageUrl: config.endpoint,
       organizationId: config.organizationId,
       bucket: config.bucket,
+      region: config.region,
     }
   }
 
@@ -161,6 +162,7 @@ export class ObjectStorageService {
           storageUrl: config.endpoint,
           organizationId: config.organizationId,
           bucket: config.bucket,
+          region: config.region,
         }
       } catch (error: any) {
         throw new BadRequestException(`Failed to assume role: ${error.message || 'Unknown AWS error'}`)

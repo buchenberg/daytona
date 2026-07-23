@@ -36,4 +36,10 @@ export class StorageAccessDto {
     example: 'daytona',
   })
   bucket: string
+
+  @ApiProperty({
+    description: 'Region for the storage backend (e.g. "us-east-2")',
+    example: 'us-east-1',
+  })
+  region: string
 }
