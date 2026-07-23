@@ -42,7 +42,10 @@ import { ResourceType } from '../enums/resource-type.enum'
 import { JobStateHandlerService } from '../services/job-state-handler.service'
 import { SandboxConflictError } from '../errors/sandbox-conflict.error'
 
-const DEDICATED_BACKUP_ORG_ID = '55717397-f840-4f5b-a829-77fd6f7cb2fc'
+// Set to the nil UUID to disable dedicated-org handling (org is then treated like every other
+// org; a nil UUID never matches a real org). To re-enable, restore the org id:
+// '55717397-f840-4f5b-a829-77fd6f7cb2fc'
+const DEDICATED_BACKUP_ORG_ID = '00000000-0000-0000-0000-000000000000'
 const MAX_CONCURRENT_DEDICATED_ORG_BACKUPS_PER_RUNNER = 3
 
 @Injectable()
