@@ -24,17 +24,16 @@ import { TrackableJobExecutions } from '../../common/interfaces/trackable-job-ex
 import { TrackJobExecution } from '../../common/decorators/track-job-execution.decorator'
 import { setTimeout as sleep } from 'timers/promises'
 import {
-  DEDICATED_REGIONS_PER_ORGANIZATION,
-  resolveEffectiveRegion,
   LARGE_SANDBOX_ORGS,
   LARGE_SANDBOX_SHARED_REGION,
-  WRITER_ORGS,
+  WRITER_DEDICATED_US,
+  WRITER_DEDICATED_EU,
   RL_REGION,
   ELEMENTOR_DEDICATED_REGION,
-  META_DEDICATED_REGION,
-  DEEPTUNE_AND_MILLION_DEDICATED_REGION,
-  getFallbackRegion,
+  RL01_REGION,
+  RL02_REGION,
 } from '../constants/dedicated-regions.constant'
+import { RegionRoutingService } from '../../region/services/region-routing.service'
 import { areResourcesLargerThanDefault } from '../utils/resources'
 import { LogExecution } from '../../common/decorators/log-execution.decorator'
 import { WithInstrumentation } from '../../common/decorators/otel.decorator'
@@ -105,6 +104,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     private readonly organizationService: OrganizationService,
     private readonly snapshotService: SnapshotService,
     private readonly configService: TypedConfigService,
+    private readonly regionRoutingService: RegionRoutingService,
   ) {}
 
   async onApplicationShutdown() {
@@ -441,7 +441,11 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       return
     }
 
-    const orgIds = [...new Set(Object.keys(DEDICATED_REGIONS_PER_ORGANIZATION))]
+    const orgIds = this.regionRoutingService.getDedicatedRegionOrgIds()
+
+    if (orgIds.length === 0) {
+      return
+    }
 
     const snapshots = await this.snapshotRepository
       .createQueryBuilder('snapshot')
@@ -460,22 +464,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     const response = await Promise.allSettled(
       snapshots.map((snapshot) => {
-        let regions = []
-        if (WRITER_ORGS.includes(snapshot.organizationId)) {
-          ;['us', 'eu'].forEach((region) => {
-            const dedicatedRegion = resolveEffectiveRegion(snapshot.organizationId, region, this.configService, {
-              cpu: snapshot.cpu,
-              memory: snapshot.mem,
-              disk: snapshot.disk,
-              gpu: snapshot.gpu,
-            })
-            if (dedicatedRegion !== region) {
-              regions.push(dedicatedRegion)
-            }
-          })
-        } else {
-          regions = DEDICATED_REGIONS_PER_ORGANIZATION[snapshot.organizationId] || []
-        }
+        let regions = this.regionRoutingService.getDedicatedRegionsForOrg(snapshot.organizationId)
 
         if (
           LARGE_SANDBOX_ORGS.has(snapshot.organizationId) &&
@@ -530,7 +519,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
                   SnapshotRunnerState.PULLING_SNAPSHOT,
                 )
                 // Use base region for registry lookup (dedicated regions may not have registry configs)
-                const regionForRegistry = getFallbackRegion(runner.region) ?? runner.region
+                const regionForRegistry = this.regionRoutingService.getFallbackRegion(runner.region) ?? runner.region
                 const dockerRegistry = await this.dockerRegistryService.findInternalRegistryBySnapshotRef(
                   snapshot.ref,
                   regionForRegistry,
@@ -1103,7 +1092,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     const retryTimeoutMs = retryTimeoutMinutes * 60 * 1000
     if (Date.now() - snapshotRunner.createdAt.getTime() > retryTimeoutMs) {
       // Use base region for registry lookup (dedicated regions may not have registry configs)
-      const regionForRegistry = getFallbackRegion(runner.region) ?? runner.region
+      const regionForRegistry = this.regionRoutingService.getFallbackRegion(runner.region) ?? runner.region
       const snapshot = await this.snapshotRepository.findOne({ where: { ref: snapshotRunner.snapshotRef } })
       let sandboxClass = snapshot?.sandboxClass
       // A Snapshot row means this is a base snapshot ref; otherwise it's a sandbox backup ref. This
@@ -1582,7 +1571,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     }
 
     // Use base region for registry lookup (dedicated regions may not have registry configs)
-    const regionForRegistry = getFallbackRegion(runner.region) ?? runner.region
+    const regionForRegistry = this.regionRoutingService.getFallbackRegion(runner.region) ?? runner.region
     const internalRegistry = await this.dockerRegistryService.getAvailableInternalRegistry(regionForRegistry)
     if (!internalRegistry) {
       throw new Error('No internal registry found for snapshot')
@@ -1661,7 +1650,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
 
     // Best effort removal of old snapshot from transient registry
     // Use base region for registry lookup (dedicated regions may not have registry configs)
-    const regionForTransientRegistry = getFallbackRegion(runner.region) ?? runner.region
+    const regionForTransientRegistry = this.regionRoutingService.getFallbackRegion(runner.region) ?? runner.region
     const transientRegistry = await this.dockerRegistryService.findTransientRegistryBySnapshotImageName(
       snapshot.imageName,
       regionForTransientRegistry,
@@ -1795,7 +1784,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     try {
       if (isRegistryBasedSandboxClass(snapshot.sandboxClass)) {
         // Use base region for registry lookups (dedicated regions may not have registry configs)
-        const regionForRegistry = getFallbackRegion(runner.region) ?? runner.region
+        const regionForRegistry = this.regionRoutingService.getFallbackRegion(runner.region) ?? runner.region
 
         // Snapshots created from a sandbox have no external `imageName` - their canonical
         // reference is `ref`, which already lives in the internal registry. Pull directly
@@ -1863,7 +1852,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
   async processBuildOnRunner(snapshot: Snapshot, runner: Runner) {
     try {
       // Use base region for registry lookup (dedicated regions may not have registry configs)
-      const regionForRegistry = getFallbackRegion(runner.region) ?? runner.region
+      const regionForRegistry = this.regionRoutingService.getFallbackRegion(runner.region) ?? runner.region
       const registry = await this.dockerRegistryService.getAvailableInternalRegistry(regionForRegistry)
 
       const sourceRegistries = await this.dockerRegistryService.getSourceRegistriesForDockerfile(
@@ -1948,7 +1937,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
           throw new Error('No regions found for snapshot')
         }
 
-        let dedicatedRegions = DEDICATED_REGIONS_PER_ORGANIZATION[snapshot.organizationId]
+        let dedicatedRegions = this.regionRoutingService.getDedicatedRegionsForOrg(snapshot.organizationId)
 
         // If the organization is in LARGE_SANDBOX_ORGS and the resources are not larger than the default, remove the LARGE_SANDBOX_SHARED_REGION
         if (
@@ -2026,7 +2015,8 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     }
 
     // Use base region for registry lookups (dedicated regions may not have registry configs)
-    const regionForRegistryLookup = getFallbackRegion(initialRunner.region) ?? initialRunner.region
+    const regionForRegistryLookup =
+      this.regionRoutingService.getFallbackRegion(initialRunner.region) ?? initialRunner.region
 
     if (snapshot.buildInfo) {
       await this.updateSnapshotState(snapshot, SnapshotState.BUILDING)
@@ -2132,7 +2122,7 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
       // Dedicated regions get a much shorter staleness window so we don't pin disk space
       // on small fleets when an org stops using a snapshot.
       const stalenessDays = this.configService.getOrThrow('buildInfoSnapshotRunnerStalenessDays')
-      const stalenessInterval = `(CASE WHEN r.region IN (:dedicatedMeta) THEN interval '3 hours' WHEN r.region IN (:dedicatedElementor, :dedicatedRL, :dedicatedDeeptuneAndMillion) THEN interval '10 hours' ELSE interval '${stalenessDays} days' END)`
+      const stalenessInterval = `(CASE WHEN r.region IN (:dedicatedRL01) THEN interval '3 hours' WHEN r.region IN (:dedicatedElementor, :dedicatedRL, :dedicatedRL02) THEN interval '10 hours' ELSE interval '${stalenessDays} days' END)`
 
       const staleEntries = await this.snapshotRunnerRepository
         .createQueryBuilder('sr')
@@ -2146,8 +2136,8 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
         .setParameters({
           dedicatedElementor: ELEMENTOR_DEDICATED_REGION,
           dedicatedRL: RL_REGION,
-          dedicatedMeta: META_DEDICATED_REGION,
-          dedicatedDeeptuneAndMillion: DEEPTUNE_AND_MILLION_DEDICATED_REGION,
+          dedicatedRL01: RL01_REGION,
+          dedicatedRL02: RL02_REGION,
         })
         .limit(500)
         .getMany()
@@ -2185,14 +2175,27 @@ export class SnapshotManager implements TrackableJobExecutions, OnApplicationShu
     try {
       const cutoff = `NOW() - INTERVAL '1 minute' * COALESCE(org."snapshot_deactivation_timeout_minutes", ${DEFAULT_SNAPSHOT_DEACTIVATION_TIMEOUT_MINUTES})`
 
-      const oldSnapshots = await this.snapshotRepository
+      // Writer orgs keep their snapshots on dedicated regions and are exempt from auto-deactivation.
+      const writerOrgs = [
+        ...new Set([
+          ...this.regionRoutingService.getOrgIdsRoutedTo(WRITER_DEDICATED_US),
+          ...this.regionRoutingService.getOrgIdsRoutedTo(WRITER_DEDICATED_EU),
+        ]),
+      ]
+
+      const oldSnapshotsQuery = this.snapshotRepository
         .createQueryBuilder('snapshot')
         .leftJoin('organization', 'org', `org."id" = snapshot."organizationId"`)
         .where('snapshot.general = false')
         .andWhere('snapshot.state = :snapshotState', { snapshotState: SnapshotState.ACTIVE })
         .andWhere(`(snapshot."lastUsedAt" IS NULL OR snapshot."lastUsedAt" < ${cutoff})`)
         .andWhere(`snapshot."createdAt" < ${cutoff}`)
-        .andWhere('snapshot."organizationId" NOT IN (:...writerOrgs)', { writerOrgs: WRITER_ORGS })
+
+      if (writerOrgs.length > 0) {
+        oldSnapshotsQuery.andWhere('snapshot."organizationId" NOT IN (:...writerOrgs)', { writerOrgs })
+      }
+
+      const oldSnapshots = await oldSnapshotsQuery
         .andWhere(
           `NOT EXISTS (
             SELECT 1 FROM snapshot s

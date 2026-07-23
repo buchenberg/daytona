@@ -1,25 +1,23 @@
-import { TypedConfigService } from '../../config/typed-config.service'
 import { SandboxClass } from '../enums/sandbox-class.enum'
-import { areResourcesLargerThanDefault, Resources } from '../utils/resources'
 
 export const GPU_REGION = 'gpu-experimental'
 
 /*
  * Dedicated regions for runner assignment
  */
-const WRITER_DEDICATED_US = 'writer-dedicated-us'
-const WRITER_DEDICATED_EU = 'writer-dedicated-eu'
-export const META_DEDICATED_REGION = 'meta-dedicated'
+export const WRITER_DEDICATED_US = 'writer-dedicated-us'
+export const WRITER_DEDICATED_EU = 'writer-dedicated-eu'
+export const RL01_REGION = 'RL01'
 export const META_LARGE_SANDBOX_REGION = 'us-central-1'
 
 /*
  * Meta sandboxes exceeding any of these thresholds are pinned to
  * META_LARGE_SANDBOX_REGION with no fallback and no spillover.
  */
-const META_LARGE_SANDBOX_CPU_CORES = 16
-const META_LARGE_SANDBOX_MEMORY_GB = 16
-const META_LARGE_SANDBOX_DISK_GB = 32
-export const DEEPTUNE_AND_MILLION_DEDICATED_REGION = 'deeptune-dedicated'
+export const META_LARGE_SANDBOX_CPU_CORES = 16
+export const META_LARGE_SANDBOX_MEMORY_GB = 16
+export const META_LARGE_SANDBOX_DISK_GB = 32
+export const RL02_REGION = 'RL02'
 export const LARGE_SANDBOX_SHARED_REGION = 'large-sandbox-shared'
 export const ELEMENTOR_DEDICATED_REGION = 'elementor-dedicated'
 export const RL_REGION = 'RL'
@@ -81,43 +79,6 @@ export function isHighReliabilityRegion(region: string): boolean {
   }
 }
 
-/**
- * @returns true if the region is a dedicated region that can fallback to a base region
- */
-export const hasFallbackRegion = (region: string): boolean => {
-  switch (region) {
-    case WRITER_DEDICATED_US:
-    case WRITER_DEDICATED_EU:
-    case META_DEDICATED_REGION:
-    case DEEPTUNE_AND_MILLION_DEDICATED_REGION:
-      return true
-    default:
-      return false
-  }
-}
-
-/**
- * @returns the fallback region for the given region, or null if no fallback is available
- */
-export function getFallbackRegion(region: string): string | null {
-  switch (region) {
-    case WRITER_DEDICATED_US:
-      return 'us'
-    case WRITER_DEDICATED_EU:
-      return 'eu'
-    case META_DEDICATED_REGION:
-      return 'us'
-    case DEEPTUNE_AND_MILLION_DEDICATED_REGION:
-      return 'us'
-    default:
-      return null
-  }
-}
-
-export function getFallbackRegions(regions: string[]): string[] {
-  return regions.map((region) => getFallbackRegion(region)).filter((region) => region !== null)
-}
-
 /*
  * Add here organization IDs that have access to LARGE_SANDBOX_SHARED_REGION
  */
@@ -130,39 +91,13 @@ export const LARGE_SANDBOX_ORGS = new Set([
   '4df7e085-4944-40c7-91e8-5e70664431c0', // Firebender corp
 ])
 
-/*
- * Add here organization IDs that have access to WRITER_DEDICATED_US and WRITER_DEDICATED_EU
- */
-export const WRITER_ORGS = [
-  'ebe1abc6-dc31-4b49-8f4f-953b096ecf40',
-  '0fcf06b6-2dc2-4899-8c59-41460e2760ce',
-  'f48ca04b-3a47-4c81-b626-da44bb888bb1',
-  'e7395d35-9f0c-40be-8fdb-84165ae48e82',
-  'b85fe86a-db98-46d8-850b-77166ee6d97b',
-  'f74e75e9-47ad-4d5d-bc10-f0f5994f7117',
-  'a6d3672e-4fab-4117-bcbb-913dba768d75',
-  '2ca4611c-c53f-4669-88ce-376a1d4ffe2a',
-  '815f0cf1-037d-4514-a7ec-2251b0b33596',
-  '6780b872-df13-44b6-bc6a-59c56ca469c3',
-  'd3df4094-226d-400b-804a-e4f9aa5a60d0',
-  '13dd8c35-0468-444a-a248-398e0d2d02d2',
-]
-
-const META_ORGS = new Set([
-  'fd4f4489-5a9b-4d7b-b62e-dbd26113115c', // AAI Meta
-  '683acf39-5b83-49eb-9c43-f8056cec924a', // Drydock
-  'bfd70412-3a0f-4973-bd7c-f8234d933dfd', // Meta AAI Labs
-  '37424cf2-c171-45a7-9628-e0ccc0f17750', // Meta TBR
-  '1fa758b9-6ef2-4ef0-9d2c-6477d4666f07', // Pytorch
-  'cbd6042b-5425-4bce-8fad-e5673fded021', // Meta AI Workflows
-  'bac16d29-0ad6-49ab-93fa-bb0d9131be56', // Snorkel-AI-Prod
-])
+const META_LARGE_SANDBOX_SPILLOVER_ORG = '9f4f4bb5-a521-47a2-9263-462dc409db1d'
 
 /*
  * Orgs whose large sandboxes (over the thresholds below) are pinned to
  * META_LARGE_SANDBOX_REGION with no fallback and no spillover.
  */
-const META_LARGE_SANDBOX_ORGS = new Set([
+export const META_LARGE_SANDBOX_ORGS = new Set([
   'fd4f4489-5a9b-4d7b-b62e-dbd26113115c', // Meta
   '683acf39-5b83-49eb-9c43-f8056cec924a', // Drydock
   'bfd70412-3a0f-4973-bd7c-f8234d933dfd', // Meta AAI Labs
@@ -173,37 +108,6 @@ const META_LARGE_SANDBOX_ORGS = new Set([
   'aeffef97-aab0-460b-bcb1-75cec66d0a65', // testing
 ])
 
-export const SPILLOVER_ON_ERROR_ORGS = new Set<string>([
-  'fd4f4489-5a9b-4d7b-b62e-dbd26113115c', // Meta
-  '683acf39-5b83-49eb-9c43-f8056cec924a', // Drydock
-  'bfd70412-3a0f-4973-bd7c-f8234d933dfd', // Meta AAI Labs
-  '37424cf2-c171-45a7-9628-e0ccc0f17750', // Meta TBR
-  '1fa758b9-6ef2-4ef0-9d2c-6477d4666f07', // Pytorch
-  'cbd6042b-5425-4bce-8fad-e5673fded021', // Meta AI Workflows
-  'bac16d29-0ad6-49ab-93fa-bb0d9131be56', // Snorkel-AI-Prod
-  'c0a5d258-844b-44da-aac0-706f31c3027f', // deeptune
-  'c8789392-ea10-4be4-9b24-71c23a6c30da', // deeptune
-])
-
-export function isSpilloverOnErrorOrg(organizationId: string): boolean {
-  return SPILLOVER_ON_ERROR_ORGS.has(organizationId)
-}
-
-const DEEPTUNE_AND_MILLION_ORGS = new Set([
-  'c0a5d258-844b-44da-aac0-706f31c3027f', // deeptune
-  'c8789392-ea10-4be4-9b24-71c23a6c30da', // deeptune
-  'c543c338-b39a-4abf-a07a-095c0b23a380', // million
-])
-
-/*
- * Add here organization IDs that are blocked from creating sandboxes from build info
- */
-export const LG_ORGS = new Set([
-  'ffd8d89a-126a-4154-ad8f-16c54c18522a', // idagelic
-  'bb738f7e-d7eb-47c1-847c-3154a308f1e5', // fabjanvucina
-  '7270a8f6-9e34-46a2-9254-466627e06bac', // LG
-])
-
 export const BUILD_INFO_BLOCKED_ORGS = ['33c1c3f2-fa47-4951-8694-17e1b71083c4', '6e9d049e-d6c3-44ed-abcc-41b6ea478dce']
 
 /*
@@ -212,33 +116,21 @@ export const BUILD_INFO_BLOCKED_ORGS = ['33c1c3f2-fa47-4951-8694-17e1b71083c4', 
 export const RESTRICTED_REGIONS = ['RL']
 
 /**
- * Add here organization IDs of Daytona engineers for testing purposes
- */
-const DAYTONA_MEMBERS_ORGS = [
-  '3ae0ced2-f32b-4c06-ba3b-51e5bb22e6e6', // Internal Testing
-  'bf29e0f2-5fa9-48db-b80c-c7fae9c4e29c', // Breja
-  '1db02bc5-acae-447b-b6ad-f5fa323d3cf6', // Toma
-  '99c32bbf-0ba0-4980-af71-22f50376032e', // Mirko
-]
-
-/**
- * Used for snapshot propagation to dedicated regions created by Daytona.
+ * Resource-conditional / propagation-only dedicated region mappings that remain in code.
  *
- * The customers are unaware of these regions. They are only used for runner assignment.
+ * Unlike the org routing stored in `region_quota.effective_region_id` (which drives runner
+ * assignment for a base region), these mappings are either resource-gated at assignment time
+ * (`LARGE_SANDBOX_SHARED_REGION`) or used purely for snapshot propagation. They are merged with
+ * the DB-backed routing by `RegionRoutingService.getDedicatedRegionsForOrg`.
  *
  * The key is the organization ID and the value is an array of dedicated regions.
  */
-export const DEDICATED_REGIONS_PER_ORGANIZATION: Record<string, string[]> = (() => {
+export const CODE_DEDICATED_REGIONS_PER_ORGANIZATION: Record<string, string[]> = (() => {
   const orgRegionMappings = [
-    { orgs: WRITER_ORGS, regions: [WRITER_DEDICATED_US, WRITER_DEDICATED_EU] },
-    { orgs: META_ORGS, regions: [META_DEDICATED_REGION] },
-    { orgs: DEEPTUNE_AND_MILLION_ORGS, regions: [DEEPTUNE_AND_MILLION_DEDICATED_REGION] },
-    { orgs: LARGE_SANDBOX_ORGS, regions: [LARGE_SANDBOX_SHARED_REGION] },
-    { orgs: LG_ORGS, regions: [ELEMENTOR_DEDICATED_REGION] },
-    { orgs: ['9f4f4bb5-a521-47a2-9263-462dc409db1d'], regions: [WRITER_DEDICATED_US] },
+    { orgs: [...LARGE_SANDBOX_ORGS], regions: [LARGE_SANDBOX_SHARED_REGION] },
+    { orgs: [META_LARGE_SANDBOX_SPILLOVER_ORG], regions: [WRITER_DEDICATED_US] },
   ]
 
-  // orgId -> regions
   const result: Record<string, string[]> = {}
 
   for (const { orgs, regions } of orgRegionMappings) {
@@ -253,72 +145,3 @@ export const DEDICATED_REGIONS_PER_ORGANIZATION: Record<string, string[]> = (() 
 
   return result
 })()
-
-/**
- * @param organizationId
- * @param baseRegionId - ID of the region chosen for sandbox creation or snapshot propagation
- * @param configService
- * @param resources
- * @returns The dedicated region if applicable, otherwise the base region.
- */
-export function resolveEffectiveRegion(
-  organizationId: string,
-  baseRegionId: string,
-  configService: TypedConfigService,
-  resources: Resources,
-) {
-  if (resources.gpu > 0) {
-    if (META_ORGS.has(organizationId) && baseRegionId === 'us') {
-      return META_DEDICATED_REGION
-    }
-    // GPUs are only available in the `us` region. Rather than granting every
-    // `eu`-only org a `us` region quota just to try GPUs, transparently place
-    // GPU sandboxes targeting `eu` onto `us` runners. The customer-facing
-    // `sandbox.region` stays `eu`, so quota validation still runs against the
-    // org's existing `eu` quota.
-    if (baseRegionId === 'eu') {
-      return 'us'
-    }
-    return baseRegionId
-  }
-
-  // if (DAYTONA_MEMBERS_ORGS.includes(organizationId)) {
-  if (WRITER_ORGS.includes(organizationId)) {
-    if (baseRegionId === 'us') {
-      return WRITER_DEDICATED_US
-    } else if (baseRegionId === 'eu') {
-      return WRITER_DEDICATED_EU
-    }
-  }
-
-  // Large sandboxes for these orgs are pinned to a dedicated region with no
-  // fallback and no spillover, regardless of the base region.
-  if (
-    META_LARGE_SANDBOX_ORGS.has(organizationId) &&
-    (resources.cpu > META_LARGE_SANDBOX_CPU_CORES ||
-      resources.memory > META_LARGE_SANDBOX_MEMORY_GB ||
-      resources.disk > META_LARGE_SANDBOX_DISK_GB)
-  ) {
-    return META_LARGE_SANDBOX_REGION
-  }
-
-  if (META_ORGS.has(organizationId) && baseRegionId === 'us') {
-    return META_DEDICATED_REGION
-  }
-
-  if (DEEPTUNE_AND_MILLION_ORGS.has(organizationId) && baseRegionId === 'us') {
-    return DEEPTUNE_AND_MILLION_DEDICATED_REGION
-  }
-
-  if (LG_ORGS.has(organizationId)) {
-    return ELEMENTOR_DEDICATED_REGION
-  }
-
-  if (LARGE_SANDBOX_ORGS.has(organizationId)) {
-    if (areResourcesLargerThanDefault(configService, resources)) {
-      return LARGE_SANDBOX_SHARED_REGION
-    }
-  }
-
-  return baseRegionId
-}

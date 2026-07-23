@@ -28,9 +28,10 @@ import { RunnerAdapterFactory, RunnerInfo } from '../runner-adapter/runnerAdapte
 import { RedisLockProvider } from '../common/redis-lock.provider'
 import { TypedConfigService } from '../../config/typed-config.service'
 import { LogExecution } from '../../common/decorators/log-execution.decorator'
-import { getFallbackRegions, hasFallbackRegion, isHighReliabilityRegion } from '../constants/dedicated-regions.constant'
+import { isHighReliabilityRegion } from '../constants/dedicated-regions.constant'
 import { WithInstrumentation } from '../../common/decorators/otel.decorator'
 import { RegionService } from '../../region/services/region.service'
+import { RegionRoutingService } from '../../region/services/region-routing.service'
 import { RUNNER_NAME_REGEX } from '../constants/runner-name-regex.constant'
 import { RegionType } from '../../region/enums/region-type.enum'
 import { RunnerDto } from '../dto/runner.dto'
@@ -91,6 +92,7 @@ export class RunnerService {
     private readonly redisLockProvider: RedisLockProvider,
     private readonly configService: TypedConfigService,
     private readonly regionService: RegionService,
+    private readonly regionRoutingService: RegionRoutingService,
     private readonly snapshotRepository: SnapshotRepository,
     @Inject(EventEmitter2)
     private eventEmitter: EventEmitter2,
@@ -383,8 +385,15 @@ export class RunnerService {
       runners = runners.filter((runner) => this.getRunnerFreeGpuUnits(runner, reservedGpuUnits) >= params.gpu)
     }
 
-    if (runners.length === 0 && params.regions && params.regions.some(hasFallbackRegion)) {
-      return this.findAvailableRunners({ ...params, regions: getFallbackRegions(params.regions) })
+    if (
+      runners.length === 0 &&
+      params.regions &&
+      params.regions.some((region) => this.regionRoutingService.hasFallbackRegion(region))
+    ) {
+      return this.findAvailableRunners({
+        ...params,
+        regions: this.regionRoutingService.getFallbackRegions(params.regions),
+      })
     }
 
     const selectionPercentage = params.regions?.includes('RL') ? 0.75 : 0.33

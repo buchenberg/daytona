@@ -19,12 +19,7 @@ import { Snapshot } from '../../entities/snapshot.entity'
 import { OrganizationService } from '../../../organization/services/organization.service'
 import { TypedConfigService } from '../../../config/typed-config.service'
 import { Runner } from '../../entities/runner.entity'
-import {
-  resolveEffectiveRegion,
-  getFallbackRegion,
-  hasFallbackRegion,
-  isSpilloverOnErrorOrg,
-} from '../../constants/dedicated-regions.constant'
+import { RegionRoutingService } from '../../../region/services/region-routing.service'
 import { Organization } from '../../../organization/entities/organization.entity'
 import { LockCode, RedisLockProvider } from '../../common/redis-lock.provider'
 import { InjectRedis } from '@nestjs-modules/ioredis'
@@ -63,6 +58,7 @@ export class SandboxStartAction extends SandboxAction {
     protected readonly redisLockProvider: RedisLockProvider,
     @InjectRedis() private readonly redis: Redis,
     private readonly sandboxActivityService: SandboxActivityService,
+    private readonly regionRoutingService: RegionRoutingService,
   ) {
     super(runnerService, runnerAdapterFactory, sandboxRepository, redisLockProvider)
   }
@@ -187,14 +183,14 @@ export class SandboxStartAction extends SandboxAction {
   }
 
   private async resolveRegionWithSpillover(sandbox: Sandbox): Promise<string> {
-    const effectiveRegion = resolveEffectiveRegion(sandbox.organizationId, sandbox.region, this.configService, {
+    const effectiveRegion = this.regionRoutingService.resolveEffectiveRegion(sandbox.organizationId, sandbox.region, {
       cpu: sandbox.cpu,
       memory: sandbox.mem,
       disk: sandbox.disk,
       gpu: sandbox.gpu,
     })
 
-    if (!hasFallbackRegion(effectiveRegion)) {
+    if (!this.regionRoutingService.hasFallbackRegion(effectiveRegion)) {
       return effectiveRegion
     }
 
@@ -203,7 +199,7 @@ export class SandboxStartAction extends SandboxAction {
       return effectiveRegion
     }
 
-    const fallbackRegion = getFallbackRegion(effectiveRegion)
+    const fallbackRegion = this.regionRoutingService.getFallbackRegion(effectiveRegion)
     if (!fallbackRegion) {
       return effectiveRegion
     }
@@ -506,7 +502,7 @@ export class SandboxStartAction extends SandboxAction {
 
   async pullSnapshotToRunner(snapshot: Snapshot, runner: Runner) {
     // Use base region for registry lookup (dedicated regions may not have registry configs)
-    const regionForRegistry = getFallbackRegion(runner.region) ?? runner.region
+    const regionForRegistry = this.regionRoutingService.getFallbackRegion(runner.region) ?? runner.region
     let internalRegistry: DockerRegistry | undefined
     if (isRegistryBasedSandboxClass(snapshot.sandboxClass)) {
       const found = await this.dockerRegistryService.findInternalRegistryBySnapshotRef(snapshot.ref, regionForRegistry)
@@ -610,7 +606,7 @@ export class SandboxStartAction extends SandboxAction {
     let entrypoint: string[]
     let snapshotRef: string
     // Use base region for registry lookup (dedicated regions may not have registry configs)
-    const regionForRegistry = getFallbackRegion(runner.region) ?? runner.region
+    const regionForRegistry = this.regionRoutingService.getFallbackRegion(runner.region) ?? runner.region
     if (!sandbox.buildInfo) {
       //  get internal snapshot name
       const snapshot = await this.snapshotService.getSnapshotByName(sandbox.snapshot, sandbox.organizationId)
@@ -674,8 +670,12 @@ export class SandboxStartAction extends SandboxAction {
       return false
     }
 
-    // Only retry on spillover for eligible orgs whose sandbox is currently on a dedicated region with a fallback.
-    if (!isSpilloverOnErrorOrg(sandbox.organizationId) || !hasFallbackRegion(runner.region)) {
+    // Only retry on spillover when the runner's region opts in and has a fallback target.
+    // Applies to every sandbox on that region (not per-org).
+    if (
+      !this.regionRoutingService.isSpilloverOnErrorRegion(runner.region) ||
+      !this.regionRoutingService.hasFallbackRegion(runner.region)
+    ) {
       return false
     }
 
@@ -724,7 +724,7 @@ export class SandboxStartAction extends SandboxAction {
         if (runner.availabilityScore < this.configService.getOrThrow('runnerScore.thresholds.availability')) {
           const availableRunners = await this.runnerService.findAvailableRunners({
             regions: [
-              resolveEffectiveRegion(sandbox.organizationId, sandbox.region, this.configService, {
+              this.regionRoutingService.resolveEffectiveRegion(sandbox.organizationId, sandbox.region, {
                 cpu: sandbox.cpu,
                 memory: sandbox.mem,
                 disk: sandbox.disk,
@@ -1034,7 +1034,7 @@ export class SandboxStartAction extends SandboxAction {
 
     const snapshotRef = baseSnapshot ? baseSnapshot.ref : null
 
-    const effectiveRegion = resolveEffectiveRegion(sandbox.organizationId, sandbox.region, this.configService, {
+    const effectiveRegion = this.regionRoutingService.resolveEffectiveRegion(sandbox.organizationId, sandbox.region, {
       cpu: sandbox.cpu,
       memory: sandbox.mem,
       disk: sandbox.disk,

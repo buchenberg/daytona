@@ -11,6 +11,7 @@ describe('RunnerService', () => {
       runnerRepository?: Record<string, jest.Mock>
       snapshotRunnerRepository?: Record<string, jest.Mock>
       configService?: Record<string, jest.Mock>
+      regionRoutingService?: Record<string, jest.Mock>
     } = {},
   ) {
     const runnerRepository = overrides.runnerRepository ?? {
@@ -28,6 +29,11 @@ describe('RunnerService', () => {
       getOrThrow: jest.fn().mockReturnValue(1),
     }
 
+    const regionRoutingService = overrides.regionRoutingService ?? {
+      hasFallbackRegion: jest.fn().mockReturnValue(false),
+      getFallbackRegions: jest.fn().mockReturnValue([]),
+    }
+
     const service = new RunnerService(
       runnerRepository as never,
       {} as never,
@@ -36,13 +42,21 @@ describe('RunnerService', () => {
       {} as never,
       configService as never,
       {} as never,
+      regionRoutingService as never,
       {} as never,
       {} as never,
       {} as never,
       {} as never,
     )
 
-    return { service, sandboxRepository, runnerRepository, snapshotRunnerRepository, configService }
+    return {
+      service,
+      sandboxRepository,
+      runnerRepository,
+      snapshotRunnerRepository,
+      configService,
+      regionRoutingService,
+    }
   }
 
   function createQueryBuilder(rows: Array<Record<string, unknown>>) {
@@ -175,5 +189,55 @@ describe('RunnerService', () => {
       SandboxState.ARCHIVED,
       SandboxState.BUILD_FAILED,
     ])
+  })
+
+  it('retries findAvailableRunners on the fallback regions when the dedicated region has none', async () => {
+    const qb = createQueryBuilder([])
+    const runnerRepository = {
+      find: jest
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([createRunner({ id: 'us-runner', region: 'us', availabilityScore: 80 })]),
+    }
+    const regionRoutingService = {
+      hasFallbackRegion: jest.fn((region: string) => region === 'RL01'),
+      getFallbackRegions: jest.fn().mockReturnValue(['us']),
+    }
+    const { service } = createService(qb, { runnerRepository, regionRoutingService })
+
+    const runners = await service.findAvailableRunners({
+      regions: ['RL01'],
+      sandboxClass: SandboxClass.CONTAINER,
+      gpu: 0,
+      gpuType: null,
+    })
+
+    expect(regionRoutingService.hasFallbackRegion).toHaveBeenCalledWith('RL01')
+    expect(regionRoutingService.getFallbackRegions).toHaveBeenCalledWith(['RL01'])
+    expect(runnerRepository.find).toHaveBeenCalledTimes(2)
+    expect(runners.map((runner) => runner.id)).toEqual(['us-runner'])
+  })
+
+  it('does not recurse into fallbacks when the dedicated region has no fallback configured', async () => {
+    const qb = createQueryBuilder([])
+    const runnerRepository = {
+      find: jest.fn().mockResolvedValue([]),
+    }
+    const regionRoutingService = {
+      hasFallbackRegion: jest.fn().mockReturnValue(false),
+      getFallbackRegions: jest.fn(),
+    }
+    const { service } = createService(qb, { runnerRepository, regionRoutingService })
+
+    const runners = await service.findAvailableRunners({
+      regions: ['RL01'],
+      sandboxClass: SandboxClass.CONTAINER,
+      gpu: 0,
+      gpuType: null,
+    })
+
+    expect(runners).toEqual([])
+    expect(runnerRepository.find).toHaveBeenCalledTimes(1)
+    expect(regionRoutingService.getFallbackRegions).not.toHaveBeenCalled()
   })
 })

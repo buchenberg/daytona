@@ -21,6 +21,7 @@ import { RunnerAdapterFactory } from '../runner-adapter/runnerAdapter'
 import { OrganizationUsageService } from '../../organization/services/organization-usage.service'
 import { RedisLockProvider } from '../common/redis-lock.provider'
 import { RegionService } from '../../region/services/region.service'
+import { RegionRoutingService } from '../../region/services/region-routing.service'
 import { SnapshotService } from './snapshot.service'
 import { SandboxLookupCacheInvalidationService } from './sandbox-lookup-cache-invalidation.service'
 import { SandboxActivityService } from './sandbox-activity.service'
@@ -89,6 +90,7 @@ describe('SandboxService.updateNetworkSettings', () => {
       undefined as unknown as RedisLockProvider,
       undefined as unknown as Redis,
       undefined as unknown as RegionService,
+      undefined as unknown as RegionRoutingService,
       undefined as unknown as SnapshotService,
       undefined as unknown as SandboxLookupCacheInvalidationService,
       undefined as unknown as SandboxActivityService,

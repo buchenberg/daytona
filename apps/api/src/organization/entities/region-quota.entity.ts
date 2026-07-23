@@ -18,6 +18,17 @@ export class RegionQuota {
   @PrimaryColumn({ type: 'character varying', default: SandboxClass.CONTAINER })
   sandboxClass: SandboxClass
 
+  /**
+   * The dedicated region that sandboxes for this organization and base region are actually placed on
+   * (e.g. `us` -> `RL01`). `null` means sandboxes stay on the base region (`regionId`).
+   */
+  @Column({
+    type: 'character varying',
+    nullable: true,
+    name: 'effective_region_id',
+  })
+  effectiveRegionId: string | null
+
   @ManyToOne(() => Organization, (organization) => organization.regionQuotas, {
     onDelete: 'CASCADE',
   })
@@ -159,11 +170,13 @@ export class RegionQuota {
     maxCpuPerGpu?: number | null
     maxMemoryPerGpu?: number | null
     maxDiskPerGpu?: number | null
+    effectiveRegionId?: string | null
   }) {
     if (!params) return
     this.organizationId = params.organizationId
     this.regionId = params.regionId
     this.sandboxClass = params.sandboxClass
+    this.effectiveRegionId = params.effectiveRegionId ?? null
     this.totalCpuQuota = params.totalCpuQuota
     this.totalMemoryQuota = params.totalMemoryQuota
     this.totalDiskQuota = params.totalDiskQuota

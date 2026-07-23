@@ -59,6 +59,28 @@ export class Region {
   })
   enforceQuotas: boolean
 
+  /**
+   * The region that sandboxes spill over to when this (dedicated) region cannot host them
+   * (e.g. `RL01` -> `us`). `null` means this region has no fallback.
+   */
+  @Column({
+    type: 'character varying',
+    nullable: true,
+    name: 'fallback_region_id',
+  })
+  fallbackRegionId: string | null
+
+  /**
+   * When true, sandbox creation on this region may retry on `fallbackRegionId` if a runner
+   * returns a spillover-eligible error (e.g. workload the runner cannot run). Applies to all
+   * sandboxes on the region. Not exposed through the API.
+   */
+  @Column({
+    default: true,
+    name: 'spillover_on_error',
+  })
+  spilloverOnError: boolean
+
   @CreateDateColumn({
     type: 'timestamp with time zone',
   })
@@ -105,11 +127,15 @@ export class Region {
     proxyApiKeyHash?: string | null
     sshGatewayApiKeyHash?: string | null
     snapshotManagerUrl?: string | null
+    fallbackRegionId?: string | null
+    spilloverOnError?: boolean
   }) {
     if (!params) return
     this.name = params.name
     this.enforceQuotas = params.enforceQuotas
     this.regionType = params.regionType
+    this.fallbackRegionId = params.fallbackRegionId ?? null
+    this.spilloverOnError = params.spilloverOnError ?? true
 
     if (params.id) {
       this.id = params.id

@@ -68,12 +68,7 @@ import { OrganizationUsageService } from '../../organization/services/organizati
 import { SshAccess } from '../entities/ssh-access.entity'
 import { SshAccessDto, SshAccessValidationDto } from '../dto/ssh-access.dto'
 import { VolumeService } from './volume.service'
-import {
-  resolveEffectiveRegion,
-  BUILD_INFO_BLOCKED_ORGS,
-  GPU_REGION,
-  forbidUserArchiveCalls,
-} from '../constants/dedicated-regions.constant'
+import { BUILD_INFO_BLOCKED_ORGS, GPU_REGION, forbidUserArchiveCalls } from '../constants/dedicated-regions.constant'
 import { PaginatedList } from '../../common/interfaces/paginated-list.interface'
 import {
   SandboxSortFieldDeprecated,
@@ -98,6 +93,7 @@ import { SandboxRepository } from '../repositories/sandbox.repository'
 import { SnapshotRepository } from '../repositories/snapshot.repository'
 import { PortPreviewUrlDto, SignedPortPreviewUrlDto } from '../dto/port-preview-url.dto'
 import { RegionService } from '../../region/services/region.service'
+import { RegionRoutingService } from '../../region/services/region-routing.service'
 import { DefaultRegionRequiredException } from '../../organization/exceptions/DefaultRegionRequiredException'
 import { SnapshotService } from './snapshot.service'
 import { BuildInfoService } from './build-info.service'
@@ -163,6 +159,7 @@ export class SandboxService {
     private readonly redisLockProvider: RedisLockProvider,
     @InjectRedis() private readonly redis: Redis,
     private readonly regionService: RegionService,
+    private readonly regionRoutingService: RegionRoutingService,
     private readonly snapshotService: SnapshotService,
     private readonly sandboxLookupCacheInvalidationService: SandboxLookupCacheInvalidationService,
     private readonly sandboxActivityService: SandboxActivityService,
@@ -758,7 +755,12 @@ export class SandboxService {
       } else {
         runner = await this.runnerService.getRandomAvailableRunner({
           regions: [
-            resolveEffectiveRegion(organization.id, region.id, this.configService, { cpu, memory: mem, disk, gpu }),
+            this.regionRoutingService.resolveEffectiveRegion(organization.id, region.id, {
+              cpu,
+              memory: mem,
+              disk,
+              gpu,
+            }),
           ],
           sandboxClass: snapshot.sandboxClass,
           snapshotRef: snapshot.ref,
@@ -1251,7 +1253,7 @@ export class SandboxService {
             )
         runner = await this.runnerService.getRandomAvailableRunner({
           regions: [
-            resolveEffectiveRegion(sandbox.organizationId, sandbox.region, this.configService, {
+            this.regionRoutingService.resolveEffectiveRegion(sandbox.organizationId, sandbox.region, {
               cpu,
               memory: mem,
               disk,
