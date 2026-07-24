@@ -27,6 +27,10 @@ type DaytonaConfiguration struct {
 	Posthog *PosthogConfig `json:"posthog,omitempty"`
 	// OIDC configuration
 	Oidc OidcConfig `json:"oidc"`
+	// Authentication provider
+	AuthProvider string `json:"authProvider"`
+	// WorkOS OIDC configuration
+	WorkosOidc *OidcConfig `json:"workosOidc,omitempty"`
 	// Whether linked accounts are enabled
 	LinkedAccountsEnabled bool `json:"linkedAccountsEnabled"`
 	// System announcements
@@ -68,10 +72,11 @@ type _DaytonaConfiguration DaytonaConfiguration
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewDaytonaConfiguration(version string, oidc OidcConfig, linkedAccountsEnabled bool, announcements map[string]Announcement, proxyTemplateUrl string, proxyToolboxUrl string, defaultSnapshot string, dashboardUrl string, maxAutoArchiveInterval float32, maintananceMode bool, environment string) *DaytonaConfiguration {
+func NewDaytonaConfiguration(version string, oidc OidcConfig, authProvider string, linkedAccountsEnabled bool, announcements map[string]Announcement, proxyTemplateUrl string, proxyToolboxUrl string, defaultSnapshot string, dashboardUrl string, maxAutoArchiveInterval float32, maintananceMode bool, environment string) *DaytonaConfiguration {
 	this := DaytonaConfiguration{}
 	this.Version = version
 	this.Oidc = oidc
+	this.AuthProvider = authProvider
 	this.LinkedAccountsEnabled = linkedAccountsEnabled
 	this.Announcements = announcements
 	this.ProxyTemplateUrl = proxyTemplateUrl
@@ -170,6 +175,62 @@ func (o *DaytonaConfiguration) GetOidcOk() (*OidcConfig, bool) {
 // SetOidc sets field value
 func (o *DaytonaConfiguration) SetOidc(v OidcConfig) {
 	o.Oidc = v
+}
+
+// GetAuthProvider returns the AuthProvider field value
+func (o *DaytonaConfiguration) GetAuthProvider() string {
+	if o == nil {
+		var ret string
+		return ret
+	}
+
+	return o.AuthProvider
+}
+
+// GetAuthProviderOk returns a tuple with the AuthProvider field value
+// and a boolean to check if the value has been set.
+func (o *DaytonaConfiguration) GetAuthProviderOk() (*string, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.AuthProvider, true
+}
+
+// SetAuthProvider sets field value
+func (o *DaytonaConfiguration) SetAuthProvider(v string) {
+	o.AuthProvider = v
+}
+
+// GetWorkosOidc returns the WorkosOidc field value if set, zero value otherwise.
+func (o *DaytonaConfiguration) GetWorkosOidc() OidcConfig {
+	if o == nil || IsNil(o.WorkosOidc) {
+		var ret OidcConfig
+		return ret
+	}
+	return *o.WorkosOidc
+}
+
+// GetWorkosOidcOk returns a tuple with the WorkosOidc field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *DaytonaConfiguration) GetWorkosOidcOk() (*OidcConfig, bool) {
+	if o == nil || IsNil(o.WorkosOidc) {
+		return nil, false
+	}
+	return o.WorkosOidc, true
+}
+
+// HasWorkosOidc returns a boolean if a field has been set.
+func (o *DaytonaConfiguration) HasWorkosOidc() bool {
+	if o != nil && !IsNil(o.WorkosOidc) {
+		return true
+	}
+
+	return false
+}
+
+// SetWorkosOidc gets a reference to the given OidcConfig and assigns it to the WorkosOidc field.
+func (o *DaytonaConfiguration) SetWorkosOidc(v OidcConfig) {
+	o.WorkosOidc = &v
 }
 
 // GetLinkedAccountsEnabled returns the LinkedAccountsEnabled field value
@@ -627,6 +688,10 @@ func (o DaytonaConfiguration) ToMap() (map[string]interface{}, error) {
 		toSerialize["posthog"] = o.Posthog
 	}
 	toSerialize["oidc"] = o.Oidc
+	toSerialize["authProvider"] = o.AuthProvider
+	if !IsNil(o.WorkosOidc) {
+		toSerialize["workosOidc"] = o.WorkosOidc
+	}
 	toSerialize["linkedAccountsEnabled"] = o.LinkedAccountsEnabled
 	toSerialize["announcements"] = o.Announcements
 	if !IsNil(o.PylonAppId) {
@@ -672,6 +737,7 @@ func (o *DaytonaConfiguration) UnmarshalJSON(data []byte) (err error) {
 	requiredProperties := []string{
 		"version",
 		"oidc",
+		"authProvider",
 		"linkedAccountsEnabled",
 		"announcements",
 		"proxyTemplateUrl",
@@ -713,6 +779,8 @@ func (o *DaytonaConfiguration) UnmarshalJSON(data []byte) (err error) {
 		delete(additionalProperties, "version")
 		delete(additionalProperties, "posthog")
 		delete(additionalProperties, "oidc")
+		delete(additionalProperties, "authProvider")
+		delete(additionalProperties, "workosOidc")
 		delete(additionalProperties, "linkedAccountsEnabled")
 		delete(additionalProperties, "announcements")
 		delete(additionalProperties, "pylonAppId")

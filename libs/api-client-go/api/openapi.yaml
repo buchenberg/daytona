@@ -7185,10 +7185,12 @@ components:
         maxAutoArchiveInterval: 43200
         pylonAppId: pylon-app-123
         proxyTemplateUrl: "https://{{PORT}}-{{sandboxId}}.proxy.example.com"
+        authProvider: auth0
         maintananceMode: false
         environment: production
         defaultSnapshot: ubuntu:22.04
         sshGatewayCommand: "ssh -p 2222 {{TOKEN}}@localhost"
+        workosOidc: ""
         announcements:
           feature-update:
             text: New feature available!
@@ -7206,6 +7208,17 @@ components:
           allOf:
           - $ref: "#/components/schemas/OidcConfig"
           description: OIDC configuration
+        authProvider:
+          description: Authentication provider
+          enum:
+          - auth0
+          - workos
+          example: auth0
+          type: string
+        workosOidc:
+          allOf:
+          - $ref: "#/components/schemas/OidcConfig"
+          description: WorkOS OIDC configuration
         linkedAccountsEnabled:
           description: Whether linked accounts are enabled
           example: true
@@ -7277,6 +7290,7 @@ components:
           description: Rate limit configuration
       required:
       - announcements
+      - authProvider
       - dashboardUrl
       - defaultSnapshot
       - environment

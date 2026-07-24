@@ -40,6 +40,14 @@ export interface DaytonaConfiguration {
      */
     'oidc': OidcConfig;
     /**
+     * Authentication provider
+     */
+    'authProvider': DaytonaConfigurationAuthProviderEnum;
+    /**
+     * WorkOS OIDC configuration
+     */
+    'workosOidc'?: OidcConfig;
+    /**
      * Whether linked accounts are enabled
      */
     'linkedAccountsEnabled': boolean;
@@ -104,4 +112,13 @@ export interface DaytonaConfiguration {
      */
     'rateLimit'?: RateLimitConfig;
 }
+
+export const DaytonaConfigurationAuthProviderEnum = {
+    AUTH0: 'auth0',
+    WORKOS: 'workos',
+    UNKNOWN_DEFAULT_OPEN_API: '11184809',
+} as const;
+
+export type DaytonaConfigurationAuthProviderEnum = typeof DaytonaConfigurationAuthProviderEnum[keyof typeof DaytonaConfigurationAuthProviderEnum];
+
 
