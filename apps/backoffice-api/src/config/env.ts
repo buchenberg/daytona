@@ -107,6 +107,18 @@ export const config = {
     allowedDomain: process.env.OIDC_ALLOWED_DOMAIN || 'daytona.io',
   },
 
+  authProvider: (process.env.AUTH_PROVIDER === 'workos' ? 'workos' : 'auth0') as 'auth0' | 'workos',
+
+  workosOidc: {
+    issuer: process.env.WORKOS_OIDC_ISSUER || '',
+    clientId: process.env.WORKOS_OIDC_CLIENT_ID || '',
+    clientSecret: process.env.WORKOS_OIDC_CLIENT_SECRET || '',
+    redirectUri: process.env.WORKOS_OIDC_REDIRECT_URI || 'http://localhost:8080/api/v1/auth/callback',
+    audience: process.env.WORKOS_OIDC_AUDIENCE || process.env.WORKOS_OIDC_CLIENT_ID || '',
+    callbackURL: process.env.WORKOS_OIDC_CALLBACK_URL || 'http://localhost:8080/api/v1/auth/callback',
+    allowedDomain: process.env.WORKOS_OIDC_ALLOWED_DOMAIN || 'daytona.io',
+  },
+
   jwt: {
     secret: process.env.JWT_SECRET || 'dev-secret-key-change-in-production',
     expiresIn: (process.env.JWT_EXPIRES_IN as StringValue) || '7d',
