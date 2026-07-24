@@ -141,6 +141,20 @@ export class ConfigurationDto {
   oidc: OidcConfig
 
   @ApiProperty({
+    description: 'Authentication provider',
+    enum: ['auth0', 'workos'],
+    example: 'auth0',
+  })
+  @IsString()
+  authProvider: 'auth0' | 'workos'
+
+  @ApiPropertyOptional({
+    description: 'WorkOS OIDC configuration',
+    type: OidcConfig,
+  })
+  workosOidc?: OidcConfig
+
+  @ApiProperty({
     description: 'Whether linked accounts are enabled',
     example: true,
   })
@@ -266,6 +280,15 @@ export class ConfigurationDto {
       issuer: configService.get('oidc.publicIssuer') || configService.getOrThrow('oidc.issuer'),
       clientId: configService.getOrThrow('oidc.clientId'),
       audience: configService.getOrThrow('oidc.audience'),
+    }
+    this.authProvider = configService.getOrThrow('authProvider')
+    const workosOidcConfig = configService.get('workosOidc')
+    if (this.authProvider === 'workos' && workosOidcConfig?.issuer && workosOidcConfig?.clientId) {
+      this.workosOidc = {
+        issuer: workosOidcConfig.issuer,
+        clientId: workosOidcConfig.clientId,
+        audience: workosOidcConfig.audience || workosOidcConfig.clientId,
+      }
     }
     this.linkedAccountsEnabled = configService.get('oidc.managementApi.enabled')
     this.proxyTemplateUrl = configService.getOrThrow('proxy.templateUrl')
