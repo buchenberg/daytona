@@ -35,12 +35,16 @@ import { AuthStrategyType } from './enums/auth-strategy-type.enum'
     {
       provide: JwtStrategy,
       useFactory: async (userService: UserService, httpService: HttpService, configService: TypedConfigService) => {
+        const authProvider = configService.get('authProvider')
         if (configService.get('skipConnections')) {
           return
         }
 
+        const issuer =
+          authProvider === 'workos' ? configService.getOrThrow('workosOidc.issuer') : configService.get('oidc.issuer')
+
         // Get the OpenID configuration from the issuer
-        const discoveryUrl = `${configService.get('oidc.issuer')}/.well-known/openid-configuration`
+        const discoveryUrl = `${issuer}/.well-known/openid-configuration`
         const metadata = await firstValueFrom(
           httpService.get(discoveryUrl).pipe(
             map((response) => response.data as OidcMetadata),
@@ -52,16 +56,22 @@ import { AuthStrategyType } from './enums/auth-strategy-type.enum'
 
         let jwksUri = metadata.jwks_uri
 
-        const internalIssuer = configService.getOrThrow('oidc.issuer')
-        const publicIssuer = configService.get('oidc.publicIssuer')
-        if (publicIssuer) {
-          // Replace localhost URLs with Docker network URLs for internal API use
-          jwksUri = metadata.jwks_uri.replace(publicIssuer, internalIssuer)
+        if (authProvider !== 'workos') {
+          const internalIssuer = configService.getOrThrow('oidc.issuer')
+          const publicIssuer = configService.get('oidc.publicIssuer')
+          if (publicIssuer) {
+            // Replace localhost URLs with Docker network URLs for internal API use
+            jwksUri = metadata.jwks_uri.replace(publicIssuer, internalIssuer)
+          }
         }
+
         return new JwtStrategy(
           {
-            audience: configService.get('oidc.audience'),
-            issuer: metadata.issuer,
+            audience:
+              authProvider === 'workos'
+                ? configService.getOrThrow('workosOidc.audience')
+                : configService.get('oidc.audience'),
+            issuer: authProvider === 'workos' ? issuer : metadata.issuer,
             jwksUri: jwksUri,
           },
           userService,
