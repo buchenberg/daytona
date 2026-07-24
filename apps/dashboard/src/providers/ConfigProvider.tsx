@@ -36,12 +36,13 @@ export function ConfigProvider(props: Props) {
   const oidcConfig: AuthProviderProps = useMemo(() => {
     const isLocalhost = window.location.hostname === 'localhost'
     const stateStore = isLocalhost ? window.sessionStorage : new InMemoryWebStorage()
+    const oidcBlock = config.authProvider === 'workos' && config.workosOidc ? config.workosOidc : config.oidc
 
     return {
-      authority: config.oidc.issuer,
-      client_id: config.oidc.clientId,
+      authority: oidcBlock.issuer,
+      client_id: oidcBlock.clientId,
       extraQueryParams: {
-        audience: config.oidc.audience,
+        audience: oidcBlock.audience,
       },
       scope: 'openid profile email',
       redirect_uri: window.location.origin + '/dashboard',
