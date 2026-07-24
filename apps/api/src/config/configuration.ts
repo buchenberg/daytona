@@ -186,6 +186,12 @@ const configuration = {
       audience: process.env.OIDC_MANAGEMENT_API_AUDIENCE,
     },
   },
+  authProvider: (process.env.AUTH_PROVIDER === 'workos' ? 'workos' : 'auth0') as 'auth0' | 'workos',
+  workosOidc: {
+    clientId: process.env.WORKOS_OIDC_CLIENT_ID,
+    issuer: process.env.WORKOS_OIDC_ISSUER,
+    audience: process.env.WORKOS_OIDC_AUDIENCE || process.env.WORKOS_OIDC_CLIENT_ID,
+  },
   smtp: {
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT || '587', 10),
