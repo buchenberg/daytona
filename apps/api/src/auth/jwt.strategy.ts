@@ -62,6 +62,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email = payload.sub
     }
 
+    /**
+     * WorkOS AuthKit Standalone Connect: honor the `daytona_user_id` custom
+     * claim (populated via WorkOS JWT template `{{ user.external_id }}`) so
+     * users migrated from Auth0 keep their existing Daytona `user.id`
+     * across the provider swap.
+     */
+    if (payload.daytona_user_id) {
+      userId = payload.daytona_user_id
+    }
+
     try {
       let existingUser = await this.userService.findOne(userId)
 
