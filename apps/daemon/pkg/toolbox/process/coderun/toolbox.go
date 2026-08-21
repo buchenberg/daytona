@@ -1,0 +1,20 @@
+package coderun
+
+import "fmt"
+
+type CodeToolbox interface {
+	GetRunCommand(code string, argv []string) string
+}
+
+func GetToolbox(language string) (CodeToolbox, error) {
+	switch language {
+	case "python":
+		return &pythonToolbox{}, nil
+	case "javascript":
+		return &javascriptToolbox{}, nil
+	case "typescript":
+		return &typescriptToolbox{}, nil
+	default:
+		return nil, fmt.Errorf("unsupported language: %s", language)
+	}
+}

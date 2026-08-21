@@ -1,0 +1,12 @@
+Copyright (c) 2025-2026 Daytona Platforms, Inc. All rights reserved.
+
+The Daytona software in this repository is the proprietary and confidential
+property of Daytona Platforms, Inc. and is governed by the root LICENSE file.
+
+Certain components are Separately Licensed Components under their own
+open-source terms (for example, the API client libraries, common-go, and
+runner-proto under libs/, each licensed under Apache-2.0); see the LICENSE
+file or license headers in the respective directory.
+
+Third-party software incorporated into the Daytona software is licensed
+under its original upstream terms; see NOTICE for attributions.

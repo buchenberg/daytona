@@ -1,0 +1,1596 @@
+import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common'
+import { Cron, CronExpression } from '@nestjs/schedule'
+import { In, IsNull, Not } from 'typeorm'
+import { randomUUID } from 'crypto'
+
+import { SandboxConflictError } from '../errors/sandbox-conflict.error'
+import { JobConflictError } from '../errors/job-conflict.error'
+import { SandboxState } from '../enums/sandbox-state.enum'
+import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
+import { RunnerService } from '../services/runner.service'
+
+import { RedisLockProvider, LockCode } from '../common/redis-lock.provider'
+
+import {
+  PAUSE_SUPPORTED_SANDBOX_CLASSES,
+  SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+} from '../constants/sandbox.constants'
+
+import { SandboxEvents, SandboxEvent } from '../constants/sandbox-events.constants'
+import { SandboxStoppedEvent } from '../events/sandbox-stopped.event'
+import { SandboxStartedEvent } from '../events/sandbox-started.event'
+import { SandboxArchivedEvent } from '../events/sandbox-archived.event'
+import { SandboxDestroyedEvent } from '../events/sandbox-destroyed.event'
+import { SandboxCreatedEvent } from '../events/sandbox-create.event'
+
+import { WithInstrumentation, WithSpan } from '../../common/decorators/otel.decorator'
+
+import { SandboxStartAction } from './sandbox-actions/sandbox-start.action'
+import { SandboxStopAction } from './sandbox-actions/sandbox-stop.action'
+import { SandboxDestroyAction } from './sandbox-actions/sandbox-destroy.action'
+import { SandboxArchiveAction } from './sandbox-actions/sandbox-archive.action'
+import { SYNC_AGAIN, DONT_SYNC_AGAIN } from './sandbox-actions/sandbox.action'
+
+import { TrackJobExecution } from '../../common/decorators/track-job-execution.decorator'
+import { TrackableJobExecutions } from '../../common/interfaces/trackable-job-executions'
+import { setTimeout } from 'timers/promises'
+import { LogExecution } from '../../common/decorators/log-execution.decorator'
+import { SandboxRepository } from '../repositories/sandbox.repository'
+import { getStateChangeLockKey } from '../utils/lock-key.util'
+import { BackupState } from '../enums/backup-state.enum'
+import { OnAsyncEvent } from '../../common/decorators/on-async-event.decorator'
+import { sanitizeSandboxError } from '../utils/sanitize-error.util'
+import { isEphemeral } from '../utils/ephemeral.util'
+import { isVmSandboxClass, VM_SANDBOX_CLASSES } from '../utils/sandbox-class.util'
+import { Sandbox } from '../entities/sandbox.entity'
+import { Runner } from '../entities/runner.entity'
+import { RunnerAdapterFactory } from '../runner-adapter/runnerAdapter'
+import { DockerRegistryService } from '../../docker-registry/services/docker-registry.service'
+import { DockerRegistry } from '../../docker-registry/entities/docker-registry.entity'
+import { OrganizationService } from '../../organization/services/organization.service'
+import { OrganizationUsageService } from '../../organization/services/organization-usage.service'
+import { TypedConfigService } from '../../config/typed-config.service'
+import { BackupManager } from './backup.manager'
+import { InjectRedis } from '@nestjs-modules/ioredis'
+import Redis from 'ioredis'
+import { AUTO_ARCHIVE_EXCLUDED_CLASSES, BACKUP_DISABLED_REGIONS } from '../constants/dedicated-regions.constant'
+import { InjectDataSource } from '@nestjs/typeorm'
+import { DataSource } from 'typeorm'
+import { RunnerState } from '../enums/runner-state.enum'
+import { EventEmitter2 } from '@nestjs/event-emitter'
+import { SandboxAutoActionEvent } from '../events/sandbox-auto-action.event'
+
+export const SYNC_INSTANCE_STATE_LOCK_KEY = 'sync-instance-state-'
+
+const DEDICATED_PENDING_BUILD_ORGANIZATION_ID = 'fd4f4489-5a9b-4d7b-b62e-dbd26113115c'
+
+// Global safety cap on how many sandboxes a single eviction run will process across all runners.
+const MAX_EVICTIONS_PER_RUN = 1000
+
+@Injectable()
+export class SandboxManager implements TrackableJobExecutions, OnApplicationShutdown {
+  activeJobs = new Set<string>()
+
+  private readonly logger = new Logger(SandboxManager.name)
+
+  constructor(
+    private readonly sandboxRepository: SandboxRepository,
+    private readonly runnerService: RunnerService,
+    private readonly redisLockProvider: RedisLockProvider,
+    private readonly sandboxStartAction: SandboxStartAction,
+    private readonly sandboxStopAction: SandboxStopAction,
+    private readonly sandboxDestroyAction: SandboxDestroyAction,
+    private readonly sandboxArchiveAction: SandboxArchiveAction,
+    private readonly configService: TypedConfigService,
+    private readonly dockerRegistryService: DockerRegistryService,
+    private readonly organizationService: OrganizationService,
+    private readonly organizationUsageService: OrganizationUsageService,
+    private readonly runnerAdapterFactory: RunnerAdapterFactory,
+    private readonly backupManager: BackupManager,
+    @InjectRedis() private readonly redis: Redis,
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly eventEmitter: EventEmitter2,
+  ) {
+    this.logger.log(
+      `Drain mode: ${this.configService.get('draining.mode')} (force=${this.configService.get('draining.force')})`,
+    )
+  }
+
+  async onApplicationShutdown() {
+    //  wait for all active jobs to finish
+    while (this.activeJobs.size > 0) {
+      this.logger.log(`Waiting for ${this.activeJobs.size} active jobs to finish`)
+      await setTimeout(1000)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'auto-stop-check' })
+  @TrackJobExecution()
+  @WithInstrumentation()
+  @LogExecution('auto-stop-check')
+  @WithInstrumentation()
+  async autostopCheck(): Promise<void> {
+    const lockKey = 'auto-stop-check-worker-selected'
+    //  lock the sync to only run one instance at a time
+    if (!(await this.redisLockProvider.lock(lockKey, 60))) {
+      return
+    }
+
+    try {
+      const readyRunners = await this.runnerService.findAllReady()
+
+      // Process all runners in parallel
+      await Promise.all(
+        readyRunners.map(async (runner) => {
+          const sandboxes = await this.sandboxRepository
+            .createQueryBuilder('sandbox')
+            .innerJoin('sandbox_last_activity', 'activity', 'activity."sandboxId" = sandbox.id')
+            .where('sandbox."runnerId" = :runnerId', { runnerId: runner.id })
+            .andWhere('sandbox."organizationId" != :warmPoolOrg', {
+              warmPoolOrg: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+            })
+            // Unclaimed self-serve warm pool members must stay running until claimed.
+            .andWhere('sandbox."warmPoolId" IS NULL')
+            .andWhere('sandbox.state = :state', { state: SandboxState.STARTED })
+            .andWhere('sandbox."desiredState" = :desiredState', {
+              desiredState: SandboxDesiredState.STARTED,
+            })
+            .andWhere('sandbox.pending != true')
+            .andWhere('sandbox."autoStopInterval" != 0')
+            .andWhere('activity."lastActivityAt" < NOW() - INTERVAL \'1 minute\' * sandbox."autoStopInterval"')
+            .orderBy('sandbox."lastBackupAt"', 'ASC')
+            .limit(100)
+            .getMany()
+
+          await Promise.all(
+            sandboxes.map(async (sandbox) => {
+              const lockKey = getStateChangeLockKey(sandbox.id)
+              const acquired = await this.redisLockProvider.lock(lockKey, 30)
+              if (!acquired) {
+                return
+              }
+
+              let updateData: Partial<Sandbox> = {}
+              let event: SandboxEvent
+
+              if (isEphemeral(sandbox)) {
+                updateData = Sandbox.getSoftDeleteUpdate(sandbox)
+                event = SandboxEvents.AUTO_STOPPED_EPHEMERAL
+              } else {
+                updateData.pending = true
+                updateData.desiredState = SandboxDesiredState.STOPPED
+                event = SandboxEvents.AUTO_STOPPED
+              }
+
+              try {
+                await this.sandboxRepository.updateWhere(
+                  sandbox.id,
+                  {
+                    updateData,
+                    whereCondition: { pending: false, state: sandbox.state },
+                  },
+                  async (em) => {
+                    await this.eventEmitter.emitAsync(event, new SandboxAutoActionEvent(sandbox, em))
+                  },
+                )
+
+                this.syncInstanceState(sandbox.id).catch((err) =>
+                  this.logger.error(`Error syncing instance state for sandbox ${sandbox.id}:`, err),
+                )
+              } catch (error) {
+                this.logger.error(`Error processing auto-stop state for sandbox ${sandbox.id}:`, error)
+              } finally {
+                await this.redisLockProvider.unlock(lockKey)
+              }
+            }),
+          )
+        }),
+      )
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'auto-pause-check' })
+  @TrackJobExecution()
+  @WithInstrumentation()
+  @LogExecution('auto-pause-check')
+  async autopauseCheck(): Promise<void> {
+    const lockKey = 'auto-pause-check-worker-selected'
+    //  lock the sync to only run one instance at a time
+    if (!(await this.redisLockProvider.lock(lockKey, 60))) {
+      return
+    }
+
+    try {
+      const readyRunners = await this.runnerService.findAllReady()
+
+      // Process all runners in parallel
+      await Promise.all(
+        readyRunners.map(async (runner) => {
+          if (runner.apiVersion === '0') {
+            // V0 runners do not support pausing sandboxes
+            return
+          }
+
+          const sandboxes = await this.sandboxRepository
+            .createQueryBuilder('sandbox')
+            .innerJoin('sandbox_last_activity', 'activity', 'activity."sandboxId" = sandbox.id')
+            .where('sandbox."runnerId" = :runnerId', { runnerId: runner.id })
+            .andWhere('sandbox."organizationId" != :warmPoolOrg', {
+              warmPoolOrg: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+            })
+            .andWhere('sandbox.state = :state', { state: SandboxState.STARTED })
+            .andWhere('sandbox."desiredState" = :desiredState', {
+              desiredState: SandboxDesiredState.STARTED,
+            })
+            .andWhere('sandbox.pending != true')
+            .andWhere('sandbox."autoPauseInterval" != 0')
+            .andWhere('sandbox."autoDeleteInterval" != 0')
+            .andWhere('sandbox."sandboxClass" IN (:...pauseSupportedClasses)', {
+              pauseSupportedClasses: PAUSE_SUPPORTED_SANDBOX_CLASSES,
+            })
+            .andWhere('activity."lastActivityAt" < NOW() - INTERVAL \'1 minute\' * sandbox."autoPauseInterval"')
+            .orderBy('sandbox."lastBackupAt"', 'ASC')
+            .limit(100)
+            .getMany()
+
+          if (sandboxes.length === 0) {
+            return
+          }
+
+          const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+
+          await Promise.all(
+            sandboxes.map(async (sandbox) => {
+              const lockKey = getStateChangeLockKey(sandbox.id)
+              const acquired = await this.redisLockProvider.lock(lockKey, 30)
+              if (!acquired) {
+                return
+              }
+
+              try {
+                await this.sandboxRepository.updateWhere(sandbox.id, {
+                  updateData: {
+                    state: SandboxState.PAUSING,
+                    desiredState: SandboxDesiredState.PAUSED,
+                    pending: true,
+                  },
+                  whereCondition: { state: SandboxState.STARTED, pending: false },
+                })
+
+                try {
+                  await runnerAdapter.pauseSandbox(sandbox.id)
+                } catch (error) {
+                  // Rollback to STARTED on error
+                  await this.sandboxRepository.updateWhere(sandbox.id, {
+                    updateData: {
+                      state: SandboxState.STARTED,
+                      desiredState: SandboxDesiredState.STARTED,
+                      pending: false,
+                    },
+                    whereCondition: { state: SandboxState.PAUSING },
+                  })
+                  throw error
+                }
+              } catch (error) {
+                this.logger.error(`Error processing auto-pause state for sandbox ${sandbox.id}:`, error)
+              } finally {
+                await this.redisLockProvider.unlock(lockKey)
+              }
+            }),
+          )
+        }),
+      )
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'auto-archive-check' })
+  @TrackJobExecution()
+  @LogExecution('auto-archive-check')
+  @WithInstrumentation()
+  async autoArchiveCheck(): Promise<void> {
+    const lockKey = 'auto-archive-check-worker-selected'
+    //  lock the sync to only run one instance at a time
+    if (!(await this.redisLockProvider.lock(lockKey, 60))) {
+      return
+    }
+
+    try {
+      const sandboxes = await this.sandboxRepository
+        .createQueryBuilder('sandbox')
+        .innerJoin('sandbox_last_activity', 'activity', 'activity."sandboxId" = sandbox.id')
+        .where('sandbox."organizationId" != :warmPoolOrg', {
+          warmPoolOrg: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+        })
+        // Unclaimed self-serve warm pool members must stay running until claimed.
+        .andWhere('sandbox."warmPoolId" IS NULL')
+        .andWhere('sandbox.state = :state', { state: SandboxState.STOPPED })
+        .andWhere('sandbox."desiredState" = :desiredState', {
+          desiredState: SandboxDesiredState.STOPPED,
+        })
+        .andWhere('sandbox.pending != true')
+        .andWhere('sandbox.region NOT IN (:...backupDisabledRegions)', {
+          backupDisabledRegions: BACKUP_DISABLED_REGIONS,
+        })
+        .andWhere('sandbox.sandboxClass NOT IN (:...autoArchiveExcludedClasses)', {
+          autoArchiveExcludedClasses: AUTO_ARCHIVE_EXCLUDED_CLASSES,
+        })
+        .andWhere('activity."lastActivityAt" < NOW() - INTERVAL \'1 minute\' * sandbox."autoArchiveInterval"')
+        .orderBy('sandbox."lastBackupAt"', 'ASC')
+        .limit(100)
+        .getMany()
+
+      await Promise.all(
+        sandboxes.map(async (sandbox) => {
+          const lockKey = getStateChangeLockKey(sandbox.id)
+          const acquired = await this.redisLockProvider.lock(lockKey, 30)
+          if (!acquired) {
+            return
+          }
+
+          try {
+            const updateData: Partial<Sandbox> = {
+              desiredState: SandboxDesiredState.ARCHIVED,
+            }
+            await this.sandboxRepository.updateWhere(
+              sandbox.id,
+              {
+                updateData,
+                whereCondition: { pending: false, state: sandbox.state },
+              },
+              async (em) => {
+                await this.eventEmitter.emitAsync(SandboxEvents.AUTO_ARCHIVED, new SandboxAutoActionEvent(sandbox, em))
+              },
+            )
+
+            this.syncInstanceState(sandbox.id).catch((err) =>
+              this.logger.error(`Error syncing instance state for sandbox ${sandbox.id}:`, err),
+            )
+          } catch (error) {
+            this.logger.error(`Error processing auto-archive state for sandbox ${sandbox.id}:`, error)
+          } finally {
+            await this.redisLockProvider.unlock(lockKey)
+          }
+        }),
+      )
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  // System-driven archival for VM classes (linux-vm / windows), which are excluded from the ad-hoc
+  // archival paths - they're never archived by users, inactivity, or runner draining. Instead, when a VM
+  // runner's disk fills up, the API evicts the least-recently-used stopped/paused VM sandboxes from it by
+  // setting desiredState = ARCHIVED. Backups are kept ready on stop/pause, so SandboxArchiveAction can
+  // archive immediately (it destroys the sandbox on the runner once the backup is COMPLETED, freeing disk).
+  // Paused sandboxes keep a memory-inclusive backup, so they restore as paused; stopped ones as stopped.
+  @Cron(CronExpression.EVERY_5_MINUTES, { name: 'evict-runner-sandboxes' })
+  @TrackJobExecution()
+  @LogExecution('evict-runner-sandboxes')
+  @WithInstrumentation()
+  async evictRunnerSandboxes(): Promise<void> {
+    const lockKey = 'evict-runner-sandboxes-worker-selected'
+    //  lock the sync to only run one instance at a time
+    if (!(await this.redisLockProvider.lock(lockKey, 60))) {
+      return
+    }
+
+    try {
+      const diskThreshold = this.configService.getOrThrow('runnerEviction.sandboxes.diskThresholdPercent')
+      const sandboxesPerPercentage = this.configService.getOrThrow('runnerEviction.sandboxes.sandboxesPerPercentage')
+
+      // Rank the least-recently-used (oldest updatedAt) resting VM sandboxes per overloaded VM runner in a
+      // single windowed query. A VM runner is "overloaded" once its disk usage crosses the threshold; the
+      // number evicted scales with how far over it is: ceil((diskUsage - threshold) * sandboxesPerPercentage).
+      // Both STOPPED and PAUSED are eligible (pending != true guarantees state === desiredState, i.e. at rest);
+      // backupState=COMPLETED means archival frees disk immediately.
+      const candidates = await this.dataSource
+        .createQueryBuilder()
+        .select('ranked.id', 'id')
+        // Quote runnerId so Postgres preserves the camelCase derived-table column name.
+        .addSelect('ranked."runnerId"', 'runnerId')
+        .addSelect('ranked.state', 'state')
+        .addSelect('ranked.rn', 'rn')
+        .from((qb) => {
+          return (
+            qb
+              .select('sandbox.id', 'id')
+              .addSelect('sandbox."runnerId"', 'runnerId')
+              .addSelect('sandbox.state', 'state')
+              .addSelect('r."currentDiskUsagePercentage"', 'diskUsage')
+              .addSelect(
+                `ROW_NUMBER() OVER (
+                PARTITION BY sandbox."runnerId"
+                ORDER BY sandbox."updatedAt" ASC
+              )`,
+                'rn',
+              )
+              .from(Sandbox, 'sandbox')
+              .innerJoin('runner', 'r', 'r.id = sandbox."runnerId"')
+              .where('sandbox.state IN (:...restingStates)')
+              .andWhere('sandbox."desiredState" IN (:...restingDesiredStates)')
+              .andWhere('sandbox.pending != true')
+              .andWhere('sandbox."backupState" = :backupState')
+              // Guard against archiving a sandbox with no restorable backup reference (matches the
+              // other archival/migration paths). Archival destroys the sandbox on the runner once the
+              // backup is COMPLETED, so a null snapshot would leave it archived but unrestorable.
+              .andWhere('sandbox."backupSnapshot" IS NOT NULL')
+              .andWhere('sandbox."organizationId" != :warmPoolOrg')
+              .andWhere('r.state = :ready')
+              .andWhere('r.sandboxClass IN (:...vmClasses)')
+              .andWhere('r."currentDiskUsagePercentage" > :diskThreshold')
+              // Set params on the subquery builder so IN (:...x) array expansion resolves here.
+              .setParameters({
+                restingStates: [SandboxState.STOPPED, SandboxState.PAUSED],
+                restingDesiredStates: [SandboxDesiredState.STOPPED, SandboxDesiredState.PAUSED],
+                backupState: BackupState.COMPLETED,
+                warmPoolOrg: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+                ready: RunnerState.READY,
+                vmClasses: [...VM_SANDBOX_CLASSES],
+                diskThreshold,
+              })
+          )
+        }, 'ranked')
+        // Per-runner cap scales with how far over the threshold the runner is.
+        .where('ranked.rn <= CEIL((ranked."diskUsage" - :diskThreshold) * :sandboxesPerPercentage)', {
+          diskThreshold,
+          sandboxesPerPercentage,
+        })
+        // rn-first ordering distributes the global limit round-robin across runners, so no single runner
+        // starves the rest. runnerId is only a deterministic tiebreaker.
+        .orderBy('ranked.rn', 'ASC')
+        .addOrderBy('ranked."runnerId"', 'ASC')
+        .limit(MAX_EVICTIONS_PER_RUN)
+        .getRawMany<{ id: string; runnerId: string; state: SandboxState; rn: string }>()
+
+      await Promise.all(
+        candidates.map(async ({ id, state }) => {
+          const sandboxLockKey = getStateChangeLockKey(id)
+          const acquired = await this.redisLockProvider.lock(sandboxLockKey, 30)
+          if (!acquired) {
+            return
+          }
+
+          try {
+            // Guard on the resting state we observed so we don't clobber a concurrent transition.
+            await this.sandboxRepository.updateWhere(id, {
+              updateData: { desiredState: SandboxDesiredState.ARCHIVED },
+              whereCondition: { pending: false, state },
+            })
+
+            this.syncInstanceState(id).catch((err) =>
+              this.logger.error(`Error syncing instance state for sandbox ${id}:`, err),
+            )
+          } catch (error) {
+            this.logger.error(`Error evicting sandbox ${id}:`, error)
+          } finally {
+            await this.redisLockProvider.unlock(sandboxLockKey)
+          }
+        }),
+      )
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'auto-delete-check' })
+  @TrackJobExecution()
+  @LogExecution('auto-delete-check')
+  @WithInstrumentation()
+  async autoDeleteCheck(): Promise<void> {
+    const lockKey = 'auto-delete-check-worker-selected'
+    //  lock the sync to only run one instance at a time
+    if (!(await this.redisLockProvider.lock(lockKey, 60))) {
+      return
+    }
+
+    try {
+      const readyRunners = await this.runnerService.findAllReady()
+
+      // Process all runners in parallel
+      await Promise.all(
+        readyRunners.map(async (runner) => {
+          const sandboxes = await this.sandboxRepository
+            .createQueryBuilder('sandbox')
+            .innerJoin('sandbox_last_activity', 'activity', 'activity."sandboxId" = sandbox.id')
+            .where('sandbox."runnerId" = :runnerId', { runnerId: runner.id })
+            .andWhere('sandbox."organizationId" != :warmPoolOrg', {
+              warmPoolOrg: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+            })
+            // Unclaimed self-serve warm pool members must stay running until claimed.
+            .andWhere('sandbox."warmPoolId" IS NULL')
+            .andWhere('sandbox.state = :state', { state: SandboxState.STOPPED })
+            .andWhere('sandbox."desiredState" = :desiredState', {
+              desiredState: SandboxDesiredState.STOPPED,
+            })
+            .andWhere('sandbox.pending != true')
+            .andWhere('sandbox."autoDeleteInterval" >= 0')
+            .andWhere('activity."lastActivityAt" < NOW() - INTERVAL \'1 minute\' * sandbox."autoDeleteInterval"')
+            .orderBy('activity."lastActivityAt"', 'ASC')
+            .limit(100)
+            .getMany()
+
+          await Promise.all(
+            sandboxes.map(async (sandbox) => {
+              const lockKey = getStateChangeLockKey(sandbox.id)
+              const acquired = await this.redisLockProvider.lock(lockKey, 30)
+              if (!acquired) {
+                return
+              }
+
+              try {
+                const updateData = Sandbox.getSoftDeleteUpdate(sandbox)
+                await this.sandboxRepository.updateWhere(
+                  sandbox.id,
+                  {
+                    updateData,
+                    whereCondition: { pending: false, state: sandbox.state },
+                  },
+                  async (em) => {
+                    await this.eventEmitter.emitAsync(
+                      SandboxEvents.AUTO_DELETED,
+                      new SandboxAutoActionEvent(sandbox, em),
+                    )
+                  },
+                )
+
+                this.syncInstanceState(sandbox.id).catch((err) =>
+                  this.logger.error(`Error syncing instance state for sandbox ${sandbox.id}:`, err),
+                )
+              } catch (error) {
+                this.logger.error(`Error processing auto-delete state for sandbox ${sandbox.id}:`, error)
+              } finally {
+                await this.redisLockProvider.unlock(lockKey)
+              }
+            }),
+          )
+        }),
+      )
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'ttl-check' })
+  @TrackJobExecution()
+  @LogExecution('ttl-check')
+  @WithInstrumentation()
+  async ttlCheck(): Promise<void> {
+    const lockKey = 'ttl-check-worker-selected'
+    //  lock the sync to only run one instance at a time
+    if (!(await this.redisLockProvider.lock(lockKey, 60))) {
+      return
+    }
+
+    try {
+      //  ttl applies to every state (including archived and runnerless sandboxes),
+      //  so unlike the other auto-action checks this query is not grouped by runner
+      const sandboxes = await this.sandboxRepository
+        .createQueryBuilder('sandbox')
+        .where('sandbox."autoDestroyAt" IS NOT NULL')
+        .andWhere('sandbox."autoDestroyAt" < NOW()')
+        .andWhere('sandbox."organizationId" != :warmPoolOrg', {
+          warmPoolOrg: SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+        })
+        .andWhere('sandbox."desiredState" != :desiredState', {
+          desiredState: SandboxDesiredState.DESTROYED,
+        })
+        .andWhere('sandbox.pending != true')
+        .orderBy('sandbox."autoDestroyAt"', 'ASC')
+        .limit(100)
+        .getMany()
+
+      await Promise.all(
+        sandboxes.map(async (sandbox) => {
+          const lockKey = getStateChangeLockKey(sandbox.id)
+          const acquired = await this.redisLockProvider.lock(lockKey, 30)
+          if (!acquired) {
+            return
+          }
+
+          try {
+            const updateData = Sandbox.getSoftDeleteUpdate(sandbox)
+            await this.sandboxRepository.updateWhere(
+              sandbox.id,
+              {
+                updateData,
+                whereCondition: { pending: false, state: sandbox.state, autoDestroyAt: sandbox.autoDestroyAt },
+              },
+              async (em) => {
+                await this.eventEmitter.emitAsync(SandboxEvents.TTL_EXPIRED, new SandboxAutoActionEvent(sandbox, em))
+              },
+            )
+
+            this.syncInstanceState(sandbox.id).catch((err) =>
+              this.logger.error(`Error syncing instance state for sandbox ${sandbox.id}:`, err),
+            )
+          } catch (error) {
+            this.logger.error(`Error processing ttl expiry for sandbox ${sandbox.id}:`, error)
+          } finally {
+            await this.redisLockProvider.unlock(lockKey)
+          }
+        }),
+      )
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'draining-runner-sandboxes-check' })
+  @TrackJobExecution()
+  @LogExecution('draining-runner-sandboxes-check')
+  @WithInstrumentation()
+  async drainingRunnerSandboxesCheck(): Promise<void> {
+    const lockKey = 'draining-runner-sandboxes-check'
+    const lockTtl = 10 * 60 // seconds (10 min)
+    if (!(await this.redisLockProvider.lock(lockKey, lockTtl))) {
+      return
+    }
+
+    try {
+      const skip = (await this.redis.get('draining-runner-sandboxes-skip')) || 0
+
+      const drainingRunners = await this.runnerService.findDrainingPaginated(Number(skip), 10)
+
+      this.logger.debug(`Checking ${drainingRunners.length} draining runners for sandbox migration (offset: ${skip})`)
+
+      if (drainingRunners.length === 0) {
+        await this.redis.set('draining-runner-sandboxes-skip', 0)
+        return
+      }
+
+      await this.redis.set('draining-runner-sandboxes-skip', Number(skip) + drainingRunners.length)
+
+      const drainMode = this.configService.get('draining.mode')
+      const drainForce = this.configService.get('draining.force')
+
+      await Promise.allSettled(
+        drainingRunners.map(async (runner) => {
+          try {
+            // Stop running sandboxes so drain can converge. Off by default.
+            if (drainForce) {
+              await this.forceStopStartedSandboxesOnDrainingRunner(runner.id)
+            }
+
+            // Dispose STOPPED+backed-up sandboxes. Transient states are skipped here
+            // and picked up on a subsequent tick.
+            if (drainMode === 'archive') {
+              await this.archiveStoppedSandboxesOnDrainingRunner(runner.id)
+            } else {
+              await this.migrateStoppedSandboxesOnDrainingRunner(runner)
+            }
+
+            // Archive ERROR sandboxes that have completed backups on this draining runner
+            await this.archiveErroredSandboxesOnDrainingRunner(runner.id)
+
+            // Recover recoverable ERROR sandboxes in-place (expand disk) so they become STOPPED
+            await this.recoverRecoverableSandboxesOnDrainingRunner(runner.id)
+
+            // Retry backups for non-started sandboxes with errored backup state
+            await this.retryErroredBackupsOnDrainingRunner(runner.id)
+          } catch (e) {
+            this.logger.error(`Error processing draining runner ${runner.id} for sandbox migration`, e)
+          }
+        }),
+      )
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  private async migrateStoppedSandboxesOnDrainingRunner(runner: Runner): Promise<void> {
+    const sandboxes = await this.sandboxRepository.find({
+      where: {
+        // Sandboxes without a completed backup are handled by the backup manager.
+        runnerId: runner.id,
+        state: SandboxState.STOPPED,
+        desiredState: SandboxDesiredState.STOPPED,
+        backupState: BackupState.COMPLETED,
+        backupSnapshot: Not(IsNull()),
+      },
+      take: 100,
+    })
+
+    this.logger.debug(`Found ${sandboxes.length} eligible sandboxes on draining runner ${runner.id} for migration`)
+
+    await Promise.allSettled(
+      sandboxes.map(async (sandbox) => {
+        const sandboxLockKey = getStateChangeLockKey(sandbox.id)
+        const hasSandboxLock = await this.redisLockProvider.lock(sandboxLockKey, 60)
+        if (!hasSandboxLock) {
+          return
+        }
+
+        try {
+          const startScoreThreshold = this.configService.get('runnerScore.thresholds.start') || 0
+          const targetRunner = await this.runnerService.getRandomAvailableRunner({
+            snapshotRef: sandbox.backupSnapshot,
+            sandboxClass: sandbox.sandboxClass,
+            regions: [sandbox.region],
+            excludedRunnerIds: [runner.id],
+            availabilityScoreThreshold: startScoreThreshold,
+            gpu: sandbox.gpu,
+            gpuType: sandbox.gpuType ?? null,
+          })
+
+          await this.migrateSandbox(sandbox, runner.id, targetRunner.id)
+        } catch (e) {
+          this.logger.error(`Error migrating sandbox ${sandbox.id} from draining runner ${runner.id}`, e)
+        } finally {
+          await this.redisLockProvider.unlock(sandboxLockKey)
+        }
+      }),
+    )
+  }
+
+  private async forceStopStartedSandboxesOnDrainingRunner(runnerId: string): Promise<void> {
+    const sandboxes = await this.sandboxRepository.find({
+      where: {
+        runnerId,
+        state: SandboxState.STARTED,
+        desiredState: SandboxDesiredState.STARTED,
+        pending: false,
+      },
+      take: 100,
+    })
+
+    if (sandboxes.length === 0) {
+      return
+    }
+
+    this.logger.debug(`Found ${sandboxes.length} started sandboxes on draining runner ${runnerId} to stop`)
+
+    await Promise.allSettled(
+      sandboxes.map(async (sandbox) => {
+        const sandboxLockKey = getStateChangeLockKey(sandbox.id)
+        const acquired = await this.redisLockProvider.lock(sandboxLockKey, 30)
+        if (!acquired) {
+          return
+        }
+
+        try {
+          let updateData: Partial<Sandbox> = {}
+          if (isEphemeral(sandbox)) {
+            updateData = Sandbox.getSoftDeleteUpdate(sandbox)
+          } else {
+            updateData.pending = true
+            updateData.desiredState = SandboxDesiredState.STOPPED
+          }
+
+          await this.sandboxRepository.updateWhere(sandbox.id, {
+            updateData,
+            whereCondition: { pending: false, state: SandboxState.STARTED },
+          })
+
+          this.syncInstanceState(sandbox.id).catch((err) =>
+            this.logger.error(`Error syncing instance state for sandbox ${sandbox.id}:`, err),
+          )
+        } catch (e) {
+          this.logger.error(`Failed to request stop for sandbox ${sandbox.id} on draining runner ${runnerId}`, e)
+        } finally {
+          await this.redisLockProvider.unlock(sandboxLockKey)
+        }
+      }),
+    )
+  }
+
+  private async archiveStoppedSandboxesOnDrainingRunner(runnerId: string): Promise<void> {
+    const sandboxes = await this.sandboxRepository.find({
+      where: {
+        // Sandboxes without a completed backup are handled by the backup manager.
+        runnerId,
+        state: SandboxState.STOPPED,
+        desiredState: SandboxDesiredState.STOPPED,
+        backupState: BackupState.COMPLETED,
+        backupSnapshot: Not(IsNull()),
+        pending: false,
+        region: Not(In(BACKUP_DISABLED_REGIONS)),
+        sandboxClass: Not(In(AUTO_ARCHIVE_EXCLUDED_CLASSES)),
+      },
+      take: 100,
+    })
+
+    if (sandboxes.length === 0) {
+      return
+    }
+
+    this.logger.debug(`Found ${sandboxes.length} stopped sandboxes on draining runner ${runnerId} to archive`)
+
+    await Promise.allSettled(
+      sandboxes.map(async (sandbox) => {
+        const sandboxLockKey = getStateChangeLockKey(sandbox.id)
+        const acquired = await this.redisLockProvider.lock(sandboxLockKey, 30)
+        if (!acquired) {
+          return
+        }
+
+        try {
+          await this.sandboxRepository.updateWhere(sandbox.id, {
+            updateData: { desiredState: SandboxDesiredState.ARCHIVED },
+            whereCondition: { pending: false, state: SandboxState.STOPPED },
+          })
+        } catch (e) {
+          this.logger.error(`Failed to request archive for sandbox ${sandbox.id} on draining runner ${runnerId}`, e)
+        } finally {
+          await this.redisLockProvider.unlock(sandboxLockKey)
+        }
+      }),
+    )
+  }
+
+  private async archiveErroredSandboxesOnDrainingRunner(runnerId: string): Promise<void> {
+    const erroredSandboxes = await this.sandboxRepository.find({
+      where: {
+        runnerId,
+        state: SandboxState.ERROR,
+        recoverable: false,
+        desiredState: Not(In([SandboxDesiredState.DESTROYED, SandboxDesiredState.ARCHIVED])),
+        backupState: BackupState.COMPLETED,
+        backupSnapshot: Not(IsNull()),
+        region: Not(In(BACKUP_DISABLED_REGIONS)),
+        sandboxClass: Not(In(AUTO_ARCHIVE_EXCLUDED_CLASSES)),
+      },
+      take: 100,
+    })
+
+    if (erroredSandboxes.length === 0) {
+      return
+    }
+
+    this.logger.debug(
+      `Found ${erroredSandboxes.length} errored sandboxes with completed backups on draining runner ${runnerId}`,
+    )
+
+    await Promise.allSettled(
+      erroredSandboxes.map(async (sandbox) => {
+        const sandboxLockKey = getStateChangeLockKey(sandbox.id)
+        const acquired = await this.redisLockProvider.lock(sandboxLockKey, 30)
+        if (!acquired) {
+          return
+        }
+
+        try {
+          this.logger.warn(
+            `Setting desired state to ARCHIVED for errored sandbox ${sandbox.id} on draining runner ${runnerId} (previous desired state: ${sandbox.desiredState})`,
+          )
+          const updateData: Partial<Sandbox> = {
+            desiredState: SandboxDesiredState.ARCHIVED,
+          }
+          await this.sandboxRepository.updateWhere(sandbox.id, {
+            updateData,
+            whereCondition: { state: SandboxState.ERROR },
+          })
+        } catch (e) {
+          this.logger.error(
+            `Failed to set desired state to ARCHIVED for errored sandbox ${sandbox.id} on draining runner ${runnerId}`,
+            e,
+          )
+        } finally {
+          await this.redisLockProvider.unlock(sandboxLockKey)
+        }
+      }),
+    )
+  }
+
+  private static readonly DRAINING_BACKUP_RETRY_TTL_SECONDS = 12 * 60 * 60 // 12 hours
+  private static readonly DRAINING_RECOVER_TTL_SECONDS = 12 * 60 * 60 // 12 hours
+
+  private async retryErroredBackupsOnDrainingRunner(runnerId: string): Promise<void> {
+    const erroredSandboxes = await this.sandboxRepository.find({
+      where: [
+        {
+          runnerId,
+          state: SandboxState.STOPPED,
+          recoverable: false,
+          desiredState: SandboxDesiredState.STOPPED,
+          backupState: BackupState.ERROR,
+        },
+        {
+          runnerId,
+          state: SandboxState.ERROR,
+          recoverable: false,
+          backupState: In([BackupState.ERROR, BackupState.NONE]),
+          desiredState: Not(SandboxDesiredState.DESTROYED),
+        },
+      ],
+      take: 100,
+    })
+
+    if (erroredSandboxes.length === 0) {
+      return
+    }
+
+    this.logger.debug(`Found ${erroredSandboxes.length} sandboxes with errored backups on draining runner ${runnerId}`)
+
+    await Promise.allSettled(
+      erroredSandboxes.map(async (sandbox) => {
+        const redisKey = `draining:backup-retry:${sandbox.id}`
+
+        // Check if we've already retried within the last 12 hours
+        const alreadyRetried = await this.redis.exists(redisKey)
+        if (alreadyRetried) {
+          this.logger.debug(
+            `Skipping backup retry for sandbox ${sandbox.id} on draining runner ${runnerId} — already retried within 12 hours`,
+          )
+          return
+        }
+
+        try {
+          await this.backupManager.setBackupPending(sandbox)
+          await this.redis.set(redisKey, '1', 'EX', SandboxManager.DRAINING_BACKUP_RETRY_TTL_SECONDS)
+          this.logger.log(`Retried backup for sandbox ${sandbox.id} on draining runner ${runnerId}`)
+        } catch (e) {
+          this.logger.error(`Failed to retry backup for sandbox ${sandbox.id} on draining runner ${runnerId}`, e)
+        }
+      }),
+    )
+  }
+
+  private async recoverRecoverableSandboxesOnDrainingRunner(runnerId: string): Promise<void> {
+    const recoverableSandboxes = await this.sandboxRepository.find({
+      where: {
+        runnerId,
+        recoverable: true,
+        // ERROR forces pending=false via Sandbox invariants, but filter both explicitly to
+        // document the intended target set (recoverable errored sandboxes only).
+        state: SandboxState.ERROR,
+        pending: false,
+        desiredState: Not(In([SandboxDesiredState.DESTROYED])),
+        backupSnapshot: Not(IsNull()),
+      },
+      take: 100,
+    })
+
+    if (recoverableSandboxes.length === 0) {
+      return
+    }
+
+    this.logger.debug(`Found ${recoverableSandboxes.length} recoverable sandboxes on draining runner ${runnerId}`)
+
+    const runner = await this.runnerService.findOneOrFail(runnerId)
+    const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+
+    await Promise.allSettled(
+      recoverableSandboxes.map(async (sandbox) => {
+        const redisKey = `draining:recover:${sandbox.id}`
+
+        // Check if we've already attempted recovery within the last 12 hours
+        const alreadyAttempted = await this.redis.exists(redisKey)
+        if (alreadyAttempted) {
+          this.logger.debug(
+            `Skipping recovery for sandbox ${sandbox.id} on draining runner ${runnerId} — already attempted within 12 hours`,
+          )
+          return
+        }
+
+        const sandboxLockKey = getStateChangeLockKey(sandbox.id)
+        const acquired = await this.redisLockProvider.lock(sandboxLockKey, 60)
+        if (!acquired) {
+          return
+        }
+
+        let diskIncremented = false
+        try {
+          // Reserve disk for the ERROR → STOPPED transition. GPU is not reserved here:
+          // the recover path does not transition to STARTED, so no GPU is consumed.
+          const result = await this.organizationUsageService.incrementPendingSandboxUsage(
+            sandbox.organizationId,
+            sandbox.region,
+            sandbox.sandboxClass,
+            0,
+            0,
+            sandbox.disk,
+            0,
+            sandbox.id,
+          )
+          diskIncremented = result.diskIncremented
+
+          // Normalize desiredState upfront so the v2 job handler can detect mid-job intent changes.
+          if (runner.apiVersion === '2') {
+            await this.sandboxRepository.updateWhere(sandbox.id, {
+              updateData: { desiredState: SandboxDesiredState.STOPPED },
+              whereCondition: { state: SandboxState.ERROR },
+            })
+          }
+
+          const backupRegistry = sandbox.backupRegistryId
+            ? ((await this.dockerRegistryService.findOne(sandbox.backupRegistryId)) ?? undefined)
+            : undefined
+
+          await runnerAdapter.recoverSandbox(sandbox, backupRegistry, true)
+
+          if (runner.apiVersion !== '2') {
+            await this.sandboxRepository.updateWhere(sandbox.id, {
+              updateData: {
+                state: SandboxState.STOPPED,
+                desiredState: SandboxDesiredState.STOPPED,
+                errorReason: null,
+                recoverable: false,
+                backupState: BackupState.NONE,
+              },
+              whereCondition: { pending: false, state: sandbox.state },
+            })
+          }
+
+          // Skip this sandbox on subsequent polls until the v2 job resolves.
+          await this.redis.set(redisKey, '1', 'EX', SandboxManager.DRAINING_RECOVER_TTL_SECONDS)
+
+          this.logger.log(`Recovered sandbox ${sandbox.id} on draining runner ${runnerId}`)
+        } catch (e) {
+          if (diskIncremented) {
+            await this.organizationUsageService
+              .decrementPendingSandboxUsage(
+                sandbox.organizationId,
+                sandbox.region,
+                sandbox.sandboxClass,
+                undefined,
+                undefined,
+                sandbox.disk,
+              )
+              .catch(() => undefined)
+          }
+          await this.redis.set(redisKey, '1', 'EX', SandboxManager.DRAINING_RECOVER_TTL_SECONDS)
+          this.logger.error(`Failed to recover sandbox ${sandbox.id} on draining runner ${runnerId}`, e)
+        } finally {
+          await this.redisLockProvider.unlock(sandboxLockKey)
+        }
+      }),
+    )
+  }
+
+  private async migrateSandbox(sandbox: Sandbox, oldRunnerId: string, newRunnerId: string): Promise<void> {
+    this.logger.debug(
+      `Starting sandbox migration for ${sandbox.id} from runner ${oldRunnerId} to runner ${newRunnerId}`,
+    )
+
+    // Safety check: ensure sandbox is not pending
+    if (sandbox.pending) {
+      this.logger.warn(
+        `Sandbox ${sandbox.id} is pending, skipping migration from runner ${oldRunnerId} to runner ${newRunnerId}`,
+      )
+      return
+    }
+
+    // VM-backed classes (linux-vm, windows) back up to runner-managed storage with no registry ref,
+    // so there's nothing to look up or pass through - the runner locates the backup by its snapshot name.
+    let registry: DockerRegistry | undefined
+    if (!isVmSandboxClass(sandbox.sandboxClass)) {
+      if (!sandbox.backupRegistryId) {
+        throw new Error(`Sandbox ${sandbox.id} has no backup registry`)
+      }
+
+      const found = await this.dockerRegistryService.findOne(sandbox.backupRegistryId)
+      if (!found) {
+        throw new Error(`Registry ${sandbox.backupRegistryId} not found for sandbox ${sandbox.id}`)
+      }
+      registry = found
+    }
+
+    const organization = await this.organizationService.findOne(sandbox.organizationId)
+
+    const metadata = {
+      ...organization?.sandboxMetadata,
+      sandboxName: sandbox.name,
+    }
+
+    const newRunner = await this.runnerService.findOneOrFail(newRunnerId)
+    const newRunnerAdapter = await this.runnerAdapterFactory.create(newRunner)
+
+    try {
+      // Pass undefined for entrypoint as the backup snapshot already has it baked in and use skipStart
+      await newRunnerAdapter.createSandbox(
+        sandbox,
+        sandbox.backupSnapshot,
+        registry,
+        undefined,
+        metadata,
+        undefined,
+        true,
+      )
+      this.logger.debug(`Created sandbox ${sandbox.id} on new runner ${newRunnerId} with skipStart`)
+    } catch (e) {
+      this.logger.error(`Failed to create sandbox ${sandbox.id} on new runner ${newRunnerId}`, e)
+      throw e
+    }
+
+    // Re-fetch sandbox from DB to get fresh state (the in-memory entity may be stale)
+    const freshSandbox = await this.sandboxRepository.findOne({ where: { id: sandbox.id } })
+    if (!freshSandbox || freshSandbox.pending) {
+      this.logger.warn(
+        `Sandbox ${sandbox.id} is pending or missing, aborting migration from runner ${oldRunnerId} to runner ${newRunnerId}`,
+      )
+
+      // Roll back: remove the sandbox from the new runner since we won't complete the migration
+      try {
+        await newRunnerAdapter.destroySandbox(sandbox.id)
+        this.logger.debug(`Rolled back sandbox ${sandbox.id} creation on new runner ${newRunnerId}`)
+      } catch (rollbackErr) {
+        this.logger.error(
+          `Failed to roll back sandbox ${sandbox.id} on new runner ${newRunnerId} after pending check`,
+          rollbackErr,
+        )
+      }
+      return
+    }
+
+    // Update the sandbox to use the new runner; roll back on failure
+    try {
+      const updateData: Partial<Sandbox> = {
+        prevRunnerId: sandbox.runnerId,
+        runnerId: newRunnerId,
+      }
+      await this.sandboxRepository.update(
+        sandbox.id,
+        {
+          updateData,
+        },
+        true,
+      )
+    } catch (e) {
+      this.logger.error(`Failed to update sandbox ${sandbox.id} runnerId to ${newRunnerId}, rolling back`, e)
+
+      // Roll back: remove the sandbox from the new runner
+      try {
+        await newRunnerAdapter.destroySandbox(sandbox.id)
+        this.logger.debug(`Rolled back sandbox ${sandbox.id} creation on new runner ${newRunnerId}`)
+      } catch (rollbackErr) {
+        this.logger.error(
+          `Failed to roll back sandbox ${sandbox.id} on new runner ${newRunnerId} after DB update failure`,
+          rollbackErr,
+        )
+      }
+      throw e
+    }
+
+    this.logger.log(`Migrated sandbox ${sandbox.id} from draining runner ${oldRunnerId} to runner ${newRunnerId}`)
+
+    // Best effort deletion of the sandbox on the old runner
+    try {
+      const oldRunner = await this.runnerService.findOne(oldRunnerId)
+      if (oldRunner) {
+        const oldRunnerAdapter = await this.runnerAdapterFactory.create(oldRunner)
+        await oldRunnerAdapter.destroySandbox(sandbox.id)
+        this.logger.debug(`Deleted sandbox ${sandbox.id} from old runner ${oldRunnerId}`)
+      }
+    } catch (e) {
+      this.logger.warn(`Best effort deletion failed for sandbox ${sandbox.id} on old runner ${oldRunnerId}`, e)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'sync-states-per-runner-locked' })
+  @TrackJobExecution()
+  @WithInstrumentation()
+  @LogExecution('sync-states-per-runner-locked')
+  async syncStates(): Promise<void> {
+    const readyRunners = await this.runnerService.findAllReady()
+
+    const runnerIds: (string | null)[] = [null, ...readyRunners.map((r) => r.id)]
+    const lockTtl = 5 * 60 // seconds
+
+    await Promise.all(
+      runnerIds.map(async (runnerId) => {
+        const runnerLockKey = `sync-states:${runnerId ?? 'unassigned'}`
+        if (!(await this.redisLockProvider.lock(runnerLockKey, lockTtl))) {
+          return
+        }
+
+        try {
+          const maxSandboxesPerRunner = runnerId === null ? 250 : 50
+
+          const sandboxes = await this.sandboxRepository.find({
+            where: {
+              runnerId: runnerId === null ? IsNull() : runnerId,
+              state: Not(In([SandboxState.RESTORING, SandboxState.PULLING_SNAPSHOT, SandboxState.PENDING_BUILD])),
+              pending: true,
+            },
+            select: ['id'],
+            take: maxSandboxesPerRunner,
+          })
+
+          const pendingProcesses: Promise<void>[] = []
+          const concurrencyLimit = runnerId === null ? 50 : 10
+
+          for (const sandbox of sandboxes) {
+            const lockKey = getStateChangeLockKey(sandbox.id)
+            if (await this.redisLockProvider.isLocked(lockKey)) {
+              continue
+            }
+
+            const processPromise = this.syncInstanceState(sandbox.id)
+            pendingProcesses.push(processPromise)
+
+            if (pendingProcesses.length >= concurrencyLimit) {
+              await Promise.allSettled(pendingProcesses.splice(0, pendingProcesses.length))
+            }
+          }
+
+          if (pendingProcesses.length > 0) {
+            await Promise.allSettled(pendingProcesses)
+          }
+        } finally {
+          await this.redisLockProvider.unlock(runnerLockKey)
+        }
+      }),
+    )
+  }
+
+  // RESTORING and PULLING_SNAPSHOT are split out so they get their own faster cadence and
+  // their own per-runner locks, and are not blocked by the longer-lived state syncs above.
+  @Cron(CronExpression.EVERY_5_SECONDS, { name: 'sync-restoring-states' })
+  @TrackJobExecution()
+  @WithInstrumentation()
+  @LogExecution('sync-restoring-states')
+  async syncRestoringStates(): Promise<void> {
+    const readyRunners = await this.runnerService.findAllReady()
+
+    const runnerIds: string[] = readyRunners.map((r) => r.id)
+    const lockTtl = 60 // seconds (1 minute)
+
+    await Promise.all(
+      runnerIds.map(async (runnerId) => {
+        const runnerLockKey = `sync-restoring-states:${runnerId}`
+        if (!(await this.redisLockProvider.lock(runnerLockKey, lockTtl))) {
+          return
+        }
+
+        try {
+          const sandboxes = await this.sandboxRepository.find({
+            where: {
+              runnerId,
+              state: In([SandboxState.RESTORING, SandboxState.PULLING_SNAPSHOT]),
+              pending: true,
+            },
+            select: ['id'],
+            take: 50,
+          })
+
+          const pendingProcesses: Promise<void>[] = []
+          const concurrencyLimit = 10
+
+          for (const sandbox of sandboxes) {
+            const lockKey = getStateChangeLockKey(sandbox.id)
+            if (await this.redisLockProvider.isLocked(lockKey)) {
+              continue
+            }
+
+            const processPromise = this.syncInstanceState(sandbox.id)
+            pendingProcesses.push(processPromise)
+
+            if (pendingProcesses.length >= concurrencyLimit) {
+              await Promise.allSettled(pendingProcesses.splice(0, pendingProcesses.length))
+            }
+          }
+
+          if (pendingProcesses.length > 0) {
+            await Promise.allSettled(pendingProcesses)
+          }
+        } finally {
+          await this.redisLockProvider.unlock(runnerLockKey)
+        }
+      }),
+    )
+  }
+
+  @Cron(CronExpression.EVERY_5_SECONDS, { name: 'sync-pending-build-states' })
+  @TrackJobExecution()
+  @WithInstrumentation()
+  @LogExecution('sync-pending-build-states')
+  async syncPendingBuildStates(): Promise<void> {
+    const lockKey = 'sync-pending-build-states'
+    if (!(await this.redisLockProvider.lock(lockKey, 1 * 60))) {
+      return
+    }
+
+    try {
+      // Randomize the order so that when there are more matching sandboxes than
+      // the limit, we don't repeatedly process the same subset and starve the rest.
+      const sandboxes = await this.sandboxRepository
+        .createQueryBuilder('sandbox')
+        .select('sandbox.id', 'id')
+        .where('sandbox.state = :state', { state: SandboxState.PENDING_BUILD })
+        .andWhere('sandbox.pending = true')
+        .andWhere('sandbox.organizationId <> :orgId', { orgId: DEDICATED_PENDING_BUILD_ORGANIZATION_ID })
+        .orderBy('RANDOM()')
+        .limit(250)
+        .getRawMany<{ id: string }>()
+
+      const pendingProcesses: Promise<void>[] = []
+      const concurrencyLimit = 25
+
+      for (const sandbox of sandboxes) {
+        const stateChangeLockKey = getStateChangeLockKey(sandbox.id)
+        if (await this.redisLockProvider.isLocked(stateChangeLockKey)) {
+          continue
+        }
+
+        const processPromise = this.syncInstanceState(sandbox.id)
+        pendingProcesses.push(processPromise)
+
+        if (pendingProcesses.length >= concurrencyLimit) {
+          await Promise.allSettled(pendingProcesses.splice(0, pendingProcesses.length))
+        }
+      }
+
+      if (pendingProcesses.length > 0) {
+        await Promise.allSettled(pendingProcesses)
+      }
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  // PENDING_BUILD sync dedicated to a single high-volume organization so its
+  // builds get their own cadence and lock, and don't compete with or block the
+  // shared pending-build sync above.
+  @Cron(CronExpression.EVERY_5_SECONDS, { name: 'sync-pending-build-states-dedicated-org' })
+  @TrackJobExecution()
+  @WithInstrumentation()
+  @LogExecution('sync-pending-build-states-dedicated-org')
+  async syncPendingBuildStatesForDedicatedOrg(): Promise<void> {
+    const lockKey = 'sync-pending-build-states-dedicated-org'
+    if (!(await this.redisLockProvider.lock(lockKey, 1 * 60))) {
+      return
+    }
+
+    try {
+      const sandboxes = await this.sandboxRepository.find({
+        where: {
+          state: SandboxState.PENDING_BUILD,
+          pending: true,
+          organizationId: DEDICATED_PENDING_BUILD_ORGANIZATION_ID,
+        },
+        select: ['id'],
+        take: 250,
+      })
+
+      const pendingProcesses: Promise<void>[] = []
+      const concurrencyLimit = 25
+
+      for (const sandbox of sandboxes) {
+        const stateChangeLockKey = getStateChangeLockKey(sandbox.id)
+        if (await this.redisLockProvider.isLocked(stateChangeLockKey)) {
+          continue
+        }
+
+        const processPromise = this.syncInstanceState(sandbox.id)
+        pendingProcesses.push(processPromise)
+
+        if (pendingProcesses.length >= concurrencyLimit) {
+          await Promise.allSettled(pendingProcesses.splice(0, pendingProcesses.length))
+        }
+      }
+
+      if (pendingProcesses.length > 0) {
+        await Promise.allSettled(pendingProcesses)
+      }
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'sync-archived-desired-states' })
+  @TrackJobExecution()
+  @LogExecution('sync-archived-desired-states')
+  @WithInstrumentation()
+  async syncArchivedDesiredStates(): Promise<void> {
+    const lockKey = 'sync-archived-desired-states'
+    if (!(await this.redisLockProvider.lock(lockKey, 30))) {
+      return
+    }
+
+    const sandboxes = await this.sandboxRepository
+      .createQueryBuilder('sandbox')
+      .leftJoin('runner', 'r', 'r.id = sandbox.runnerId')
+      .where('sandbox.state IN (:...states)', {
+        states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.PAUSED, SandboxState.ERROR],
+      })
+      .andWhere('sandbox.desiredState = :desiredState', { desiredState: SandboxDesiredState.ARCHIVED })
+      .andWhere('( sandbox.runnerId IS NULL OR r.state =:ready )', { ready: RunnerState.READY })
+      .orderBy('sandbox.updatedAt', 'ASC')
+      .take(100)
+      .getMany()
+
+    await Promise.allSettled(
+      sandboxes.map(async (sandbox) => {
+        await this.syncInstanceState(sandbox.id)
+      }),
+    )
+    await this.redisLockProvider.unlock(lockKey)
+  }
+
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'sync-archived-completed-states' })
+  @TrackJobExecution()
+  @LogExecution('sync-archived-completed-states')
+  async syncArchivedCompletedStates(): Promise<void> {
+    const lockKey = 'sync-archived-completed-states'
+    if (!(await this.redisLockProvider.lock(lockKey, 30))) {
+      return
+    }
+
+    const sandboxes = await this.sandboxRepository
+      .createQueryBuilder('sandbox')
+      .leftJoin('runner', 'r', 'r.id = sandbox.runnerId')
+      .where('sandbox.state IN (:...states)', {
+        states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.PAUSED, SandboxState.ERROR],
+      })
+      .andWhere('sandbox.desiredState = :desiredState', { desiredState: SandboxDesiredState.ARCHIVED })
+      .andWhere('sandbox.backupState = :backupState', { backupState: BackupState.COMPLETED })
+      .andWhere('( sandbox.runnerId IS NULL OR r.state = :ready )', { ready: RunnerState.READY })
+      .orderBy('RANDOM()')
+      .limit(200)
+      .getMany()
+
+    await Promise.allSettled(
+      sandboxes.map(async (sandbox) => {
+        await this.syncInstanceState(sandbox.id)
+      }),
+    )
+    await this.redisLockProvider.unlock(lockKey)
+  }
+
+  /**
+   * Sync the state of a sandbox.
+   *
+   * Loop to handle SYNC_AGAIN without releasing the lock or re-fetching.
+   * The sandbox entity is mutated in-place by repository.update() on each iteration,
+   * and the lock guarantees no concurrent modification.
+   */
+  async syncInstanceState(sandboxId: string, force?: boolean): Promise<void> {
+    // Track the start time of the sync operation.
+    const startedAt = new Date()
+
+    // Generate a random lock code to prevent race condition if sandbox action continues after the lock expires.
+    const lockCode = new LockCode(randomUUID())
+
+    // Prevent syncState cron from running multiple instances of the same sandbox.
+    const lockKey = getStateChangeLockKey(sandboxId)
+    const acquired = await this.redisLockProvider.lock(lockKey, 30, lockCode)
+    if (!acquired) {
+      return
+    }
+
+    try {
+      const sandbox = await this.sandboxRepository.findOneOrFail({
+        where: { id: sandboxId },
+      })
+
+      while (new Date().getTime() - startedAt.getTime() <= 10000) {
+        if (
+          [
+            SandboxState.DESTROYED,
+            SandboxState.BUILD_FAILED,
+            SandboxState.RESIZING,
+            SandboxState.SNAPSHOTTING,
+            SandboxState.FORKING,
+          ].includes(sandbox.state) ||
+          (sandbox.state === SandboxState.ERROR && sandbox.desiredState !== SandboxDesiredState.ARCHIVED)
+        ) {
+          // Break sync loop if sandbox reaches a terminal state.
+          // However, should allow ERROR → ARCHIVED transition (e.g., during runner draining).
+          break
+        }
+
+        if (String(sandbox.state) === String(sandbox.desiredState)) {
+          this.logger.warn(
+            `Sandbox ${sandboxId} is already in the desired state ${sandbox.desiredState}, skipping sync`,
+          )
+          // Break sync loop if sandbox is already in the desired state.
+          break
+        }
+
+        // Rely on the sandbox action to return SYNC_AGAIN or DONT_SYNC_AGAIN to continue/break the sync loop.
+        let syncState = DONT_SYNC_AGAIN
+
+        try {
+          switch (sandbox.desiredState) {
+            case SandboxDesiredState.STARTED: {
+              syncState = await this.sandboxStartAction.run(sandbox, lockCode)
+              break
+            }
+            case SandboxDesiredState.STOPPED: {
+              syncState = await this.sandboxStopAction.run(sandbox, lockCode, force)
+              break
+            }
+            case SandboxDesiredState.DESTROYED: {
+              syncState = await this.sandboxDestroyAction.run(sandbox, lockCode)
+              break
+            }
+            case SandboxDesiredState.ARCHIVED: {
+              syncState = await this.sandboxArchiveAction.run(sandbox, lockCode)
+              break
+            }
+          }
+        } catch (error) {
+          if (error instanceof SandboxConflictError) {
+            this.logger.warn(
+              `Sandbox ${sandboxId} was modified by another operation during sync, skipping error transition`,
+            )
+            break
+          }
+
+          if (error instanceof JobConflictError) {
+            this.logger.debug(`Job already in progress for sandbox ${sandboxId}, skipping`)
+            break
+          }
+
+          this.logger.error(`Error processing desired state for sandbox ${sandboxId}:`, error)
+
+          const { recoverable, errorReason } = sanitizeSandboxError(error)
+
+          const updateData: Partial<Sandbox> = {
+            state: SandboxState.ERROR,
+            errorReason,
+            recoverable,
+          }
+
+          // Update sandbox to error state without safeguards
+          await this.sandboxRepository.updateWhere(sandboxId, { updateData, whereCondition: {} })
+
+          // Break sync loop since sandbox is in error state.
+          break
+        }
+
+        // Do not sync again for v2 runners
+        // Job completion will update the sandbox state
+        if (sandbox.runnerId && (await this.runnerService.getRunnerApiVersion(sandbox.runnerId)) === '2') {
+          break
+        }
+
+        // Break sync loop if sandbox action returned DONT_SYNC_AGAIN.
+        if (syncState !== SYNC_AGAIN) {
+          break
+        }
+      }
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @OnAsyncEvent({
+    event: SandboxEvents.ARCHIVED,
+  })
+  @TrackJobExecution()
+  @WithSpan()
+  private async handleSandboxArchivedEvent(event: SandboxArchivedEvent) {
+    await this.syncInstanceState(event.sandbox.id)
+  }
+
+  @OnAsyncEvent({
+    event: SandboxEvents.DESTROYED,
+  })
+  @TrackJobExecution()
+  @WithSpan()
+  private async handleSandboxDestroyedEvent(event: SandboxDestroyedEvent) {
+    await this.syncInstanceState(event.sandbox.id)
+  }
+
+  @OnAsyncEvent({
+    event: SandboxEvents.STARTED,
+  })
+  @TrackJobExecution()
+  @WithSpan()
+  private async handleSandboxStartedEvent(event: SandboxStartedEvent) {
+    await this.syncInstanceState(event.sandbox.id)
+  }
+
+  @OnAsyncEvent({
+    event: SandboxEvents.STOPPED,
+  })
+  @TrackJobExecution()
+  @WithSpan()
+  private async handleSandboxStoppedEvent(event: SandboxStoppedEvent) {
+    await this.syncInstanceState(event.sandbox.id, event.force)
+  }
+
+  @OnAsyncEvent({
+    event: SandboxEvents.CREATED,
+  })
+  @TrackJobExecution()
+  @WithSpan()
+  private async handleSandboxCreatedEvent(event: SandboxCreatedEvent) {
+    await this.syncInstanceState(event.sandbox.id)
+  }
+}

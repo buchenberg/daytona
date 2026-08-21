@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+# Get the remote name from the push command
+remote="$1"
+url="$2"
+
+# The commit hash we're looking for
+# https://github.com/daytonaio/daytona-ai/commit/e1e960ef4581d40a263ff7b444b62054c6aa6256
+PROTECTED_COMMIT="e1e960ef4581d40a263ff7b444b62054c6aa6256"
+
+# Check if the protected commit exists in the current branch's history
+if git merge-base --is-ancestor "$PROTECTED_COMMIT" HEAD 2>/dev/null; then
+  # The commit exists in the current branch
+
+  # Check if the remote is NOT daytonaio/daytona-ai
+  if ! echo "$url" | grep -q "daytonaio/daytona-ai"; then
+    echo "Error: Cannot push to '$remote' ($url)"
+    echo "The current branch contains protected commit $PROTECTED_COMMIT"
+    echo "This commit can only be pushed to daytonaio/daytona-ai"
+    exit 1
+  fi
+fi
+
+# All checks passed
+exit 0

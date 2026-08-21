@@ -1,0 +1,26 @@
+package dto
+
+type PullSnapshotRequestDTO struct {
+	Snapshot            string       `json:"snapshot" validate:"required"`
+	SandboxClass        *string      `json:"sandboxClass,omitempty"`
+	Registry            *RegistryDTO `json:"registry,omitempty"`
+	DestinationRegistry *RegistryDTO `json:"destinationRegistry,omitempty"`
+	DestinationRef      *string      `json:"destinationRef,omitempty"`
+	NewTag              *string      `json:"newTag,omitempty"`
+	DiskGiB             *int32       `json:"diskGiB,omitempty"`
+} //	@name	PullSnapshotRequestDTO
+
+type BuildSnapshotRequestDTO struct {
+	Snapshot               string        `json:"snapshot,omitempty"` // Snapshot ID and tag or the build's hash
+	SourceRegistries       []RegistryDTO `json:"sourceRegistries,omitempty"`
+	Registry               *RegistryDTO  `json:"registry,omitempty"`
+	Dockerfile             string        `json:"dockerfile" validate:"required"`
+	OrganizationId         string        `json:"organizationId" validate:"required"`
+	Context                []string      `json:"context"`
+	PushToInternalRegistry bool          `json:"pushToInternalRegistry"`
+} //	@name	BuildSnapshotRequestDTO
+
+type TagImageRequestDTO struct {
+	SourceImage string `json:"sourceImage" validate:"required"`
+	TargetImage string `json:"targetImage" validate:"required"`
+} //	@name	TagImageRequestDTO

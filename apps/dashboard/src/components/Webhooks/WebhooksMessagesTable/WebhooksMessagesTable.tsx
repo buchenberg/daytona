@@ -1,0 +1,360 @@
+import { PageFooterPortal } from '@/components/PageLayout'
+import { Pagination } from '@/components/Pagination'
+import { SearchInput } from '@/components/SearchInput'
+import { ResponsiveButton } from '@/components/ResponsiveButton'
+import { Button } from '@/components/ui/button'
+import {
+  Command,
+  CommandCheckboxItem,
+  CommandGroup,
+  CommandInput,
+  CommandInputButton,
+  CommandList,
+} from '@/components/ui/command'
+import { DataTableFacetedFilter, type FacetedFilterOption } from '@/components/ui/data-table-faceted-filter'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import {
+  DropdownMenuPanel,
+  DropdownMenuPanelGroup,
+  DropdownMenuPanelContent,
+  DropdownMenuPanelTrigger,
+} from '@/components/ui/dropdown-menu-panel'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableEmptyState,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { buildTableInitialState, DEFAULT_PAGE_SIZE } from '@/constants/TableDefaults'
+import { cn } from '@/lib/utils'
+import { DEFAULT_TABLE_COLUMN, getColumnSizeStyles, getTableSizeStyles } from '@/lib/utils/table'
+import {
+  type Column,
+  ColumnFiltersState,
+  flexRender,
+  getCoreRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  SortingState,
+  useReactTable,
+} from '@tanstack/react-table'
+import { ListFilter, Mail, RefreshCcw, Tag } from 'lucide-react'
+import { type ReactNode, useCallback, useState } from 'react'
+import type { MessageOut } from 'svix'
+import { useMessages } from 'svix-react'
+import { columns, eventTypeOptions } from './columns'
+import { MessageDetailsSheet } from './MessageDetailsSheet'
+
+interface WebhookMessageFilterSubmenuProps {
+  column?: Column<MessageOut, unknown>
+  icon: ReactNode
+  options: readonly FacetedFilterOption[]
+  title: string
+}
+
+function WebhookMessageFilterSubmenu({ column, icon, options, title }: WebhookMessageFilterSubmenuProps) {
+  if (!column) {
+    return null
+  }
+
+  const values = (column.getFilterValue() as string[] | undefined) ?? []
+
+  const handleFilterChange = (nextValues: string[]) => {
+    column.setFilterValue(nextValues.length > 0 ? nextValues : undefined)
+  }
+
+  return (
+    <DropdownMenuPanel>
+      <DropdownMenuPanelTrigger>
+        {icon}
+        {title}
+      </DropdownMenuPanelTrigger>
+      <DropdownMenuPanelContent className="p-0 w-72">
+        <Command>
+          <CommandInput placeholder={title}>
+            <CommandInputButton
+              className="text-sm text-muted-foreground hover:text-primary px-2"
+              onClick={() => column.setFilterValue(undefined)}
+            >
+              Clear
+            </CommandInputButton>
+          </CommandInput>
+          <CommandList>
+            <CommandGroup>
+              {options.map((option) => (
+                <CommandCheckboxItem
+                  key={option.value}
+                  checked={values.includes(option.value)}
+                  onSelect={() => {
+                    const nextValues = values.includes(option.value)
+                      ? values.filter((value) => value !== option.value)
+                      : [...values, option.value]
+
+                    handleFilterChange(nextValues)
+                  }}
+                >
+                  {option.label}
+                </CommandCheckboxItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </DropdownMenuPanelContent>
+    </DropdownMenuPanel>
+  )
+}
+
+export function WebhooksMessagesTable() {
+  const messages = useMessages()
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [globalFilter, setGlobalFilter] = useState('')
+  const [selectedMessageIndex, setSelectedMessageIndex] = useState<number | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
+
+  const data = messages.data ?? []
+  const table = useReactTable({
+    columnResizeMode: 'onEnd',
+    data,
+    columns,
+    defaultColumn: DEFAULT_TABLE_COLUMN,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    onSortingChange: setSorting,
+    getSortedRowModel: getSortedRowModel(),
+    onColumnFiltersChange: setColumnFilters,
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const message = row.original
+      const searchValue = filterValue.toLowerCase()
+      return (
+        (message.id?.toLowerCase().includes(searchValue) ?? false) ||
+        (message.eventType?.toLowerCase().includes(searchValue) ?? false) ||
+        (message.eventId?.toLowerCase().includes(searchValue) ?? false)
+      )
+    },
+    state: {
+      sorting,
+      columnFilters,
+      globalFilter,
+    },
+    initialState: buildTableInitialState(),
+  })
+
+  const isEmpty = !messages.loading && table.getRowModel().rows.length === 0
+  const hasFilters = globalFilter.trim().length > 0 || columnFilters.length > 0
+  const eventTypeColumn = table.getColumn('eventType')
+  const hasEventTypeFilter = ((eventTypeColumn?.getFilterValue() as string[]) || []).length > 0
+  const hasColumnFilters = hasEventTypeFilter
+
+  const handleRowClick = useCallback((index: number) => {
+    setSelectedMessageIndex(index)
+    setSheetOpen(true)
+  }, [])
+
+  const rowCount = table.getRowModel().rows.length
+
+  const handleNavigate = useCallback(
+    (direction: 'prev' | 'next') => {
+      setSelectedMessageIndex((prev) => {
+        if (prev === null) return null
+        if (direction === 'prev' && prev > 0) return prev - 1
+        if (direction === 'next' && prev < rowCount - 1) return prev + 1
+        return prev
+      })
+    },
+    [rowCount],
+  )
+
+  const handleChangeFilter = (value: string) => {
+    setGlobalFilter(value)
+    table.setPageIndex(0)
+  }
+
+  const handleClearFilters = () => {
+    handleChangeFilter('')
+    table.resetColumnFilters()
+  }
+
+  const handleClearColumnFilters = () => {
+    table.resetColumnFilters()
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="w-full max-w-full sm:w-96 sm:shrink-0">
+            <SearchInput
+              debounced
+              value={globalFilter ?? ''}
+              onValueChange={handleChangeFilter}
+              placeholder="Search by Message ID, Event Type, or Event ID"
+              containerClassName="w-full"
+            />
+          </div>
+          <div className="flex max-w-full shrink-0 flex-wrap items-center gap-4">
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger
+                render={
+                  <ResponsiveButton
+                    icon={<ListFilter className="size-4" />}
+                    variant="outline"
+                    className="shrink-0 bg-transparent hover:bg-accent dark:bg-input/50 dark:hover:bg-accent"
+                  >
+                    Filter
+                  </ResponsiveButton>
+                }
+              />
+              <DropdownMenuPanelGroup>
+                <DropdownMenuContent className="w-48" align="start">
+                  <WebhookMessageFilterSubmenu
+                    column={eventTypeColumn}
+                    icon={<Tag className="size-4" />}
+                    title="Event Type"
+                    options={eventTypeOptions}
+                  />
+                </DropdownMenuContent>
+              </DropdownMenuPanelGroup>
+            </DropdownMenu>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => messages.reload()}
+            disabled={messages.loading}
+            className="ml-auto"
+          >
+            <RefreshCcw className="h-4 w-4" />
+          </Button>
+        </div>
+        {hasColumnFilters ? (
+          <div className="flex items-start gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+              {eventTypeColumn ? (
+                <DataTableFacetedFilter column={eventTypeColumn} title="Event Type" options={eventTypeOptions} />
+              ) : null}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 shrink-0 px-3 text-muted-foreground hover:text-foreground"
+              onClick={handleClearColumnFilters}
+            >
+              Clear
+            </Button>
+          </div>
+        ) : null}
+      </div>
+      <TableContainer
+        className={cn('max-h-[550px]', {
+          'min-h-[26rem]': isEmpty,
+        })}
+        empty={
+          isEmpty ? (
+            <TableEmptyState
+              overlay
+              colSpan={columns.length}
+              message={hasFilters ? 'No matching messages found.' : 'No messages found.'}
+              icon={<Mail />}
+              description={hasFilters ? null : <p>Messages will appear here when webhook events are triggered.</p>}
+              action={
+                hasFilters ? (
+                  <Button variant="outline" onClick={handleClearFilters}>
+                    Clear filters
+                  </Button>
+                ) : null
+              }
+            />
+          ) : null
+        }
+      >
+        <Table className="table-fixed" style={getTableSizeStyles(table)}>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead
+                    className="px-2"
+                    key={header.id}
+                    header={header}
+                    style={getColumnSizeStyles(header.column)}
+                  >
+                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {messages.loading ? (
+              <>
+                {Array.from({ length: DEFAULT_PAGE_SIZE }).map((_, i) => (
+                  <TableRow key={i}>
+                    {table.getVisibleLeafColumns().map((column) => (
+                      <TableCell key={column.id} className="px-2" style={getColumnSizeStyles(column)}>
+                        <Skeleton className="h-4 w-10/12" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </>
+            ) : table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row, rowIndex) => (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && 'selected'}
+                  className={cn(
+                    'cursor-pointer hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-hidden',
+                    {
+                      'bg-muted/50': sheetOpen && selectedMessageIndex === rowIndex,
+                    },
+                  )}
+                  tabIndex={0}
+                  role="button"
+                  onClick={() => handleRowClick(rowIndex)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      handleRowClick(rowIndex)
+                    }
+                  }}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell className="px-2" key={cell.id} style={getColumnSizeStyles(cell.column)}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : null}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <PageFooterPortal>
+        <Pagination table={table} entityName="Messages" />
+      </PageFooterPortal>
+      <MessageDetailsSheet
+        message={
+          selectedMessageIndex !== null ? (table.getRowModel().rows[selectedMessageIndex]?.original ?? null) : null
+        }
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        onNavigate={handleNavigate}
+        hasPrev={selectedMessageIndex !== null && selectedMessageIndex > 0}
+        hasNext={selectedMessageIndex !== null && selectedMessageIndex < table.getRowModel().rows.length - 1}
+      />
+    </div>
+  )
+}

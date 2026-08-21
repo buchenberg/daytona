@@ -1,0 +1,161 @@
+import { ISelectedOrganizationContext, SelectedOrganizationContext } from '@/contexts/SelectedOrganizationContext'
+import { LocalStorageKey } from '@/enums/LocalStorageKey'
+import {
+  getOrganizationMembersQueryOptions,
+  useOrganizationMembersSuspenseQuery,
+} from '@/hooks/queries/useOrganizationMembersQuery'
+import { useOrganizationTierQuery } from '@/hooks/queries/useOrganizationTierQuery'
+import { queryKeys } from '@/hooks/queries/queryKeys'
+import { useApi } from '@/hooks/useApi'
+import { useConfig } from '@/hooks/useConfig'
+import { useOrganizations } from '@/hooks/useOrganizations'
+import { useStripe } from '@/hooks/useStripe'
+import { Organization, OrganizationRolePermissionsEnum, OrganizationUserRoleEnum } from '@daytona/api-client'
+import { useQueryClient } from '@tanstack/react-query'
+import { usePostHog } from 'posthog-js/react'
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useAuth } from 'react-oidc-context'
+import { toast } from 'sonner'
+
+type Props = {
+  children: ReactNode
+}
+
+export function SelectedOrganizationProvider(props: Props) {
+  const { user } = useAuth()
+  const { organizationsApi, billingApi } = useApi()
+  const queryClient = useQueryClient()
+  const posthog = usePostHog()
+  const config = useConfig()
+  // Held in a ref so the evaluation effect doesn't re-run on useStripe() identity changes.
+  const createRadarSessionRef = useRef(useStripe().createRadarSession)
+
+  const { organizations } = useOrganizations()
+
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(() => {
+    const storedId = localStorage.getItem(LocalStorageKey.SelectedOrganizationId)
+    if (storedId && organizations.find((org) => org.id === storedId)) {
+      return storedId
+    } else if (organizations.length > 0) {
+      const defaultOrg = organizations.find((org) => org.personal) || organizations[0]
+      localStorage.setItem(LocalStorageKey.SelectedOrganizationId, defaultOrg.id)
+      return defaultOrg.id
+    } else {
+      localStorage.removeItem(LocalStorageKey.SelectedOrganizationId)
+      return null
+    }
+  })
+
+  useEffect(() => {
+    if (!organizations.length) {
+      setSelectedOrganizationId(null)
+    }
+    if (!selectedOrganizationId || !organizations.some((org) => org.id === selectedOrganizationId)) {
+      const defaultOrg = organizations.find((org) => org.personal) || organizations[0]
+      localStorage.setItem(LocalStorageKey.SelectedOrganizationId, defaultOrg.id)
+      setSelectedOrganizationId(defaultOrg.id)
+    }
+  }, [organizations, selectedOrganizationId])
+
+  const selectedOrganization = useMemo<Organization | null>(() => {
+    if (!selectedOrganizationId) {
+      return null
+    }
+    return organizations.find((org) => org.id === selectedOrganizationId) || null
+  }, [organizations, selectedOrganizationId])
+
+  useEffect(() => {
+    if (!posthog || !selectedOrganizationId) {
+      return
+    }
+
+    posthog.group('organization', selectedOrganizationId)
+  }, [posthog, selectedOrganizationId])
+
+  // Run the Stripe Radar evaluation once per org, gated on the server-backed
+  // radarEvaluatedAt so it never re-fires after the score is stored.
+  const { data: organizationTier } = useOrganizationTierQuery({
+    organizationId: selectedOrganizationId ?? '',
+    enabled: Boolean(selectedOrganizationId && config.billingApiUrl && config.stripePublishableKey),
+  })
+
+  useEffect(() => {
+    if (!selectedOrganizationId || !config.stripePublishableKey) return
+    if (!organizationTier || organizationTier.radarEvaluatedAt) return
+    const evaluate = async () => {
+      try {
+        const token = await createRadarSessionRef.current()
+        await billingApi.verifyInternetAccess(selectedOrganizationId, token)
+        await queryClient.invalidateQueries({ queryKey: queryKeys.organization.tier(selectedOrganizationId) })
+      } catch {
+        // Best-effort; failures never surface to the user.
+      }
+    }
+    void evaluate()
+  }, [billingApi, config.stripePublishableKey, organizationTier, queryClient, selectedOrganizationId])
+
+  const { data: organizationMembers } = useOrganizationMembersSuspenseQuery(selectedOrganizationId)
+
+  const authenticatedUserOrganizationMember = useMemo(() => {
+    return organizationMembers.find((member) => member.userId === user?.profile.sub) || null
+  }, [organizationMembers, user])
+
+  const authenticatedUserAssignedPermissions = useMemo(() => {
+    if (!authenticatedUserOrganizationMember) {
+      return null
+    }
+    return new Set(authenticatedUserOrganizationMember.assignedRoles.flatMap((role) => role.permissions))
+  }, [authenticatedUserOrganizationMember])
+
+  const authenticatedUserHasPermission = useCallback(
+    (permission: OrganizationRolePermissionsEnum) => {
+      if (!authenticatedUserOrganizationMember || !authenticatedUserAssignedPermissions) {
+        return false
+      }
+      if (authenticatedUserOrganizationMember.role === OrganizationUserRoleEnum.OWNER) {
+        return true
+      }
+      return authenticatedUserAssignedPermissions.has(permission)
+    },
+    [authenticatedUserOrganizationMember, authenticatedUserAssignedPermissions],
+  )
+
+  const handleSelectOrganization = useCallback(
+    async (organizationId: string): Promise<boolean> => {
+      const organizationMembers = await queryClient.fetchQuery(
+        getOrganizationMembersQueryOptions(organizationsApi, organizationId),
+      )
+
+      // confirm switch if user is a member of the new organization
+      if (organizationMembers.some((member) => member.userId === user?.profile.sub)) {
+        localStorage.setItem(LocalStorageKey.SelectedOrganizationId, organizationId)
+        setSelectedOrganizationId(organizationId)
+        return true
+      } else {
+        toast.error('Failed to switch organization', {
+          closeButton: true,
+        })
+        return false
+      }
+    },
+    [organizationsApi, queryClient, user],
+  )
+
+  const contextValue: ISelectedOrganizationContext = useMemo(() => {
+    return {
+      selectedOrganization,
+      authenticatedUserOrganizationMember,
+      authenticatedUserHasPermission,
+      onSelectOrganization: handleSelectOrganization,
+    }
+  }, [
+    selectedOrganization,
+    authenticatedUserOrganizationMember,
+    authenticatedUserHasPermission,
+    handleSelectOrganization,
+  ])
+
+  return (
+    <SelectedOrganizationContext.Provider value={contextValue}>{props.children}</SelectedOrganizationContext.Provider>
+  )
+}

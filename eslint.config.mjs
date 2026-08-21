@@ -1,0 +1,70 @@
+import nx from '@nx/eslint-plugin'
+import react from 'eslint-plugin-react'
+import reactHooks from 'eslint-plugin-react-hooks'
+
+/** @type {import('eslint').Linter.Config[]} */
+export default [
+  ...nx.configs['flat/base'],
+  ...nx.configs['flat/typescript'],
+  ...nx.configs['flat/javascript'],
+  {
+    ignores: [
+      '**/dist',
+      '**/vite.config.*.timestamp*',
+      '**/vitest.config.*.timestamp*',
+      'libs/*api-client*/**',
+    ],
+  },
+  {
+    files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
+    plugins: {
+      react,
+      'react-hooks': reactHooks,
+    },
+    rules: {
+      '@nx/enforce-module-boundaries': [
+        'error',
+        {
+          enforceBuildableLibDependency: true,
+          allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?js$'],
+          depConstraints: [
+            {
+              sourceTag: '*',
+              onlyDependOnLibsWithTags: ['*'],
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['**/*.ts', '**/*.tsx', '**/*.cts', '**/*.mts', '**/*.js', '**/*.jsx', '**/*.cjs', '**/*.mjs'],
+    // Override or add rules here
+    rules: {
+      '@typescript-eslint/interface-name-prefix': 'off',
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-useless-escape': 'off',
+    },
+  },
+  {
+    files: ['src/migrations/**/*.ts'],
+    rules: {
+      quotes: 'off',
+    },
+  },
+  {
+    // Backoffice apps are internal admin tools that need access to main API entities
+    // Module boundary enforcement is disabled to allow direct entity imports from api app
+    files: [
+      'apps/backoffice-api/**/*.ts',
+      'apps/backoffice-api/**/*.tsx',
+      'apps/backoffice-dashboard/**/*.ts',
+      'apps/backoffice-dashboard/**/*.tsx',
+    ],
+    rules: {
+      '@nx/enforce-module-boundaries': 'off',
+    },
+  },
+]

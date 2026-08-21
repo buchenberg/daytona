@@ -1,0 +1,37 @@
+# OrganizationWallet
+
+## Properties
+
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**automaticTopUp** | [**AutomaticTopUp**](AutomaticTopUp.md) |  | [optional] [default to undefined]
+**balanceCents** | **number** |  | [optional] [default to undefined]
+**billingType** | [**BillingType**](BillingType.md) |  | [optional] [default to undefined]
+**creditCardConnectedCreditsGranted** | **boolean** |  | [optional] [default to undefined]
+**freeCreditsBalanceCents** | **number** |  | [optional] [default to undefined]
+**hasFailedOrPendingInvoice** | **boolean** |  | [optional] [default to undefined]
+**name** | **string** |  | [optional] [default to undefined]
+**paidCreditsBalanceCents** | **number** |  | [optional] [default to undefined]
+**totalAmountDueThisMonthCents** | **number** |  | [optional] [default to undefined]
+**totalSpentThisMonthCents** | **number** |  | [optional] [default to undefined]
+
+## Example
+
+```typescript
+import { OrganizationWallet } from './api';
+
+const instance: OrganizationWallet = {
+    automaticTopUp,
+    balanceCents,
+    billingType,
+    creditCardConnectedCreditsGranted,
+    freeCreditsBalanceCents,
+    hasFailedOrPendingInvoice,
+    name,
+    paidCreditsBalanceCents,
+    totalAmountDueThisMonthCents,
+    totalSpentThisMonthCents,
+};
+```
+
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)

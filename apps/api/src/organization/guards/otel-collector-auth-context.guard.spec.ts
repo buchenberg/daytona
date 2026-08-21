@@ -1,0 +1,47 @@
+import { OtelCollectorAuthContextGuard } from './otel-collector-auth-context.guard'
+import { InvalidAuthenticationContextException } from '../../common/exceptions/invalid-authentication-context.exception'
+import {
+  createMockBillingAuthContext,
+  createMockHealthCheckAuthContext,
+  createMockOrganizationAuthContext,
+  createMockOtelCollectorAuthContext,
+  createMockProxyAuthContext,
+  createMockRegionProxyAuthContext,
+  createMockRegionSshGatewayAuthContext,
+  createMockRunnerAuthContext,
+  createMockRunnerCleanupToolAuthContext,
+  createMockUserManagementAuthContext,
+  createMockSshGatewayAuthContext,
+  createMockUserAuthContext,
+} from '../../test/helpers/auth-context.factory'
+import { createMockExecutionContext } from '../../test/helpers/execution-context.factory'
+
+describe('[AUTH] OtelCollectorAuthContextGuard', () => {
+  let guard: OtelCollectorAuthContextGuard
+
+  beforeEach(() => {
+    guard = new OtelCollectorAuthContextGuard()
+  })
+
+  it('allows OtelCollectorAuthContext', async () => {
+    const { context } = createMockExecutionContext({ user: createMockOtelCollectorAuthContext() })
+    await expect(guard.canActivate(context)).resolves.toBe(true)
+  })
+
+  it.each([
+    ['User', createMockUserAuthContext],
+    ['Organization', createMockOrganizationAuthContext],
+    ['Runner', createMockRunnerAuthContext],
+    ['Proxy', createMockProxyAuthContext],
+    ['SshGateway', createMockSshGatewayAuthContext],
+    ['RegionProxy', createMockRegionProxyAuthContext],
+    ['RegionSshGateway', createMockRegionSshGatewayAuthContext],
+    ['HealthCheck', createMockHealthCheckAuthContext],
+    ['Billing', createMockBillingAuthContext],
+    ['RunnerCleanupTool', createMockRunnerCleanupToolAuthContext],
+    ['UserManagement', createMockUserManagementAuthContext],
+  ])('rejects %sAuthContext', async (_name, factory) => {
+    const { context } = createMockExecutionContext({ user: factory() })
+    await expect(guard.canActivate(context)).rejects.toThrow(InvalidAuthenticationContextException)
+  })
+})

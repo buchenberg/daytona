@@ -1,0 +1,9 @@
+import { BaseAuthContext, isBaseAuthContext } from './base-auth-context.interface'
+
+export interface SshGatewayAuthContext extends BaseAuthContext {
+  role: 'ssh-gateway'
+}
+
+export function isSshGatewayAuthContext(user: unknown): user is SshGatewayAuthContext {
+  return isBaseAuthContext(user) && user.role === 'ssh-gateway'
+}

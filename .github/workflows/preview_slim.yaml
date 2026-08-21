@@ -1,0 +1,415 @@
+name: 'Preview Slim'
+
+# Preview lifecycle:
+#   - A maintainer adds the `preview` label to a PR  -> build + deploy a preview env.
+#   - A maintainer comments `/preview` on a labeled PR -> rebuild + redeploy the PR head.
+#     Pushes alone never redeploy; every deploy is an explicit maintainer action.
+#   - The `preview` label is removed                  -> helm uninstall + deactivate the GitHub environment.
+#   - The PR is closed or merged                      -> same teardown.
+#   - workflow_dispatch remains as a manual escape hatch for non-PR branches
+#     (those previews are NOT auto-torn-down; clean up with `helm uninstall` yourself).
+# Each preview is tracked as a GitHub environment named `preview-<branch_slug>`, so the
+# PR shows deployment status and a "View deployment" button pointing at the API URL.
+# Redeploys via `/preview` are easy to lose track of (GitHub marks the previous
+# deployment inactive while the new run is in flight), so the workflow edits a status
+# footer into the triggering comment: a link to the run while deploying, and the
+# preview URLs (or the failure) once it finishes. It also posts a `preview` commit
+# status on the PR head, so the run shows up in the PR checks list (comment-triggered
+# runs don't appear there on their own).
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch name to build'
+        required: true
+        type: string
+      from_scratch:
+        description: 'Tear down the existing release first (wipes the per-preview db/redis/minio data)'
+        required: false
+        type: boolean
+        default: false
+  pull_request:
+    types: [labeled, unlabeled, closed]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Serialize runs per PR (or per branch for manual dispatch) so a teardown never
+  # races an in-flight deploy. Don't cancel in-progress runs: killing helm
+  # mid-upgrade leaves the release in a pending-* state that blocks the next deploy.
+  group: preview-${{ github.event.pull_request.number || github.event.issue.number || inputs.branch }}
+  cancel-in-progress: false
+
+env:
+  NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN }}
+
+jobs:
+  build:
+    name: Build api/proxy/runner
+    # Deploy path: manual dispatch, the `preview` label being added, or a maintainer
+    # commenting `/preview` on a PR that carries the label. Pushes never deploy.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'pull_request' &&
+        github.event.action == 'labeled' &&
+        github.event.label.name == 'preview' &&
+        github.event.pull_request.state == 'open' &&
+        github.event.pull_request.head.repo.full_name == github.repository
+      ) ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        github.event.issue.state == 'open' &&
+        contains(github.event.issue.labels.*.name, 'preview') &&
+        (github.event.comment.body == '/preview' || startsWith(github.event.comment.body, '/preview ')) &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+      )
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: read
+      packages: write
+      issues: write # react to and edit the /preview comment
+      pull-requests: write # resolve the PR head on issue_comment; comment reactions on PRs need this scope
+      statuses: write # surface comment-triggered runs in the PR checks list
+    outputs:
+      branch: ${{ steps.ref.outputs.branch }}
+      head_sha: ${{ steps.ref.outputs.ref }}
+      branch_slug: ${{ steps.slug.outputs.branch_slug }}
+      version_slug: ${{ steps.slug.outputs.version_slug }}
+    steps:
+      - name: Acknowledge /preview comment
+        if: ${{ github.event_name == 'issue_comment' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" -f content=rocket --silent || true
+          # Edit a status footer into the triggering comment (replacing any previous
+          # one, e.g. from a re-run) so the maintainer can follow the redeploy without
+          # digging through the Actions tab. The notify job rewrites it with the outcome.
+          body=$(gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}" --jq .body | sed '/<!-- preview-status -->/,$d')
+          printf '%s\n<!-- preview-status -->\n\n---\n🚀 Preview deploy [in progress](%s)…\n' "$body" "$RUN_URL" > body.md
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}" -F body=@body.md --silent || true
+
+      - name: Resolve build ref
+        id: ref
+        # The issue_comment payload carries no PR head, so resolve it via the API.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          INPUT_BRANCH: ${{ inputs.branch }}
+        run: |
+          case "$EVENT_NAME" in
+            issue_comment)
+              pr_json=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${ISSUE_NUMBER}")
+              head_repo=$(jq -r '.head.repo.full_name' <<<"$pr_json")
+              if [ "$head_repo" != "$GITHUB_REPOSITORY" ]; then
+                echo "Refusing to deploy a fork PR head ($head_repo)" >&2
+                exit 1
+              fi
+              echo "ref=$(jq -r '.head.sha' <<<"$pr_json")" >> "$GITHUB_OUTPUT"
+              echo "branch=$(jq -r '.head.ref' <<<"$pr_json")" >> "$GITHUB_OUTPUT"
+              ;;
+            pull_request)
+              echo "ref=$PR_HEAD_SHA" >> "$GITHUB_OUTPUT"
+              echo "branch=$PR_HEAD_REF" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "ref=$INPUT_BRANCH" >> "$GITHUB_OUTPUT"
+              echo "branch=$INPUT_BRANCH" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Set pending commit status
+        # Comment-triggered runs don't show up in the PR checks list on their own;
+        # a commit status on the head SHA does. The notify job flips it to
+        # success/failure when the run finishes.
+        if: ${{ github.event_name == 'issue_comment' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ steps.ref.outputs.ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+            -f state=pending -f context=preview \
+            -f description="Preview deploy in progress" \
+            -f target_url="$RUN_URL" --silent || true
+
+      - name: Checkout target repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: daytonaio/daytona-ai
+          ref: ${{ steps.ref.outputs.ref }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-toolchain
+        with:
+          install-go: 'false'
+          install-swag: 'false'
+          run-go-work-sync: 'false'
+
+      - name: Generate go.work.sum
+        run: |
+          GONOSUMDB=github.com/daytonaio/daytona go work sync
+          touch go.work.sum
+
+      - name: Compute branch and version slugs
+        id: slug
+        env:
+          BRANCH: ${{ steps.ref.outputs.branch }}
+        run: |
+          # branch_slug — stable across redeploys of the same branch.
+          # Used as the helm release name + ingress hostname prefix.
+          slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-+//; s/-+$//' | cut -c1-20 | sed -E 's/-+$//')
+          if [ -z "$slug" ]; then
+            echo "Branch name '$BRANCH' produced an empty slug" >&2
+            exit 1
+          fi
+          # version_slug — bumps every commit. Used as the image tag so api/proxy/runner
+          # pods roll on each redeploy. Trimmed to leave headroom for the -amd64 suffix.
+          short_sha=$(git rev-parse --short HEAD)
+          echo "branch_slug=$slug" >> "$GITHUB_OUTPUT"
+          echo "version_slug=${slug}-${short_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@722e97d12b1d06a961800dd6c05d79d951ad3c80 # v1.8.0
+
+      - name: Build and push docker images
+        env:
+          VERSION: v0.0.0-${{ steps.slug.outputs.version_slug }}
+          ARCH: -amd64
+        # Single nx invocation so the project graph + build cache are shared
+        # across api/proxy/runner/ssh-gateway (they all depend on common Go/TS sources).
+        run: yarn nx run-many --target=docker --projects=api,proxy,runner,ssh-gateway --configuration=production --parallel=4 --output-style=stream
+
+      - name: Print preview images
+        env:
+          VERSION_SLUG: ${{ steps.slug.outputs.version_slug }}
+        run: |
+          for p in api proxy runner ssh-gateway; do
+            echo "$p image: ghcr.io/daytonaio/daytona-${p}:v0.0.0-${VERSION_SLUG}-amd64"
+          done
+
+      - name: Cleanup credentials
+        if: always()
+        run: |
+          docker logout docker.io 2>/dev/null || true
+          docker logout ghcr.io 2>/dev/null || true
+
+  deploy:
+    name: Deploy to stage
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+    # Registers the run as a GitHub deployment: the PR gets a deployments panel
+    # with status and a "View deployment" button pointing at the API URL.
+    environment:
+      name: preview-${{ needs.build.outputs.branch_slug }}
+      url: https://${{ needs.build.outputs.branch_slug }}.api.p.stage.daytona.work
+    env:
+      AWS_REGION: us-east-1
+      EKS_CLUSTER: stage-eks
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Helm
+        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+        with:
+          version: v4.2.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@acca2b1b2070338fb9fd1ca27ecee81d687e58e5 # v6.1.2
+        with:
+          role-to-assume: arn:aws:iam::762233752006:role/stage/stage-gha-daytona-ai
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$AWS_REGION"
+
+      - name: Tear down existing release (from_scratch)
+        if: ${{ inputs.from_scratch }}
+        env:
+          BRANCH_SLUG: ${{ needs.build.outputs.branch_slug }}
+        run: |
+          # Wipes per-preview postgres/redis/minio/registry data: chart-owned PVCs are
+          # deleted with the release, and the postgres/redis StatefulSet PVCs are removed
+          # via the subcharts' persistentVolumeClaimRetentionPolicy.
+          helm uninstall "$BRANCH_SLUG" --namespace preview --ignore-not-found --wait
+
+      - name: Deploy with Helm
+        env:
+          BRANCH_SLUG: ${{ needs.build.outputs.branch_slug }}
+          VERSION_SLUG: ${{ needs.build.outputs.version_slug }}
+          BRANCH_NAME: ${{ needs.build.outputs.branch }}
+          REPO: daytonaio/daytona-ai
+        run: |
+          # The chart's postgresql + redis deps live in the Bitnami repo;
+          # register it so `helm dependency build` can resolve them.
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm dependency build ./charts/daytona-preview
+          helm upgrade --install "$BRANCH_SLUG" ./charts/daytona-preview \
+            --namespace preview \
+            --set branchSlug="$BRANCH_SLUG" \
+            --set branchName="$BRANCH_NAME" \
+            --set repo="$REPO" \
+            --set image.tag="v0.0.0-${VERSION_SLUG}-amd64" \
+            --set services.api.ingress.tlsSecretName=api-p-stage-tls \
+            --set services.proxy.oidcClientSecret.secretName=stage-preview-job \
+            --wait \
+            --timeout 10m \
+            --debug
+
+      - name: Print preview URLs
+        env:
+          BRANCH_SLUG: ${{ needs.build.outputs.branch_slug }}
+        run: |
+          echo "API:   https://${BRANCH_SLUG}.api.p.stage.daytona.work"
+          echo "Proxy: https://${BRANCH_SLUG}.proxy.p.stage.daytona.work"
+          # SSH gateway is exposed on the tailnet (Tailscale LoadBalancer) — resolve its
+          # MagicDNS name from the service once the operator has provisioned it:
+          echo "SSH:   ssh <ssh-token>@${BRANCH_SLUG}-ssh-gateway -p 2222   (Tailscale MagicDNS; see 'kubectl get svc ${BRANCH_SLUG}-ssh-gateway -n preview')"
+
+  notify:
+    name: Update /preview comment
+    # Rewrite the status footer on the triggering comment with the outcome, so the
+    # maintainer gets the preview URLs (or the failing run) right where they asked
+    # for the redeploy, and flip the pending commit status in the PR checks list.
+    # Only the issue_comment path has a comment/status to update.
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      needs.build.result != 'skipped'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    needs: [build, deploy]
+    permissions:
+      issues: write
+      pull-requests: write
+      statuses: write
+    steps:
+      - name: Update comment and commit status with result
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          BRANCH_SLUG: ${{ needs.build.outputs.branch_slug }}
+          HEAD_SHA: ${{ needs.build.outputs.head_sha }}
+        run: |
+          if [ "$DEPLOY_RESULT" = "success" ]; then
+            status="✅ Preview deployed — [API](https://${BRANCH_SLUG}.api.p.stage.daytona.work) · [Proxy](https://${BRANCH_SLUG}.proxy.p.stage.daytona.work) ([run](${RUN_URL}))"
+            state=success desc="Preview deployed"
+          elif [ "$BUILD_RESULT" != "success" ]; then
+            status="❌ Preview build [${BUILD_RESULT}](${RUN_URL})"
+            state=failure desc="Preview build ${BUILD_RESULT}"
+          else
+            status="❌ Preview deploy [${DEPLOY_RESULT}](${RUN_URL})"
+            state=failure desc="Preview deploy ${DEPLOY_RESULT}"
+          fi
+          # Flip the check first: a stuck "pending" status is worse than a stale footer.
+          if [ -n "$HEAD_SHA" ]; then
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+              -f state="$state" -f context=preview -f description="$desc" \
+              -f target_url="$RUN_URL" --silent || true
+          fi
+          body=$(gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}" --jq .body | sed '/<!-- preview-status -->/,$d')
+          printf '%s\n<!-- preview-status -->\n\n---\n%s\n' "$body" "$status" > body.md
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}" -F body=@body.md --silent
+
+  teardown:
+    name: Uninstall preview
+    # Teardown path: the PR is closed/merged while carrying the `preview` label,
+    # or the label is removed. `--ignore-not-found` makes this idempotent.
+    if: >-
+      github.event_name == 'pull_request' &&
+      (
+        (github.event.action == 'closed' && contains(github.event.pull_request.labels.*.name, 'preview')) ||
+        (github.event.action == 'unlabeled' && github.event.label.name == 'preview')
+      )
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      id-token: write
+      contents: read
+      deployments: write
+    env:
+      AWS_REGION: us-east-1
+      EKS_CLUSTER: stage-eks
+    steps:
+      - name: Compute branch slug
+        id: slug
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          # Must stay identical to the slug logic in the build job.
+          slug=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-+//; s/-+$//' | cut -c1-20 | sed -E 's/-+$//')
+          if [ -z "$slug" ]; then
+            echo "Branch name '$BRANCH' produced an empty slug" >&2
+            exit 1
+          fi
+          echo "branch_slug=$slug" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+        with:
+          version: v4.2.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@acca2b1b2070338fb9fd1ca27ecee81d687e58e5 # v6.1.2
+        with:
+          role-to-assume: arn:aws:iam::762233752006:role/stage/stage-gha-daytona-ai
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name "$EKS_CLUSTER" --region "$AWS_REGION"
+
+      - name: Uninstall Helm release
+        env:
+          BRANCH_SLUG: ${{ steps.slug.outputs.branch_slug }}
+        run: |
+          # Wipes per-preview postgres/redis/minio/registry data: chart-owned PVCs are
+          # deleted with the release, and the postgres/redis StatefulSet PVCs are removed
+          # via the subcharts' persistentVolumeClaimRetentionPolicy.
+          helm uninstall "$BRANCH_SLUG" --namespace preview --ignore-not-found --wait
+
+      - name: Deactivate and remove GitHub deployments
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH_SLUG: ${{ steps.slug.outputs.branch_slug }}
+        run: |
+          env_name="preview-${BRANCH_SLUG}"
+          for id in $(gh api --paginate "repos/${GITHUB_REPOSITORY}/deployments?environment=${env_name}" --jq '.[].id'); do
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/deployments/${id}/statuses" -f state=inactive --silent
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/deployments/${id}" --silent
+          done
+
+      - name: Delete GitHub environment
+        # GITHUB_TOKEN cannot delete environments (needs repo-admin). Without
+        # PREVIEW_CLEANUP_TOKEN this step 403s harmlessly and the empty
+        # environment entry lingers in Settings -> Environments; it is reused
+        # on the next deploy of the same branch.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.PREVIEW_CLEANUP_TOKEN || secrets.GITHUB_TOKEN }}
+          BRANCH_SLUG: ${{ steps.slug.outputs.branch_slug }}
+        run: gh api -X DELETE "repos/${GITHUB_REPOSITORY}/environments/preview-${BRANCH_SLUG}"

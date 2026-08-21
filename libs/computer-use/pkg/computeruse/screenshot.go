@@ -1,0 +1,143 @@
+package computeruse
+
+import (
+	"bytes"
+	"encoding/base64"
+	"fmt"
+	"image"
+	"image/color"
+	"image/draw"
+	"image/png"
+	"os"
+
+	"github.com/daytonaio/daemon/pkg/toolbox/computeruse"
+	log "github.com/sirupsen/logrus"
+)
+
+func validateScreenshotRegion(width, height int) error {
+	if width <= 0 || height <= 0 {
+		return fmt.Errorf("invalid screenshot region: width and height must be greater than zero")
+	}
+
+	return nil
+}
+
+// drawCursor draws a simple cursor at the given position
+func drawCursor(img *image.RGBA, x, y int) {
+	// Define cursor colors
+	white := color.RGBA{255, 255, 255, 255}
+	black := color.RGBA{0, 0, 0, 255}
+
+	// Draw a simple crosshair cursor
+	cursorSize := 20
+
+	// Draw white outline (thicker)
+	for i := -1; i <= 1; i++ {
+		for j := -1; j <= 1; j++ {
+			// Horizontal line
+			for dx := -cursorSize; dx <= cursorSize; dx++ {
+				px, py := x+dx, y+i
+				if px >= 0 && px < img.Bounds().Dx() && py >= 0 && py < img.Bounds().Dy() {
+					img.Set(px, py, white)
+				}
+			}
+			// Vertical line
+			for dy := -cursorSize; dy <= cursorSize; dy++ {
+				px, py := x+j, y+dy
+				if px >= 0 && px < img.Bounds().Dx() && py >= 0 && py < img.Bounds().Dy() {
+					img.Set(px, py, white)
+				}
+			}
+		}
+	}
+
+	// Draw black center
+	// Horizontal line
+	for dx := -cursorSize; dx <= cursorSize; dx++ {
+		px := x + dx
+		if px >= 0 && px < img.Bounds().Dx() && y >= 0 && y < img.Bounds().Dy() {
+			img.Set(px, y, black)
+		}
+	}
+	// Vertical line
+	for dy := -cursorSize; dy <= cursorSize; dy++ {
+		py := y + dy
+		if x >= 0 && x < img.Bounds().Dx() && py >= 0 && py < img.Bounds().Dy() {
+			img.Set(x, py, black)
+		}
+	}
+
+	// Draw center dot
+	for i := -2; i <= 2; i++ {
+		for j := -2; j <= 2; j++ {
+			px, py := x+i, y+j
+			if px >= 0 && px < img.Bounds().Dx() && py >= 0 && py < img.Bounds().Dy() {
+				img.Set(px, py, color.RGBA{255, 0, 0, 255}) // Red center
+			}
+		}
+	}
+}
+
+func (u *ComputerUse) TakeScreenshot(req *computeruse.ScreenshotRequest) (*computeruse.ScreenshotResponse, error) {
+	// Debug: Check DISPLAY environment variable
+	display := os.Getenv("DISPLAY")
+	log.Infof("TakeScreenshot: DISPLAY=%s", display)
+
+	img, mouseX, mouseY, err := captureWithCursor(req.ShowCursor, 0, 0, capturePrimaryDisplay)
+	if err != nil {
+		log.Errorf("TakeScreenshot error: %v", err)
+		return nil, err
+	}
+
+	return encodeScreenshot(img, req.ShowCursor, mouseX, mouseY, 0, 0)
+}
+
+func (u *ComputerUse) TakeRegionScreenshot(req *computeruse.RegionScreenshotRequest) (*computeruse.ScreenshotResponse, error) {
+	if err := validateScreenshotRegion(req.Width, req.Height); err != nil {
+		return nil, err
+	}
+
+	// Debug: Check DISPLAY environment variable
+	display := os.Getenv("DISPLAY")
+	log.Infof("TakeRegionScreenshot: DISPLAY=%s", display)
+
+	rect := image.Rect(req.X, req.Y, req.X+req.Width, req.Y+req.Height)
+	img, mouseX, mouseY, err := captureWithCursor(req.ShowCursor, req.X, req.Y, func() (*image.RGBA, error) {
+		return captureRect(rect)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to capture screenshot region x=%d y=%d width=%d height=%d: %w", req.X, req.Y, req.Width, req.Height, err)
+	}
+
+	return encodeScreenshot(img, req.ShowCursor, mouseX, mouseY, req.X, req.Y)
+}
+
+func encodeScreenshot(img image.Image, showCursor bool, mouseX, mouseY, offsetX, offsetY int) (*computeruse.ScreenshotResponse, error) {
+	// Convert to RGBA for drawing
+	rgbaImg := image.NewRGBA(img.Bounds())
+	draw.Draw(rgbaImg, rgbaImg.Bounds(), img, image.Point{}, draw.Src)
+
+	if showCursor && mouseX >= 0 && mouseX < img.Bounds().Dx() && mouseY >= 0 && mouseY < img.Bounds().Dy() {
+		drawCursor(rgbaImg, mouseX, mouseY)
+	}
+
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, rgbaImg); err != nil {
+		return nil, err
+	}
+
+	base64Str := base64.StdEncoding.EncodeToString(buf.Bytes())
+
+	response := &computeruse.ScreenshotResponse{
+		Screenshot: base64Str,
+	}
+
+	if showCursor {
+		response.CursorPosition = &computeruse.Position{
+			X: mouseX + offsetX,
+			Y: mouseY + offsetY,
+		}
+	}
+
+	return response, nil
+}

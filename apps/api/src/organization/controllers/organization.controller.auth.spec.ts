@@ -1,0 +1,203 @@
+import { OrganizationController } from './organization.controller'
+import { OrganizationMemberRole } from '../enums/organization-member-role.enum'
+import { OrganizationResourcePermission } from '../enums/organization-resource-permission.enum'
+import { OrganizationAuthContextGuard } from '../guards/organization-auth-context.guard'
+import { BillingAuthContextGuard } from '../guards/billing-auth-context.guard'
+import { OtelCollectorAuthContextGuard } from '../guards/otel-collector-auth-context.guard'
+import { AuthStrategyType } from '../../auth/enums/auth-strategy-type.enum'
+import {
+  getAuthContextGuards,
+  getAllowedAuthStrategies,
+  getRequiredOrganizationMemberRole,
+  getRequiredOrganizationResourcePermissions,
+  expectArrayMatch,
+  createCoverageTracker,
+  isPublicEndpoint,
+} from '../../test/helpers/controller-metadata.helper'
+import { UserAuthContextGuard } from '../../user/guards/user-auth-context.guard'
+
+describe('[AUTH] OrganizationController', () => {
+  const trackMethod = createCoverageTracker(OrganizationController)
+
+  it('findInvitationsByUser', () => {
+    const methodName = trackMethod('findInvitationsByUser')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [UserAuthContextGuard])
+  })
+
+  it('getInvitationsCountByUser', () => {
+    const methodName = trackMethod('getInvitationsCountByUser')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [UserAuthContextGuard])
+  })
+
+  it('acceptInvitation', () => {
+    const methodName = trackMethod('acceptInvitation')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [UserAuthContextGuard])
+  })
+
+  it('declineInvitation', () => {
+    const methodName = trackMethod('declineInvitation')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [UserAuthContextGuard])
+  })
+
+  it('create', () => {
+    const methodName = trackMethod('create')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [UserAuthContextGuard])
+  })
+
+  it('setDefaultRegion', () => {
+    const methodName = trackMethod('setDefaultRegion')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
+    expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBe(OrganizationMemberRole.OWNER)
+  })
+
+  it('findAll', () => {
+    const methodName = trackMethod('findAll')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [UserAuthContextGuard])
+  })
+
+  it('findOne', () => {
+    const methodName = trackMethod('findOne')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
+    expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBeUndefined()
+    expect(getRequiredOrganizationResourcePermissions(OrganizationController, methodName)).toBeUndefined()
+  })
+
+  it('delete', () => {
+    const methodName = trackMethod('delete')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
+    expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBe(OrganizationMemberRole.OWNER)
+  })
+
+  it('getUsageOverview', () => {
+    const methodName = trackMethod('getUsageOverview')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [
+      AuthStrategyType.JWT,
+      AuthStrategyType.API_KEY,
+    ])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
+    expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBeUndefined()
+    expect(getRequiredOrganizationResourcePermissions(OrganizationController, methodName)).toEqual([
+      OrganizationResourcePermission.READ_LIMITS,
+    ])
+  })
+
+  it('listAvailableSandboxClasses', () => {
+    const methodName = trackMethod('listAvailableSandboxClasses')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [
+      AuthStrategyType.JWT,
+      AuthStrategyType.API_KEY,
+    ])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
+    expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBeUndefined()
+    expect(getRequiredOrganizationResourcePermissions(OrganizationController, methodName)).toBeUndefined()
+  })
+
+  it('leave', () => {
+    const methodName = trackMethod('leave')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
+    expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBeUndefined()
+    expect(getRequiredOrganizationResourcePermissions(OrganizationController, methodName)).toBeUndefined()
+  })
+
+  it('updateOrganizationQuota', () => {
+    const methodName = trackMethod('updateOrganizationQuota')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
+  })
+
+  it('updateOrganizationRegionQuota', () => {
+    const methodName = trackMethod('updateOrganizationRegionQuota')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
+  })
+
+  it('suspend', () => {
+    const methodName = trackMethod('suspend')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
+  })
+
+  it('unsuspend', () => {
+    const methodName = trackMethod('unsuspend')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
+  })
+
+  it('getOtelConfigBySandboxAuthToken', () => {
+    const methodName = trackMethod('getOtelConfigBySandboxAuthToken')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OtelCollectorAuthContextGuard])
+  })
+
+  it('getOtelConfig', () => {
+    const methodName = trackMethod('getOtelConfig')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OtelCollectorAuthContextGuard])
+  })
+
+  it('updateOtelConfig', () => {
+    const methodName = trackMethod('updateOtelConfig')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
+    expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBe(OrganizationMemberRole.OWNER)
+  })
+
+  it('deleteOtelConfig', () => {
+    const methodName = trackMethod('deleteOtelConfig')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
+    expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBe(OrganizationMemberRole.OWNER)
+  })
+
+  it('updateSandboxDefaultLimitedNetworkEgress', () => {
+    const methodName = trackMethod('updateSandboxDefaultLimitedNetworkEgress')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
+  })
+
+  it('updatePreviewWarning', () => {
+    const methodName = trackMethod('updatePreviewWarning')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.API_KEY])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [BillingAuthContextGuard])
+  })
+
+  it('updateExperimentalConfig', () => {
+    const methodName = trackMethod('updateExperimentalConfig')
+    expect(isPublicEndpoint(OrganizationController, methodName)).toBe(false)
+    expectArrayMatch(getAllowedAuthStrategies(OrganizationController, methodName), [AuthStrategyType.JWT])
+    expectArrayMatch(getAuthContextGuards(OrganizationController, methodName), [OrganizationAuthContextGuard])
+    expect(getRequiredOrganizationMemberRole(OrganizationController, methodName)).toBe(OrganizationMemberRole.OWNER)
+  })
+})

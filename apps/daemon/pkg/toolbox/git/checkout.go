@@ -1,0 +1,45 @@
+package git
+
+import (
+	"fmt"
+	"net/http"
+
+	common_errors "github.com/daytonaio/common-go/pkg/errors"
+	"github.com/daytonaio/daemon/pkg/git"
+	"github.com/gin-gonic/gin"
+)
+
+// CheckoutBranch godoc
+//
+//	@Summary		Checkout branch or commit
+//	@Description	Switch to a different branch or commit in the Git repository
+//	@Tags			git
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body	GitCheckoutRequest	true	"Checkout request"
+//	@Success		200
+//	@Failure		400	{object}	common.ErrorResponse
+//	@Failure		404	{object}	common.ErrorResponse
+//	@Failure		409	{object}	common.ErrorResponse
+//	@Failure		500	{object}	common.ErrorResponse
+//	@Router			/git/checkout [post]
+//
+//	@id				CheckoutBranch
+func CheckoutBranch(c *gin.Context) {
+	var req GitCheckoutRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(common_errors.NewInvalidBodyRequestError(fmt.Errorf("invalid request body: %w", err)))
+		return
+	}
+
+	gitService := git.Service{
+		WorkDir: req.Path,
+	}
+
+	if err := gitService.Checkout(req.Branch); err != nil {
+		abortWithGitError(c, err)
+		return
+	}
+
+	c.Status(http.StatusOK)
+}

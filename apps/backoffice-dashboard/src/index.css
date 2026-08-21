@@ -1,0 +1,4 @@
+/* Import all styles from dashboard */
+@import '../../dashboard/src/index.css';
+@source './';
+@source '../../dashboard/src/components';

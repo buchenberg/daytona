@@ -1,0 +1,63 @@
+import { ApiPropertyOptional, ApiSchema } from '@nestjs/swagger'
+import { IsNumber, IsOptional } from 'class-validator'
+
+@ApiSchema({ name: 'CreateOrganizationQuota' })
+export class CreateOrganizationQuotaDto {
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  totalCpuQuota?: number
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  totalMemoryQuota?: number
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  totalDiskQuota?: number
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  totalGpuQuota?: number
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  maxCpuPerSandbox?: number
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  maxMemoryPerSandbox?: number
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  maxDiskPerSandbox?: number
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  snapshotQuota?: number
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  maxSnapshotSize?: number
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  volumeQuota?: number
+
+  @ApiPropertyOptional({
+    description:
+      'Maximum number of snapshots an organization can process (building or pulling) concurrently. Excess are queued. <= 0 means unlimited.',
+  })
+  @IsNumber()
+  @IsOptional()
+  maxConcurrentSnapshotProcessing?: number
+}

@@ -1,0 +1,21 @@
+import { SandboxState } from '../../sandbox/enums/sandbox-state.enum'
+
+export const SANDBOX_STATES_CONSUMING_COMPUTE: SandboxState[] = [
+  SandboxState.CREATING,
+  SandboxState.RESTORING,
+  SandboxState.STARTED,
+  SandboxState.STARTING,
+  SandboxState.STOPPING,
+  SandboxState.PENDING_BUILD,
+  SandboxState.BUILDING_SNAPSHOT,
+  SandboxState.UNKNOWN,
+  SandboxState.PULLING_SNAPSHOT,
+  SandboxState.FORKING,
+  SandboxState.PAUSING,
+  SandboxState.RESUMING,
+]
+
+export const SANDBOX_STATES_CONDITIONALLY_CONSUMING_COMPUTE: SandboxState[] = [
+  SandboxState.RESIZING,
+  SandboxState.SNAPSHOTTING,
+]

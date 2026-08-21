@@ -1,0 +1,21 @@
+package session
+
+import (
+	"log/slog"
+
+	"github.com/daytonaio/daemon/pkg/session"
+)
+
+type SessionController struct {
+	logger         *slog.Logger
+	configDir      string
+	sessionService *session.SessionService
+}
+
+func NewSessionController(logger *slog.Logger, configDir string, sessionService *session.SessionService) *SessionController {
+	return &SessionController{
+		logger:         logger.With(slog.String("component", "session_controller")),
+		configDir:      configDir,
+		sessionService: sessionService,
+	}
+}

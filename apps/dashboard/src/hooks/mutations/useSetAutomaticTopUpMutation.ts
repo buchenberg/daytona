@@ -1,0 +1,22 @@
+import { AutomaticTopUp } from '@daytona/billing-api-client'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '../queries/queryKeys'
+import { useApi } from '../useApi'
+
+interface SetAutomaticTopUpVariables {
+  organizationId: string
+  automaticTopUp?: AutomaticTopUp
+}
+
+export const useSetAutomaticTopUpMutation = () => {
+  const { billingApi } = useApi()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ organizationId, automaticTopUp }: SetAutomaticTopUpVariables) =>
+      billingApi.setAutomaticTopUp(organizationId, automaticTopUp),
+    onSuccess: (_data, { organizationId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.organization.wallet(organizationId) })
+    },
+  })
+}

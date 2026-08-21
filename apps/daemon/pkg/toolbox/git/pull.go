@@ -1,0 +1,67 @@
+package git
+
+import (
+	"fmt"
+	"net/http"
+
+	common_errors "github.com/daytonaio/common-go/pkg/errors"
+	"github.com/daytonaio/daemon/pkg/git"
+	"github.com/gin-gonic/gin"
+	go_git "github.com/go-git/go-git/v5"
+	go_git_http "github.com/go-git/go-git/v5/plumbing/transport/http"
+)
+
+// PullChanges godoc
+//
+//	@Summary		Pull changes from remote
+//	@Description	Pull changes from the remote Git repository
+//	@Tags			git
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body	GitPullRequest	true	"Pull request"
+//	@Success		200
+//	@Failure		400	{object}	common.ErrorResponse
+//	@Failure		401	{object}	common.ErrorResponse
+//	@Failure		403	{object}	common.ErrorResponse
+//	@Failure		404	{object}	common.ErrorResponse
+//	@Failure		409	{object}	common.ErrorResponse
+//	@Failure		500	{object}	common.ErrorResponse
+//	@Router			/git/pull [post]
+//
+//	@id				PullChanges
+func PullChanges(c *gin.Context) {
+	var req GitPullRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(common_errors.NewInvalidBodyRequestError(fmt.Errorf("invalid request body: %w", err)))
+		return
+	}
+
+	var auth *go_git_http.BasicAuth
+	if req.Username != nil && req.Password != nil {
+		auth = &go_git_http.BasicAuth{
+			Username: *req.Username,
+			Password: *req.Password,
+		}
+	}
+
+	gitService := git.Service{
+		WorkDir: req.Path,
+	}
+
+	remote := ""
+	if req.Remote != nil {
+		remote = *req.Remote
+	}
+	branch := ""
+	if req.Branch != nil {
+		branch = *req.Branch
+	}
+
+	err := gitService.Pull(auth, remote, branch)
+	if err != nil && err != go_git.NoErrAlreadyUpToDate {
+		abortWithGitError(c, err)
+		return
+	}
+
+	c.Status(http.StatusOK)
+}

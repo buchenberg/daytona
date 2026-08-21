@@ -1,0 +1,284 @@
+package config
+
+import (
+	"fmt"
+	"net"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/kelseyhightower/envconfig"
+	"github.com/vishvananda/netlink"
+)
+
+type Config struct {
+	DaytonaApiUrl                      string        `envconfig:"DAYTONA_API_URL"`
+	ApiToken                           string        `envconfig:"DAYTONA_RUNNER_TOKEN"`
+	ApiPort                            int           `envconfig:"API_PORT"`
+	ApiLogRequests                     bool          `envconfig:"API_LOG_REQUESTS" default:"false"`
+	TLSCertFile                        string        `envconfig:"TLS_CERT_FILE"`
+	TLSKeyFile                         string        `envconfig:"TLS_KEY_FILE"`
+	EnableTLS                          bool          `envconfig:"ENABLE_TLS"`
+	OtelLoggingEnabled                 bool          `envconfig:"OTEL_LOGGING_ENABLED"`
+	OtelTracingEnabled                 bool          `envconfig:"OTEL_TRACING_ENABLED"`
+	OtelEndpoint                       string        `envconfig:"OTEL_EXPORTER_OTLP_ENDPOINT"`
+	OtelHeaders                        string        `envconfig:"OTEL_EXPORTER_OTLP_HEADERS"`
+	BackupInfoCacheRetention           time.Duration `envconfig:"BACKUP_INFO_CACHE_RETENTION" default:"168h" validate:"min=5m"`
+	Environment                        string        `envconfig:"ENVIRONMENT"`
+	ContainerRuntime                   string        `envconfig:"CONTAINER_RUNTIME"`
+	ContainerNetwork                   string        `envconfig:"CONTAINER_NETWORK"`
+	InterSandboxNetworkEnabled         bool          `envconfig:"INTER_SANDBOX_NETWORK_ENABLED" default:"true"`
+	GpuEnabled                         bool          `envconfig:"GPU_ENABLED" default:"false"`
+	LogFilePath                        string        `envconfig:"LOG_FILE_PATH"`
+	AWSRegion                          string        `envconfig:"AWS_REGION"`
+	AWSEndpointUrl                     string        `envconfig:"AWS_ENDPOINT_URL"`
+	AWSAccessKeyId                     string        `envconfig:"AWS_ACCESS_KEY_ID"`
+	AWSSecretAccessKey                 string        `envconfig:"AWS_SECRET_ACCESS_KEY"`
+	AWSDefaultBucket                   string        `envconfig:"AWS_DEFAULT_BUCKET"`
+	ResourceLimitsDisabled             bool          `envconfig:"RESOURCE_LIMITS_DISABLED"`
+	DaemonStartTimeoutSec              int           `envconfig:"DAEMON_START_TIMEOUT_SEC"`
+	SandboxStartTimeoutSec             int           `envconfig:"SANDBOX_START_TIMEOUT_SEC"`
+	AndroidBootTimeoutSec              int           `envconfig:"ANDROID_BOOT_TIMEOUT_SEC"`
+	UseSnapshotEntrypoint              bool          `envconfig:"USE_SNAPSHOT_ENTRYPOINT"`
+	Domain                             string        `envconfig:"RUNNER_DOMAIN" validate:"omitempty,hostname|ip"`
+	VolumeCleanupInterval              time.Duration `envconfig:"VOLUME_CLEANUP_INTERVAL" default:"30s" validate:"min=10s"`
+	VolumeCleanupDryRun                bool          `envconfig:"VOLUME_CLEANUP_DRY_RUN" default:"true"`
+	VolumeCleanupExclusionPeriod       time.Duration `envconfig:"VOLUME_CLEANUP_EXCLUSION_PERIOD" default:"120s" validate:"min=0s"`
+	PollTimeout                        time.Duration `envconfig:"POLL_TIMEOUT" default:"30s"`
+	PollLimit                          int           `envconfig:"POLL_LIMIT" default:"10" validate:"min=1,max=100"`
+	CollectorWindowSize                int           `envconfig:"COLLECTOR_WINDOW_SIZE" default:"60" validate:"min=1"`
+	CPUUsageSnapshotInterval           time.Duration `envconfig:"CPU_USAGE_SNAPSHOT_INTERVAL" default:"5s" validate:"min=1s"`
+	AllocatedResourcesSnapshotInterval time.Duration `envconfig:"ALLOCATED_RESOURCES_SNAPSHOT_INTERVAL" default:"5s" validate:"min=1s"`
+	HealthcheckInterval                time.Duration `envconfig:"HEALTHCHECK_INTERVAL" default:"30s" validate:"min=10s"`
+	HealthcheckTimeout                 time.Duration `envconfig:"HEALTHCHECK_TIMEOUT" default:"10s"`
+	BackupTimeoutMin                   int           `envconfig:"BACKUP_TIMEOUT_MIN" default:"60" validate:"min=1"`
+	SnapshotPullTimeout                time.Duration `envconfig:"SNAPSHOT_PULL_TIMEOUT" default:"60m" validate:"min=1m"`
+	BuildTimeoutMin                    int           `envconfig:"BUILD_TIMEOUT_MIN" default:"120" validate:"min=1"`
+	BuildCPUCores                      int64         `envconfig:"BUILD_CPU_CORES" default:"4" validate:"min=1"`
+	BuildMemoryGB                      int64         `envconfig:"BUILD_MEMORY_GB" default:"8" validate:"min=1"`
+	ApiVersion                         int           `envconfig:"API_VERSION" default:"2"`
+	InitializeDaemonTelemetry          bool          `envconfig:"INITIALIZE_DAEMON_TELEMETRY" default:"true"`
+	SnapshotErrorCacheRetention        time.Duration `envconfig:"SNAPSHOT_ERROR_CACHE_RETENTION" default:"10m" validate:"min=5m"`
+	BuildEngine                        string        `envconfig:"BUILD_ENGINE" default:"buildkit" validate:"oneof=buildkit legacy"`
+	ForceSnapshotRemoval               bool          `envconfig:"FORCE_SNAPSHOT_REMOVAL" default:"true"`
+	MountKvmToAndroidSandbox           bool          `envconfig:"MOUNT_KVM_TO_ANDROID_SANDBOX" default:"false"`
+	// NetleashEnabled turns on the netleash service, which enforces per-sandbox
+	// domain allow lists via eBPF egress filtering. Allow lists are
+	// proxy-enforced: sandboxes created with one are wired through the shared
+	// netleash egress proxy (HTTP(S)_PROXY env + trusted CA) and their web-port
+	// egress (TCP 80/443, UDP 443) is gated in eBPF so only the proxy is
+	// reachable — the allow list is enforced on the requested hostname
+	// (SNI/Host), closing the shared-IP / domain-fronting gap of IP-based
+	// allowlisting. Non-web protocols keep the DNS-learned IP allowlist, and
+	// non-local IPv6 egress is dropped for enforced sandboxes (the IPv4-only
+	// allow list would otherwise be fully bypassable via AAAA records). Note the
+	// proxy terminates TLS, so allowlisted workloads that pin upstream
+	// certificates will break. Sandboxes created before netleash was enabled
+	// lack the proxy wiring and keep IP-based filtering until recreated.
+	// Requires root/CAP_BPF and a cgroup v2 host; disabled by default so it can
+	// be rolled out per runner.
+	NetleashEnabled bool `envconfig:"NETLEASH_ENABLED" default:"false"`
+	// NetleashInternalDNSZones are cluster-internal DNS zones whose queries are
+	// passed through to the resolver instead of being dropped by the domain
+	// allow list. Without this, Kubernetes search-domain expansion (e.g.
+	// "index.hr.<ns>.svc.cluster.local") stalls resolution of allowed external
+	// domains, since the suffixed queries aren't in the allow list. Defaults to
+	// the standard Kubernetes cluster domain.
+	NetleashInternalDNSZones []string `envconfig:"NETLEASH_INTERNAL_DNS_ZONES" default:"cluster.local"`
+	// NetleashPinPath is the bpffs directory under which netleash pins each
+	// sandbox's eBPF links and maps. Pinning keeps the egress filter attached
+	// across a runner restart (zero gap) so domain filtering is never lost
+	// during an update; on startup the runner adopts the surviving pins. Must be
+	// a bpffs mount that persists across the restart — on bare metal this is the
+	// host's own /sys/fs/bpf. Set empty to disable pinning (e.g. in environments
+	// where bpffs is not persistent across restarts).
+	NetleashPinPath string `envconfig:"NETLEASH_PIN_PATH" default:"/sys/fs/bpf/netleash"`
+	// NetleashSecretsEnabled turns on secret injection: a single shared netleash
+	// MITM proxy that swaps secret placeholders in sandboxes' outbound HTTP(S)
+	// requests for the real values, resolved from the API as each sandbox.
+	// Requires NETLEASH_ENABLED (the proxy is hosted by the netleash service) and
+	// is disabled by default so the TLS-intercepting proxy is opt-in per runner.
+	NetleashSecretsEnabled bool `envconfig:"NETLEASH_SECRETS_ENABLED" default:"false"`
+	// NetleashSecretProxyPort is the fixed port the shared secret proxy binds on
+	// the sandbox bridge gateway. Fixed (not ephemeral) so the HTTP(S)_PROXY value
+	// baked into a sandbox at creation stays valid across runner restarts.
+	NetleashSecretProxyPort int `envconfig:"NETLEASH_SECRET_PROXY_PORT" default:"18080"`
+	// NetleashSecretCADir is where the shared proxy persists its CA (so the CA
+	// mounted into running sandboxes stays valid across a restart) and the
+	// per-sandbox binding records used to re-register bindings after a restart.
+	NetleashSecretCADir string `envconfig:"NETLEASH_SECRET_CA_DIR" default:"/var/lib/netleash"`
+	// SysboxHealthProbes controls sysbox daemon health probing:
+	// ""=auto (probe only on sysbox runners), "true"/"false" force.
+	SysboxHealthProbes string `envconfig:"SYSBOX_HEALTH_PROBES" validate:"omitempty,oneof=true false"`
+	// ContainerdAddress is the containerd gRPC socket the runner queries to tell
+	// when a stopped sandbox's runtime cleanup (sysbox rootfs ownership revert +
+	// volume sync-out) has finished before committing a backup; empty means
+	// auto-detect the standard docker-ce socket, then dockerd's embedded one.
+	ContainerdAddress   string `envconfig:"CONTAINERD_ADDRESS"`
+	ContainerdNamespace string `envconfig:"CONTAINERD_NAMESPACE" default:"moby"`
+}
+
+var DEFAULT_API_PORT int = 8080
+
+var config *Config
+
+func GetConfig() (*Config, error) {
+	if config != nil {
+		return config, nil
+	}
+
+	config = &Config{}
+
+	err := envconfig.Process("", config)
+	if err != nil {
+		return nil, err
+	}
+
+	var validate = validator.New()
+	err = validate.Struct(config)
+	if err != nil {
+		return nil, err
+	}
+
+	if config.DaytonaApiUrl == "" {
+		// For backward compatibility
+		serverUrl := os.Getenv("SERVER_URL")
+		if serverUrl == "" {
+			return nil, fmt.Errorf("DAYTONA_API_URL or SERVER_URL is required")
+		}
+		config.DaytonaApiUrl = serverUrl
+	}
+
+	if config.ApiToken == "" {
+		// For backward compatibility
+		apiToken := os.Getenv("API_TOKEN")
+		if apiToken == "" {
+			return nil, fmt.Errorf("DAYTONA_RUNNER_TOKEN or API_TOKEN is required")
+		}
+		config.ApiToken = apiToken
+	}
+
+	if config.ApiPort == 0 {
+		config.ApiPort = DEFAULT_API_PORT
+	}
+
+	if config.Domain == "" {
+		ip, err := getOutboundIP()
+		if err != nil {
+			return nil, err
+		}
+		config.Domain = ip.String()
+	}
+
+	return config, nil
+}
+
+func (c *Config) GetOtelHeaders() map[string]string {
+	headers := map[string]string{}
+	for _, pair := range strings.Split(c.OtelHeaders, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+
+		k, v, found := strings.Cut(pair, "=")
+		if !found {
+			continue
+		}
+
+		headers[strings.TrimSpace(k)] = strings.TrimSpace(v)
+	}
+
+	return headers
+}
+
+func GetContainerRuntime() string {
+	return config.ContainerRuntime
+}
+
+func GetEnvironment() string {
+	return config.Environment
+}
+
+func GetBuildEngine() string {
+	return config.BuildEngine
+}
+
+func GetForceSnapshotRemoval() bool {
+	return config.ForceSnapshotRemoval
+}
+
+func GetBuildLogFilePath(snapshotRef string) (string, error) {
+	// Extract image name from various snapshot ref formats:
+	// - registry:5000/daytona/daytona-<hash>
+	// - daytona-<hash>
+	// - daytona-<hash>:tag
+	// - cr.preprod.daytona.io/sbox/daytona/daytona-<hash>:daytona
+
+	buildId := snapshotRef
+
+	// Remove tag if present (everything after last colon that's not part of a port)
+	// A tag colon will come after the last slash
+	lastSlashIndex := strings.LastIndex(buildId, "/")
+	lastColonIndex := strings.LastIndex(buildId, ":")
+
+	if lastColonIndex > lastSlashIndex && lastColonIndex != -1 {
+		// This colon is a tag separator, not a port separator
+		buildId = buildId[:lastColonIndex]
+	}
+
+	// Extract the image name (last component after the last slash)
+	if lastSlashIndex := strings.LastIndex(buildId, "/"); lastSlashIndex != -1 {
+		buildId = buildId[lastSlashIndex+1:]
+	}
+
+	c, err := GetConfig()
+	if err != nil {
+		return "", err
+	}
+
+	logPath := filepath.Join(filepath.Dir(c.LogFilePath), "builds", buildId)
+
+	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
+		return "", fmt.Errorf("failed to create log directory: %w", err)
+	}
+
+	if _, err := os.OpenFile(logPath, os.O_CREATE, 0644); err != nil {
+		return "", fmt.Errorf("failed to create log file: %w", err)
+	}
+
+	return logPath, nil
+}
+
+// getOutboundIP returns the IP address of the default route's network interface
+func getOutboundIP() (net.IP, error) {
+	routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list routes: %w", err)
+	}
+
+	// Find the default route (destination 0.0.0.0/0)
+	for _, route := range routes {
+		if route.Dst == nil || route.Dst.IP.Equal(net.IPv4zero) {
+			// Get the link (interface) for this route
+			link, err := netlink.LinkByIndex(route.LinkIndex)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get link: %w", err)
+			}
+
+			// Get addresses for this interface
+			addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get addresses: %w", err)
+			}
+
+			if len(addrs) > 0 {
+				return addrs[0].IP, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("no default route found")
+}

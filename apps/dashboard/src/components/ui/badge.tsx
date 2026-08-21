@@ -1,0 +1,44 @@
+import { mergeProps } from '@base-ui/react/merge-props'
+import { useRender } from '@base-ui/react/use-render'
+import { cva, type VariantProps } from 'class-variance-authority'
+
+import { cn } from '@/lib/utils'
+
+const badgeVariants = cva(
+  'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1',
+  {
+    variants: {
+      variant: {
+        info: 'bg-info-background text-info-foreground border-info-separator',
+        warning: 'bg-warning-background text-warning-foreground border-warning-separator',
+        default: 'border-transparent bg-primary text-primary-foreground hover:bg-primary/80',
+        secondary: 'border bg-secondary text-secondary-foreground hover:bg-secondary/80',
+        destructive:
+          'border-destructive-separator bg-destructive-background text-destructive-foreground hover:bg-destructive-background/80',
+        success:
+          'border-success-separator bg-success-background text-success-foreground hover:bg-success-background/80',
+        outline: 'text-foreground',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+    },
+  },
+)
+
+export type BadgeProps = useRender.ComponentProps<'div'> & VariantProps<typeof badgeVariants>
+
+function Badge({ className, variant, render, ...props }: BadgeProps) {
+  const defaultProps = {
+    'data-slot': 'badge',
+    className: cn(badgeVariants({ variant }), className),
+  }
+
+  return useRender({
+    render,
+    defaultTagName: 'div',
+    props: mergeProps<'div'>(defaultProps, props),
+  })
+}
+
+export { Badge, badgeVariants }

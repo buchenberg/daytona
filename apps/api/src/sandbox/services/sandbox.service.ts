@@ -1,0 +1,4224 @@
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ConflictException,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Not, Repository, LessThan, In, IsNull, JsonContains, FindOptionsWhere, ILike, MoreThanOrEqual } from 'typeorm'
+import { Sandbox } from '../entities/sandbox.entity'
+import { SandboxFork } from '../entities/sandbox-fork.entity'
+import { CreateSandboxDto } from '../dto/create-sandbox.dto'
+import { CreateSandboxSnapshotDto } from '../dto/create-sandbox-snapshot.dto'
+import { ForkSandboxDto } from '../dto/fork-sandbox.dto'
+import { ResizeSandboxDto } from '../dto/resize-sandbox.dto'
+import { SandboxState } from '../enums/sandbox-state.enum'
+import { SandboxActivitySource } from '../common/sandbox-activity-source'
+import { SandboxClass } from '../enums/sandbox-class.enum'
+import { isRegistryBasedSandboxClass } from '../utils/sandbox-class.util'
+import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
+import { resolveGpuTypePreferences } from '../utils/gpu-type-preferences.util'
+import { RunnerService } from './runner.service'
+import { SandboxError } from '../../exceptions/sandbox-error.exception'
+import { StateChangeInProgressError } from '../../exceptions/state-change-in-progress.exception'
+import { BadRequestError } from '../../exceptions/bad-request.exception'
+import { Cron, CronExpression } from '@nestjs/schedule'
+import { BackupState } from '../enums/backup-state.enum'
+import { Snapshot } from '../entities/snapshot.entity'
+import { SnapshotState } from '../enums/snapshot-state.enum'
+import {
+  OTEL_CONFIG_CACHE_KEY_PREFIX,
+  PAUSE_SUPPORTED_SANDBOX_CLASSES,
+  SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION,
+} from '../constants/sandbox.constants'
+import { SandboxWarmPoolService } from './sandbox-warm-pool.service'
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter'
+import { WarmPoolEvents } from '../constants/warmpool-events.constants'
+import { WarmPoolTopUpRequested } from '../events/warmpool-topup-requested.event'
+import { Runner } from '../entities/runner.entity'
+import { Organization } from '../../organization/entities/organization.entity'
+import { SandboxEvents } from '../constants/sandbox-events.constants'
+import { isApiRecoverableError } from '../constants/errors-for-recovery'
+import { SandboxStateUpdatedEvent } from '../events/sandbox-state-updated.event'
+import { generateBuildInfoHash as generateBuildSnapshotRef } from '../entities/build-info.entity'
+import { SandboxDestroyedEvent } from '../events/sandbox-destroyed.event'
+import { SandboxStartedEvent } from '../events/sandbox-started.event'
+import { SandboxStoppedEvent } from '../events/sandbox-stopped.event'
+import { SandboxArchivedEvent } from '../events/sandbox-archived.event'
+import { SandboxSigningKeyRotatedEvent } from '../events/sandbox-signing-key-rotated.event'
+import { OrganizationService } from '../../organization/services/organization.service'
+import { OrganizationEvents } from '../../organization/constants/organization-events.constant'
+import { OrganizationSuspendedSandboxStoppedEvent } from '../../organization/events/organization-suspended-sandbox-stopped.event'
+import { TypedConfigService } from '../../config/typed-config.service'
+import { WarmPool } from '../entities/warm-pool.entity'
+import { SandboxDto, SandboxVolume } from '../dto/sandbox.dto'
+import { isValidUuid } from '../../common/utils/uuid'
+import { truncateErrorMessage } from '../../common/utils/truncate-error-message'
+import { RunnerAdapter, RunnerAdapterFactory } from '../runner-adapter/runnerAdapter'
+import {
+  assertNetworkSettingsCompatible,
+  validateDomainAllowList,
+  validateNetworkAllowList,
+} from '../utils/network-validation.util'
+import { OrganizationUsageService } from '../../organization/services/organization-usage.service'
+import { SshAccess } from '../entities/ssh-access.entity'
+import { SshAccessDto, SshAccessValidationDto } from '../dto/ssh-access.dto'
+import { VolumeService } from './volume.service'
+import { BUILD_INFO_BLOCKED_ORGS, GPU_REGION, forbidUserArchiveCalls } from '../constants/dedicated-regions.constant'
+import { PaginatedList } from '../../common/interfaces/paginated-list.interface'
+import {
+  SandboxSortFieldDeprecated,
+  SandboxSortDirectionDeprecated,
+  DEFAULT_SANDBOX_SORT_FIELD_DEPRECATED,
+  DEFAULT_SANDBOX_SORT_DIRECTION_DEPRECATED,
+} from '../dto/list-sandboxes-query.deprecated.dto'
+import { createRangeFilter } from '../../common/utils/range-filter'
+import { LogExecution } from '../../common/decorators/log-execution.decorator'
+import {
+  UPGRADE_TIER_MESSAGE,
+  ARCHIVE_SANDBOXES_MESSAGE,
+  PER_SANDBOX_LIMIT_MESSAGE,
+} from '../../common/constants/error-messages'
+import { RedisLockProvider } from '../common/redis-lock.provider'
+import { getStateChangeLockKey } from '../utils/lock-key.util'
+import { customAlphabet as customNanoid, nanoid, urlAlphabet } from 'nanoid'
+import { WithInstrumentation } from '../../common/decorators/otel.decorator'
+import { validateMountPaths, validateSubpaths } from '../utils/volume-mount-path-validation.util'
+import { isEphemeral } from '../utils/ephemeral.util'
+import { SandboxRepository } from '../repositories/sandbox.repository'
+import { SnapshotRepository } from '../repositories/snapshot.repository'
+import { PortPreviewUrlDto, SignedPortPreviewUrlDto } from '../dto/port-preview-url.dto'
+import { RegionService } from '../../region/services/region.service'
+import { RegionRoutingService } from '../../region/services/region-routing.service'
+import { DefaultRegionRequiredException } from '../../organization/exceptions/DefaultRegionRequiredException'
+import { SnapshotService } from './snapshot.service'
+import { BuildInfoService } from './build-info.service'
+import { DockerRegistryService } from '../../docker-registry/services/docker-registry.service'
+import { DockerRegistry } from '../../docker-registry/entities/docker-registry.entity'
+import { RegionType } from '../../region/enums/region-type.enum'
+import { getEffectivePerSandboxLimits } from '../../organization/utils/sandbox-limits.util'
+import { RegionQuotaDto } from '../../organization/dto/region-quota.dto'
+import { SandboxCreatedEvent } from '../events/sandbox-create.event'
+import { InjectRedis } from '@nestjs-modules/ioredis'
+import { Redis } from 'ioredis'
+import {
+  SANDBOX_LOOKUP_CACHE_TTL_MS,
+  SANDBOX_ORG_ID_CACHE_TTL_MS,
+  TOOLBOX_PROXY_URL_CACHE_TTL_S,
+  sandboxLookupCacheKeyByAuthToken,
+  sandboxLookupCacheKeyById,
+  sandboxLookupCacheKeyByName,
+  sandboxOrgIdCacheKeyById,
+  sandboxOrgIdCacheKeyByName,
+  toolboxProxyUrlCacheKey,
+} from '../utils/sandbox-lookup-cache.util'
+import { SandboxLookupCacheInvalidationService } from './sandbox-lookup-cache-invalidation.service'
+import { Region } from '../../region/entities/region.entity'
+import { SandboxActivityService } from './sandbox-activity.service'
+import { ListSandboxesResponseDto } from '../dto/list-sandboxes-response.dto'
+import { ListSandboxesQueryDto } from '../dto/list-sandboxes-query.dto'
+import { SANDBOX_SEARCH_ADAPTER } from '../constants/sandbox-tokens'
+import { SandboxSearchAdapter } from '../interfaces/sandbox-search.interface'
+import { SecretService } from '../../secret/services/secret.service'
+import { SandboxSecret } from '../entities/sandbox-secret.entity'
+import { assertGpuTypeRequiresGpu, normalizeSandboxResourcesForCreate } from '../utils/gpu-resource-policy.util'
+import { BillingService } from '../../billing/services/billing.service'
+import { GPU_RUNNER_ASSIGNMENT_LOCK_KEY } from '../utils/lock-key.util'
+
+const DEFAULT_CPU = 1
+const DEFAULT_MEMORY = 1
+const DEFAULT_DISK = 3
+const DEFAULT_GPU = 0
+const DEFAULT_AUTO_PAUSE_INTERVAL = 60
+
+@Injectable()
+export class SandboxService {
+  private readonly logger = new Logger(SandboxService.name)
+
+  constructor(
+    private readonly sandboxRepository: SandboxRepository,
+    private readonly snapshotRepository: SnapshotRepository,
+    @InjectRepository(Runner)
+    private readonly runnerRepository: Repository<Runner>,
+    @InjectRepository(SshAccess)
+    private readonly sshAccessRepository: Repository<SshAccess>,
+    @InjectRepository(WarmPool)
+    private readonly warmPoolRepository: Repository<WarmPool>,
+    private readonly runnerService: RunnerService,
+    private readonly volumeService: VolumeService,
+    private readonly configService: TypedConfigService,
+    private readonly warmPoolService: SandboxWarmPoolService,
+    private readonly eventEmitter: EventEmitter2,
+    private readonly organizationService: OrganizationService,
+    private readonly runnerAdapterFactory: RunnerAdapterFactory,
+    private readonly organizationUsageService: OrganizationUsageService,
+    private readonly redisLockProvider: RedisLockProvider,
+    @InjectRedis() private readonly redis: Redis,
+    private readonly regionService: RegionService,
+    private readonly regionRoutingService: RegionRoutingService,
+    private readonly snapshotService: SnapshotService,
+    private readonly sandboxLookupCacheInvalidationService: SandboxLookupCacheInvalidationService,
+    private readonly sandboxActivityService: SandboxActivityService,
+    private readonly dockerRegistryService: DockerRegistryService,
+    @InjectRepository(SandboxFork)
+    private readonly sandboxForkRepository: Repository<SandboxFork>,
+    @Inject(SANDBOX_SEARCH_ADAPTER)
+    private readonly sandboxSearchAdapter: SandboxSearchAdapter,
+    private readonly secretService: SecretService,
+    @InjectRepository(SandboxSecret)
+    private readonly sandboxSecretRepository: Repository<SandboxSecret>,
+    private readonly buildInfoService: BuildInfoService,
+    private readonly billingService: BillingService,
+  ) {}
+
+  protected getLockKey(id: string): string {
+    return `sandbox:${id}:state-change-sync`
+  }
+
+  private async assertOrganizationHasGpuAccess(organizationId: string): Promise<void> {
+    if (!this.billingService.enabled) {
+      return
+    }
+
+    if (!(await this.billingService.hasGpuAccess(organizationId))) {
+      throw new BadRequestError("Organization doesn't have GPU credits. Add more by visiting the Wallet page")
+    }
+  }
+
+  private assertSandboxNotErrored(sandbox: Sandbox): void {
+    if ([SandboxState.ERROR, SandboxState.BUILD_FAILED].includes(sandbox.state)) {
+      throw new SandboxError('Sandbox is in an errored state')
+    }
+  }
+
+  private async validateOrganizationQuotas(
+    organization: Organization,
+    region: Region,
+    sandboxClass: SandboxClass,
+    cpu: number,
+    memory: number,
+    disk: number,
+    gpu: number,
+    ephemeral: boolean,
+    excludeSandboxId?: string,
+    regionQuota?: RegionQuotaDto | null,
+    // Selects the per-sandbox limits table: 0 uses the non-GPU limits, >= 1
+    // uses GPU limits multiplied by the unit count. Defaults to `gpu`, which is
+    // correct for create/start/fork/archive paths where `gpu` is the absolute
+    // sandbox GPU allocation. Resize passes `gpu = 0` (no GPU delta) but still
+    // needs GPU-aware per-sandbox limits when the sandbox itself is a GPU
+    // sandbox, so it passes `sandbox.gpu` here explicitly.
+    gpuUnitsForLimits: number = gpu,
+  ): Promise<{
+    pendingCpuIncremented: boolean
+    pendingMemoryIncremented: boolean
+    pendingDiskIncremented: boolean
+    pendingGpuIncremented: boolean
+  }> {
+    if (region.enforceQuotas) {
+      if (organization.id === '6e82ed7c-1031-47d5-9ac2-3d511981e636') {
+        return {
+          pendingCpuIncremented: false,
+          pendingMemoryIncremented: false,
+          pendingDiskIncremented: false,
+          pendingGpuIncremented: false,
+        }
+      }
+
+      if (!regionQuota) {
+        regionQuota = await this.organizationService.getRegionQuota(organization.id, region.id, sandboxClass)
+      }
+
+      if (!regionQuota) {
+        if (region.regionType === RegionType.SHARED) {
+          // region is public, but the organization does not have a quota for it
+          throw new ForbiddenException(
+            `Region ${region.id} is not available to the organization for class ${sandboxClass}`,
+          )
+        }
+
+        // Region is DEDICATED/CUSTOM. Normally we info-hide with NotFoundException so orgs
+        // without access cannot probe for the region's existence. If however the org has
+        // any other region_quota row in this region, they already know it exists — return
+        // the clearer class-specific ForbiddenException instead of a misleading "not found".
+        const hasAnyQuotaInRegion = await this.organizationService.hasAnyRegionQuota(organization.id, region.id)
+        if (hasAnyQuotaInRegion) {
+          throw new ForbiddenException(
+            `Region ${region.id} is not available to the organization for class ${sandboxClass}`,
+          )
+        }
+
+        throw new NotFoundException('Region not found')
+      }
+    }
+
+    // validate per-sandbox quotas
+    const { maxCpuPerSandbox, maxMemoryPerSandbox, maxDiskPerSandbox, maxDiskPerNonEphemeralSandbox } =
+      getEffectivePerSandboxLimits(organization, regionQuota, gpuUnitsForLimits)
+
+    if (cpu > maxCpuPerSandbox) {
+      throw new BadRequestError(
+        `CPU request ${cpu} exceeds maximum allowed per sandbox (${maxCpuPerSandbox}).\n${PER_SANDBOX_LIMIT_MESSAGE}`,
+      )
+    }
+    if (memory > maxMemoryPerSandbox) {
+      throw new BadRequestError(
+        `Memory request ${memory}GB exceeds maximum allowed per sandbox (${maxMemoryPerSandbox}GB).\n${PER_SANDBOX_LIMIT_MESSAGE}`,
+      )
+    }
+    if (disk > maxDiskPerSandbox) {
+      throw new BadRequestError(
+        `Disk request ${disk}GB exceeds maximum allowed per sandbox (${maxDiskPerSandbox}GB).\n${PER_SANDBOX_LIMIT_MESSAGE}`,
+      )
+    }
+
+    if (!ephemeral && maxDiskPerNonEphemeralSandbox !== null) {
+      if (maxDiskPerNonEphemeralSandbox === 0) {
+        throw new BadRequestError('Only ephemeral sandboxes are permitted in this region')
+      }
+      if (disk > maxDiskPerNonEphemeralSandbox) {
+        throw new BadRequestError(
+          `Disk request ${disk}GB exceeds maximum allowed per non-ephemeral sandbox (${maxDiskPerNonEphemeralSandbox}GB).\n${PER_SANDBOX_LIMIT_MESSAGE}`,
+        )
+      }
+    }
+
+    // e.g. region belonging to an organization
+    if (!region.enforceQuotas) {
+      return {
+        pendingCpuIncremented: false,
+        pendingMemoryIncremented: false,
+        pendingDiskIncremented: false,
+        pendingGpuIncremented: false,
+      }
+    }
+
+    // Fail fast: requesting GPU in a region with no GPU quota at all.
+    if (gpu > 0 && regionQuota.totalGpuQuota === 0) {
+      throw new BadRequestError(`Total GPU limit exceeded. Maximum allowed: ${regionQuota.totalGpuQuota}.`)
+    }
+
+    // validate usage quotas
+    const {
+      cpuIncremented: pendingCpuIncremented,
+      memoryIncremented: pendingMemoryIncremented,
+      diskIncremented: pendingDiskIncremented,
+      gpuIncremented: pendingGpuIncremented,
+    } = await this.organizationUsageService.incrementPendingSandboxUsage(
+      organization.id,
+      region.id,
+      sandboxClass,
+      cpu,
+      memory,
+      disk,
+      gpu,
+      excludeSandboxId,
+    )
+
+    const usageOverview = await this.organizationUsageService.getSandboxUsageOverview(
+      organization.id,
+      region.id,
+      sandboxClass,
+      excludeSandboxId,
+    )
+
+    try {
+      const upgradeTierMessage = UPGRADE_TIER_MESSAGE(this.configService.getOrThrow('dashboardUrl'))
+
+      if (usageOverview.currentCpuUsage + usageOverview.pendingCpuUsage > regionQuota.totalCpuQuota) {
+        throw new BadRequestError(
+          `Total CPU limit exceeded. Maximum allowed: ${regionQuota.totalCpuQuota}.\n${upgradeTierMessage}`,
+        )
+      }
+
+      if (usageOverview.currentMemoryUsage + usageOverview.pendingMemoryUsage > regionQuota.totalMemoryQuota) {
+        throw new BadRequestError(
+          `Total memory limit exceeded. Maximum allowed: ${regionQuota.totalMemoryQuota}GiB.\n${upgradeTierMessage}`,
+        )
+      }
+
+      if (usageOverview.currentDiskUsage + usageOverview.pendingDiskUsage > regionQuota.totalDiskQuota) {
+        throw new BadRequestError(
+          `Total disk limit exceeded. Maximum allowed: ${regionQuota.totalDiskQuota}GiB.\n${ARCHIVE_SANDBOXES_MESSAGE}\n${upgradeTierMessage}`,
+        )
+      }
+
+      if (usageOverview.currentGpuUsage + usageOverview.pendingGpuUsage > regionQuota.totalGpuQuota) {
+        throw new BadRequestError(
+          `Total GPU limit exceeded. Maximum allowed: ${regionQuota.totalGpuQuota}.\n${upgradeTierMessage}`,
+        )
+      }
+    } catch (error) {
+      await this.rollbackPendingUsage(
+        organization.id,
+        region.id,
+        sandboxClass,
+        pendingCpuIncremented ? cpu : undefined,
+        pendingMemoryIncremented ? memory : undefined,
+        pendingDiskIncremented ? disk : undefined,
+        pendingGpuIncremented ? gpu : undefined,
+      )
+      throw error
+    }
+
+    return {
+      pendingCpuIncremented,
+      pendingMemoryIncremented,
+      pendingDiskIncremented,
+      pendingGpuIncremented,
+    }
+  }
+
+  async rollbackPendingUsage(
+    organizationId: string,
+    regionId: string,
+    sandboxClass: SandboxClass,
+    pendingCpuIncrement?: number,
+    pendingMemoryIncrement?: number,
+    pendingDiskIncrement?: number,
+    pendingGpuIncrement?: number,
+  ): Promise<void> {
+    if (!pendingCpuIncrement && !pendingMemoryIncrement && !pendingDiskIncrement && !pendingGpuIncrement) {
+      return
+    }
+
+    try {
+      await this.organizationUsageService.decrementPendingSandboxUsage(
+        organizationId,
+        regionId,
+        sandboxClass,
+        pendingCpuIncrement,
+        pendingMemoryIncrement,
+        pendingDiskIncrement,
+        pendingGpuIncrement,
+      )
+    } catch (error) {
+      this.logger.error(`Error rolling back pending sandbox usage: ${error}`)
+    }
+  }
+
+  async archive(sandboxIdOrName: string, organizationId?: string): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+
+    this.assertSandboxNotErrored(sandbox)
+
+    if (forbidUserArchiveCalls(sandbox)) {
+      throw new SandboxError('Sandboxes in this region or class cannot be archived')
+    }
+
+    if (String(sandbox.state) !== String(sandbox.desiredState)) {
+      throw new StateChangeInProgressError()
+    }
+
+    if (sandbox.state !== SandboxState.STOPPED) {
+      throw new SandboxError('Sandbox is not stopped')
+    }
+
+    if (sandbox.pending) {
+      throw new StateChangeInProgressError()
+    }
+
+    if (isEphemeral(sandbox)) {
+      throw new SandboxError('Ephemeral sandboxes cannot be archived')
+    }
+
+    const updateData: Partial<Sandbox> = {
+      state: SandboxState.ARCHIVING,
+      desiredState: SandboxDesiredState.ARCHIVED,
+    }
+
+    const updatedSandbox = await this.sandboxRepository.updateWhere(sandbox.id, {
+      updateData,
+      whereCondition: { pending: false, state: SandboxState.STOPPED },
+    })
+
+    this.eventEmitter.emit(SandboxEvents.ARCHIVED, new SandboxArchivedEvent(updatedSandbox))
+    return updatedSandbox
+  }
+
+  async createForWarmPool(warmPoolItem: WarmPool): Promise<Sandbox> {
+    const sandbox = new Sandbox({ region: warmPoolItem.target })
+
+    // Self-serve warm pools are owned by a real organization and their members link back to the
+    // pool via warmPoolId; legacy/global warm pools keep using the all-zero sentinel organization.
+    const isSelfServe = !!warmPoolItem.organizationId
+    sandbox.organizationId = warmPoolItem.organizationId ?? SANDBOX_WARM_POOL_UNASSIGNED_ORGANIZATION
+    sandbox.warmPoolId = isSelfServe ? warmPoolItem.id : null
+
+    sandbox.snapshot = warmPoolItem.snapshot
+    //  TODO: default user should be configurable
+    sandbox.osUser = 'daytona'
+    sandbox.env = warmPoolItem.env || {}
+
+    sandbox.cpu = warmPoolItem.cpu
+    sandbox.gpu = warmPoolItem.gpu
+    sandbox.mem = warmPoolItem.mem
+    sandbox.disk = warmPoolItem.disk
+
+    const snapshot = await this.snapshotRepository.findOne({
+      where: [
+        { organizationId: sandbox.organizationId, name: sandbox.snapshot, state: SnapshotState.ACTIVE },
+        { general: true, name: sandbox.snapshot, state: SnapshotState.ACTIVE },
+      ],
+    })
+    if (!snapshot) {
+      throw new BadRequestError(`Snapshot ${sandbox.snapshot} not found or inactive while creating warm pool sandbox`)
+    }
+
+    sandbox.gpuType = snapshot.gpuType ?? null
+
+    let gpuRunnerAssignmentLockKey: string | undefined
+
+    sandbox.sandboxClass = snapshot.sandboxClass
+
+    // Self-serve warm sandboxes count against the owning organization's quota, so a pool can never
+    // exceed it. Reserve pending usage up front and roll it back if provisioning fails.
+    let pendingCpuIncrement: number | undefined
+    let pendingMemoryIncrement: number | undefined
+    let pendingDiskIncrement: number | undefined
+    let pendingGpuIncrement: number | undefined
+
+    try {
+      if (isSelfServe) {
+        const organization = await this.organizationService.findOne(sandbox.organizationId)
+        if (!organization) {
+          throw new BadRequestError(`Organization ${sandbox.organizationId} not found for warm pool`)
+        }
+        const region = await this.regionService.findOne(sandbox.region)
+        if (!region) {
+          throw new BadRequestError(`Region ${sandbox.region} not found for warm pool`)
+        }
+
+        const { pendingCpuIncremented, pendingMemoryIncremented, pendingDiskIncremented, pendingGpuIncremented } =
+          await this.validateOrganizationQuotas(
+            organization,
+            region,
+            sandbox.sandboxClass,
+            sandbox.cpu,
+            sandbox.mem,
+            sandbox.disk,
+            sandbox.gpu,
+            false,
+          )
+        if (pendingCpuIncremented) pendingCpuIncrement = sandbox.cpu
+        if (pendingMemoryIncremented) pendingMemoryIncrement = sandbox.mem
+        if (pendingDiskIncremented) pendingDiskIncrement = sandbox.disk
+        if (pendingGpuIncremented) pendingGpuIncrement = sandbox.gpu
+      }
+
+      // Same global GPU runner assignment serialization as createFromSnapshot.
+      if (sandbox.isGpu()) {
+        await this.redisLockProvider.waitForLock(GPU_RUNNER_ASSIGNMENT_LOCK_KEY, 60, 30000)
+        gpuRunnerAssignmentLockKey = GPU_RUNNER_ASSIGNMENT_LOCK_KEY
+      }
+
+      const runner = await this.runnerService.getRandomAvailableRunner({
+        regions: [sandbox.region],
+        sandboxClass: sandbox.sandboxClass,
+        snapshotRef: snapshot.ref,
+        gpu: sandbox.gpu,
+        gpuType: sandbox.gpuType ?? null,
+      })
+
+      sandbox.runnerId = runner.id
+      sandbox.pending = true
+
+      await this.sandboxRepository.insert(sandbox)
+
+      if (gpuRunnerAssignmentLockKey) {
+        const key = gpuRunnerAssignmentLockKey
+        gpuRunnerAssignmentLockKey = undefined
+        await this.redisLockProvider
+          .unlock(key)
+          .catch((err) => this.logger.error('Failed to release GPU runner assignment lock', err))
+      }
+
+      return sandbox
+    } catch (error) {
+      if (isSelfServe) {
+        await this.rollbackPendingUsage(
+          sandbox.organizationId,
+          sandbox.region,
+          sandbox.sandboxClass,
+          pendingCpuIncrement,
+          pendingMemoryIncrement,
+          pendingDiskIncrement,
+          pendingGpuIncrement,
+        )
+      }
+      throw error
+    } finally {
+      if (gpuRunnerAssignmentLockKey) {
+        await this.redisLockProvider
+          .unlock(gpuRunnerAssignmentLockKey)
+          .catch((err) => this.logger.error('Failed to release GPU runner assignment lock', err))
+      }
+    }
+  }
+
+  async createFromSnapshot(createSandboxDto: CreateSandboxDto, organization: Organization): Promise<SandboxDto> {
+    let pendingCpuIncrement: number | undefined
+    let pendingMemoryIncrement: number | undefined
+    let pendingDiskIncrement: number | undefined
+    let pendingGpuIncrement: number | undefined
+    let gpuRunnerAssignmentLockKey: string | undefined
+    let sandboxClass: SandboxClass | undefined
+
+    const region = await this.getValidatedOrDefaultRegion(organization, createSandboxDto.target)
+
+    try {
+      let snapshotIdOrName = createSandboxDto.snapshot
+
+      if (!createSandboxDto.snapshot?.trim()) {
+        snapshotIdOrName = this.configService.getOrThrow('defaultSnapshot')
+      }
+
+      const snapshotFilter: FindOptionsWhere<Snapshot>[] = [
+        { organizationId: organization.id, name: snapshotIdOrName },
+        { general: true, name: snapshotIdOrName },
+      ]
+
+      if (isValidUuid(snapshotIdOrName)) {
+        snapshotFilter.push(
+          { organizationId: organization.id, id: snapshotIdOrName },
+          { general: true, id: snapshotIdOrName },
+        )
+      }
+
+      const snapshots = await this.snapshotRepository.find({
+        where: snapshotFilter,
+      })
+
+      if (snapshots.length === 0) {
+        throw new BadRequestError(
+          `Snapshot ${snapshotIdOrName} not found. Did you add it through the Daytona Dashboard?`,
+        )
+      }
+
+      let snapshot = snapshots.find((s) => s.state === SnapshotState.ACTIVE)
+
+      if (!snapshot) {
+        snapshot = snapshots[0]
+      }
+
+      if (!(await this.snapshotService.isAvailableInRegion(snapshot.id, region.id))) {
+        throw new BadRequestError(`Snapshot ${snapshotIdOrName} is not available in region ${region.id}`)
+      }
+
+      if (snapshot.state !== SnapshotState.ACTIVE) {
+        throw new BadRequestError(`Snapshot ${snapshotIdOrName} is ${snapshot.state}`)
+      }
+
+      if (!snapshot.ref) {
+        throw new BadRequestError('Snapshot ref is not defined')
+      }
+
+      const cpu = snapshot.cpu
+      const mem = snapshot.mem
+      const disk = snapshot.disk
+      const gpu = snapshot.gpu
+      const gpuType = snapshot.gpuType ?? null
+
+      if (gpu > 0 && createSandboxDto.linkedSandbox) {
+        throw new BadRequestError('GPU sandboxes cannot be linked to another sandbox')
+      }
+
+      // GPU sandboxes are always ephemeral.
+      if (gpu > 0 && !isEphemeral(createSandboxDto)) {
+        throw new BadRequestError('GPU sandboxes must be ephemeral; set autoDeleteInterval to 0')
+      }
+
+      if (gpu > 0) {
+        await this.assertOrganizationHasGpuAccess(organization.id)
+      }
+
+      if (snapshot.sandboxClass === SandboxClass.ANDROID && !createSandboxDto.linkedSandbox) {
+        throw new BadRequestError('Android sandboxes must be linked to another sandbox')
+      }
+
+      // Resolve and validate an optional linked sandbox. When set, the new sandbox is pinned
+      // to the same runner as the linked sandbox so a local network can be established.
+      // Constraints:
+      //   - linked sandbox must exist in the same org, be STARTED or STOPPED, and have a runnerId
+      //   - linked sandbox cannot itself be linked to another sandbox (no chains)
+      //   - new sandbox must be ephemeral (autoDeleteInterval === 0)
+      //   - GPU sandboxes cannot participate in links
+      const linkedSandbox = await this.resolveLinkedSandbox(createSandboxDto, organization.id)
+      if (linkedSandbox && linkedSandbox.isGpu()) {
+        throw new BadRequestError('Sandboxes cannot be linked to GPU sandboxes')
+      }
+
+      this.organizationService.assertOrganizationIsNotSuspended(organization)
+
+      sandboxClass = snapshot.sandboxClass
+
+      // Resolve volume names to UUIDs before runner assignment, so invalid references fail fast
+      const resolvedVolumes = await this.resolveVolumes(organization.id, createSandboxDto.volumes)
+
+      const resolvedSecretMounts = await this.validateSecrets(createSandboxDto.secrets, organization)
+
+      // GPU sandboxes are always ephemeral: their assigned GPU units remain
+      // reserved for their lifetime and are auto-deleted on first stop. Skip the
+      // warm-pool path entirely so we always provision a fresh container on a
+      // GPU runner with current live capacity.
+      let warmPoolSandbox: Sandbox | null = null
+      if (
+        gpu <= 0 &&
+        !linkedSandbox &&
+        (!createSandboxDto.volumes || createSandboxDto.volumes.length === 0) &&
+        resolvedSecretMounts.length === 0
+      ) {
+        const skipWarmPool =
+          (await this.redis.exists(SandboxWarmPoolService.skipKey(organization.id, snapshot.id))) === 1
+
+        if (!skipWarmPool) {
+          warmPoolSandbox = await this.warmPoolService.fetchWarmPoolSandbox({
+            organizationId: organization.id,
+            snapshot: snapshot,
+            target: region.id,
+            cpu: cpu,
+            mem: mem,
+            disk: disk,
+            gpu: gpu,
+            osUser: createSandboxDto.user,
+            env: createSandboxDto.env,
+            state: SandboxState.STARTED,
+          })
+        }
+      }
+
+      // A self-serve claim reuses a sandbox the organization already owns and already counts
+      // against its quota, so it skips the quota gate — otherwise a full pool would sit at the
+      // ceiling and reject its own claims. Cold creates and global-pool claims (which re-home a
+      // sentinel-org sandbox, growing the organization's usage) still pass it.
+      const isSelfServeClaim = !!warmPoolSandbox && warmPoolSandbox.organizationId === organization.id
+
+      if (!isSelfServeClaim) {
+        const { pendingCpuIncremented, pendingMemoryIncremented, pendingDiskIncremented, pendingGpuIncremented } =
+          await this.validateOrganizationQuotas(
+            organization,
+            region,
+            snapshot.sandboxClass,
+            cpu,
+            mem,
+            disk,
+            gpu,
+            isEphemeral(createSandboxDto),
+          )
+
+        if (pendingCpuIncremented) {
+          pendingCpuIncrement = cpu
+        }
+        if (pendingMemoryIncremented) {
+          pendingMemoryIncrement = mem
+        }
+        if (pendingDiskIncremented) {
+          pendingDiskIncrement = disk
+        }
+        if (pendingGpuIncremented) {
+          pendingGpuIncrement = gpu
+        }
+      }
+
+      if (warmPoolSandbox) {
+        return await this.assignWarmPoolSandbox(warmPoolSandbox, createSandboxDto, organization)
+      }
+
+      // Serialize GPU runner assignment globally: runner selection reads reserved
+      // GPU units from the DB, but the just-assigned runnerId on a
+      // concurrent request is not yet persisted, so two concurrent creates can
+      // pick the same already-full runner. GPU fallbacks can cross region
+      // boundaries, so region-scoped locks are not enough. Hold the lock until
+      // the runnerId is written to the DB. Only mark the key as held after
+      // acquisition succeeds — otherwise a timed-out waiter would unlock the
+      // actual holder in finally.
+      if (gpu > 0) {
+        await this.redisLockProvider.waitForLock(GPU_RUNNER_ASSIGNMENT_LOCK_KEY, 60, 30000)
+        gpuRunnerAssignmentLockKey = GPU_RUNNER_ASSIGNMENT_LOCK_KEY
+      }
+
+      let runner: Runner
+      if (linkedSandbox && linkedSandbox.runnerId) {
+        runner = await this.runnerService.findOneOrFail(linkedSandbox.runnerId)
+
+        if (runner.region !== region.id) {
+          throw new BadRequestError(
+            `Runner hosting linked sandbox is in region ${runner.region}, which does not match requested region ${region.id}`,
+          )
+        }
+
+        this.runnerService.assertRunnerCanHost(runner)
+      } else {
+        runner = await this.runnerService.getRandomAvailableRunner({
+          regions: [
+            this.regionRoutingService.resolveEffectiveRegion(organization.id, region.id, {
+              cpu,
+              memory: mem,
+              disk,
+              gpu,
+            }),
+          ],
+          sandboxClass: snapshot.sandboxClass,
+          snapshotRef: snapshot.ref,
+          gpu,
+          gpuType,
+        })
+      }
+
+      const sandbox = new Sandbox({ region: region.id, name: createSandboxDto.name })
+
+      sandbox.organizationId = organization.id
+
+      sandbox.sandboxClass = snapshot.sandboxClass
+      sandbox.snapshot = snapshot.name
+      //  TODO: default user should be configurable
+      sandbox.osUser = createSandboxDto.user || 'daytona'
+      sandbox.env = createSandboxDto.env || {}
+      sandbox.labels = createSandboxDto.labels || {}
+
+      for (const mount of resolvedSecretMounts) {
+        sandbox.env[mount.envVar] = mount.placeholder
+      }
+
+      sandbox.cpu = cpu
+      sandbox.gpu = gpu
+      sandbox.gpuType = gpuType
+      sandbox.mem = mem
+      sandbox.disk = disk
+
+      sandbox.public = createSandboxDto.public || false
+
+      this.validateNetworkSettingsCompatibility(
+        createSandboxDto.networkBlockAll,
+        createSandboxDto.networkAllowList,
+        createSandboxDto.domainAllowList,
+      )
+
+      if (createSandboxDto.networkBlockAll !== undefined) {
+        sandbox.networkBlockAll = createSandboxDto.networkBlockAll
+      }
+
+      if (createSandboxDto.networkAllowList !== undefined && createSandboxDto.networkAllowList.trim() !== '') {
+        sandbox.networkAllowList = this.resolveNetworkAllowList(createSandboxDto.networkAllowList)
+      }
+
+      if (createSandboxDto.domainAllowList !== undefined && createSandboxDto.domainAllowList.trim() !== '') {
+        sandbox.domainAllowList = this.resolveDomainAllowList(createSandboxDto.domainAllowList)
+      }
+
+      Object.assign(
+        sandbox,
+        this.resolveAutoStopAndAutoPauseIntervals(
+          createSandboxDto,
+          sandbox.sandboxClass,
+          isEphemeral(createSandboxDto),
+        ),
+      )
+
+      if (createSandboxDto.autoArchiveInterval !== undefined) {
+        sandbox.autoArchiveInterval = this.resolveAutoArchiveInterval(createSandboxDto.autoArchiveInterval)
+      }
+
+      if (createSandboxDto.autoDeleteInterval !== undefined) {
+        sandbox.autoDeleteInterval = createSandboxDto.autoDeleteInterval
+      }
+
+      if (createSandboxDto.ttlMinutes != null) {
+        Object.assign(sandbox, this.resolveTtl(createSandboxDto.ttlMinutes))
+      }
+
+      if (resolvedVolumes !== undefined) {
+        sandbox.volumes = resolvedVolumes
+      }
+
+      sandbox.runnerId = runner.id
+      sandbox.linkedSandboxId = linkedSandbox?.id ?? null
+      sandbox.pending = true
+
+      sandbox.sandboxSecrets = resolvedSecretMounts.map((m) => ({
+        sandboxId: sandbox.id,
+        secretId: m.secretId,
+        envVar: m.envVar,
+      }))
+
+      const insertedSandbox = await this.sandboxRepository.insert(sandbox)
+
+      if (gpuRunnerAssignmentLockKey) {
+        const key = gpuRunnerAssignmentLockKey
+        gpuRunnerAssignmentLockKey = undefined
+        await this.redisLockProvider
+          .unlock(key)
+          .catch((err) => this.logger.error('Failed to release GPU runner assignment lock', err))
+      }
+
+      this.eventEmitter
+        .emitAsync(SandboxEvents.CREATED, new SandboxCreatedEvent(insertedSandbox))
+        .catch((err) => this.logger.error('Failed to emit SandboxCreatedEvent', err))
+
+      return this.toSandboxDto(insertedSandbox)
+    } catch (error) {
+      if (sandboxClass) {
+        await this.rollbackPendingUsage(
+          organization.id,
+          region.id,
+          sandboxClass,
+          pendingCpuIncrement,
+          pendingMemoryIncrement,
+          pendingDiskIncrement,
+          pendingGpuIncrement,
+        )
+      }
+
+      if (
+        error.code === '23505' &&
+        error.constraint?.includes('sandbox') &&
+        !error.constraint?.includes('sandbox_secrets')
+      ) {
+        throw new ConflictException(`Sandbox with name ${createSandboxDto.name} already exists`)
+      }
+
+      throw error
+    } finally {
+      if (gpuRunnerAssignmentLockKey) {
+        await this.redisLockProvider
+          .unlock(gpuRunnerAssignmentLockKey)
+          .catch((err) => this.logger.error('Failed to release GPU runner assignment lock', err))
+      }
+    }
+  }
+
+  /**
+   * Validates and resolves the optional linkedSandbox reference on a snapshot-based sandbox create request.
+   *
+   * Returns the linked Sandbox entity when linking is requested, otherwise undefined.
+   *
+   * @throws {BadRequestError} If any link precondition is not met.
+   * @throws {NotFoundException} If the linked sandbox does not exist for the organization.
+   */
+  private async resolveLinkedSandbox(
+    createSandboxDto: CreateSandboxDto,
+    organizationId: string,
+  ): Promise<Sandbox | undefined> {
+    if (!createSandboxDto.linkedSandbox) {
+      return undefined
+    }
+
+    if (!isEphemeral(createSandboxDto)) {
+      throw new BadRequestError('Linked sandboxes must be ephemeral (set autoDeleteInterval to 0)')
+    }
+
+    const linkedSandbox = await this.findOneByIdOrName(createSandboxDto.linkedSandbox, organizationId)
+
+    if (linkedSandbox.linkedSandboxId) {
+      throw new BadRequestError(
+        `Linked sandbox ${linkedSandbox.id} is itself linked to another sandbox; chained links are not allowed`,
+      )
+    }
+
+    if (![SandboxState.STARTED, SandboxState.STOPPED].includes(linkedSandbox.state) || !linkedSandbox.runnerId) {
+      throw new BadRequestError(
+        `Linked sandbox must be in STARTED or STOPPED state with an assigned runner (current: ${linkedSandbox.state})`,
+      )
+    }
+
+    return linkedSandbox
+  }
+
+  private async assignWarmPoolSandbox(
+    warmPoolSandbox: Sandbox,
+    createSandboxDto: CreateSandboxDto,
+    organization: Organization,
+  ): Promise<SandboxDto> {
+    const now = new Date()
+    const updateData: Partial<Sandbox> = {
+      public: createSandboxDto.public || false,
+      labels: createSandboxDto.labels || {},
+      organizationId: organization.id,
+      createdAt: now,
+      // Claiming releases the sandbox from its pool. For self-serve pools the organization is
+      // unchanged (the sandbox was already owned by it); for the global pool the swap above
+      // re-homes it from the sentinel organization.
+      warmPoolId: null,
+    }
+
+    if (createSandboxDto.name) {
+      updateData.name = createSandboxDto.name
+    }
+
+    Object.assign(
+      updateData,
+      this.resolveAutoStopAndAutoPauseIntervals(
+        createSandboxDto,
+        warmPoolSandbox.sandboxClass,
+        isEphemeral({ autoDeleteInterval: createSandboxDto.autoDeleteInterval ?? warmPoolSandbox.autoDeleteInterval }),
+      ),
+    )
+
+    if (createSandboxDto.autoArchiveInterval !== undefined) {
+      updateData.autoArchiveInterval = this.resolveAutoArchiveInterval(createSandboxDto.autoArchiveInterval)
+    }
+
+    if (warmPoolSandbox.isGpu()) {
+      if (createSandboxDto.autoDeleteInterval !== undefined && createSandboxDto.autoDeleteInterval !== 0) {
+        throw new BadRequestError('GPU sandboxes must be ephemeral; set autoDeleteInterval to 0')
+      }
+      updateData.autoDeleteInterval = 0
+    } else if (createSandboxDto.autoDeleteInterval !== undefined) {
+      updateData.autoDeleteInterval = createSandboxDto.autoDeleteInterval
+    }
+
+    if (createSandboxDto.ttlMinutes != null) {
+      Object.assign(updateData, this.resolveTtl(createSandboxDto.ttlMinutes))
+    }
+
+    this.validateNetworkSettingsCompatibility(
+      createSandboxDto.networkBlockAll,
+      createSandboxDto.networkAllowList,
+      createSandboxDto.domainAllowList,
+    )
+
+    if (createSandboxDto.networkBlockAll !== undefined) {
+      updateData.networkBlockAll = createSandboxDto.networkBlockAll
+    }
+
+    if (createSandboxDto.networkAllowList !== undefined) {
+      updateData.networkAllowList =
+        createSandboxDto.networkAllowList.trim() === ''
+          ? null
+          : this.resolveNetworkAllowList(createSandboxDto.networkAllowList)
+    }
+
+    if (createSandboxDto.domainAllowList !== undefined) {
+      updateData.domainAllowList =
+        createSandboxDto.domainAllowList.trim() === ''
+          ? null
+          : this.resolveDomainAllowList(createSandboxDto.domainAllowList)
+    }
+
+    if (!warmPoolSandbox.runnerId) {
+      throw new SandboxError('Runner not found for warm pool sandbox')
+    }
+
+    if (
+      createSandboxDto.networkBlockAll !== undefined ||
+      createSandboxDto.networkAllowList !== undefined ||
+      createSandboxDto.domainAllowList !== undefined ||
+      organization.sandboxLimitedNetworkEgress
+    ) {
+      const runner = await this.runnerService.findOneOrFail(warmPoolSandbox.runnerId)
+      const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+      await runnerAdapter.updateNetworkSettings(
+        warmPoolSandbox.id,
+        updateData.networkBlockAll,
+        updateData.networkAllowList ?? undefined,
+        organization.sandboxLimitedNetworkEgress,
+        updateData.domainAllowList ?? undefined,
+      )
+    }
+
+    // Captured before the update below mutates the entity with the new organization.
+    const previousOrganizationId = warmPoolSandbox.organizationId
+
+    const updatedSandbox = await this.sandboxRepository.update(warmPoolSandbox.id, {
+      updateData,
+      entity: warmPoolSandbox,
+    })
+
+    // Defensive invalidation of orgId cache. For the global pool the sandbox moved from the
+    // sentinel organization to a real one; for self-serve pools the organization is unchanged.
+    this.sandboxLookupCacheInvalidationService.invalidateOrgId({
+      sandboxId: warmPoolSandbox.id,
+      organizationId: organization.id,
+      name: warmPoolSandbox.name,
+      previousOrganizationId,
+    })
+
+    // The otel collector caches the resolved OTEL config by sandbox auth token. Drop the entry
+    // cached while the sandbox was in the warm pool so the config for the new organization is
+    // refetched immediately instead of after the cache TTL expires.
+    this.redis.del(`${OTEL_CONFIG_CACHE_KEY_PREFIX}${warmPoolSandbox.authToken}`).catch((error) => {
+      this.logger.warn(
+        `Failed to invalidate otel config cache for sandbox ${warmPoolSandbox.id}: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    })
+
+    // Treat this as a newly started sandbox
+    this.eventEmitter.emit(
+      SandboxEvents.STATE_UPDATED,
+      new SandboxStateUpdatedEvent(updatedSandbox, SandboxState.STARTED, SandboxState.STARTED),
+    )
+    return this.toSandboxDto(updatedSandbox)
+  }
+
+  async createFromBuildInfo(createSandboxDto: CreateSandboxDto, organization: Organization): Promise<SandboxDto> {
+    if (BUILD_INFO_BLOCKED_ORGS.includes(organization.id)) {
+      throw new BadRequestError('declarative builds are not allowed')
+    }
+
+    let pendingCpuIncrement: number | undefined
+    let pendingMemoryIncrement: number | undefined
+    let pendingDiskIncrement: number | undefined
+    let pendingGpuIncrement: number | undefined
+    let gpuRunnerAssignmentLockKey: string | undefined
+
+    const region = await this.getValidatedOrDefaultRegion(organization, createSandboxDto.target)
+
+    try {
+      assertGpuTypeRequiresGpu(createSandboxDto.gpu, createSandboxDto.gpuType)
+      const resources = normalizeSandboxResourcesForCreate(
+        {
+          cpu: createSandboxDto.cpu,
+          memory: createSandboxDto.memory,
+          disk: createSandboxDto.disk,
+          gpu: createSandboxDto.gpu,
+        },
+        { cpu: DEFAULT_CPU, memory: DEFAULT_MEMORY, disk: DEFAULT_DISK, gpu: DEFAULT_GPU },
+      )
+      const cpu = resources.cpu
+      const mem = resources.memory
+      const disk = resources.disk
+      const gpu = resources.gpu
+
+      // GPU sandboxes are always ephemeral - delete on first stop.
+      if (gpu > 0 && !isEphemeral(createSandboxDto)) {
+        throw new BadRequestError('GPU sandboxes must be ephemeral; set autoDeleteInterval to 0')
+      }
+
+      if (gpu > 0) {
+        await this.assertOrganizationHasGpuAccess(organization.id)
+      }
+
+      this.organizationService.assertOrganizationIsNotSuspended(organization)
+
+      const regionQuota = region.enforceQuotas
+        ? await this.organizationService.getRegionQuota(organization.id, region.id, SandboxClass.CONTAINER)
+        : null
+
+      if (region.enforceQuotas && !regionQuota) {
+        const hasAnyQuotaInRegion = await this.organizationService.hasAnyRegionQuota(organization.id, region.id)
+        if (hasAnyQuotaInRegion) {
+          throw new ForbiddenException(
+            `Declarative builds are not available to your organization in region ${region.id}.`,
+          )
+        }
+      }
+
+      const gpuTypePreferences = resolveGpuTypePreferences(gpu, createSandboxDto.gpuType, regionQuota?.allowedGpuTypes)
+
+      const { pendingCpuIncremented, pendingMemoryIncremented, pendingDiskIncremented, pendingGpuIncremented } =
+        await this.validateOrganizationQuotas(
+          organization,
+          region,
+          SandboxClass.CONTAINER,
+          cpu,
+          mem,
+          disk,
+          gpu,
+          isEphemeral(createSandboxDto),
+          undefined,
+          regionQuota,
+        )
+
+      if (pendingCpuIncremented) {
+        pendingCpuIncrement = cpu
+      }
+      if (pendingMemoryIncremented) {
+        pendingMemoryIncrement = mem
+      }
+      if (pendingDiskIncremented) {
+        pendingDiskIncrement = disk
+      }
+      if (pendingGpuIncremented) {
+        pendingGpuIncrement = gpu
+      }
+
+      // Resolve volume names to UUIDs, failing fast on invalid references
+      const resolvedVolumes = await this.resolveVolumes(organization.id, createSandboxDto.volumes)
+
+      const resolvedSecretMounts = await this.validateSecrets(createSandboxDto.secrets, organization)
+
+      const sandbox = new Sandbox({ region: region.id, name: createSandboxDto.name })
+
+      sandbox.organizationId = organization.id
+
+      sandbox.sandboxClass = SandboxClass.CONTAINER
+      sandbox.osUser = createSandboxDto.user || 'daytona'
+      sandbox.env = createSandboxDto.env || {}
+      sandbox.labels = createSandboxDto.labels || {}
+
+      for (const mount of resolvedSecretMounts) {
+        sandbox.env[mount.envVar] = mount.placeholder
+      }
+
+      sandbox.sandboxSecrets = resolvedSecretMounts.map((m) => ({
+        sandboxId: sandbox.id,
+        secretId: m.secretId,
+        envVar: m.envVar,
+      }))
+
+      sandbox.cpu = cpu
+      sandbox.gpu = gpu
+      sandbox.mem = mem
+      sandbox.disk = disk
+      // Retain the resolved GPU type preferences so the asynchronous build/start
+      // runner assignment honors the requested GPU type even when create-time
+      // placement falls back to PENDING_BUILD (where `gpuType` is not yet pinned).
+      sandbox.gpuTypePreferences = gpu > 0 ? (gpuTypePreferences ?? null) : null
+      sandbox.public = createSandboxDto.public || false
+
+      this.validateNetworkSettingsCompatibility(
+        createSandboxDto.networkBlockAll,
+        createSandboxDto.networkAllowList,
+        createSandboxDto.domainAllowList,
+      )
+
+      if (createSandboxDto.networkBlockAll !== undefined) {
+        sandbox.networkBlockAll = createSandboxDto.networkBlockAll
+      }
+
+      if (createSandboxDto.networkAllowList !== undefined && createSandboxDto.networkAllowList.trim() !== '') {
+        sandbox.networkAllowList = this.resolveNetworkAllowList(createSandboxDto.networkAllowList)
+      }
+
+      if (createSandboxDto.domainAllowList !== undefined && createSandboxDto.domainAllowList.trim() !== '') {
+        sandbox.domainAllowList = this.resolveDomainAllowList(createSandboxDto.domainAllowList)
+      }
+
+      Object.assign(
+        sandbox,
+        this.resolveAutoStopAndAutoPauseIntervals(
+          createSandboxDto,
+          sandbox.sandboxClass,
+          isEphemeral(createSandboxDto),
+        ),
+      )
+
+      if (createSandboxDto.autoArchiveInterval !== undefined) {
+        sandbox.autoArchiveInterval = this.resolveAutoArchiveInterval(createSandboxDto.autoArchiveInterval)
+      }
+
+      if (createSandboxDto.autoDeleteInterval !== undefined) {
+        sandbox.autoDeleteInterval = createSandboxDto.autoDeleteInterval
+      }
+
+      if (createSandboxDto.ttlMinutes != null) {
+        Object.assign(sandbox, this.resolveTtl(createSandboxDto.ttlMinutes))
+      }
+
+      if (resolvedVolumes !== undefined) {
+        sandbox.volumes = resolvedVolumes
+      }
+
+      const buildInfoSnapshotRef = generateBuildSnapshotRef(
+        createSandboxDto.buildInfo.dockerfileContent,
+        createSandboxDto.buildInfo.contextHashes,
+      )
+
+      let runner: Runner
+
+      // Serialize GPU runner assignment globally: runner selection reads reserved
+      // GPU units from the DB, but the just-assigned runnerId on a
+      // concurrent request is not yet persisted, so two concurrent creates can
+      // pick the same already-full runner. GPU fallbacks can cross region
+      // boundaries, so region-scoped locks are not enough. Hold the lock until
+      // the runnerId is written to the DB. Only mark the key as held after
+      // acquisition succeeds — otherwise a timed-out waiter would unlock the
+      // actual holder in finally.
+      if (sandbox.isGpu()) {
+        await this.redisLockProvider.waitForLock(GPU_RUNNER_ASSIGNMENT_LOCK_KEY, 60, 30000)
+        gpuRunnerAssignmentLockKey = GPU_RUNNER_ASSIGNMENT_LOCK_KEY
+      }
+
+      try {
+        const declarativeBuildScoreThreshold = this.configService.get('runnerScore.thresholds.declarativeBuild')
+        // GPU sandboxes are exempt from the same-image build limits: GPU
+        // runners can't be oversubscribed (exclusive hosting, hard unit
+        // reservations), and the limits would needlessly cap same-image GPU
+        // fan-out on a runner. Mirrors the exemption in the sync-loop
+        // placement (sandbox-start.action.ts).
+        const excludedRunnerIds = sandbox.isGpu()
+          ? []
+          : await this.runnerService.getRunnersOverBuildInfoSnapshotRefLimits(
+              buildInfoSnapshotRef,
+              {
+                maxCpuUtilization: this.configService.getOrThrow('buildInfo.maxCpuUtilizationPerRunner'),
+                maxMemUtilization: this.configService.getOrThrow('buildInfo.maxMemUtilizationPerRunner'),
+                maxSandboxCount: this.configService.getOrThrow('buildInfo.maxSandboxesPerRunner'),
+              },
+              { cpu: sandbox.cpu, mem: sandbox.mem },
+            )
+        runner = await this.runnerService.getRandomAvailableRunner({
+          regions: [
+            this.regionRoutingService.resolveEffectiveRegion(sandbox.organizationId, sandbox.region, {
+              cpu,
+              memory: mem,
+              disk,
+              gpu: sandbox.gpu,
+            }),
+          ],
+          sandboxClass: sandbox.sandboxClass,
+          snapshotRef: buildInfoSnapshotRef,
+          gpu: sandbox.gpu,
+          gpuType: gpuTypePreferences ?? null,
+          ...(excludedRunnerIds.length > 0 && { excludedRunnerIds }),
+          ...(declarativeBuildScoreThreshold !== undefined && {
+            availabilityScoreThreshold: declarativeBuildScoreThreshold,
+          }),
+        })
+
+        sandbox.runnerId = runner.id
+        sandbox.gpuType = sandbox.isGpu() ? runner.gpuType : null
+      } catch (error) {
+        if (
+          error instanceof BadRequestError == false ||
+          !error.message.startsWith('No available runners') ||
+          !createSandboxDto.buildInfo
+        ) {
+          throw error
+        }
+        sandbox.state = SandboxState.PENDING_BUILD
+      }
+
+      sandbox.buildInfo = await this.buildInfoService.getOrCreate(buildInfoSnapshotRef, createSandboxDto.buildInfo)
+
+      sandbox.pending = true
+
+      const insertedSandbox = await this.sandboxRepository.insert(sandbox)
+
+      if (gpuRunnerAssignmentLockKey) {
+        const key = gpuRunnerAssignmentLockKey
+        gpuRunnerAssignmentLockKey = undefined
+        await this.redisLockProvider
+          .unlock(key)
+          .catch((err) => this.logger.error('Failed to release GPU runner assignment lock', err))
+      }
+
+      this.eventEmitter
+        .emitAsync(SandboxEvents.CREATED, new SandboxCreatedEvent(insertedSandbox))
+        .catch((err) => this.logger.error('Failed to emit SandboxCreatedEvent', err))
+
+      return this.toSandboxDto(insertedSandbox)
+    } catch (error) {
+      await this.rollbackPendingUsage(
+        organization.id,
+        region.id,
+        SandboxClass.CONTAINER,
+        pendingCpuIncrement,
+        pendingMemoryIncrement,
+        pendingDiskIncrement,
+        pendingGpuIncrement,
+      )
+
+      if (
+        error.code === '23505' &&
+        error.constraint?.includes('sandbox') &&
+        !error.constraint?.includes('sandbox_secrets')
+      ) {
+        throw new ConflictException(`Sandbox with name ${createSandboxDto.name} already exists`)
+      }
+
+      throw error
+    } finally {
+      if (gpuRunnerAssignmentLockKey) {
+        await this.redisLockProvider
+          .unlock(gpuRunnerAssignmentLockKey)
+          .catch((err) => this.logger.error('Failed to release GPU runner assignment lock', err))
+      }
+    }
+  }
+
+  async forkSandbox(sandboxIdOrName: string, organization: Organization, dto: ForkSandboxDto): Promise<Sandbox> {
+    let pendingCpuIncrement: number | undefined
+    let pendingMemoryIncrement: number | undefined
+    let pendingDiskIncrement: number | undefined
+    let pendingGpuIncrement: number | undefined
+
+    const sourceSandbox = await this.findOneByIdOrName(sandboxIdOrName, organization.id)
+
+    if (![SandboxClass.LINUX_VM, SandboxClass.WINDOWS].includes(sourceSandbox.sandboxClass)) {
+      throw new HttpException('Forking is not supported for this sandbox', HttpStatus.UNPROCESSABLE_ENTITY)
+    }
+
+    const region = await this.regionService.findOne(sourceSandbox.region)
+    if (!region) {
+      throw new NotFoundException(`Region with ID ${sourceSandbox.region} not found`)
+    }
+
+    try {
+      if (sourceSandbox.state !== SandboxState.STARTED) {
+        throw new BadRequestError('Sandbox must be in started state to fork')
+      }
+
+      if (sourceSandbox.pending) {
+        throw new StateChangeInProgressError()
+      }
+
+      if (!sourceSandbox.runnerId) {
+        throw new NotFoundException(`Sandbox with ID ${sourceSandbox.id} does not have a runner`)
+      }
+
+      if (sourceSandbox.isGpu()) {
+        throw new HttpException('Forking is not supported for GPU sandboxes', HttpStatus.UNPROCESSABLE_ENTITY)
+      }
+
+      const runner = await this.runnerService.findOneOrFail(sourceSandbox.runnerId)
+
+      // Copy all properties from source sandbox to forked sandbox
+      const forkedSandbox = new Sandbox({ region: sourceSandbox.region, name: dto.name })
+      forkedSandbox.organizationId = organization.id
+      forkedSandbox.sandboxClass = sourceSandbox.sandboxClass
+      forkedSandbox.snapshot = sourceSandbox.snapshot
+      forkedSandbox.osUser = sourceSandbox.osUser
+      forkedSandbox.env = { ...sourceSandbox.env }
+      forkedSandbox.labels = { ...sourceSandbox.labels }
+      forkedSandbox.cpu = sourceSandbox.cpu
+      forkedSandbox.mem = sourceSandbox.mem
+      forkedSandbox.disk = sourceSandbox.disk
+      forkedSandbox.gpu = sourceSandbox.gpu
+      forkedSandbox.gpuType = sourceSandbox.gpuType ?? null
+      forkedSandbox.public = sourceSandbox.public
+      forkedSandbox.autoStopInterval = sourceSandbox.autoStopInterval
+      forkedSandbox.autoPauseInterval = sourceSandbox.autoPauseInterval
+      forkedSandbox.autoArchiveInterval = sourceSandbox.autoArchiveInterval
+      forkedSandbox.autoDeleteInterval = sourceSandbox.autoDeleteInterval
+      forkedSandbox.autoDestroyAt = sourceSandbox.autoDestroyAt
+      forkedSandbox.volumes = sourceSandbox.volumes?.map((volume) => ({ ...volume }))
+      forkedSandbox.networkBlockAll = sourceSandbox.networkBlockAll
+      forkedSandbox.networkAllowList = sourceSandbox.networkAllowList
+      forkedSandbox.domainAllowList = sourceSandbox.domainAllowList
+      forkedSandbox.runnerId = sourceSandbox.runnerId
+      forkedSandbox.pending = true
+      forkedSandbox.state = SandboxState.CREATING
+
+      this.organizationService.assertOrganizationIsNotSuspended(organization)
+
+      // Validate organization usage quotas are not exceeded due to new sandbox created by forking
+      const { pendingCpuIncremented, pendingMemoryIncremented, pendingDiskIncremented, pendingGpuIncremented } =
+        await this.validateOrganizationQuotas(
+          organization,
+          region,
+          forkedSandbox.sandboxClass,
+          forkedSandbox.cpu,
+          forkedSandbox.mem,
+          forkedSandbox.disk,
+          forkedSandbox.gpu,
+          isEphemeral(forkedSandbox),
+        )
+
+      if (pendingCpuIncremented) {
+        pendingCpuIncrement = forkedSandbox.cpu
+      }
+      if (pendingMemoryIncremented) {
+        pendingMemoryIncrement = forkedSandbox.mem
+      }
+      if (pendingDiskIncremented) {
+        pendingDiskIncrement = forkedSandbox.disk
+      }
+      if (pendingGpuIncremented) {
+        pendingGpuIncrement = forkedSandbox.gpu
+      }
+
+      // Capture state of source sandbox before transitioning to FORKING
+      const sourceSandboxInitialState = sourceSandbox.state
+
+      await this.sandboxRepository.updateWhere(sourceSandbox.id, {
+        updateData: {
+          state: SandboxState.FORKING,
+          pending: true,
+        },
+        whereCondition: {
+          state: sourceSandbox.state,
+          pending: false,
+        },
+      })
+
+      let insertedForkedSandbox: Sandbox | undefined
+
+      try {
+        insertedForkedSandbox = await this.sandboxRepository.insert(forkedSandbox, sourceSandbox.id)
+        const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+        await runnerAdapter.forkSandbox(sourceSandbox.id, insertedForkedSandbox.id)
+      } catch (error) {
+        // Rollback source sandbox to its initial state
+        await this.sandboxRepository.updateWhere(sourceSandbox.id, {
+          updateData: {
+            state: sourceSandboxInitialState,
+            pending: false,
+          },
+          whereCondition: { state: SandboxState.FORKING },
+        })
+
+        if (insertedForkedSandbox) {
+          try {
+            const updateData = Sandbox.getSoftDeleteUpdate(insertedForkedSandbox)
+            const destroyedSandbox = await this.sandboxRepository.updateWhere(insertedForkedSandbox.id, {
+              updateData,
+              whereCondition: { pending: true, state: SandboxState.CREATING },
+            })
+            this.eventEmitter.emit(SandboxEvents.DESTROYED, new SandboxDestroyedEvent(destroyedSandbox))
+          } catch (destroyError) {
+            this.logger.error(`Failed to rollback forked sandbox ${insertedForkedSandbox.id}`, destroyError)
+          }
+        }
+
+        throw error
+      }
+
+      this.eventEmitter
+        .emitAsync(SandboxEvents.CREATED, new SandboxCreatedEvent(insertedForkedSandbox))
+        .catch((err) => this.logger.error('Failed to emit SandboxCreatedEvent', err))
+
+      return insertedForkedSandbox
+    } catch (error) {
+      await this.rollbackPendingUsage(
+        organization.id,
+        region.id,
+        sourceSandbox.sandboxClass,
+        pendingCpuIncrement,
+        pendingMemoryIncrement,
+        pendingDiskIncrement,
+        pendingGpuIncrement,
+      )
+
+      if (error.code === '23505') {
+        throw new ConflictException('Sandbox with this name already exists')
+      }
+
+      throw error
+    }
+  }
+
+  async getForkChildren(
+    organizationId: string,
+    sandboxIdOrName: string,
+    includeDestroyed?: boolean,
+  ): Promise<Sandbox[]> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+    const forks = await this.sandboxForkRepository.find({
+      where: {
+        parentId: sandbox.id,
+        child: {
+          organizationId,
+          ...(!includeDestroyed && { state: Not(SandboxState.DESTROYED) }),
+        },
+      },
+      relations: ['child'],
+      take: 100,
+    })
+    return forks.map((f) => f.child)
+  }
+
+  async getForkParent(organizationId: string, sandboxIdOrName: string): Promise<Sandbox | null> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+    const fork = await this.sandboxForkRepository.findOne({
+      where: { childId: sandbox.id },
+      relations: ['parent'],
+    })
+    if (!fork || fork.parent.organizationId !== organizationId) {
+      return null
+    }
+    return fork.parent
+  }
+
+  async getForkAncestors(organizationId: string, sandboxIdOrName: string): Promise<Sandbox[]> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+    const ancestors: Sandbox[] = []
+    const visitedIds = new Set<string>()
+    let currentId = sandbox.id
+
+    while (ancestors.length < 50) {
+      const fork = await this.sandboxForkRepository.findOne({
+        where: { childId: currentId },
+        relations: ['parent'],
+      })
+      if (!fork || visitedIds.has(fork.parentId) || fork.parent.organizationId !== organizationId) {
+        break
+      }
+      visitedIds.add(fork.parentId)
+      ancestors.push(fork.parent)
+      currentId = fork.parentId
+    }
+
+    return ancestors.reverse()
+  }
+
+  async createSnapshotFromSandbox(
+    sandboxIdOrName: string,
+    organization: Organization,
+    dto: CreateSandboxSnapshotDto,
+  ): Promise<Sandbox> {
+    let pendingSnapshotCountIncrement: number | undefined
+
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organization.id)
+
+    const includeMemory = dto.includeMemory ?? false
+
+    try {
+      if (![SandboxState.STARTED, SandboxState.STOPPED].includes(sandbox.state)) {
+        throw new BadRequestError('Sandbox must be in started or stopped state to create a snapshot')
+      }
+
+      if (sandbox.pending) {
+        throw new StateChangeInProgressError()
+      }
+
+      if (!sandbox.runnerId) {
+        throw new NotFoundException(`Sandbox with ID ${sandbox.id} does not have a runner`)
+      }
+
+      const runner = await this.runnerService.findOneOrFail(sandbox.runnerId)
+
+      if ([SandboxClass.WINDOWS, SandboxClass.LINUX_VM].includes(sandbox.sandboxClass)) {
+        if (includeMemory && sandbox.state !== SandboxState.STARTED) {
+          throw new BadRequestError('Snapshots with memory require the VM sandbox to be running (STARTED)')
+        }
+        if (!includeMemory && sandbox.state !== SandboxState.STOPPED) {
+          throw new BadRequestError('Filesystem-only snapshots require the VM sandbox to be stopped (STOPPED)')
+        }
+      } else if (includeMemory) {
+        throw new BadRequestError('includeMemory is only supported for VM sandboxes (Windows, Linux VM)')
+      }
+
+      this.organizationService.assertOrganizationIsNotSuspended(organization)
+
+      const region = await this.regionService.findOne(sandbox.region)
+      if (!region) {
+        throw new NotFoundException(`Region with ID ${sandbox.region} not found`)
+      }
+
+      let registry: DockerRegistry | undefined
+      if (isRegistryBasedSandboxClass(sandbox.sandboxClass)) {
+        registry = (await this.dockerRegistryService.getAvailableInternalRegistry(sandbox.region)) ?? undefined
+        if (sandbox.sandboxClass === SandboxClass.CONTAINER && !registry) {
+          throw new BadRequestError(
+            'No internal registry is available for this sandbox region; cannot snapshot a container sandbox',
+          )
+        }
+      }
+
+      const { pendingSnapshotCountIncremented } = await this.snapshotService.validateOrganizationQuotas(
+        organization,
+        region,
+        sandbox.sandboxClass,
+        1,
+        sandbox.cpu,
+        sandbox.mem,
+        sandbox.disk,
+        sandbox.gpu,
+      )
+
+      if (pendingSnapshotCountIncremented) {
+        pendingSnapshotCountIncrement = 1
+      }
+
+      const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+
+      const updatedSandbox = await this.sandboxRepository.updateWhere(sandbox.id, {
+        updateData: {
+          state: SandboxState.SNAPSHOTTING,
+          pending: true,
+        },
+        whereCondition: {
+          state: sandbox.state,
+          pending: false,
+        },
+      })
+
+      // Create the Snapshot row up front in the SNAPSHOTTING state so the
+      // user can track the operation from the start. It is transitioned to
+      // ACTIVE (or ERROR) once the runner finishes producing the image.
+      try {
+        await this.snapshotService.createSnapshotFromSandboxEntry({
+          organizationId: organization.id,
+          name: dto.name,
+          regionId: sandbox.region,
+          sandboxClass: sandbox.sandboxClass,
+          cpu: sandbox.cpu,
+          gpu: sandbox.gpu,
+          gpuType: sandbox.gpuType ?? null,
+          mem: sandbox.mem,
+          disk: sandbox.disk,
+          initialRunnerId: runner.id,
+        })
+      } catch (error) {
+        await this.revertSandboxSnapshottingState(sandbox)
+        throw error
+      }
+
+      // The CREATED event has incremented current snapshot usage, so release
+      // the pending reservation to complete the transfer - otherwise the
+      // operation is counted twice against the quota until the reservation's
+      // TTL expires. The row's own state transitions (-> ERROR / removal) own
+      // the rollback from here on; clearing the local increment keeps the
+      // outer catch from decrementing pending a second time.
+      await this.snapshotService.releasePendingSnapshotUsage(organization.id, pendingSnapshotCountIncrement)
+      pendingSnapshotCountIncrement = undefined
+
+      // v2 runners enqueue a SNAPSHOT_SANDBOX job and resolve immediately
+      // with `undefined`; the job state handler will transition the Snapshot
+      // row to ACTIVE (or ERROR) on completion.
+      //
+      // v0 runners (Docker, container class) don't have jobs - the adapter
+      // performs a synchronous HTTP call to the runner's commit+push
+      // endpoint, which can take several minutes. We don't want to block
+      // the API request that long, so for v0 we kick the call off in the
+      // background and immediately return the SNAPSHOTTING sandbox to the
+      // caller. The background promise completes or fails the snapshot
+      // entry and reverts sandbox state.
+      if (runner.apiVersion === '0') {
+        void this.runV0SnapshotFromSandbox({
+          sandbox,
+          previousState: sandbox.state,
+          snapshotName: dto.name,
+          organizationId: organization.id,
+          registry,
+          runner,
+          runnerAdapter,
+        })
+      } else {
+        try {
+          await runnerAdapter.createSnapshotFromSandbox(sandbox.id, dto.name, organization.id, registry, includeMemory)
+        } catch (error) {
+          await this.revertSandboxSnapshottingState(sandbox)
+          await this.snapshotService
+            .failSnapshotFromSandbox({
+              organizationId: organization.id,
+              name: dto.name,
+              errorReason: error.message || String(error),
+            })
+            .catch((err) =>
+              this.logger.error(`Failed to mark snapshot "${dto.name}" as errored for sandbox ${sandbox.id}:`, err),
+            )
+
+          throw error
+        }
+      }
+
+      return updatedSandbox
+    } catch (error) {
+      await this.snapshotService.releasePendingSnapshotUsage(organization.id, pendingSnapshotCountIncrement)
+      throw error
+    }
+  }
+
+  /**
+   * Reverts a sandbox from SNAPSHOTTING back to its previous state after a
+   * failure to start the snapshot operation.
+   */
+  private async revertSandboxSnapshottingState(sandbox: Sandbox): Promise<void> {
+    await this.sandboxRepository.updateWhere(sandbox.id, {
+      updateData: {
+        state: sandbox.state,
+        pending: false,
+      },
+      whereCondition: { state: SandboxState.SNAPSHOTTING },
+    })
+  }
+
+  /**
+   * Background driver for v0 (Docker) sandbox snapshotting.
+   *
+   * v0 runners expose a synchronous HTTP endpoint for "commit + push" that
+   * may take several minutes. We run it in a background promise so the
+   * user-facing API request can return immediately with state=SNAPSHOTTING,
+   * mirroring the v2 (job-driven) UX.
+   *
+   * Errors are intentionally swallowed - entity state is the source of
+   * truth. On any failure we restore the sandbox state and transition the
+   * snapshot entry to ERROR.
+   */
+  private async runV0SnapshotFromSandbox(params: {
+    sandbox: Sandbox
+    previousState: SandboxState
+    snapshotName: string
+    organizationId: string
+    registry?: DockerRegistry
+    runner: Runner
+    runnerAdapter: RunnerAdapter
+  }): Promise<void> {
+    const { sandbox, previousState, snapshotName, organizationId, registry, runner, runnerAdapter } = params
+
+    try {
+      const result = await runnerAdapter.createSnapshotFromSandbox(sandbox.id, snapshotName, organizationId, registry)
+      if (!result) {
+        throw new Error('runner returned no snapshot result')
+      }
+
+      const completed = await this.snapshotService.completeSnapshotFromSandbox({
+        organizationId,
+        name: snapshotName,
+        ref: result.ref,
+        runnerId: runner.id,
+        regionId: sandbox.region,
+        sandboxClass: sandbox.sandboxClass,
+        cpu: sandbox.cpu,
+        gpu: sandbox.gpu,
+        gpuType: sandbox.gpuType ?? null,
+        mem: sandbox.mem,
+        disk: sandbox.disk,
+        sizeGB: result.sizeGB,
+      })
+
+      if (!completed) {
+        this.logger.warn(
+          `Snapshot "${snapshotName}" for sandbox ${sandbox.id} is no longer in the snapshotting state; skipping activation`,
+        )
+      }
+    } catch (error) {
+      this.logger.error(`v0 snapshotFromSandbox failed for sandbox ${sandbox.id}:`, error)
+      await this.snapshotService
+        .failSnapshotFromSandbox({
+          organizationId,
+          name: snapshotName,
+          errorReason: error.message || String(error),
+        })
+        .catch((err) =>
+          this.logger.error(`Failed to mark snapshot "${snapshotName}" as errored for sandbox ${sandbox.id}:`, err),
+        )
+    }
+
+    // Always clear SNAPSHOTTING - whether the snapshot succeeded or not,
+    // the sandbox itself should return to its previous state.
+    await this.sandboxRepository
+      .updateWhere(sandbox.id, {
+        updateData: { state: previousState, pending: false },
+        whereCondition: { state: SandboxState.SNAPSHOTTING },
+      })
+      .catch((err) => this.logger.error(`Failed to clear SNAPSHOTTING state for sandbox ${sandbox.id}:`, err))
+  }
+
+  async findAllPaginatedDeprecated(
+    organizationId: string,
+    page = 1,
+    limit = 10,
+    filters?: {
+      id?: string
+      name?: string
+      labels?: { [key: string]: string }
+      includeErroredDestroyed?: boolean
+      states?: SandboxState[]
+      snapshots?: string[]
+      regionIds?: string[]
+      minCpu?: number
+      maxCpu?: number
+      minMemoryGiB?: number
+      maxMemoryGiB?: number
+      minDiskGiB?: number
+      maxDiskGiB?: number
+      lastEventAfter?: Date
+      lastEventBefore?: Date
+    },
+    sort?: {
+      field?: SandboxSortFieldDeprecated
+      direction?: SandboxSortDirectionDeprecated
+    },
+  ): Promise<PaginatedList<Sandbox>> {
+    const pageNum = Number(page)
+    const limitNum = Number(limit)
+    const offset = (pageNum - 1) * limitNum
+    const maxOffset = 1_000
+    if (offset >= maxOffset) {
+      throw new BadRequestError(`Deep pagination not allowed: offset ${offset} exceeds maximum ${maxOffset} items.`)
+    }
+
+    const {
+      id,
+      name,
+      labels,
+      includeErroredDestroyed,
+      states,
+      snapshots,
+      regionIds,
+      minCpu,
+      maxCpu,
+      minMemoryGiB,
+      maxMemoryGiB,
+      minDiskGiB,
+      maxDiskGiB,
+      lastEventAfter,
+      lastEventBefore,
+    } = filters || {}
+
+    const {
+      field: sortField = DEFAULT_SANDBOX_SORT_FIELD_DEPRECATED,
+      direction: sortDirection = DEFAULT_SANDBOX_SORT_DIRECTION_DEPRECATED,
+    } = sort || {}
+
+    const baseFindOptions: FindOptionsWhere<Sandbox> = {
+      organizationId,
+      // Unclaimed warm pool sandboxes are never surfaced through the deprecated listing.
+      warmPoolId: IsNull(),
+      ...(id ? { id: ILike(`${id}%`) } : {}),
+      ...(name ? { name: ILike(`${name}%`) } : {}),
+      ...(labels ? { labels: JsonContains(labels) } : {}),
+      ...(snapshots ? { snapshot: In(snapshots) } : {}),
+      ...(regionIds ? { region: In(regionIds) } : {}),
+    }
+
+    baseFindOptions.cpu = createRangeFilter(minCpu, maxCpu)
+    baseFindOptions.mem = createRangeFilter(minMemoryGiB, maxMemoryGiB)
+    baseFindOptions.disk = createRangeFilter(minDiskGiB, maxDiskGiB)
+
+    const lastActivityFilter = createRangeFilter(lastEventAfter, lastEventBefore)
+    if (lastActivityFilter) {
+      baseFindOptions.lastActivityAt = { lastActivityAt: lastActivityFilter }
+    }
+
+    const statesToInclude = (states || Object.values(SandboxState)).filter((state) => state !== SandboxState.DESTROYED)
+    const errorStates = [SandboxState.ERROR, SandboxState.BUILD_FAILED]
+
+    const nonErrorStatesToInclude = statesToInclude.filter((state) => !errorStates.includes(state))
+    const errorStatesToInclude = statesToInclude.filter((state) => errorStates.includes(state))
+
+    const where: FindOptionsWhere<Sandbox>[] = []
+
+    if (nonErrorStatesToInclude.length > 0) {
+      where.push({
+        ...baseFindOptions,
+        state: In(nonErrorStatesToInclude),
+      })
+    }
+
+    if (errorStatesToInclude.length > 0) {
+      where.push({
+        ...baseFindOptions,
+        state: In(errorStatesToInclude),
+        ...(includeErroredDestroyed ? {} : { desiredState: Not(SandboxDesiredState.DESTROYED) }),
+      })
+    }
+
+    const [items, total] = await this.sandboxRepository.findAndCount({
+      where,
+      relations: ['lastActivityAt'],
+      order: {
+        ...(sortField === SandboxSortFieldDeprecated.LAST_ACTIVITY_AT
+          ? { lastActivityAt: { lastActivityAt: { direction: sortDirection, nulls: 'LAST' } } }
+          : {
+              [sortField]: {
+                direction: sortDirection,
+                nulls: 'LAST',
+              },
+            }),
+        ...(sortField !== SandboxSortFieldDeprecated.CREATED_AT && { createdAt: 'DESC' }),
+      },
+      skip: (pageNum - 1) * limitNum,
+      take: limitNum,
+    })
+
+    return {
+      items,
+      total,
+      page: pageNum,
+      totalPages: Math.ceil(total / limitNum),
+    }
+  }
+
+  /**
+   * Search sandboxes
+   * @param organizationId - The ID of the organization
+   * @param query - The query parameters
+   * @returns The paginated list of sandboxes. If cursor is omitted from the query, newest sandboxes will be returned.
+   * @throws BadRequestError if the cursor is invalid
+   */
+  async search(organizationId: string, query: ListSandboxesQueryDto): Promise<ListSandboxesResponseDto> {
+    let parsedLabels: { [key: string]: string } | undefined
+    if (query.labels) {
+      try {
+        parsedLabels = JSON.parse(query.labels)
+      } catch {
+        throw new BadRequestError('Invalid labels JSON format')
+      }
+    }
+
+    const result = await this.sandboxSearchAdapter.search({
+      filters: {
+        organizationId,
+        idPrefix: query.id,
+        namePrefix: query.name,
+        labels: parsedLabels,
+        includeErroredDeleted: query.includeErroredDeleted,
+        includeWarm: query.includeWarm,
+        states: query.states,
+        snapshots: query.snapshots,
+        regionIds: query.regionIds,
+        sandboxClasses: query.sandboxClasses,
+        minCpu: query.minCpu,
+        maxCpu: query.maxCpu,
+        minMemoryGiB: query.minMemoryGiB,
+        maxMemoryGiB: query.maxMemoryGiB,
+        minDiskGiB: query.minDiskGiB,
+        maxDiskGiB: query.maxDiskGiB,
+        isPublic: query.isPublic,
+        isRecoverable: query.isRecoverable,
+        createdAtAfter: query.createdAtAfter,
+        createdAtBefore: query.createdAtBefore,
+        lastEventAfter: query.lastEventAfter,
+        lastEventBefore: query.lastEventBefore,
+        autoDestroyAtAfter: query.autoDestroyAtAfter,
+        autoDestroyAtBefore: query.autoDestroyAtBefore,
+      },
+      pagination: {
+        cursor: query.cursor,
+        limit: query.limit,
+      },
+      sort: {
+        field: query.sort,
+        direction: query.order,
+      },
+    })
+
+    const targets = [...new Set(result.items.map((item) => item.target))]
+    const toolboxProxyUrlMap = await this.resolveToolboxProxyUrls(targets)
+
+    return {
+      items: result.items.map((item) => {
+        const url = toolboxProxyUrlMap.get(item.target)
+        if (!url) {
+          throw new NotFoundException(`Toolbox proxy URL not resolved for region ${item.target}`)
+        }
+        item.toolboxProxyUrl = url
+        return item
+      }),
+      nextCursor: result.nextCursor,
+    }
+  }
+
+  private getExpectedDesiredStateForState(state: SandboxState): SandboxDesiredState | undefined {
+    switch (state) {
+      case SandboxState.STARTED:
+        return SandboxDesiredState.STARTED
+      case SandboxState.STOPPED:
+        return SandboxDesiredState.STOPPED
+      case SandboxState.ARCHIVED:
+        return SandboxDesiredState.ARCHIVED
+      case SandboxState.DESTROYED:
+        return SandboxDesiredState.DESTROYED
+      case SandboxState.PAUSED:
+        return SandboxDesiredState.PAUSED
+      default:
+        return undefined
+    }
+  }
+
+  private hasValidDesiredState(state: SandboxState): boolean {
+    return this.getExpectedDesiredStateForState(state) !== undefined
+  }
+
+  async findByRunnerId(
+    runnerId: string,
+    states?: SandboxState[],
+    skipReconcilingSandboxes?: boolean,
+  ): Promise<Sandbox[]> {
+    const where: FindOptionsWhere<Sandbox> = { runnerId }
+    if (states && states.length > 0) {
+      // Validate that all states have corresponding desired states
+      states.forEach((state) => {
+        if (!this.hasValidDesiredState(state)) {
+          throw new BadRequestError(`State ${state} does not have a corresponding desired state`)
+        }
+      })
+      where.state = In(states)
+    }
+
+    let sandboxes = await this.sandboxRepository.find({ where, relations: ['lastActivityAt'] })
+
+    if (skipReconcilingSandboxes) {
+      sandboxes = sandboxes.filter((sandbox) => {
+        const expectedDesiredState = this.getExpectedDesiredStateForState(sandbox.state)
+        return expectedDesiredState !== undefined && expectedDesiredState === sandbox.desiredState
+      })
+    }
+
+    return sandboxes
+  }
+
+  async findOneByIdOrName(
+    sandboxIdOrName: string,
+    organizationId: string,
+    returnDestroyed?: boolean,
+  ): Promise<Sandbox> {
+    const stateFilter = returnDestroyed ? {} : { state: Not(SandboxState.DESTROYED) }
+    const relations = ['buildInfo', 'lastActivityAt']
+
+    // Try lookup by ID first
+    let sandbox = await this.sandboxRepository.findOne({
+      where: {
+        id: sandboxIdOrName,
+        organizationId,
+        ...stateFilter,
+      },
+      relations,
+      cache: {
+        id: sandboxLookupCacheKeyById({ organizationId, returnDestroyed, sandboxId: sandboxIdOrName }),
+        milliseconds: SANDBOX_LOOKUP_CACHE_TTL_MS,
+      },
+    })
+
+    // Fallback to lookup by name
+    if (!sandbox) {
+      sandbox = await this.sandboxRepository.findOne({
+        where: {
+          name: sandboxIdOrName,
+          organizationId,
+          ...stateFilter,
+        },
+        relations,
+        cache: {
+          id: sandboxLookupCacheKeyByName({ organizationId, returnDestroyed, sandboxName: sandboxIdOrName }),
+          milliseconds: SANDBOX_LOOKUP_CACHE_TTL_MS,
+        },
+      })
+    }
+
+    if (
+      !sandbox ||
+      (!returnDestroyed &&
+        [SandboxState.ERROR, SandboxState.BUILD_FAILED].includes(sandbox.state) &&
+        sandbox.desiredState === SandboxDesiredState.DESTROYED)
+    ) {
+      throw new NotFoundException(`Sandbox with ID or name ${sandboxIdOrName} not found`)
+    }
+
+    return sandbox
+  }
+
+  async findOne(sandboxId: string, returnDestroyed?: boolean): Promise<Sandbox> {
+    const sandbox = await this.sandboxRepository.findOne({
+      where: {
+        id: sandboxId,
+        ...(returnDestroyed ? {} : { state: Not(SandboxState.DESTROYED) }),
+      },
+      relations: ['lastActivityAt'],
+    })
+
+    if (
+      !sandbox ||
+      (!returnDestroyed &&
+        [SandboxState.ERROR, SandboxState.BUILD_FAILED].includes(sandbox.state) &&
+        sandbox.desiredState === SandboxDesiredState.DESTROYED)
+    ) {
+      throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
+    }
+
+    return sandbox
+  }
+
+  async findByAuthToken(authToken: string): Promise<Sandbox | null> {
+    const sandbox = await this.sandboxRepository.findOne({
+      where: { authToken },
+      // Shares the auth-token lookup cache (same query, same key) with
+      // OrganizationService.findBySandboxAuthToken; invalidated on token rotation and
+      // destroyed/archived state flips by SandboxLookupCacheInvalidationService.
+      cache: {
+        id: sandboxLookupCacheKeyByAuthToken({ authToken }),
+        milliseconds: 10_000,
+      },
+    })
+
+    if (!sandbox) {
+      return null
+    }
+
+    if (sandbox.state === SandboxState.DESTROYED || sandbox.state === SandboxState.ARCHIVED) {
+      return null
+    }
+
+    return sandbox
+  }
+
+  // Looks up a sandbox by its secrets token (the runner-only token used to
+  // resolve plaintext secrets). Intentionally not cached: the token rotates on
+  // every start, and a rotated token must stop authorizing immediately. Only
+  // ever used by the sandbox-secrets auth context.
+  async findBySecretsToken(secretsToken: string): Promise<Sandbox | null> {
+    const sandbox = await this.sandboxRepository.findOne({
+      where: { secretsToken },
+    })
+
+    if (!sandbox) {
+      return null
+    }
+
+    // A destroyed/archived sandbox must not keep authorizing secret resolution
+    // (mirrors findByAuthToken).
+    if (sandbox.state === SandboxState.DESTROYED || sandbox.state === SandboxState.ARCHIVED) {
+      return null
+    }
+
+    return sandbox
+  }
+
+  private async validateSecrets(
+    secrets: Record<string, string>[] | undefined,
+    organization: Organization,
+  ): Promise<{ envVar: string; secretId: string; placeholder: string }[]> {
+    if (!secrets?.length) {
+      return []
+    }
+
+    if (secrets.length > organization.maxSecretsPerSandbox) {
+      throw new BadRequestError(
+        `Too many secrets mounted to the sandbox. Maximum allowed per sandbox: ${organization.maxSecretsPerSandbox}`,
+      )
+    }
+
+    const mounts: { envVar: string; vaultName: string }[] = []
+    const seenEnvVars = new Set<string>()
+
+    for (const entry of secrets) {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        throw new BadRequestError('Each secret entry must be an object mapping an env var name to a vault secret name')
+      }
+      const keys = Object.keys(entry)
+      if (keys.length !== 1) {
+        throw new BadRequestError(
+          'Each secret entry must have exactly one key (env var name) mapping to a vault secret name',
+        )
+      }
+      const envVar = keys[0]
+      const vaultName = entry[envVar]
+      if (typeof envVar !== 'string' || typeof vaultName !== 'string' || !envVar || !vaultName) {
+        throw new BadRequestError('Secret env var name and vault secret name must be non-empty strings')
+      }
+      if (seenEnvVars.has(envVar)) {
+        throw new BadRequestError(`Duplicate env var name: ${envVar}`)
+      }
+      seenEnvVars.add(envVar)
+      mounts.push({ envVar, vaultName })
+    }
+
+    const vaultNames = [...new Set(mounts.map((m) => m.vaultName))]
+    const foundSecrets = await this.secretService.findByNames(vaultNames, organization.id)
+    const nameToSecret = new Map(foundSecrets.map((s) => [s.name, s]))
+
+    const missing = vaultNames.filter((n) => !nameToSecret.has(n))
+    if (missing.length > 0) {
+      throw new BadRequestError(`Secrets not found: ${missing.join(', ')}`)
+    }
+
+    return mounts.map((m) => {
+      const secret = nameToSecret.get(m.vaultName)!
+      return { envVar: m.envVar, secretId: secret.id, placeholder: secret.placeholder }
+    })
+  }
+
+  async resolveSecrets(
+    sandboxId: string,
+    organizationId: string,
+  ): Promise<{ env: string; placeholder: string; value: string; hosts: string[] }[]> {
+    const sandboxSecrets = await this.sandboxSecretRepository.find({
+      where: { sandboxId },
+    })
+
+    if (sandboxSecrets.length === 0) {
+      return []
+    }
+
+    return this.secretService.resolveForSandbox(
+      sandboxSecrets.map((ss) => ({ secretId: ss.secretId, envVar: ss.envVar })),
+      organizationId,
+    )
+  }
+
+  async updateSecrets(
+    sandboxIdOrName: string,
+    secrets: Record<string, string>[],
+    organization: Organization,
+  ): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organization.id)
+
+    if (sandbox.state === SandboxState.DESTROYED || sandbox.state === SandboxState.DESTROYING) {
+      throw new BadRequestError('Sandbox is destroyed')
+    }
+
+    const resolvedSecretMounts = await this.validateSecrets(secrets, organization)
+
+    const existingMounts = await this.sandboxSecretRepository.find({
+      where: { sandboxId: sandbox.id },
+    })
+
+    // Replace semantics: env vars of previously mounted secrets are dropped, then
+    // the new placeholder mappings are applied on top of the user env.
+    const env = { ...(sandbox.env ?? {}) }
+    for (const mount of existingMounts) {
+      delete env[mount.envVar]
+    }
+    for (const mount of resolvedSecretMounts) {
+      env[mount.envVar] = mount.placeholder
+    }
+
+    const updatedSandbox = await this.sandboxRepository.updateWhere(
+      sandbox.id,
+      {
+        updateData: { env },
+        whereCondition: { organizationId: organization.id },
+      },
+      async (em) => {
+        await em.delete(SandboxSecret, { sandboxId: sandbox.id })
+        if (resolvedSecretMounts.length) {
+          await em.insert(
+            SandboxSecret,
+            resolvedSecretMounts.map((mount) => ({
+              sandboxId: sandbox.id,
+              envVar: mount.envVar,
+              secretId: mount.secretId,
+            })),
+          )
+        }
+      },
+    )
+
+    // Push the new placeholder env to a running sandbox so newly spawned
+    // processes see it. A sandbox created without any secrets has no proxy
+    // wiring in its container and must be restarted to pick the secrets up;
+    // the runner detects that case and applies the wiring on next start.
+    //
+    // Best-effort: the persisted state above is what the proxy resolves
+    // secrets from, so substitution is already correct at this point. A failed
+    // push only delays env visibility for new processes until the next
+    // restart, which reconciles the container from the persisted state.
+    if (sandbox.runnerId && sandbox.state === SandboxState.STARTED) {
+      try {
+        const runner = await this.runnerService.findOne(sandbox.runnerId)
+        if (runner) {
+          const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+          await runnerAdapter.updateSandboxSecrets(
+            sandbox.id,
+            Object.fromEntries(resolvedSecretMounts.map((mount) => [mount.envVar, mount.placeholder])),
+          )
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to push updated secrets to runner for sandbox ${sandbox.id}; they apply on next restart: ${error.message}`,
+        )
+      }
+    }
+
+    return updatedSandbox
+  }
+
+  async getOrganizationId(sandboxIdOrName: string, organizationId?: string): Promise<string> {
+    let sandbox = await this.sandboxRepository.findOne({
+      where: {
+        id: sandboxIdOrName,
+        ...(organizationId ? { organizationId: organizationId } : {}),
+      },
+      select: ['organizationId'],
+      cache: {
+        id: sandboxOrgIdCacheKeyById({ organizationId, sandboxId: sandboxIdOrName }),
+        milliseconds: SANDBOX_ORG_ID_CACHE_TTL_MS,
+      },
+    })
+
+    if (!sandbox && organizationId) {
+      sandbox = await this.sandboxRepository.findOne({
+        where: {
+          name: sandboxIdOrName,
+          organizationId: organizationId,
+        },
+        select: ['organizationId'],
+        cache: {
+          id: sandboxOrgIdCacheKeyByName({ organizationId, sandboxName: sandboxIdOrName }),
+          milliseconds: SANDBOX_ORG_ID_CACHE_TTL_MS,
+        },
+      })
+    }
+
+    if (!sandbox || !sandbox.organizationId) {
+      throw new NotFoundException(`Sandbox with ID or name ${sandboxIdOrName} not found`)
+    }
+
+    return sandbox.organizationId
+  }
+
+  async getRunnerId(sandboxId: string): Promise<string | null> {
+    const sandbox = await this.sandboxRepository.findOne({
+      where: {
+        id: sandboxId,
+      },
+      // Include the id because if the runnerId is null, entire "sandbox" variable would also be null and return the wrong exception
+      select: ['id', 'runnerId'],
+      loadEagerRelations: false,
+    })
+
+    if (!sandbox) {
+      throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
+    }
+
+    return sandbox.runnerId || null
+  }
+
+  async getRegionId(sandboxId: string): Promise<string> {
+    const sandbox = await this.sandboxRepository.findOne({
+      where: {
+        id: sandboxId,
+      },
+      select: ['region'],
+      loadEagerRelations: false,
+    })
+
+    if (!sandbox) {
+      throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
+    }
+
+    return sandbox.region
+  }
+
+  async getPortPreviewUrl(sandboxIdOrName: string, organizationId: string, port: number): Promise<PortPreviewUrlDto> {
+    if (port < 1 || port > 65535) {
+      throw new BadRequestError('Invalid port')
+    }
+
+    const proxyDomain = this.configService.getOrThrow('proxy.domain')
+    const proxyProtocol = this.configService.getOrThrow('proxy.protocol')
+
+    const where: FindOptionsWhere<Sandbox> = {
+      organizationId: organizationId,
+      state: Not(SandboxState.DESTROYED),
+    }
+
+    const sandbox = await this.sandboxRepository.findOne({
+      where: [
+        {
+          id: sandboxIdOrName,
+          ...where,
+        },
+        {
+          name: sandboxIdOrName,
+          ...where,
+        },
+      ],
+      cache: {
+        id: `sandbox:${sandboxIdOrName}:organization:${organizationId}`,
+        milliseconds: 1000,
+      },
+    })
+
+    if (!sandbox) {
+      throw new NotFoundException(`Sandbox with ID or name ${sandboxIdOrName} not found`)
+    }
+
+    let url = `${proxyProtocol}://${port}-${sandbox.id}.${proxyDomain}`
+
+    const region = await this.regionService.findOne(sandbox.region, true)
+    if (region && region.proxyUrl) {
+      // Insert port and sandbox.id into the custom proxy URL
+      url = region.proxyUrl.replace(/(https?:\/)(\/)/, `$1/${port}-${sandbox.id}.`)
+    }
+
+    return {
+      sandboxId: sandbox.id,
+      url,
+      token: sandbox.authToken,
+    }
+  }
+
+  async getSignedPortPreviewUrl(
+    sandboxIdOrName: string,
+    organizationId: string,
+    port: number,
+    expiresInSeconds = 60,
+  ): Promise<SignedPortPreviewUrlDto> {
+    if (port < 1 || port > 65535) {
+      throw new BadRequestError('Invalid port')
+    }
+
+    if (expiresInSeconds < 1 || expiresInSeconds > 60 * 60 * 24) {
+      throw new BadRequestError('expiresInSeconds must be between 1 second and 24 hours')
+    }
+
+    const proxyDomain = this.configService.getOrThrow('proxy.domain')
+    const proxyProtocol = this.configService.getOrThrow('proxy.protocol')
+
+    const where: FindOptionsWhere<Sandbox> = {
+      organizationId: organizationId,
+      state: Not(SandboxState.DESTROYED),
+    }
+
+    const sandbox = await this.sandboxRepository.findOne({
+      where: [
+        {
+          id: sandboxIdOrName,
+          ...where,
+        },
+        {
+          name: sandboxIdOrName,
+          ...where,
+        },
+      ],
+      cache: {
+        id: `sandbox:${sandboxIdOrName}:organization:${organizationId}`,
+        milliseconds: 1000,
+      },
+    })
+
+    if (!sandbox) {
+      throw new NotFoundException(`Sandbox with ID or name ${sandboxIdOrName} not found`)
+    }
+
+    const token = customNanoid(urlAlphabet.replace('_', '').replace('-', ''))(16).toLocaleLowerCase()
+
+    const lockKey = `sandbox:signed-preview-url-token:${port}:${token}`
+    await this.redis.setex(lockKey, expiresInSeconds, sandbox.id)
+
+    let url = `${proxyProtocol}://${port}-${token}.${proxyDomain}`
+
+    const region = await this.regionService.findOne(sandbox.region, true)
+    if (region && region.proxyUrl) {
+      // Insert port and sandbox.id into the custom proxy URL
+      url = region.proxyUrl.replace(/(https?:\/)(\/)/, `$1/${port}-${token}.`)
+    }
+
+    return {
+      sandboxId: sandbox.id,
+      port,
+      token,
+      url,
+    }
+  }
+
+  async getSandboxIdFromSignedPreviewUrlToken(token: string, port: number): Promise<string> {
+    const lockKey = `sandbox:signed-preview-url-token:${port}:${token}`
+    const sandboxId = await this.redis.get(lockKey)
+    if (!sandboxId) {
+      throw new ForbiddenException('Invalid or expired token')
+    }
+    return sandboxId
+  }
+
+  async expireSignedPreviewUrlToken(
+    sandboxIdOrName: string,
+    organizationId: string,
+    token: string,
+    port: number,
+  ): Promise<void> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+    if (!sandbox) {
+      throw new NotFoundException(`Sandbox with ID or name ${sandboxIdOrName} not found`)
+    }
+
+    const lockKey = `sandbox:signed-preview-url-token:${port}:${token}`
+    await this.redis.del(lockKey)
+  }
+
+  async destroy(sandboxIdOrName: string, organizationId?: string): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+
+    if (sandbox.pending && sandbox.state !== SandboxState.PENDING_BUILD) {
+      throw new StateChangeInProgressError()
+    }
+
+    const forkChildren = await this.sandboxForkRepository.find({
+      where: { parentId: sandbox.id },
+      relations: ['child'],
+    })
+    const activeChildren = forkChildren.filter((f) => f.child && f.child.desiredState !== SandboxDesiredState.DESTROYED)
+    if (activeChildren.length > 0) {
+      throw new BadRequestError(
+        'Cannot delete sandbox which has active fork children. The forks must be deleted first.',
+      )
+    }
+
+    const updateData = Sandbox.getSoftDeleteUpdate(sandbox)
+
+    // When destroying a sandbox stuck in ERROR because the runner had no free GPU,
+    // detach it from its current runner so it can be reassigned on a future placement.
+    if (sandbox.state === SandboxState.ERROR && sandbox.errorReason?.includes('no free GPU on runner')) {
+      updateData.prevRunnerId = sandbox.runnerId
+      updateData.runnerId = null
+    }
+
+    const updatedSandbox = await this.sandboxRepository.updateWhere(sandbox.id, {
+      updateData,
+      whereCondition: { pending: sandbox.pending, state: sandbox.state },
+    })
+
+    this.eventEmitter.emit(SandboxEvents.DESTROYED, new SandboxDestroyedEvent(updatedSandbox))
+    return updatedSandbox
+  }
+
+  async start(sandboxIdOrName: string, organization: Organization): Promise<Sandbox> {
+    let pendingCpuIncrement: number | undefined
+    let pendingMemoryIncrement: number | undefined
+    let pendingDiskIncrement: number | undefined
+    let pendingGpuIncrement: number | undefined
+
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organization.id)
+
+    const region = await this.regionService.findOne(sandbox.region)
+    if (!region) {
+      throw new NotFoundException(`Region with ID ${sandbox.region} not found`)
+    }
+
+    try {
+      if (sandbox.state === SandboxState.STARTED && sandbox.desiredState === SandboxDesiredState.STARTED) {
+        return sandbox
+      }
+
+      this.assertSandboxNotErrored(sandbox)
+
+      const wasPaused = sandbox.state === SandboxState.PAUSED
+
+      if (String(sandbox.state) !== String(sandbox.desiredState)) {
+        // Allow start of stopped | archived and archiving | archived sandboxes
+        if (
+          sandbox.desiredState !== SandboxDesiredState.ARCHIVED ||
+          (sandbox.state !== SandboxState.STOPPED && sandbox.state !== SandboxState.ARCHIVING)
+        ) {
+          throw new StateChangeInProgressError()
+        }
+      }
+
+      if (
+        ![SandboxState.STOPPED, SandboxState.ARCHIVED, SandboxState.ARCHIVING, SandboxState.PAUSED].includes(
+          sandbox.state,
+        )
+      ) {
+        throw new SandboxError('Sandbox is not in valid state')
+      }
+
+      if (sandbox.pending) {
+        throw new StateChangeInProgressError()
+      }
+
+      if (wasPaused && ![SandboxClass.LINUX_VM, SandboxClass.WINDOWS].includes(sandbox.sandboxClass)) {
+        throw new HttpException('Resuming is not supported for this sandbox', HttpStatus.UNPROCESSABLE_ENTITY)
+      }
+
+      this.organizationService.assertOrganizationIsNotSuspended(organization)
+
+      const { pendingCpuIncremented, pendingMemoryIncremented, pendingDiskIncremented, pendingGpuIncremented } =
+        await this.validateOrganizationQuotas(
+          organization,
+          region,
+          sandbox.sandboxClass,
+          sandbox.cpu,
+          sandbox.mem,
+          sandbox.disk,
+          sandbox.gpu,
+          isEphemeral(sandbox),
+          sandbox.id,
+        )
+
+      if (pendingCpuIncremented) {
+        pendingCpuIncrement = sandbox.cpu
+      }
+      if (pendingMemoryIncremented) {
+        pendingMemoryIncrement = sandbox.mem
+      }
+      if (pendingDiskIncremented) {
+        pendingDiskIncrement = sandbox.disk
+      }
+      if (pendingGpuIncremented) {
+        pendingGpuIncrement = sandbox.gpu
+      }
+
+      const updateData: Partial<Sandbox> = wasPaused
+        ? {
+            pending: true,
+            desiredState: SandboxDesiredState.STARTED,
+            // Lazily backfill the secrets token for sandboxes that predate the
+            // column (or otherwise lack one); don't rotate an existing one.
+            ...(!sandbox.secretsToken && { secretsToken: nanoid(32).toLocaleLowerCase() }),
+          }
+        : {
+            pending: true,
+            desiredState: SandboxDesiredState.STARTED,
+            authToken: nanoid(32).toLocaleLowerCase(),
+            ...(!sandbox.secretsToken && { secretsToken: nanoid(32).toLocaleLowerCase() }),
+          }
+
+      const updatedSandbox = await this.sandboxRepository.updateWhere(sandbox.id, {
+        updateData,
+        whereCondition: { pending: false, state: sandbox.state },
+      })
+
+      this.eventEmitter.emit(SandboxEvents.STARTED, new SandboxStartedEvent(updatedSandbox))
+
+      return updatedSandbox
+    } catch (error) {
+      await this.rollbackPendingUsage(
+        organization.id,
+        sandbox.region,
+        sandbox.sandboxClass,
+        pendingCpuIncrement,
+        pendingMemoryIncrement,
+        pendingDiskIncrement,
+        pendingGpuIncrement,
+      )
+      throw error
+    }
+  }
+
+  async stop(sandboxIdOrName: string, organizationId?: string, force?: boolean): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+
+    this.assertSandboxNotErrored(sandbox)
+
+    if (String(sandbox.state) !== String(sandbox.desiredState)) {
+      throw new StateChangeInProgressError()
+    }
+
+    if (sandbox.state !== SandboxState.STARTED && sandbox.state !== SandboxState.PAUSED) {
+      throw new SandboxError('Sandbox is not in a stoppable state')
+    }
+
+    if (sandbox.pending) {
+      throw new StateChangeInProgressError()
+    }
+
+    let updateData: Partial<Sandbox> = {}
+    if (isEphemeral(sandbox)) {
+      updateData = Sandbox.getSoftDeleteUpdate(sandbox)
+    } else {
+      updateData.pending = true
+      updateData.desiredState = SandboxDesiredState.STOPPED
+    }
+
+    const updatedSandbox = await this.sandboxRepository.updateWhere(sandbox.id, {
+      updateData,
+      whereCondition: { pending: false, state: sandbox.state },
+    })
+
+    if (isEphemeral(sandbox)) {
+      this.eventEmitter.emit(SandboxEvents.DESTROYED, new SandboxDestroyedEvent(updatedSandbox))
+    } else {
+      this.eventEmitter.emit(SandboxEvents.STOPPED, new SandboxStoppedEvent(updatedSandbox, force))
+    }
+
+    return updatedSandbox
+  }
+
+  async pause(sandboxIdOrName: string, organization: Organization): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organization.id)
+
+    if (sandbox.state !== SandboxState.STARTED) {
+      throw new BadRequestError('Sandbox must be in started state to pause')
+    }
+
+    if (sandbox.pending) {
+      throw new StateChangeInProgressError()
+    }
+
+    if (!PAUSE_SUPPORTED_SANDBOX_CLASSES.includes(sandbox.sandboxClass)) {
+      throw new HttpException('Pausing is not supported for this sandbox', HttpStatus.UNPROCESSABLE_ENTITY)
+    }
+
+    if (isEphemeral(sandbox)) {
+      throw new SandboxError('Ephemeral sandboxes cannot be paused')
+    }
+
+    if (!sandbox.runnerId) {
+      throw new NotFoundException(`Sandbox with ID ${sandbox.id} does not have a runner`)
+    }
+
+    const runner = await this.runnerService.findOneOrFail(sandbox.runnerId)
+
+    await this.sandboxRepository.updateWhere(sandbox.id, {
+      updateData: {
+        state: SandboxState.PAUSING,
+        desiredState: SandboxDesiredState.PAUSED,
+        pending: true,
+      },
+      whereCondition: {
+        state: SandboxState.STARTED,
+        pending: false,
+      },
+    })
+
+    try {
+      const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+      await runnerAdapter.pauseSandbox(sandbox.id)
+    } catch (error) {
+      // Rollback to STARTED on error
+      await this.sandboxRepository.updateWhere(sandbox.id, {
+        updateData: {
+          state: SandboxState.STARTED,
+          desiredState: SandboxDesiredState.STARTED,
+          pending: false,
+        },
+        whereCondition: { state: SandboxState.PAUSING },
+      })
+      throw error
+    }
+
+    return this.findOneByIdOrName(sandbox.id, organization.id)
+  }
+
+  async recover(sandboxIdOrName: string, organization: Organization, skipStart = false): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organization.id)
+
+    if (!sandbox.recoverable) {
+      throw new BadRequestError('Sandbox is not in a recoverable state')
+    }
+
+    const region = await this.regionService.findOne(sandbox.region)
+    if (!region) {
+      throw new NotFoundException(`Region with ID ${sandbox.region} not found`)
+    }
+
+    // Serialize against concurrent recover calls and the draining-runner manager (which takes
+    // the same lock). The pending flag can't be used here: enforceInvariants forces pending=false
+    // when state=ERROR (sandbox.entity.ts:390-395), so updateWhere claims don't stick.
+    const lockKey = getStateChangeLockKey(sandbox.id)
+    if (!(await this.redisLockProvider.lock(lockKey, 60))) {
+      throw new StateChangeInProgressError()
+    }
+
+    try {
+      if (sandbox.state !== SandboxState.ERROR) {
+        throw new BadRequestError('Sandbox must be in error state to recover')
+      }
+
+      this.organizationService.assertOrganizationIsNotSuspended(organization)
+
+      // API-level recoverable errors (e.g. timeouts) bypass the runner and restore
+      // from backup on a new runner, provided a completed backup exists.
+      if (
+        isApiRecoverableError(sandbox.errorReason) &&
+        sandbox.backupState === BackupState.COMPLETED &&
+        sandbox.backupSnapshot &&
+        sandbox.backupRegistryId
+      ) {
+        return await this.recoverFromBackup(sandbox, organization, region)
+      }
+
+      // Everything else goes to the runner for in-place recovery (e.g. disk expansion).
+      return await this.recoverInPlace(sandbox, organization, region, skipStart)
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  private async recoverFromBackup(sandbox: Sandbox, organization: Organization, region: Region): Promise<Sandbox> {
+    const cooldownKey = `sandbox:recover-from-backup:${sandbox.id}`
+    const existing = await this.redis.get(cooldownKey)
+    if (existing) {
+      throw new ConflictException('Sandbox recovery has been attempted recently. Please try again later')
+    }
+
+    // The sandbox will be fully recreated from backup on a new runner, so reserve all resources.
+    const { pendingCpuIncremented, pendingMemoryIncremented, pendingDiskIncremented, pendingGpuIncremented } =
+      await this.validateOrganizationQuotas(
+        organization,
+        region,
+        sandbox.sandboxClass,
+        sandbox.cpu,
+        sandbox.mem,
+        sandbox.disk,
+        sandbox.gpu,
+        isEphemeral(sandbox),
+        sandbox.id,
+      )
+
+    try {
+      // Transition the sandbox to ARCHIVED with desired state STARTED so the sync loop
+      // picks it up, assigns a new runner, and restores from the completed backup.
+      // enforceInvariants will set pending=true and runnerId=null for ARCHIVED state.
+      const updateData: Partial<Sandbox> = {
+        state: SandboxState.ARCHIVED,
+        desiredState: SandboxDesiredState.STARTED,
+        errorReason: null,
+        recoverable: false,
+        authToken: nanoid(32).toLocaleLowerCase(),
+        ...(!sandbox.secretsToken && { secretsToken: nanoid(32).toLocaleLowerCase() }),
+        ...(sandbox.runnerId && { prevRunnerId: sandbox.runnerId }),
+      }
+
+      const updatedSandbox = await this.sandboxRepository.updateWhere(sandbox.id, {
+        updateData,
+        whereCondition: { recoverable: true, pending: false, state: SandboxState.ERROR },
+      })
+
+      await this.redis.set(cooldownKey, '1', 'EX', 3600)
+
+      this.eventEmitter.emit(SandboxEvents.STARTED, new SandboxStartedEvent(updatedSandbox))
+
+      return updatedSandbox
+    } catch (error) {
+      await this.rollbackPendingUsage(
+        organization.id,
+        sandbox.region,
+        sandbox.sandboxClass,
+        pendingCpuIncremented ? sandbox.cpu : undefined,
+        pendingMemoryIncremented ? sandbox.mem : undefined,
+        pendingDiskIncremented ? sandbox.disk : undefined,
+        pendingGpuIncremented ? sandbox.gpu : undefined,
+      )
+      throw error
+    }
+  }
+
+  private async recoverInPlace(
+    sandbox: Sandbox,
+    organization: Organization,
+    region: Region,
+    skipStart: boolean,
+  ): Promise<Sandbox> {
+    if (!sandbox.runnerId) {
+      throw new NotFoundException(`Sandbox with ID ${sandbox.id} does not have a runner`)
+    }
+    const runner = await this.runnerService.findOneOrFail(sandbox.runnerId)
+    const willStartOnV2 = runner.apiVersion === '2' && !skipStart
+
+    // ERROR → STOPPED activates disk usage; v2 + !skipStart additionally activates cpu/mem/gpu
+    // because there is no trailing start() call to validate them.
+    const { pendingCpuIncremented, pendingMemoryIncremented, pendingDiskIncremented, pendingGpuIncremented } =
+      await this.validateOrganizationQuotas(
+        organization,
+        region,
+        sandbox.sandboxClass,
+        willStartOnV2 ? sandbox.cpu : 0,
+        willStartOnV2 ? sandbox.mem : 0,
+        sandbox.disk,
+        willStartOnV2 ? sandbox.gpu : 0,
+        isEphemeral(sandbox),
+        sandbox.id,
+        undefined,
+        sandbox.gpu,
+      )
+
+    try {
+      // Normalize desiredState upfront so the job handler can detect mid-job intent changes.
+      if (runner.apiVersion === '2') {
+        await this.sandboxRepository.updateWhere(sandbox.id, {
+          updateData: {
+            desiredState: skipStart ? SandboxDesiredState.STOPPED : SandboxDesiredState.STARTED,
+            ...(willStartOnV2 && {
+              authToken: nanoid(32).toLocaleLowerCase(),
+              ...(!sandbox.secretsToken && { secretsToken: nanoid(32).toLocaleLowerCase() }),
+            }),
+          },
+          whereCondition: { state: SandboxState.ERROR },
+        })
+      }
+
+      const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+
+      const backupRegistry = sandbox.backupRegistryId
+        ? ((await this.dockerRegistryService.findOne(sandbox.backupRegistryId)) ?? undefined)
+        : undefined
+
+      if (sandbox.backupRegistryId && !backupRegistry) {
+        this.logger.warn(
+          `Backup registry ${sandbox.backupRegistryId} not found for sandbox ${sandbox.id}; proceeding without registry credentials`,
+        )
+      }
+
+      try {
+        await runnerAdapter.recoverSandbox(sandbox, backupRegistry, skipStart)
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('storage cannot be further expanded')) {
+          throw new ForbiddenException(
+            `Sandbox storage cannot be further expanded. Maximum expansion of ${(sandbox.disk * 0.1).toFixed(2)}GB (10% of original ${sandbox.disk.toFixed(2)}GB) has been reached. Please contact support for further assistance.`,
+          )
+        }
+        throw error
+      }
+
+      // v2: job-completion handler writes the terminal state and chains START_SANDBOX if needed.
+      if (runner.apiVersion === '2') {
+        return sandbox
+      }
+
+      const updateData: Partial<Sandbox> = {
+        state: SandboxState.STOPPED,
+        desiredState: SandboxDesiredState.STOPPED,
+        errorReason: null,
+        recoverable: false,
+        // Clear transient backup state so the poller won't resume a retry post-recover.
+        backupState: BackupState.NONE,
+        backupErrorReason: null,
+      }
+
+      // Only wipe the snapshot pointer on a failed backup — a COMPLETED one is still valid.
+      if (sandbox.backupState === BackupState.ERROR) {
+        updateData.backupSnapshot = null
+      }
+
+      const updatedSandbox = await this.sandboxRepository.updateWhere(sandbox.id, {
+        updateData,
+        whereCondition: { recoverable: true, pending: false, state: sandbox.state },
+      })
+
+      if (skipStart) {
+        return updatedSandbox
+      }
+
+      // start() validates cpu/mem with self-excluded so disk doesn't double-count.
+      return await this.start(sandbox.id, organization)
+    } catch (error) {
+      await this.rollbackPendingUsage(
+        organization.id,
+        sandbox.region,
+        sandbox.sandboxClass,
+        pendingCpuIncremented ? sandbox.cpu : undefined,
+        pendingMemoryIncremented ? sandbox.mem : undefined,
+        pendingDiskIncremented ? sandbox.disk : undefined,
+        pendingGpuIncremented ? sandbox.gpu : undefined,
+      )
+      throw error
+    }
+  }
+
+  async resize(sandboxIdOrName: string, resizeDto: ResizeSandboxDto, organization: Organization): Promise<Sandbox> {
+    let pendingCpuIncrement: number | undefined
+    let pendingMemoryIncrement: number | undefined
+    let pendingDiskIncrement: number | undefined
+    let pendingGpuIncrement: number | undefined
+
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organization.id)
+
+    const region = await this.regionService.findOne(sandbox.region)
+    if (!region) {
+      throw new NotFoundException(`Region with ID ${sandbox.region} not found`)
+    }
+
+    try {
+      // Validate sandbox is in a valid state for resize
+      if (sandbox.state !== SandboxState.STARTED && sandbox.state !== SandboxState.STOPPED) {
+        throw new BadRequestError('Sandbox must be in started or stopped state to resize')
+      }
+
+      if (sandbox.pending) {
+        throw new StateChangeInProgressError()
+      }
+
+      // If no resize parameters provided, throw error
+      if (resizeDto.cpu === undefined && resizeDto.memory === undefined && resizeDto.disk === undefined) {
+        throw new BadRequestError('No resource changes specified - sandbox is already at the desired configuration')
+      }
+
+      // Disk resize requires stopped sandbox (cold resize only)
+      if (resizeDto.disk !== undefined && sandbox.state !== SandboxState.STOPPED) {
+        throw new BadRequestError('Disk resize can only be performed on a stopped sandbox')
+      }
+
+      // Hot resize (sandbox is running): only CPU and memory can be increased
+      const isHotResize = sandbox.state === SandboxState.STARTED
+
+      // Validate hot resize constraints
+      if (isHotResize) {
+        if (resizeDto.cpu !== undefined && resizeDto.cpu < sandbox.cpu) {
+          throw new BadRequestError('Sandbox must be in stopped state to decrease the number of CPU cores')
+        }
+
+        if (resizeDto.memory !== undefined && resizeDto.memory < sandbox.mem) {
+          throw new BadRequestError('Sandbox must be in stopped state to decrease memory')
+        }
+      }
+
+      // Disk can only be increased (never decreased)
+      if (resizeDto.disk !== undefined && resizeDto.disk < sandbox.disk) {
+        throw new BadRequestError('Sandbox disk size cannot be decreased')
+      }
+
+      // Calculate new resource values
+      const newCpu = resizeDto.cpu ?? sandbox.cpu
+      const newMem = resizeDto.memory ?? sandbox.mem
+      const newDisk = resizeDto.disk ?? sandbox.disk
+
+      // Throw if nothing actually changes
+      if (newCpu === sandbox.cpu && newMem === sandbox.mem && newDisk === sandbox.disk) {
+        throw new BadRequestError('No resource changes specified - sandbox is already at the desired configuration')
+      }
+
+      // Validate organization quotas for the new resource values
+      this.organizationService.assertOrganizationIsNotSuspended(organization)
+
+      const regionQuota = region.enforceQuotas
+        ? await this.organizationService.getRegionQuota(organization.id, region.id, sandbox.sandboxClass)
+        : null
+
+      const { maxCpuPerSandbox, maxMemoryPerSandbox, maxDiskPerSandbox, maxDiskPerNonEphemeralSandbox } =
+        getEffectivePerSandboxLimits(organization, regionQuota, sandbox.gpu)
+
+      if (newCpu > maxCpuPerSandbox) {
+        throw new BadRequestError(
+          `CPU request ${newCpu} exceeds maximum allowed per sandbox (${maxCpuPerSandbox}).\n${PER_SANDBOX_LIMIT_MESSAGE}`,
+        )
+      }
+      if (newMem > maxMemoryPerSandbox) {
+        throw new BadRequestError(
+          `Memory request ${newMem}GB exceeds maximum allowed per sandbox (${maxMemoryPerSandbox}GB).\n${PER_SANDBOX_LIMIT_MESSAGE}`,
+        )
+      }
+      if (newDisk > maxDiskPerSandbox) {
+        throw new BadRequestError(
+          `Disk request ${newDisk}GB exceeds maximum allowed per sandbox (${maxDiskPerSandbox}GB).\n${PER_SANDBOX_LIMIT_MESSAGE}`,
+        )
+      }
+
+      if (!isEphemeral(sandbox) && maxDiskPerNonEphemeralSandbox !== null) {
+        if (maxDiskPerNonEphemeralSandbox === 0) {
+          throw new BadRequestError('Non-ephemeral sandboxes are not permitted in this region')
+        }
+        if (newDisk > maxDiskPerNonEphemeralSandbox) {
+          throw new BadRequestError(
+            `Disk request ${newDisk}GB exceeds maximum allowed per non-ephemeral sandbox (${maxDiskPerNonEphemeralSandbox}GB).\n${PER_SANDBOX_LIMIT_MESSAGE}`,
+          )
+        }
+      }
+
+      // For cold resize, cpu/memory don't affect quota until sandbox is STARTED.
+      // For hot resize, track all deltas (positive reserves quota, negative frees quota for others).
+      const cpuDeltaForQuota = isHotResize ? newCpu - sandbox.cpu : 0
+      const memDeltaForQuota = isHotResize ? newMem - sandbox.mem : 0
+      const diskDeltaForQuota = newDisk - sandbox.disk // Disk only increases (validated at start of method)
+
+      // Validate and track pending for any non-zero quota changes.
+      // Resize never changes GPU allocation — always pass 0 for the GPU delta, but pass
+      // `gpuEnabled = sandbox.isGpu()` so per-sandbox limit checks use the GPU-specific table.
+      if (cpuDeltaForQuota !== 0 || memDeltaForQuota !== 0 || diskDeltaForQuota !== 0) {
+        const { pendingCpuIncremented, pendingMemoryIncremented, pendingDiskIncremented } =
+          await this.validateOrganizationQuotas(
+            organization,
+            region,
+            sandbox.sandboxClass,
+            cpuDeltaForQuota,
+            memDeltaForQuota,
+            diskDeltaForQuota,
+            0,
+            isEphemeral(sandbox),
+            undefined,
+            regionQuota,
+            sandbox.gpu,
+          )
+
+        if (pendingCpuIncremented) {
+          pendingCpuIncrement = cpuDeltaForQuota
+        }
+        if (pendingMemoryIncremented) {
+          pendingMemoryIncrement = memDeltaForQuota
+        }
+        if (pendingDiskIncremented) {
+          pendingDiskIncrement = diskDeltaForQuota
+        }
+      }
+
+      // Get runner and validate before changing state
+      if (!sandbox.runnerId) {
+        throw new BadRequestError('Sandbox has no runner assigned')
+      }
+
+      const runner = await this.runnerService.findOneOrFail(sandbox.runnerId)
+
+      // Capture the previous state before transitioning to RESIZING (STARTED or STOPPED)
+      const previousState =
+        sandbox.state === SandboxState.STARTED
+          ? SandboxState.STARTED
+          : sandbox.state === SandboxState.STOPPED
+            ? SandboxState.STOPPED
+            : null
+
+      if (!previousState) {
+        throw new BadRequestError('Sandbox must be in started or stopped state to resize')
+      }
+
+      // Now transition to RESIZING state
+      const updateData: Partial<Sandbox> = {
+        state: SandboxState.RESIZING,
+      }
+
+      await this.sandboxRepository.updateWhere(sandbox.id, {
+        updateData,
+        whereCondition: { pending: false, state: previousState },
+      })
+
+      try {
+        const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+
+        const backupRegistry = sandbox.backupRegistryId
+          ? ((await this.dockerRegistryService.findOne(sandbox.backupRegistryId)) ?? undefined)
+          : undefined
+
+        if (sandbox.backupRegistryId && !backupRegistry) {
+          this.logger.warn(
+            `Backup registry ${sandbox.backupRegistryId} not found for sandbox ${sandbox.id}; proceeding without registry credentials`,
+          )
+        }
+
+        await runnerAdapter.resizeSandbox(sandbox.id, resizeDto.cpu, resizeDto.memory, resizeDto.disk, backupRegistry)
+
+        // For V0 runners, update resources immediately (subscriber emits STATE_UPDATED)
+        // For V2 runners, job handler will update resources on completion
+        if (runner.apiVersion === '0') {
+          const updateData: Partial<Sandbox> = {
+            cpu: newCpu,
+            mem: newMem,
+            disk: newDisk,
+            state: previousState,
+          }
+
+          await this.sandboxRepository.updateWhere(sandbox.id, {
+            updateData,
+            whereCondition: { state: SandboxState.RESIZING },
+          })
+
+          // Apply the usage change (increments current, decrements pending)
+          // Only apply deltas for quotas that were validated/pending-incremented.
+          // Resize never changes GPU allocation — always pass 0.
+          await this.organizationUsageService.applyResizeUsageChange(
+            organization.id,
+            sandbox.region,
+            sandbox.sandboxClass,
+            cpuDeltaForQuota,
+            memDeltaForQuota,
+            diskDeltaForQuota,
+            0,
+          )
+        }
+
+        return await this.findOneByIdOrName(sandbox.id, organization.id)
+      } catch (error) {
+        // Return to previous state on error
+        const updateData: Partial<Sandbox> = {
+          state: previousState,
+        }
+
+        await this.sandboxRepository.updateWhere(sandbox.id, {
+          updateData,
+          whereCondition: { state: SandboxState.RESIZING },
+        })
+
+        throw error
+      }
+    } catch (error) {
+      await this.rollbackPendingUsage(
+        organization.id,
+        sandbox.region,
+        sandbox.sandboxClass,
+        pendingCpuIncrement,
+        pendingMemoryIncrement,
+        pendingDiskIncrement,
+        pendingGpuIncrement,
+      )
+      throw error
+    }
+  }
+
+  async updatePublicStatus(sandboxIdOrName: string, isPublic: boolean, organizationId?: string): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+
+    const updateData: Partial<Sandbox> = {
+      public: isPublic,
+    }
+
+    return await this.sandboxRepository.update(sandbox.id, {
+      updateData,
+      entity: sandbox,
+    })
+  }
+
+  async updateLastActivityAt(sandboxId: string, lastActivityAt: Date, source?: SandboxActivitySource): Promise<void> {
+    await this.sandboxActivityService.updateLastActivityAt(sandboxId, lastActivityAt, source)
+  }
+
+  async getSigningKey(sandboxId: string): Promise<string> {
+    const existing = await this.sandboxRepository.findOne({ where: { id: sandboxId } })
+    if (!existing) {
+      throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
+    }
+    if (existing.signingKey) {
+      return existing.signingKey
+    }
+
+    // Set the key only when unset so concurrent first-access requests converge on one value.
+    await this.sandboxRepository
+      .createQueryBuilder()
+      .update(Sandbox)
+      .set({ signingKey: nanoid(32) })
+      .where('id = :sandboxId', { sandboxId })
+      .andWhere('"signingKey" IS NULL')
+      .execute()
+
+    const sandbox = await this.sandboxRepository.findOneOrFail({ where: { id: sandboxId } })
+    if (!sandbox.signingKey) {
+      throw new Error(`Failed to ensure signing key for sandbox ${sandboxId}`)
+    }
+    return sandbox.signingKey
+  }
+
+  async rotateSigningKey(sandboxId: string): Promise<string> {
+    const newKey = nanoid(32)
+    const result = await this.sandboxRepository
+      .createQueryBuilder()
+      .update(Sandbox)
+      .set({ signingKey: newKey })
+      .where('id = :sandboxId', { sandboxId })
+      .execute()
+    if (!result.affected) {
+      throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
+    }
+    // Evicts the proxy-side signing key cache (see ProxyCacheInvalidationService) so old
+    // signatures stop validating and new ones validate immediately, not after the proxy TTL.
+    this.eventEmitter.emit(SandboxEvents.SIGNING_KEY_ROTATED, new SandboxSigningKeyRotatedEvent(sandboxId))
+    return newKey
+  }
+
+  async getToolboxProxyUrl(sandboxId: string): Promise<string> {
+    const sandbox = await this.findOne(sandboxId)
+    return this.resolveToolboxProxyUrl(sandbox.region)
+  }
+
+  async toSandboxDto(sandbox: Sandbox): Promise<SandboxDto> {
+    const toolboxProxyUrl = await this.resolveToolboxProxyUrl(sandbox.region)
+    return SandboxDto.fromSandbox(sandbox, toolboxProxyUrl)
+  }
+
+  async toSandboxDtos(sandboxes: Sandbox[]): Promise<SandboxDto[]> {
+    const urlMap = await this.resolveToolboxProxyUrls(sandboxes.map((s) => s.region))
+    return sandboxes.map((s) => {
+      const url = urlMap.get(s.region)
+      if (!url) {
+        throw new NotFoundException(`Toolbox proxy URL not resolved for region ${s.region}`)
+      }
+      return SandboxDto.fromSandbox(s, url)
+    })
+  }
+
+  async resolveToolboxProxyUrl(regionId: string): Promise<string> {
+    const cacheKey = toolboxProxyUrlCacheKey(regionId)
+    const cached = await this.redis.get(cacheKey)
+    if (cached) {
+      return cached
+    }
+
+    const region = await this.regionService.findOne(regionId)
+    const url = region?.toolboxProxyUrl
+      ? region.toolboxProxyUrl.replace(/\/+$/, '') + '/toolbox'
+      : this.configService.getOrThrow('proxy.toolboxUrl')
+
+    this.redis.setex(cacheKey, TOOLBOX_PROXY_URL_CACHE_TTL_S, url).catch((err) => {
+      this.logger.warn(`Failed to cache toolbox proxy URL for region ${regionId}: ${err.message}`)
+    })
+    return url
+  }
+
+  async resolveToolboxProxyUrls(regionIds: string[]): Promise<Map<string, string>> {
+    const unique = [...new Set(regionIds)]
+    const result = new Map<string, string>()
+
+    const pipeline = this.redis.pipeline()
+    for (const id of unique) {
+      pipeline.get(toolboxProxyUrlCacheKey(id))
+    }
+    const cached = await pipeline.exec()
+
+    const uncached: string[] = []
+    for (let i = 0; i < unique.length; i++) {
+      const err = cached?.[i]?.[0]
+      if (err) {
+        this.logger.warn(`Failed to get cached toolbox proxy URL for region ${unique[i]}: ${err.message}`)
+      }
+      const val = cached?.[i]?.[1] as string | null
+      if (val) {
+        result.set(unique[i], val)
+      } else {
+        uncached.push(unique[i])
+      }
+    }
+
+    if (uncached.length > 0) {
+      const regions = await this.regionService.findByIds(uncached)
+      const regionMap = new Map(regions.map((r) => [r.id, r]))
+      const fallback = this.configService.getOrThrow('proxy.toolboxUrl')
+      const setPipeline = this.redis.pipeline()
+      for (const id of uncached) {
+        const region = regionMap.get(id)
+        const url = region?.toolboxProxyUrl ? region.toolboxProxyUrl.replace(/\/+$/, '') + '/toolbox' : fallback
+        result.set(id, url)
+        setPipeline.setex(toolboxProxyUrlCacheKey(id), TOOLBOX_PROXY_URL_CACHE_TTL_S, url)
+      }
+      const setResults = await setPipeline.exec()
+      setResults?.forEach(([err], i) => {
+        if (err) {
+          this.logger.warn(`Failed to cache toolbox proxy URL for region ${uncached[i]}: ${err.message}`)
+        }
+      })
+    }
+
+    return result
+  }
+
+  async getBuildLogsUrl(sandboxIdOrName: string, organizationId: string): Promise<string> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+
+    if (!sandbox.buildInfo?.snapshotRef) {
+      throw new NotFoundException(`Sandbox ${sandboxIdOrName} has no build info`)
+    }
+
+    const region = await this.regionService.findOne(sandbox.region, true)
+
+    if (!region) {
+      throw new NotFoundException(`Region for runner for sandbox ${sandboxIdOrName} not found`)
+    }
+
+    if (!region.proxyUrl) {
+      return `${this.configService.getOrThrow('proxy.protocol')}://${this.configService.getOrThrow('proxy.domain')}/sandboxes/${sandbox.id}/build-logs`
+    }
+
+    return region.proxyUrl + '/sandboxes/' + sandbox.id + '/build-logs'
+  }
+
+  async getValidatedOrDefaultRegion(organization: Organization, regionIdOrName?: string): Promise<Region> {
+    if (!organization.defaultRegionId) {
+      throw new DefaultRegionRequiredException()
+    }
+
+    regionIdOrName = regionIdOrName?.trim()
+
+    if (!regionIdOrName) {
+      const region = await this.regionService.findOne(organization.defaultRegionId)
+      if (!region) {
+        throw new NotFoundException('Default region not found')
+      }
+      return region
+    }
+
+    const region =
+      (await this.regionService.findOneByName(regionIdOrName, organization.id)) ??
+      (await this.regionService.findOneByName(regionIdOrName, null)) ??
+      (await this.regionService.findOne(regionIdOrName))
+
+    if (!region) {
+      throw new NotFoundException('Region not found')
+    }
+
+    return region
+  }
+
+  async replaceLabels(
+    sandboxIdOrName: string,
+    labels: { [key: string]: string },
+    organizationId?: string,
+  ): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+
+    // Replace all labels
+    const updateData: Partial<Sandbox> = {
+      labels,
+    }
+
+    return await this.sandboxRepository.update(sandbox.id, { updateData, entity: sandbox })
+  }
+
+  @Cron(CronExpression.EVERY_SECOND, { name: 'cleanup-destroyed-sandboxes' })
+  @LogExecution('cleanup-destroyed-sandboxes')
+  @WithInstrumentation()
+  async cleanupDestroyedSandboxes() {
+    const lockKey = 'sandbox:cleanup-destroyed-sandboxes'
+    const acquired = await this.redisLockProvider.lock(lockKey, 300)
+    if (!acquired) {
+      return
+    }
+
+    try {
+      const twentyFourHoursAgo = new Date()
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24)
+
+      const destroyedSandboxs = await this.sandboxRepository.delete({
+        state: SandboxState.DESTROYED,
+        updatedAt: LessThan(twentyFourHoursAgo),
+      })
+
+      if (destroyedSandboxs.affected > 0) {
+        this.logger.debug(`Cleaned up ${destroyedSandboxs.affected} destroyed sandboxes`)
+      }
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_MINUTES, { name: 'cleanup-build-failed-sandboxes' })
+  @LogExecution('cleanup-build-failed-sandboxes')
+  @WithInstrumentation()
+  async cleanupBuildFailedSandboxes() {
+    const lockKey = 'sandbox:cleanup-build-failed-sandboxes'
+    const acquired = await this.redisLockProvider.lock(lockKey, 300)
+    if (!acquired) {
+      return
+    }
+
+    try {
+      const twentyFourHoursAgo = new Date()
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24)
+
+      const destroyedSandboxs = await this.sandboxRepository.delete({
+        state: SandboxState.BUILD_FAILED,
+        desiredState: SandboxDesiredState.DESTROYED,
+        updatedAt: LessThan(twentyFourHoursAgo),
+      })
+
+      if (destroyedSandboxs.affected > 0) {
+        this.logger.debug(`Cleaned up ${destroyedSandboxs.affected} build failed sandboxes`)
+      }
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_SECOND, { name: 'cleanup-stale-build-failed-sandboxes' })
+  @LogExecution('cleanup-stale-build-failed-sandboxes')
+  @WithInstrumentation()
+  async cleanupStaleBuildFailedSandboxes() {
+    const lockKey = 'sandbox:cleanup-stale-build-failed-sandboxes'
+    const acquired = await this.redisLockProvider.lock(lockKey, 300)
+    if (!acquired) {
+      return
+    }
+
+    try {
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+      const result = await this.sandboxRepository.delete({
+        state: SandboxState.BUILD_FAILED,
+        desiredState: SandboxDesiredState.STARTED,
+        updatedAt: LessThan(sevenDaysAgo),
+      })
+
+      if (result.affected > 0) {
+        this.logger.debug(`Cleaned up ${result.affected} stale build failed sandboxes`)
+      }
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_SECOND, { name: 'cleanup-stale-error-sandboxes' })
+  @LogExecution('cleanup-stale-error-sandboxes')
+  @WithInstrumentation()
+  async cleanupStaleErrorSandboxes() {
+    const lockKey = 'sandbox:cleanup-stale-error-sandboxes'
+    const acquired = await this.redisLockProvider.lock(lockKey, 300)
+    if (!acquired) {
+      return
+    }
+
+    try {
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+      const result = await this.sandboxRepository.delete({
+        state: SandboxState.ERROR,
+        desiredState: SandboxDesiredState.DESTROYED,
+        updatedAt: LessThan(sevenDaysAgo),
+      })
+
+      if (result.affected > 0) {
+        this.logger.debug(`Cleaned up ${result.affected} stale error sandboxes`)
+      }
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE, { name: 'recover-stale-snapshotting-sandboxes' })
+  @LogExecution('recover-stale-snapshotting-sandboxes')
+  @WithInstrumentation()
+  async recoverStaleSnapshottingSandboxes() {
+    const lockKey = 'sandbox:recover-stale-snapshotting-sandboxes'
+    const acquired = await this.redisLockProvider.lock(lockKey, 300)
+    if (!acquired) {
+      return
+    }
+
+    try {
+      const timeoutMinutes = this.configService.getOrThrow('sandboxSnapshottingTimeoutMin')
+      const cutoff = new Date()
+      cutoff.setMinutes(cutoff.getMinutes() - timeoutMinutes)
+
+      const staleSandboxes = await this.sandboxRepository.find({
+        where: {
+          state: SandboxState.SNAPSHOTTING,
+          pending: true,
+          updatedAt: LessThan(cutoff),
+        },
+        take: 100,
+      })
+
+      if (staleSandboxes.length === 0) {
+        return
+      }
+
+      for (const sandbox of staleSandboxes) {
+        if (!sandbox.runnerId) {
+          continue
+        }
+
+        try {
+          const runner = await this.runnerService.findOneOrFail(sandbox.runnerId)
+
+          // v2 runners are recovered by the job system — skip them
+          if (runner.apiVersion !== '0') {
+            continue
+          }
+
+          const restoredState =
+            sandbox.desiredState === SandboxDesiredState.STARTED ? SandboxState.STARTED : SandboxState.STOPPED
+
+          await this.sandboxRepository.updateWhere(sandbox.id, {
+            updateData: { state: restoredState, pending: false },
+            whereCondition: { state: SandboxState.SNAPSHOTTING, desiredState: sandbox.desiredState },
+          })
+
+          // No pending-usage rollback here: the reservation was released when
+          // the Snapshot row was created, and the row's SNAPSHOTTING -> ERROR
+          // timeout transition decrements current usage.
+
+          this.logger.warn(
+            `Recovered stale SNAPSHOTTING sandbox ${sandbox.id} (v0 runner ${sandbox.runnerId}), restored to ${restoredState}`,
+          )
+        } catch (error) {
+          this.logger.error(`Error recovering stale SNAPSHOTTING sandbox ${sandbox.id}:`, error)
+        }
+      }
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  async setAutostopInterval(sandboxIdOrName: string, interval: number, organizationId?: string): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+
+    const autoStopInterval = this.resolveAutoStopInterval(interval)
+
+    if (autoStopInterval !== 0 && sandbox.autoPauseInterval) {
+      throw new BadRequestError(
+        'Auto-stop and auto-pause intervals are mutually exclusive. Disable auto-pause first by setting its interval to 0',
+      )
+    }
+
+    const updateData: Partial<Sandbox> = {
+      autoStopInterval,
+    }
+
+    return await this.sandboxRepository.update(sandbox.id, { updateData, entity: sandbox })
+  }
+
+  async setAutoPauseInterval(sandboxIdOrName: string, interval: number, organizationId?: string): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+
+    const autoPauseInterval = this.resolveAutoPauseInterval(sandbox.sandboxClass, interval)
+
+    if (autoPauseInterval !== 0) {
+      if (isEphemeral(sandbox)) {
+        throw new BadRequestError('Ephemeral sandboxes cannot have auto-pause enabled. Set autoPauseInterval to 0')
+      }
+
+      if (sandbox.autoStopInterval) {
+        throw new BadRequestError(
+          'Auto-stop and auto-pause intervals are mutually exclusive. Disable auto-stop first by setting its interval to 0',
+        )
+      }
+    }
+
+    const updateData: Partial<Sandbox> = {
+      autoPauseInterval,
+    }
+
+    return await this.sandboxRepository.update(sandbox.id, { updateData, entity: sandbox })
+  }
+
+  async setAutoArchiveInterval(sandboxIdOrName: string, interval: number, organizationId?: string): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+
+    const updateData: Partial<Sandbox> = {
+      autoArchiveInterval: this.resolveAutoArchiveInterval(interval),
+    }
+
+    return await this.sandboxRepository.update(sandbox.id, { updateData, entity: sandbox })
+  }
+
+  async setTtl(sandboxIdOrName: string, ttlMinutes: number, organizationId?: string): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+
+    const updateData: Partial<Sandbox> = this.resolveTtl(ttlMinutes)
+
+    return await this.sandboxRepository.update(sandbox.id, { updateData, entity: sandbox })
+  }
+
+  async setAutoDeleteInterval(sandboxIdOrName: string, interval: number, organizationId?: string): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+
+    if (sandbox.isGpu()) {
+      throw new BadRequestError('GPU sandboxes must remain ephemeral')
+    }
+
+    if (interval === 0 && sandbox.autoPauseInterval) {
+      throw new BadRequestError(
+        'Ephemeral sandboxes cannot have auto-pause enabled. Disable auto-pause first by setting its interval to 0',
+      )
+    }
+
+    const updateData: Partial<Sandbox> = {
+      autoDeleteInterval: interval,
+    }
+
+    return await this.sandboxRepository.update(sandbox.id, { updateData, entity: sandbox })
+  }
+
+  async updateNetworkSettings(
+    sandboxIdOrName: string,
+    networkBlockAll?: boolean,
+    networkAllowList?: string,
+    domainAllowList?: string,
+    organizationId?: string,
+  ): Promise<Sandbox> {
+    this.validateNetworkSettingsCompatibility(networkBlockAll, networkAllowList, domainAllowList)
+
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+
+    const updateData: Partial<Sandbox> = {}
+    let effectiveNetworkBlockAll = sandbox.networkBlockAll
+    let effectiveNetworkAllowList = sandbox.networkAllowList
+    let effectiveDomainAllowList = sandbox.domainAllowList
+
+    if (domainAllowList !== undefined) {
+      if (domainAllowList.trim() === '') {
+        updateData.domainAllowList = null
+        effectiveDomainAllowList = null
+      } else {
+        updateData.domainAllowList = this.resolveDomainAllowList(domainAllowList)
+        effectiveDomainAllowList = updateData.domainAllowList
+      }
+    }
+
+    if (networkAllowList !== undefined) {
+      if (networkAllowList.trim() === '') {
+        updateData.networkAllowList = null
+        effectiveNetworkAllowList = null
+      } else {
+        const resolvedNetworkAllowList = this.resolveNetworkAllowList(networkAllowList)
+        updateData.networkAllowList = resolvedNetworkAllowList
+        effectiveNetworkAllowList = resolvedNetworkAllowList
+      }
+    }
+
+    if (networkBlockAll !== undefined) {
+      updateData.networkBlockAll = networkBlockAll
+      effectiveNetworkBlockAll = networkBlockAll
+    } else if (sandbox.networkBlockAll === true && (effectiveNetworkAllowList || effectiveDomainAllowList)) {
+      updateData.networkBlockAll = false
+      effectiveNetworkBlockAll = false
+    }
+
+    if (effectiveNetworkBlockAll === true) {
+      updateData.networkAllowList = null
+      updateData.domainAllowList = null
+      effectiveNetworkAllowList = null
+      effectiveDomainAllowList = null
+    } else if (networkBlockAll === false && networkAllowList === undefined && domainAllowList === undefined) {
+      updateData.networkAllowList = null
+      updateData.domainAllowList = null
+      effectiveNetworkAllowList = null
+      effectiveDomainAllowList = null
+    }
+
+    // Explicit clear -> '' so the runner drops the restriction; untouched -> undefined so it's left as-is.
+    const runnerDomainAllowList =
+      domainAllowList !== undefined ? (effectiveDomainAllowList ?? '') : (effectiveDomainAllowList ?? undefined)
+
+    // Update network settings on the runner
+    if (sandbox.runnerId) {
+      const runner = await this.runnerService.findOne(sandbox.runnerId)
+      if (runner) {
+        const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+        await runnerAdapter.updateNetworkSettings(
+          sandbox.id,
+          effectiveNetworkBlockAll,
+          effectiveNetworkAllowList ?? undefined,
+          undefined,
+          runnerDomainAllowList,
+        )
+      }
+    }
+
+    const updatedSandbox = await this.sandboxRepository.update(sandbox.id, { updateData, entity: sandbox })
+
+    return updatedSandbox
+  }
+
+  async setSandboxErrorState(sandboxId: string, errorReason: string, recoverable = false): Promise<Sandbox> {
+    const sandbox = await this.findOne(sandboxId)
+
+    if (sandbox.state === SandboxState.DESTROYED) {
+      throw new BadRequestError('Sandbox is destroyed')
+    }
+
+    const updateData: Partial<Sandbox> = {
+      state: SandboxState.ERROR,
+      pending: false,
+      recoverable,
+      errorReason,
+    }
+
+    return this.sandboxRepository.update(sandbox.id, { updateData, entity: sandbox })
+  }
+
+  // used by internal services to update the state of a sandbox to resolve domain and runner state mismatch
+  // notably, when a sandbox instance stops or errors on the runner, the domain state needs to be updated to reflect the actual state
+  async updateState(
+    sandboxId: string,
+    newState: SandboxState,
+    recoverable = false,
+    errorReason?: string,
+  ): Promise<void> {
+    const sandbox = await this.sandboxRepository.findOne({
+      where: { id: sandboxId },
+    })
+
+    if (!sandbox) {
+      throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
+    }
+
+    if (sandbox.state === newState) {
+      this.logger.debug(`Sandbox ${sandboxId} is already in state ${newState}`)
+      return
+    }
+
+    //  only allow updating the state of started | stopped sandboxes
+    if (![SandboxState.STARTED, SandboxState.STOPPED].includes(sandbox.state)) {
+      throw new BadRequestError('Sandbox is not in a valid state to be updated')
+    }
+
+    if (!(newState == SandboxState.STOPPED && sandbox.state == SandboxState.STARTED)) {
+      this.logger.warn(
+        `Runner tried to set sandbox ${sandboxId} to invalid state: ${newState} from state ${sandbox.state}`,
+      )
+    }
+
+    if (sandbox.desiredState == SandboxDesiredState.DESTROYED) {
+      this.logger.debug(`Sandbox ${sandboxId} is already DESTROYED, skipping state update`)
+      return
+    }
+
+    const oldState = sandbox.state
+    const oldDesiredState = sandbox.desiredState
+
+    const updateData: Partial<Sandbox> = {
+      state: newState,
+      recoverable: false,
+    }
+
+    if (errorReason !== undefined) {
+      updateData.errorReason = errorReason
+      if (newState === SandboxState.ERROR) {
+        updateData.recoverable = recoverable
+      }
+    }
+
+    //  we need to update the desired state to match the new state
+    const desiredState = this.getExpectedDesiredStateForState(newState)
+    if (desiredState) {
+      updateData.desiredState = desiredState
+    }
+
+    if (newState === SandboxState.DESTROYED) {
+      updateData.name = Sandbox.getSoftDeleteName(sandbox.name)
+    }
+
+    await this.sandboxRepository.updateWhere(sandbox.id, {
+      updateData,
+      whereCondition: { pending: false, state: oldState, desiredState: oldDesiredState },
+    })
+  }
+
+  @OnEvent(WarmPoolEvents.TOPUP_REQUESTED)
+  private async createWarmPoolSandbox(event: WarmPoolTopUpRequested) {
+    try {
+      await this.createForWarmPool(event.warmPool)
+      // The event payload is a stale row snapshot, so clear unconditionally: a reason written after
+      // the cron loaded the pool (failed sibling event, inactive-snapshot gate) must not stick.
+      if (event.warmPool.organizationId) {
+        await this.warmPoolRepository.update(event.warmPool.id, { errorReason: null })
+      }
+    } catch (error) {
+      // A self-serve pool that has hit its organization's quota (or any transient provisioning
+      // failure) must not crash the top-up loop - it is retried on the next warm-pool-check tick.
+      // Surface the reason on the pool row so the dashboard can explain a pool that never fills.
+      this.logger.debug(`Failed to create warm pool sandbox for pool ${event.warmPool.id}: ${error?.message ?? error}`)
+      if (event.warmPool.organizationId) {
+        await this.warmPoolRepository
+          .update(event.warmPool.id, { errorReason: truncateErrorMessage(String(error?.message ?? error)) })
+          .catch(() => undefined)
+      }
+    }
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE, { name: 'handle-unschedulable-runners' })
+  @LogExecution('handle-unschedulable-runners')
+  @WithInstrumentation()
+  private async handleUnschedulableRunners() {
+    const runners = await this.runnerRepository.find({ where: { unschedulable: true } })
+
+    if (runners.length === 0) {
+      return
+    }
+
+    //  find all sandboxes that are using the unschedulable runners and have organizationId = '00000000-0000-0000-0000-000000000000'
+    const sandboxes = await this.sandboxRepository.find({
+      where: {
+        runnerId: In(runners.map((runner) => runner.id)),
+        organizationId: '00000000-0000-0000-0000-000000000000',
+        state: SandboxState.STARTED,
+        desiredState: Not(SandboxDesiredState.DESTROYED),
+      },
+    })
+
+    if (sandboxes.length === 0) {
+      return
+    }
+
+    const destroyPromises = sandboxes.map((sandbox) => this.destroy(sandbox.id))
+    const results = await Promise.allSettled(destroyPromises)
+
+    // Log any failed sandbox destructions
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        this.logger.error(`Failed to destroy sandbox ${sandboxes[index].id}: ${result.reason}`)
+      }
+    })
+  }
+
+  async isSandboxPublic(sandboxId: string): Promise<boolean> {
+    const sandbox = await this.sandboxRepository.findOne({
+      where: { id: sandboxId },
+    })
+
+    if (!sandbox) {
+      throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
+    }
+
+    return sandbox.public
+  }
+
+  async isPreviewWarningEnabled(sandboxIdOrToken: string, port?: number): Promise<boolean> {
+    let organization = await this.organizationService.findBySandboxId(sandboxIdOrToken)
+
+    // The identifier may be a signed preview URL token rather than a sandbox ID.
+    // A token can only be resolved with the port it was issued for.
+    if (!organization && port !== undefined) {
+      try {
+        const sandboxId = await this.getSandboxIdFromSignedPreviewUrlToken(sandboxIdOrToken, port)
+        organization = await this.organizationService.findBySandboxId(sandboxId)
+      } catch (error) {
+        // An invalid or expired token falls through to the NotFoundException below;
+        // surface any other backend (Redis/DB) error instead of masking it as a 404.
+        if (!(error instanceof ForbiddenException)) {
+          throw error
+        }
+      }
+    }
+
+    if (!organization) {
+      throw new NotFoundException(`Sandbox with ID ${sandboxIdOrToken} not found`)
+    }
+
+    return organization.previewWarningEnabled
+  }
+
+  @OnEvent(OrganizationEvents.SUSPENDED_SANDBOX_STOPPED)
+  async handleSuspendedSandboxStopped(event: OrganizationSuspendedSandboxStoppedEvent) {
+    await this.stop(event.sandboxId).catch((error) => {
+      //  log the error for now, but don't throw it as it will be retried
+      this.logger.error(`Error stopping sandbox from suspended organization. SandboxId: ${event.sandboxId}: `, error)
+    })
+  }
+
+  /**
+   * Cascade-destroys any sandboxes that are linked to the just-destroyed sandbox.
+   * Linked sandboxes are co-located on the same runner as their owner and share a
+   * runner-local network with it; once the owner is gone the followers lose the
+   * network and have no reason to exist (they are always ephemeral by design).
+   */
+  @OnEvent(SandboxEvents.DESTROYED)
+  async handleSandboxDestroyedCascadeLinked(event: SandboxDestroyedEvent) {
+    if (!event.sandbox?.id) {
+      return
+    }
+
+    const followers = await this.sandboxRepository.find({
+      where: {
+        linkedSandboxId: event.sandbox.id,
+        desiredState: Not(SandboxDesiredState.DESTROYED),
+      },
+    })
+
+    for (const follower of followers) {
+      try {
+        await this.destroy(follower.id, follower.organizationId)
+      } catch (err) {
+        this.logger.warn(
+          `Failed to cascade-destroy linked follower ${follower.id} after owner ${event.sandbox.id} was destroyed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        )
+      }
+    }
+  }
+
+  private resolveAutoStopInterval(autoStopInterval: number): number {
+    if (autoStopInterval < 0) {
+      throw new BadRequestError('Auto-stop interval must be non-negative')
+    }
+
+    return autoStopInterval
+  }
+
+  //  resolves the ttlMinutes request input into the autoDestroyAt deadline, anchored at the current time
+  //  (sliding: every call re-anchors, so setting a new ttl extends or shortens the deadline from now)
+  private resolveTtl(ttlMinutes: number): Pick<Partial<Sandbox>, 'autoDestroyAt'> {
+    if (ttlMinutes < 0) {
+      throw new BadRequestError('TTL must be non-negative')
+    }
+
+    return {
+      autoDestroyAt: ttlMinutes === 0 ? null : new Date(Date.now() + ttlMinutes * 60 * 1000),
+    }
+  }
+
+  private resolveAutoPauseInterval(sandboxClass: SandboxClass, autoPauseInterval: number): number {
+    if (autoPauseInterval < 0) {
+      throw new BadRequestError('Auto-pause interval must be non-negative')
+    }
+
+    if (autoPauseInterval !== 0 && !PAUSE_SUPPORTED_SANDBOX_CLASSES.includes(sandboxClass)) {
+      throw new HttpException(
+        `Auto-pause is not supported for sandbox class '${sandboxClass}'. Supported classes: ${PAUSE_SUPPORTED_SANDBOX_CLASSES.join(', ')}`,
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      )
+    }
+
+    return autoPauseInterval
+  }
+
+  //  resolves autoStopInterval and autoPauseInterval together: validates mutual exclusivity,
+  //  disables auto-stop when auto-pause is explicitly enabled, and applies the default
+  //  auto-pause of DEFAULT_AUTO_PAUSE_INTERVAL minutes (with auto-stop disabled) for
+  //  pause-supporting sandbox classes when neither interval is provided.
+  //  Ephemeral sandboxes cannot have auto-pause enabled and never receive the default.
+  //  Returned keys are only set when they should be assigned to the sandbox.
+  private resolveAutoStopAndAutoPauseIntervals(
+    createSandboxDto: CreateSandboxDto,
+    sandboxClass: SandboxClass,
+    ephemeral: boolean,
+  ): Pick<Partial<Sandbox>, 'autoStopInterval' | 'autoPauseInterval'> {
+    if (createSandboxDto.autoStopInterval && createSandboxDto.autoPauseInterval) {
+      throw new BadRequestError(
+        'Auto-stop and auto-pause intervals are mutually exclusive. Set at most one of them to a non-zero value',
+      )
+    }
+
+    if (ephemeral && createSandboxDto.autoPauseInterval) {
+      throw new BadRequestError('Ephemeral sandboxes cannot have auto-pause enabled. Set autoPauseInterval to 0')
+    }
+
+    const resolved: Pick<Partial<Sandbox>, 'autoStopInterval' | 'autoPauseInterval'> = {}
+
+    if (createSandboxDto.autoStopInterval !== undefined) {
+      resolved.autoStopInterval = this.resolveAutoStopInterval(createSandboxDto.autoStopInterval)
+    }
+
+    if (createSandboxDto.autoPauseInterval !== undefined) {
+      resolved.autoPauseInterval = this.resolveAutoPauseInterval(sandboxClass, createSandboxDto.autoPauseInterval)
+      if (resolved.autoPauseInterval !== 0 && createSandboxDto.autoStopInterval === undefined) {
+        resolved.autoStopInterval = 0
+      }
+    } else if (
+      createSandboxDto.autoStopInterval === undefined &&
+      !ephemeral &&
+      PAUSE_SUPPORTED_SANDBOX_CLASSES.includes(sandboxClass)
+    ) {
+      resolved.autoPauseInterval = DEFAULT_AUTO_PAUSE_INTERVAL
+      resolved.autoStopInterval = 0
+    }
+
+    return resolved
+  }
+
+  private resolveAutoArchiveInterval(autoArchiveInterval: number): number {
+    if (autoArchiveInterval < 0) {
+      throw new BadRequestError('Auto-archive interval must be non-negative')
+    }
+
+    const maxAutoArchiveInterval = this.configService.getOrThrow('maxAutoArchiveInterval')
+
+    if (autoArchiveInterval === 0) {
+      return maxAutoArchiveInterval
+    }
+
+    return Math.min(autoArchiveInterval, maxAutoArchiveInterval)
+  }
+
+  private resolveNetworkAllowList(networkAllowList: string): string {
+    try {
+      validateNetworkAllowList(networkAllowList)
+    } catch (error) {
+      throw new BadRequestError(error instanceof Error ? error.message : 'Invalid network allow list')
+    }
+
+    return networkAllowList
+  }
+
+  private resolveDomainAllowList(domainAllowList: string): string {
+    try {
+      validateDomainAllowList(domainAllowList)
+    } catch (error) {
+      throw new BadRequestError(error instanceof Error ? error.message : 'Invalid domain allow list')
+    }
+
+    return domainAllowList
+  }
+
+  private validateNetworkSettingsCompatibility(
+    networkBlockAll: boolean | undefined,
+    networkAllowList: string | undefined,
+    domainAllowList: string | undefined,
+  ): void {
+    try {
+      assertNetworkSettingsCompatible(networkBlockAll, networkAllowList, domainAllowList)
+    } catch (error) {
+      throw new BadRequestError(error instanceof Error ? error.message : 'Conflicting network settings')
+    }
+  }
+
+  // Resolves each volumeId (which may be a volume name) to the volume's UUID — the
+  // runner builds a host mount path from this value, so only UUIDs may be stored.
+  private async resolveVolumes(
+    organizationId: string,
+    volumes?: SandboxVolume[],
+  ): Promise<SandboxVolume[] | undefined> {
+    if (volumes === undefined || volumes.length === 0) {
+      return volumes
+    }
+
+    const volumeIdOrNames = volumes.map((volume) => volume.volumeId)
+    const foundVolumes = await this.volumeService.getVolumesByIdOrName(organizationId, volumeIdOrNames)
+
+    const resolved = volumes.map((volume) => {
+      const matchedVolume = foundVolumes.get(volume.volumeId)
+      if (matchedVolume === undefined || !isValidUuid(matchedVolume.id)) {
+        throw new BadRequestError(`Volume '${volume.volumeId}' could not be resolved to a valid volume ID`)
+      }
+      return { ...volume, volumeId: matchedVolume.id }
+    })
+
+    try {
+      validateMountPaths(resolved)
+    } catch (error) {
+      throw new BadRequestError(error instanceof Error ? error.message : 'Invalid volume mount configuration')
+    }
+
+    try {
+      validateSubpaths(resolved)
+    } catch (error) {
+      throw new BadRequestError(error instanceof Error ? error.message : 'Invalid volume subpath configuration')
+    }
+
+    return resolved
+  }
+
+  async createSshAccess(
+    sandboxIdOrName: string,
+    expiresInMinutes = 60,
+    organizationId?: string,
+  ): Promise<SshAccessDto> {
+    //  check if sandbox exists
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+
+    // Revoke any existing SSH access for this sandbox
+    await this.revokeSshAccess(sandbox.id)
+
+    const sshAccess = new SshAccess()
+    sshAccess.sandboxId = sandbox.id
+    // Generate a safe token that can't doesn't have _ or - to avoid CLI issues
+    sshAccess.token = customNanoid(urlAlphabet.replace('_', '').replace('-', ''))(32)
+    sshAccess.expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000)
+
+    await this.sshAccessRepository.save(sshAccess)
+
+    const region = await this.regionService.findOne(sandbox.region, true)
+    if (region && region.sshGatewayUrl) {
+      return SshAccessDto.fromSshAccess(sshAccess, region.sshGatewayUrl)
+    }
+
+    return SshAccessDto.fromSshAccess(sshAccess, this.configService.getOrThrow('sshGateway.url'))
+  }
+
+  async revokeSshAccess(sandboxIdOrName: string, token?: string, organizationId?: string): Promise<Sandbox> {
+    const sandbox = await this.findOneByIdOrName(sandboxIdOrName, organizationId)
+
+    if (token) {
+      // Revoke specific SSH access by token
+      await this.sshAccessRepository.delete({ sandboxId: sandbox.id, token })
+    } else {
+      // Revoke all SSH access for the sandbox
+      await this.sshAccessRepository.delete({ sandboxId: sandbox.id })
+    }
+
+    return sandbox
+  }
+
+  async validateSshAccess(token: string): Promise<SshAccessValidationDto> {
+    const sshAccess = await this.sshAccessRepository.findOne({
+      where: {
+        token,
+      },
+      relations: ['sandbox'],
+    })
+
+    if (!sshAccess) {
+      return { valid: false, sandboxId: null }
+    }
+
+    // Check if token is expired
+    const isExpired = sshAccess.expiresAt < new Date()
+    if (isExpired) {
+      return { valid: false, sandboxId: null }
+    }
+
+    // Get runner information if sandbox exists
+    if (sshAccess.sandbox && sshAccess.sandbox.runnerId) {
+      const runner = await this.runnerService.findOne(sshAccess.sandbox.runnerId)
+
+      if (runner) {
+        return {
+          valid: true,
+          sandboxId: sshAccess.sandbox.id,
+        }
+      }
+    }
+
+    return { valid: true, sandboxId: sshAccess.sandbox.id }
+  }
+
+  async updateSandboxBackupState(
+    sandboxId: string,
+    backupState: BackupState,
+    backupSnapshot?: string | null,
+    backupRegistryId?: string | null,
+    backupErrorReason?: string | null,
+    recoverable?: boolean,
+  ): Promise<void> {
+    const sandboxToUpdate = await this.sandboxRepository.findOneByOrFail({
+      id: sandboxId,
+    })
+
+    const updateData = Sandbox.getBackupStateUpdate(
+      sandboxToUpdate,
+      backupState,
+      backupSnapshot,
+      backupRegistryId,
+      backupErrorReason,
+      recoverable,
+    )
+
+    await this.sandboxRepository.update(sandboxId, { updateData, entity: sandboxToUpdate })
+  }
+}

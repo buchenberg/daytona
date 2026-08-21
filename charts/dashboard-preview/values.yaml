@@ -1,0 +1,42 @@
+# Optional — surfaced as pod annotations so the preview-environments
+# dashboard can resolve the GitHub PR for slugified branch names.
+branchName: ""
+repo: ""    # e.g. daytonaio/daytona or daytonaio/daytona-ai
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/daytonaio/daytona-dashboard
+  tag: "latest"
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: daytonabot-token
+
+podAnnotations: {}
+
+containerPort: 80
+
+env:
+  DAYTONA_BASE_API_URL: "https://app.daytona.io"
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: nginx-internal
+  host: ""
+  annotations: {}
+  tls:
+    enabled: true
+    secretName: dashboard-preview-tls
+
+resources: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

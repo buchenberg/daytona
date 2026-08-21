@@ -1,0 +1,1879 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Query,
+  Logger,
+  UseGuards,
+  HttpCode,
+  Put,
+  Patch,
+  NotFoundException,
+  Res,
+  Request,
+  RawBodyRequest,
+  Next,
+  ParseBoolPipe,
+} from '@nestjs/common'
+import { SandboxService } from '../services/sandbox.service'
+import { CreateSandboxDto } from '../dto/create-sandbox.dto'
+import {
+  ApiOAuth2,
+  ApiResponse,
+  ApiQuery,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+  ApiHeader,
+  ApiBearerAuth,
+  ApiExcludeEndpoint,
+  ApiBody,
+} from '@nestjs/swagger'
+import { UpdateLastActivityDto } from '../dto/update-last-activity.dto'
+import { deriveSandboxActivitySource } from '../common/sandbox-activity-source'
+import { SandboxDto, SandboxLabelsDto } from '../dto/sandbox.dto'
+import { ResizeSandboxDto } from '../dto/resize-sandbox.dto'
+import { UpdateSandboxStateDto } from '../dto/update-sandbox-state.dto'
+import { SetSandboxErrorStateDto } from '../dto/set-sandbox-error-state.dto'
+import { PaginatedSandboxesDtoDeprecated } from '../dto/paginated-sandboxes.deprecated.dto'
+import { RunnerService } from '../services/runner.service'
+import { RunnerAuthContextGuard } from '../guards/runner-auth-context.guard'
+import { RunnerAuthContext } from '../../common/interfaces/runner-auth-context.interface'
+import { SandboxState } from '../enums/sandbox-state.enum'
+import { Sandbox } from '../entities/sandbox.entity'
+import { SandboxAccessGuard } from '../guards/sandbox-access.guard'
+import { CustomHeaders } from '../../common/constants/header.constants'
+import {
+  IsBaseAuthContext,
+  IsOrganizationAuthContext,
+  IsRunnerAuthContext,
+} from '../../common/decorators/auth-context.decorator'
+import { BaseAuthContext } from '../../common/interfaces/base-auth-context.interface'
+import {
+  OrganizationAuthContext,
+  isOrganizationAuthContext,
+} from '../../common/interfaces/organization-auth-context.interface'
+import { RequiredOrganizationResourcePermissions } from '../../organization/decorators/required-organization-resource-permissions.decorator'
+import { OrganizationResourcePermission } from '../../organization/enums/organization-resource-permission.enum'
+import { OrganizationAuthContextGuard } from '../../organization/guards/organization-auth-context.guard'
+import { PortPreviewUrlDto, SignedPortPreviewUrlDto } from '../dto/port-preview-url.dto'
+import { IncomingMessage, ServerResponse } from 'http'
+import { NextFunction } from 'http-proxy-middleware/dist/types'
+import { LogProxy } from '../proxy/log-proxy'
+import { BadRequestError } from '../../exceptions/bad-request.exception'
+import { SandboxStateUpdatedEvent } from '../events/sandbox-state-updated.event'
+import { Audit, MASKED_AUDIT_VALUE, TypedRequest } from '../../audit/decorators/audit.decorator'
+import { AuditAction } from '../../audit/enums/audit-action.enum'
+import { AuditTarget } from '../../audit/enums/audit-target.enum'
+import { UpdateSandboxNetworkSettingsDto } from '../dto/update-sandbox-network-settings.dto'
+import { UpdateSandboxSecretsDto } from '../dto/update-sandbox-secrets.dto'
+import { SshAccessDto, SshAccessValidationDto } from '../dto/ssh-access.dto'
+import { KEPLER_DEDICATED_LARGE, KEPLER_DEDICATED_REGULAR, KEPLER_ORG_ID } from '../constants/kepler.constant'
+import { RESTRICTED_REGIONS } from '../constants/dedicated-regions.constant'
+import { ListSandboxesQueryDtoDeprecated } from '../dto/list-sandboxes-query.deprecated.dto'
+import { CreateSandboxSnapshotDto } from '../dto/create-sandbox-snapshot.dto'
+import { ForkSandboxDto } from '../dto/fork-sandbox.dto'
+import { ProxyAuthContextGuard } from '../guards/proxy-auth-context.guard'
+import { RunnerCleanupToolAuthContextGuard } from '../guards/runner-cleanup-tool-auth-context.guard'
+import { OrGuard } from '../../auth/or.guard'
+import { AuthenticatedRateLimitGuard } from '../../common/guards/authenticated-rate-limit.guard'
+import { SkipThrottle } from '@nestjs/throttler'
+import { ThrottlerScope } from '../../common/decorators/throttler-scope.decorator'
+import { SshGatewayAuthContextGuard } from '../guards/ssh-gateway-auth-context.guard'
+import { ToolboxProxyUrlDto } from '../dto/toolbox-proxy-url.dto'
+import { UrlDto } from '../../common/dto/url.dto'
+import { InjectRedis } from '@nestjs-modules/ioredis'
+import { Redis } from 'ioredis'
+import { SANDBOX_EVENT_CHANNEL } from '../../common/constants/constants'
+import { RequireFlagsEnabled } from '@openfeature/nestjs-sdk'
+import { FeatureFlags } from '../../common/constants/feature-flags'
+import { AuthStrategy } from '../../auth/decorators/auth-strategy.decorator'
+import { AuthStrategyType } from '../../auth/enums/auth-strategy-type.enum'
+import { OrganizationService } from '../../organization/services/organization.service'
+import { OrganizationDto } from '../../organization/dto/organization.dto'
+import { RegionQuotaDto } from '../../organization/dto/region-quota.dto'
+import { ListSandboxesQueryDto } from '../dto/list-sandboxes-query.dto'
+import { ListSandboxesResponseDto } from '../dto/list-sandboxes-response.dto'
+import { SandboxSecretsAuthContextGuard } from '../guards/sandbox-secrets-auth-context.guard'
+import { SandboxSecretsAuthContext } from '../../common/interfaces/sandbox-secrets-auth-context.interface'
+import { IsSandboxSecretsAuthContext } from '../../common/decorators/auth-context.decorator'
+
+@Controller('sandbox')
+@ApiTags('sandbox')
+@ApiOAuth2(['openid', 'profile', 'email'])
+@ApiBearerAuth()
+@ApiHeader(CustomHeaders.ORGANIZATION_ID)
+@AuthStrategy([AuthStrategyType.API_KEY, AuthStrategyType.JWT])
+@UseGuards(AuthenticatedRateLimitGuard)
+export class SandboxController {
+  private readonly logger = new Logger(SandboxController.name)
+  private readonly sandboxCallbacks: Map<string, (event: SandboxStateUpdatedEvent) => void> = new Map()
+  private readonly redisSubscriber: Redis
+  constructor(
+    private readonly runnerService: RunnerService,
+    private readonly sandboxService: SandboxService,
+    private readonly organizationService: OrganizationService,
+    @InjectRedis() private readonly redis: Redis,
+  ) {
+    this.redisSubscriber = this.redis.duplicate()
+    this.redisSubscriber.subscribe(SANDBOX_EVENT_CHANNEL)
+    this.redisSubscriber.on('message', (channel, message) => {
+      if (channel !== SANDBOX_EVENT_CHANNEL) {
+        return
+      }
+
+      try {
+        const event = JSON.parse(message) as SandboxStateUpdatedEvent
+        this.handleSandboxStateUpdated(event)
+      } catch (error) {
+        this.logger.error('Failed to parse sandbox state updated event:', error)
+        return
+      }
+    })
+  }
+
+  @Get()
+  @ApiOperation({
+    summary: 'List sandboxes',
+    description: 'Advanced filtering and ordering. Eventually consistent.',
+    operationId: 'listSandboxes',
+  })
+  @ApiResponse({
+    status: 200,
+    type: ListSandboxesResponseDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard)
+  async listSandboxes(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Query() query: ListSandboxesQueryDto,
+  ): Promise<ListSandboxesResponseDto> {
+    return this.sandboxService.search(authContext.organizationId, query)
+  }
+
+  @Get('paginated')
+  @ThrottlerScope('sandbox-list')
+  @ApiOperation({
+    summary: '[DEPRECATED] List all sandboxes paginated',
+    operationId: 'listSandboxesPaginated_deprecated',
+    deprecated: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of all sandboxes',
+    type: PaginatedSandboxesDtoDeprecated,
+  })
+  @UseGuards(OrganizationAuthContextGuard)
+  async listSandboxesPaginated(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Query() queryParams: ListSandboxesQueryDtoDeprecated,
+  ): Promise<PaginatedSandboxesDtoDeprecated> {
+    const {
+      page,
+      limit,
+      id,
+      name,
+      labels,
+      includeErroredDeleted: includeErroredDestroyed,
+      states,
+      snapshots,
+      regions,
+      minCpu,
+      maxCpu,
+      minMemoryGiB,
+      maxMemoryGiB,
+      minDiskGiB,
+      maxDiskGiB,
+      lastEventAfter,
+      lastEventBefore,
+      sort: sortField,
+      order: sortDirection,
+    } = queryParams
+
+    let parsedLabels: { [key: string]: string } | undefined = undefined
+    if (labels && authContext.organizationId !== 'febf2c2a-8287-4de2-bb6c-7362a188fa09') {
+      try {
+        parsedLabels = JSON.parse(labels)
+      } catch {
+        throw new BadRequestError('Invalid labels JSON format')
+      }
+    }
+
+    const result = await this.sandboxService.findAllPaginatedDeprecated(
+      authContext.organizationId,
+      page,
+      limit,
+      {
+        id,
+        name,
+        labels: parsedLabels,
+        includeErroredDestroyed,
+        states,
+        snapshots,
+        regionIds: regions,
+        minCpu,
+        maxCpu,
+        minMemoryGiB,
+        maxMemoryGiB,
+        minDiskGiB,
+        maxDiskGiB,
+        lastEventAfter,
+        lastEventBefore,
+      },
+      {
+        field: sortField,
+        direction: sortDirection,
+      },
+    )
+
+    return {
+      items: await this.sandboxService.toSandboxDtos(result.items),
+      total: result.total,
+      page: result.page,
+      totalPages: result.totalPages,
+    }
+  }
+
+  @Post()
+  @HttpCode(200)
+  @SkipThrottle({ authenticated: true })
+  @ThrottlerScope('sandbox-create')
+  @ApiOperation({
+    summary: 'Create a new sandbox',
+    operationId: 'createSandbox',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'The sandbox has been successfully created.',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.CREATE,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      body: (req: TypedRequest<CreateSandboxDto>) => ({
+        name: req.body?.name,
+        snapshot: req.body?.snapshot,
+        user: req.body?.user,
+        env: req.body?.env
+          ? Object.fromEntries(Object.keys(req.body?.env).map((key) => [key, MASKED_AUDIT_VALUE]))
+          : undefined,
+        labels: req.body?.labels,
+        public: req.body?.public,
+        target: req.body?.target,
+        cpu: req.body?.cpu,
+        gpu: req.body?.gpu,
+        gpuType: req.body?.gpuType,
+        memory: req.body?.memory,
+        disk: req.body?.disk,
+        autoStopInterval: req.body?.autoStopInterval,
+        autoPauseInterval: req.body?.autoPauseInterval,
+        ttlMinutes: req.body?.ttlMinutes,
+        autoArchiveInterval: req.body?.autoArchiveInterval,
+        autoDeleteInterval: req.body?.autoDeleteInterval,
+        volumes: req.body?.volumes,
+        buildInfo: req.body?.buildInfo,
+        networkBlockAll: req.body?.networkBlockAll,
+        networkAllowList: req.body?.networkAllowList,
+        domainAllowList: req.body?.domainAllowList,
+        linkedSandbox: req.body?.linkedSandbox,
+      }),
+    },
+  })
+  async createSandbox(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Body() createSandboxDto: CreateSandboxDto,
+  ): Promise<SandboxDto> {
+    const organization = authContext.organization
+    let sandbox: SandboxDto
+
+    // Kepler dedicated sandboxes
+    if (organization.id === KEPLER_ORG_ID) {
+      createSandboxDto.autoArchiveInterval = 365 * 24 * 60 // One year auto-archive interval
+
+      if (![KEPLER_DEDICATED_REGULAR, KEPLER_DEDICATED_LARGE].includes(createSandboxDto.target)) {
+        throw new BadRequestError(
+          `Only dedicated Kepler regions are supported: ${KEPLER_DEDICATED_REGULAR} or ${KEPLER_DEDICATED_LARGE}`,
+        )
+      }
+    }
+
+    assertRLRegionRequirements(createSandboxDto)
+
+    if (createSandboxDto.buildInfo) {
+      if (createSandboxDto.snapshot) {
+        throw new BadRequestError('Cannot specify a snapshot when using a build info entry')
+      }
+      if (createSandboxDto.linkedSandbox) {
+        throw new BadRequestError(
+          'linkedSandbox is not supported with declarative builds. Create a sandbox from a snapshot',
+        )
+      }
+      sandbox = await this.sandboxService.createFromBuildInfo(createSandboxDto, organization)
+    } else {
+      if (createSandboxDto.cpu || createSandboxDto.gpu || createSandboxDto.memory || createSandboxDto.disk) {
+        throw new BadRequestError('Cannot specify Sandbox resources when using a snapshot')
+      }
+      if (createSandboxDto.gpuType && createSandboxDto.gpuType.length > 0) {
+        throw new BadRequestError(
+          'Cannot specify GPU type when creating sandbox from snapshot. GPU type is inherited from snapshot.',
+        )
+      }
+      sandbox = await this.sandboxService.createFromSnapshot(createSandboxDto, organization)
+      if (sandbox.state === SandboxState.STARTED) {
+        return sandbox
+      }
+
+      await this.waitForSandboxStarted(sandbox, 60)
+    }
+
+    return sandbox
+  }
+
+  @Get('for-runner')
+  @ApiOperation({
+    summary: 'Get sandboxes for the authenticated runner',
+    operationId: 'getSandboxesForRunner',
+  })
+  @ApiQuery({
+    name: 'states',
+    required: false,
+    type: String,
+    description: 'Comma-separated list of sandbox states to filter by',
+  })
+  @ApiQuery({
+    name: 'skipReconcilingSandboxes',
+    required: false,
+    type: Boolean,
+    description: 'Skip sandboxes where state differs from desired state',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of sandboxes for the authenticated runner',
+    type: [SandboxDto],
+  })
+  @AuthStrategy(AuthStrategyType.API_KEY)
+  @UseGuards(RunnerAuthContextGuard)
+  async getSandboxesForRunner(
+    @IsRunnerAuthContext() runnerContext: RunnerAuthContext,
+    @Query('states') states?: string,
+    @Query('skipReconcilingSandboxes') skipReconcilingSandboxes?: string,
+  ): Promise<SandboxDto[]> {
+    const stateArray = states
+      ? states.split(',').map((s) => {
+          if (!Object.values(SandboxState).includes(s as SandboxState)) {
+            throw new BadRequestError(`Invalid sandbox state: ${s}`)
+          }
+          return s as SandboxState
+        })
+      : undefined
+
+    const skip = skipReconcilingSandboxes === 'true'
+    const sandboxes = await this.sandboxService.findByRunnerId(runnerContext.runnerId, stateArray, skip)
+
+    return this.sandboxService.toSandboxDtos(sandboxes)
+  }
+
+  @Get(':sandboxIdOrName')
+  @ApiOperation({
+    summary: 'Get sandbox details',
+    operationId: 'getSandbox',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiQuery({
+    name: 'verbose',
+    required: false,
+    type: Boolean,
+    description: 'Include verbose output',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sandbox details',
+    type: SandboxDto,
+  })
+  @UseGuards(
+    OrGuard([
+      OrganizationAuthContextGuard,
+      ProxyAuthContextGuard,
+      SshGatewayAuthContextGuard,
+      RunnerCleanupToolAuthContextGuard,
+    ]),
+    SandboxAccessGuard,
+  )
+  async getSandbox(
+    @IsBaseAuthContext() authContext: BaseAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    @Query('verbose') verbose?: boolean,
+  ): Promise<SandboxDto> {
+    const organizationId = isOrganizationAuthContext(authContext) ? authContext.organizationId : undefined
+
+    const sandbox = organizationId
+      ? await this.sandboxService.findOneByIdOrName(sandboxIdOrName, organizationId)
+      : await this.sandboxService.findOne(sandboxIdOrName)
+
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Delete(':sandboxIdOrName')
+  @SkipThrottle({ authenticated: true })
+  @ThrottlerScope('sandbox-lifecycle')
+  @ApiOperation({
+    summary: 'Delete sandbox',
+    operationId: 'deleteSandbox',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sandbox has been deleted',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.DELETE_SANDBOXES])
+  @Audit({
+    action: AuditAction.DELETE,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+  })
+  async deleteSandbox(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.destroy(sandboxIdOrName, authContext.organizationId)
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Post(':sandboxIdOrName/recover')
+  @HttpCode(200)
+  @SkipThrottle({ authenticated: true })
+  @ThrottlerScope('sandbox-lifecycle')
+  @ApiOperation({
+    summary: 'Recover sandbox from error state',
+    operationId: 'recoverSandbox',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiQuery({
+    name: 'skipStart',
+    required: false,
+    type: Boolean,
+    description: 'If true, the sandbox is left in STOPPED after recovery instead of being started.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Recovery initiated',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.RECOVER,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      query: (req) => ({
+        skipStart: req.query?.skipStart === 'true',
+      }),
+    },
+  })
+  async recoverSandbox(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Query('skipStart', new ParseBoolPipe({ optional: true })) skipStart?: boolean,
+  ): Promise<SandboxDto> {
+    const recoveredSandbox = await this.sandboxService.recover(sandboxIdOrName, authContext.organization, skipStart)
+    let sandboxDto = await this.sandboxService.toSandboxDto(recoveredSandbox)
+
+    if (!skipStart && sandboxDto.state !== SandboxState.STARTED) {
+      sandboxDto = await this.waitForSandboxStarted(sandboxDto, 30)
+    }
+
+    return sandboxDto
+  }
+
+  @Post(':sandboxIdOrName/start')
+  @HttpCode(200)
+  @SkipThrottle({ authenticated: true })
+  @ThrottlerScope('sandbox-lifecycle')
+  @ApiOperation({
+    summary: 'Start or resume sandbox',
+    description:
+      'Starts a stopped or archived sandbox, or resumes a paused sandbox. The transition taken depends on the current sandbox state.',
+    operationId: 'startSandbox',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sandbox has been started, is being restored from archived state, or is being resumed from paused',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.START,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+  })
+  async startSandbox(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+  ): Promise<SandboxDto> {
+    const sbx = await this.sandboxService.start(sandboxIdOrName, authContext.organization)
+    let sandbox = await this.sandboxService.toSandboxDto(sbx)
+
+    if (![SandboxState.ARCHIVED, SandboxState.RESTORING, SandboxState.STARTED].includes(sandbox.state)) {
+      sandbox = await this.waitForSandboxStarted(sandbox, 15)
+    }
+
+    return sandbox
+  }
+
+  @Post(':sandboxIdOrName/stop')
+  @HttpCode(200)
+  @SkipThrottle({ authenticated: true })
+  @ThrottlerScope('sandbox-lifecycle')
+  @ApiOperation({
+    summary: 'Stop sandbox',
+    operationId: 'stopSandbox',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiQuery({
+    name: 'force',
+    required: false,
+    type: 'boolean',
+    description: 'Force stop the sandbox using SIGKILL instead of SIGTERM',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sandbox has been stopped',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.STOP,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      query: (req) => ({
+        force: req.query?.force === 'true',
+      }),
+    },
+  })
+  async stopSandbox(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Query('force', new ParseBoolPipe({ optional: true })) force?: boolean,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.stop(sandboxIdOrName, authContext.organizationId, force)
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Post(':sandboxIdOrName/pause')
+  @HttpCode(200)
+  @SkipThrottle({ authenticated: true })
+  @ThrottlerScope('sandbox-lifecycle')
+  @ApiOperation({
+    summary: 'Pause sandbox',
+    operationId: 'pauseSandbox',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sandbox pause has been initiated',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.PAUSE,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+  })
+  async pauseSandbox(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.pause(sandboxIdOrName, authContext.organization)
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Post(':sandboxIdOrName/resize')
+  @HttpCode(200)
+  @SkipThrottle({ authenticated: true })
+  @ThrottlerScope('sandbox-lifecycle')
+  @RequireFlagsEnabled({ flags: [{ flagKey: FeatureFlags.SANDBOX_RESIZE, defaultValue: false }] })
+  @ApiOperation({
+    summary: 'Resize sandbox resources',
+    operationId: 'resizeSandbox',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sandbox has been resized',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.RESIZE,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      body: (req: TypedRequest<ResizeSandboxDto>) => ({
+        cpu: req.body?.cpu,
+        memory: req.body?.memory,
+        disk: req.body?.disk,
+      }),
+    },
+  })
+  async resizeSandbox(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Body() resizeSandboxDto: ResizeSandboxDto,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.resize(sandboxIdOrName, resizeSandboxDto, authContext.organization)
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Put(':sandboxIdOrName/labels')
+  @ApiOperation({
+    summary: 'Replace sandbox labels',
+    operationId: 'replaceLabels',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Labels have been successfully replaced',
+    type: SandboxLabelsDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.REPLACE_LABELS,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      body: (req: TypedRequest<SandboxLabelsDto>) => ({
+        labels: req.body?.labels,
+      }),
+    },
+  })
+  async replaceLabels(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Body() labelsDto: SandboxLabelsDto,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.replaceLabels(
+      sandboxIdOrName,
+      labelsDto.labels,
+      authContext.organizationId,
+    )
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Put(':sandboxId/state')
+  @ApiOperation({
+    summary: 'Update sandbox state',
+    operationId: 'updateSandboxState',
+  })
+  @ApiParam({
+    name: 'sandboxId',
+    description: 'ID of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sandbox state has been successfully updated',
+  })
+  @AuthStrategy(AuthStrategyType.API_KEY)
+  @UseGuards(RunnerAuthContextGuard, SandboxAccessGuard)
+  async updateSandboxState(
+    @Param('sandboxId') sandboxId: string,
+    @Body() updateStateDto: UpdateSandboxStateDto,
+  ): Promise<void> {
+    await this.sandboxService.updateState(
+      sandboxId,
+      updateStateDto.state,
+      updateStateDto.recoverable,
+      updateStateDto.errorReason,
+    )
+  }
+
+  @Patch(':sandboxId/error')
+  @HttpCode(200)
+  @ApiExcludeEndpoint(true)
+  @AuthStrategy(AuthStrategyType.API_KEY)
+  @UseGuards(RunnerCleanupToolAuthContextGuard, SandboxAccessGuard)
+  @Audit({
+    action: AuditAction.UPDATE,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxId,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      body: (req: TypedRequest<SetSandboxErrorStateDto>) => ({
+        errorReason: req.body?.errorReason,
+        recoverable: req.body?.recoverable,
+      }),
+    },
+  })
+  async setSandboxErrorState(
+    @Param('sandboxId') sandboxId: string,
+    @Body() dto: SetSandboxErrorStateDto,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.setSandboxErrorState(sandboxId, dto.errorReason, dto.recoverable ?? false)
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  /**
+   * @deprecated Backup creation is managed automatically and this endpoint is a no-op.
+   * It is kept for backwards compatibility and will be removed in a future release.
+   */
+  @Post(':sandboxIdOrName/backup')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Create sandbox backup',
+    operationId: 'createBackup',
+    deprecated: true,
+    description: 'Deprecated: backups are managed automatically. This endpoint is a no-op kept for compatibility.',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sandbox backup request acknowledged (no-op)',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  async createBackup(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+  ): Promise<SandboxDto> {
+    // Deprecated no-op: backups are managed automatically. The sandbox is still loaded and
+    // returned so existing clients that deserialize the previous SandboxDto response keep working.
+    const sandbox = await this.sandboxService.findOneByIdOrName(sandboxIdOrName, authContext.organizationId)
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Post(':sandboxIdOrName/snapshot')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Create a snapshot from a sandbox',
+    operationId: 'createSandboxSnapshot',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Snapshot creation has been initiated',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.SNAPSHOT,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      body: (req: TypedRequest<CreateSandboxSnapshotDto>) => ({
+        name: req.body?.name,
+      }),
+    },
+  })
+  async createSandboxSnapshot(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Body() dto: CreateSandboxSnapshotDto,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.createSnapshotFromSandbox(sandboxIdOrName, authContext.organization, dto)
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Post(':sandboxIdOrName/fork')
+  @HttpCode(200)
+  @SkipThrottle({ authenticated: true })
+  @ThrottlerScope('sandbox-create')
+  @ApiOperation({
+    summary: 'Fork a sandbox',
+    operationId: 'forkSandbox',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Fork operation has been initiated',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.FORK,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      body: (req: TypedRequest<ForkSandboxDto>) => ({
+        name: req.body?.name,
+      }),
+    },
+  })
+  async forkSandbox(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Body() dto: ForkSandboxDto,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.forkSandbox(sandboxIdOrName, authContext.organization, dto)
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Get(':sandboxIdOrName/forks')
+  @ApiOperation({
+    summary: 'Get sandbox fork children',
+    operationId: 'getSandboxForks',
+  })
+  @ApiParam({ name: 'sandboxIdOrName', type: String })
+  @ApiQuery({ name: 'includeDestroyed', required: false, type: Boolean })
+  @ApiResponse({ status: 200, type: [SandboxDto] })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  async getSandboxForks(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Query('includeDestroyed') includeDestroyed?: boolean,
+  ): Promise<SandboxDto[]> {
+    const children = await this.sandboxService.getForkChildren(
+      authContext.organizationId,
+      sandboxIdOrName,
+      includeDestroyed,
+    )
+    return this.sandboxService.toSandboxDtos(children)
+  }
+
+  @Get(':sandboxIdOrName/parent')
+  @ApiOperation({
+    summary: 'Get sandbox fork parent',
+    operationId: 'getSandboxParent',
+  })
+  @ApiParam({ name: 'sandboxIdOrName', type: String })
+  @ApiResponse({ status: 200, type: SandboxDto })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  async getSandboxParent(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+  ): Promise<SandboxDto> {
+    const parent = await this.sandboxService.getForkParent(authContext.organizationId, sandboxIdOrName)
+    if (!parent) {
+      throw new NotFoundException(`Parent sandbox not found for sandbox ${sandboxIdOrName}`)
+    }
+    return this.sandboxService.toSandboxDto(parent)
+  }
+
+  @Get(':sandboxIdOrName/ancestors')
+  @ApiOperation({
+    summary: 'Get sandbox fork ancestor chain',
+    operationId: 'getSandboxAncestors',
+  })
+  @ApiParam({ name: 'sandboxIdOrName', type: String })
+  @ApiResponse({ status: 200, type: [SandboxDto] })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  async getSandboxAncestors(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+  ): Promise<SandboxDto[]> {
+    const ancestors = await this.sandboxService.getForkAncestors(authContext.organizationId, sandboxIdOrName)
+    return this.sandboxService.toSandboxDtos(ancestors)
+  }
+
+  @Post(':sandboxIdOrName/public/:isPublic')
+  @ApiOperation({
+    summary: 'Update public status',
+    operationId: 'updatePublicStatus',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiParam({
+    name: 'isPublic',
+    description: 'Public status to set',
+    type: 'boolean',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Public status has been successfully updated',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.UPDATE_PUBLIC_STATUS,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      params: (req) => ({
+        isPublic: req.params.isPublic,
+      }),
+    },
+  })
+  async updatePublicStatus(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Param('isPublic') isPublic: boolean,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.updatePublicStatus(sandboxIdOrName, isPublic, authContext.organizationId)
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Get(':sandboxId/signing-key')
+  @ApiOperation({
+    summary: 'Get the signing key for a sandbox',
+    operationId: 'getSandboxSigningKey',
+  })
+  @ApiParam({
+    name: 'sandboxId',
+    description: 'ID of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Signing key of the sandbox',
+    type: String,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  async getSandboxSigningKey(@Param('sandboxId') sandboxId: string): Promise<string> {
+    return this.sandboxService.getSigningKey(sandboxId)
+  }
+
+  @Post(':sandboxId/signing-key/rotate')
+  @ApiOperation({
+    summary: 'Rotate the signing key, invalidating all previously signed URLs',
+    operationId: 'rotateSigningKey',
+  })
+  @ApiParam({
+    name: 'sandboxId',
+    description: 'ID of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'New signing key',
+    type: String,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.ROTATE_SIGNING_KEY,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxId,
+  })
+  async rotateSigningKey(@Param('sandboxId') sandboxId: string): Promise<string> {
+    return this.sandboxService.rotateSigningKey(sandboxId)
+  }
+
+  @Post(':sandboxId/last-activity')
+  @ApiOperation({
+    summary: 'Update sandbox last activity',
+    operationId: 'updateLastActivity',
+  })
+  @ApiParam({
+    name: 'sandboxId',
+    description: 'ID of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Last activity has been updated',
+  })
+  @ApiBody({ type: UpdateLastActivityDto, required: false })
+  @UseGuards(
+    OrGuard([OrganizationAuthContextGuard, ProxyAuthContextGuard, SshGatewayAuthContextGuard]),
+    SandboxAccessGuard,
+  )
+  async updateLastActivity(
+    @IsBaseAuthContext() authContext: BaseAuthContext,
+    @Param('sandboxId') sandboxId: string,
+    @Body() body?: UpdateLastActivityDto,
+  ): Promise<void> {
+    const source = deriveSandboxActivitySource(authContext, body?.activityType)
+    await this.sandboxService.updateLastActivityAt(sandboxId, new Date(), source)
+  }
+
+  @Post(':sandboxIdOrName/autostop/:interval')
+  @ApiOperation({
+    summary: 'Set sandbox auto-stop interval',
+    operationId: 'setAutostopInterval',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiParam({
+    name: 'interval',
+    description: 'Auto-stop interval in minutes (0 to disable)',
+    type: 'number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Auto-stop interval has been set',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.SET_AUTO_STOP_INTERVAL,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      params: (req) => ({
+        interval: req.params.interval,
+      }),
+    },
+  })
+  async setAutostopInterval(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Param('interval') interval: number,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.setAutostopInterval(sandboxIdOrName, interval, authContext.organizationId)
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Post(':sandboxIdOrName/autopause/:interval')
+  @ApiOperation({
+    summary: 'Set sandbox auto-pause interval',
+    operationId: 'setAutoPauseInterval',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiParam({
+    name: 'interval',
+    description: 'Auto-pause interval in minutes (0 to disable)',
+    type: 'number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Auto-pause interval has been set',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.SET_AUTO_PAUSE_INTERVAL,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      params: (req) => ({
+        interval: req.params.interval,
+      }),
+    },
+  })
+  async setAutoPauseInterval(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Param('interval') interval: number,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.setAutoPauseInterval(
+      sandboxIdOrName,
+      interval,
+      authContext.organizationId,
+    )
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Post(':sandboxIdOrName/ttl/:ttlMinutes')
+  @ApiOperation({
+    summary: 'Set sandbox TTL',
+    operationId: 'setTtl',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiParam({
+    name: 'ttlMinutes',
+    description:
+      'Maximum time to live in minutes, re-anchored from the current time (0 to disable). When it elapses the sandbox is destroyed, even if it is stopped, paused, or archived',
+    type: 'number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'TTL has been set',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.SET_TTL,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      params: (req) => ({
+        ttlMinutes: req.params.ttlMinutes,
+      }),
+    },
+  })
+  async setTtl(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Param('ttlMinutes') ttlMinutes: number,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.setTtl(sandboxIdOrName, ttlMinutes, authContext.organizationId)
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Post(':sandboxIdOrName/autoarchive/:interval')
+  @ApiOperation({
+    summary: 'Set sandbox auto-archive interval',
+    operationId: 'setAutoArchiveInterval',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiParam({
+    name: 'interval',
+    description: 'Auto-archive interval in minutes (0 means the maximum interval will be used)',
+    type: 'number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Auto-archive interval has been set',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.SET_AUTO_ARCHIVE_INTERVAL,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      params: (req) => ({
+        interval: req.params.interval,
+      }),
+    },
+  })
+  async setAutoArchiveInterval(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Param('interval') interval: number,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.setAutoArchiveInterval(
+      sandboxIdOrName,
+      interval,
+      authContext.organizationId,
+    )
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Post(':sandboxIdOrName/autodelete/:interval')
+  @ApiOperation({
+    summary: 'Set sandbox auto-delete interval',
+    operationId: 'setAutoDeleteInterval',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiParam({
+    name: 'interval',
+    description:
+      'Auto-delete interval in minutes (negative value means disabled, 0 means delete immediately upon stopping)',
+    type: 'number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Auto-delete interval has been set',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.SET_AUTO_DELETE_INTERVAL,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      params: (req) => ({
+        interval: req.params.interval,
+      }),
+    },
+  })
+  async setAutoDeleteInterval(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Param('interval') interval: number,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.setAutoDeleteInterval(
+      sandboxIdOrName,
+      interval,
+      authContext.organizationId,
+    )
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Post(':sandboxIdOrName/network-settings')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Update sandbox network settings',
+    operationId: 'updateNetworkSettings',
+    description:
+      'Changes outbound network policy on the runner for a running sandbox (for example block all traffic, restore access, or set a CIDR allow list).',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Network settings have been updated',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.UPDATE_NETWORK_SETTINGS,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      body: (req: TypedRequest<UpdateSandboxNetworkSettingsDto>) => ({
+        networkBlockAll: req.body?.networkBlockAll,
+        networkAllowList: req.body?.networkAllowList,
+        domainAllowList: req.body?.domainAllowList,
+      }),
+    },
+  })
+  async updateNetworkSettings(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Body() networkSettings: UpdateSandboxNetworkSettingsDto,
+  ): Promise<SandboxDto> {
+    if (authContext.organization.sandboxLimitedNetworkEgress) {
+      throw new BadRequestError(
+        'Network access is restricted and cannot be overridden at the sandbox level. See https://www.daytona.io/docs/en/network-limits/#tier-based-network-restrictions',
+      )
+    }
+    if (
+      networkSettings.networkBlockAll === undefined &&
+      networkSettings.networkAllowList === undefined &&
+      networkSettings.domainAllowList === undefined
+    ) {
+      throw new BadRequestError('At least one of networkBlockAll, networkAllowList or domainAllowList must be provided')
+    }
+    const sandbox = await this.sandboxService.updateNetworkSettings(
+      sandboxIdOrName,
+      networkSettings.networkBlockAll,
+      networkSettings.networkAllowList,
+      networkSettings.domainAllowList,
+      authContext.organizationId,
+    )
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Put(':sandboxIdOrName/secrets')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Update sandbox secrets',
+    operationId: 'updateSandboxSecrets',
+    description:
+      'Replaces the set of vault secrets mounted in the sandbox. Attached, detached and rotated secrets take effect for outbound requests within seconds. New env vars become visible to processes spawned after the update; a sandbox created without any secrets must be restarted for newly attached secrets to work.',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sandbox secrets have been updated',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.UPDATE_SECRETS,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      // Entries map env var names to vault secret names; no secret values pass through here.
+      body: (req: TypedRequest<UpdateSandboxSecretsDto>) => ({
+        secrets: req.body?.secrets,
+      }),
+    },
+  })
+  async updateSandboxSecrets(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Body() updateSandboxSecretsDto: UpdateSandboxSecretsDto,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.updateSecrets(
+      sandboxIdOrName,
+      updateSandboxSecretsDto.secrets ?? [],
+      authContext.organization,
+    )
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Post(':sandboxIdOrName/archive')
+  @HttpCode(200)
+  @SkipThrottle({ authenticated: true })
+  @ThrottlerScope('sandbox-lifecycle')
+  @ApiOperation({
+    summary: 'Archive sandbox',
+    operationId: 'archiveSandbox',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sandbox has been archived',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.ARCHIVE,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+  })
+  async archiveSandbox(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+  ): Promise<SandboxDto> {
+    // Kepler dedicated sandboxes
+    if (authContext.organizationId === KEPLER_ORG_ID) {
+      throw new BadRequestError('Archiving is disabled, contact support')
+    }
+
+    const sandbox = await this.sandboxService.archive(sandboxIdOrName, authContext.organizationId)
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Get(':sandboxIdOrName/ports/:port/preview-url')
+  @ApiOperation({
+    summary: 'Get preview URL for a sandbox port',
+    operationId: 'getPortPreviewUrl',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiParam({
+    name: 'port',
+    description: 'Port number to get preview URL for',
+    type: 'number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Preview URL for the specified port',
+    type: PortPreviewUrlDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  async getPortPreviewUrl(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Param('port') port: number,
+  ): Promise<PortPreviewUrlDto> {
+    return this.sandboxService.getPortPreviewUrl(sandboxIdOrName, authContext.organizationId, port)
+  }
+
+  @Get(':sandboxIdOrName/ports/:port/signed-preview-url')
+  @ApiOperation({
+    summary: 'Get signed preview URL for a sandbox port',
+    operationId: 'getSignedPortPreviewUrl',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiParam({
+    name: 'port',
+    description: 'Port number to get signed preview URL for',
+    type: 'integer',
+  })
+  @ApiQuery({
+    name: 'expiresInSeconds',
+    required: false,
+    type: 'integer',
+    description: 'Expiration time in seconds (default: 60 seconds)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Signed preview URL for the specified port',
+    type: SignedPortPreviewUrlDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  async getSignedPortPreviewUrl(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Param('port') port: number,
+    @Query('expiresInSeconds') expiresInSeconds?: number,
+  ): Promise<SignedPortPreviewUrlDto> {
+    return this.sandboxService.getSignedPortPreviewUrl(
+      sandboxIdOrName,
+      authContext.organizationId,
+      port,
+      expiresInSeconds,
+    )
+  }
+
+  @Post(':sandboxIdOrName/ports/:port/signed-preview-url/:token/expire')
+  @ApiOperation({
+    summary: 'Expire signed preview URL for a sandbox port',
+    operationId: 'expireSignedPortPreviewUrl',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiParam({
+    name: 'port',
+    description: 'Port number to expire signed preview URL for',
+    type: 'integer',
+  })
+  @ApiParam({
+    name: 'token',
+    description: 'Token to expire signed preview URL for',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Signed preview URL has been expired',
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  async expireSignedPortPreviewUrl(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Param('port') port: number,
+    @Param('token') token: string,
+  ): Promise<void> {
+    await this.sandboxService.expireSignedPreviewUrlToken(sandboxIdOrName, authContext.organizationId, token, port)
+  }
+
+  @Get(':sandboxIdOrName/build-logs')
+  @ApiOperation({
+    summary: 'Get build logs',
+    operationId: 'getBuildLogs',
+    deprecated: true,
+    description: 'This endpoint is deprecated. Use `getBuildLogsUrl` instead.',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiQuery({
+    name: 'follow',
+    required: false,
+    type: Boolean,
+    description: 'Whether to follow the logs stream',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Build logs stream',
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  async getBuildLogs(
+    @Request() req: RawBodyRequest<IncomingMessage>,
+    @Res() res: ServerResponse<IncomingMessage>,
+    @Next() next: NextFunction,
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Query('follow', new ParseBoolPipe({ optional: true })) follow?: boolean,
+  ): Promise<void> {
+    const sandbox = await this.sandboxService.findOneByIdOrName(sandboxIdOrName, authContext.organizationId)
+    if (!sandbox.runnerId) {
+      throw new NotFoundException(`Sandbox with ID or name ${sandboxIdOrName} has no runner assigned`)
+    }
+
+    if (!sandbox.buildInfo) {
+      throw new NotFoundException(`Sandbox with ID or name ${sandboxIdOrName} has no build info`)
+    }
+
+    const runner = await this.runnerService.findOneOrFail(sandbox.runnerId)
+
+    if (!runner.apiUrl) {
+      throw new NotFoundException(`Runner for sandbox ${sandboxIdOrName} has no API URL`)
+    }
+
+    const logProxy = new LogProxy(
+      runner.apiUrl,
+      sandbox.buildInfo.snapshotRef.split(':')[0],
+      runner.apiKey,
+      follow === true,
+      req,
+      res,
+      next,
+    )
+    return logProxy.create()
+  }
+
+  @Get(':sandboxIdOrName/build-logs-url')
+  @ApiOperation({
+    summary: 'Get build logs URL',
+    operationId: 'getBuildLogsUrl',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Build logs URL',
+    type: UrlDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  async getBuildLogsUrl(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+  ): Promise<UrlDto> {
+    const buildLogsUrl = await this.sandboxService.getBuildLogsUrl(sandboxIdOrName, authContext.organizationId)
+
+    return new UrlDto(buildLogsUrl)
+  }
+
+  @Post(':sandboxIdOrName/ssh-access')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Create SSH access for sandbox',
+    operationId: 'createSshAccess',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiQuery({
+    name: 'expiresInMinutes',
+    required: false,
+    type: Number,
+    description: 'Expiration time in minutes (default: 60)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'SSH access has been created',
+    type: SshAccessDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.CREATE_SSH_ACCESS,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SshAccessDto) => result?.sandboxId,
+    requestMetadata: {
+      query: (req) => ({
+        expiresInMinutes: req.query.expiresInMinutes,
+      }),
+    },
+  })
+  async createSshAccess(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Query('expiresInMinutes') expiresInMinutes?: number,
+  ): Promise<SshAccessDto> {
+    return await this.sandboxService.createSshAccess(sandboxIdOrName, expiresInMinutes, authContext.organizationId)
+  }
+
+  @Delete(':sandboxIdOrName/ssh-access')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Revoke SSH access for sandbox',
+    operationId: 'revokeSshAccess',
+  })
+  @ApiParam({
+    name: 'sandboxIdOrName',
+    description: 'ID or name of the sandbox',
+    type: 'string',
+  })
+  @ApiQuery({
+    name: 'token',
+    required: false,
+    type: String,
+    description: 'SSH access token to revoke. If not provided, all SSH access for the sandbox will be revoked.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'SSH access has been revoked',
+    type: SandboxDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  @RequiredOrganizationResourcePermissions([OrganizationResourcePermission.WRITE_SANDBOXES])
+  @Audit({
+    action: AuditAction.REVOKE_SSH_ACCESS,
+    targetType: AuditTarget.SANDBOX,
+    targetIdFromRequest: (req) => req.params.sandboxIdOrName,
+    targetIdFromResult: (result: SandboxDto) => result?.id,
+    requestMetadata: {
+      query: (req) => ({
+        token: req.query.token,
+      }),
+    },
+  })
+  async revokeSshAccess(
+    @IsOrganizationAuthContext() authContext: OrganizationAuthContext,
+    @Param('sandboxIdOrName') sandboxIdOrName: string,
+    @Query('token') token?: string,
+  ): Promise<SandboxDto> {
+    const sandbox = await this.sandboxService.revokeSshAccess(sandboxIdOrName, token, authContext.organizationId)
+    return this.sandboxService.toSandboxDto(sandbox)
+  }
+
+  @Get('ssh-access/validate')
+  @ApiOperation({
+    summary: 'Validate SSH access for sandbox',
+    operationId: 'validateSshAccess',
+  })
+  @ApiQuery({
+    name: 'token',
+    required: true,
+    type: String,
+    description: 'SSH access token to validate',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'SSH access validation result',
+    type: SshAccessValidationDto,
+  })
+  @AuthStrategy(AuthStrategyType.API_KEY)
+  @UseGuards(SshGatewayAuthContextGuard)
+  async validateSshAccess(@Query('token') token: string): Promise<SshAccessValidationDto> {
+    const result = await this.sandboxService.validateSshAccess(token)
+    return SshAccessValidationDto.fromValidationResult(result.valid, result.sandboxId)
+  }
+
+  @Get(':sandboxId/toolbox-proxy-url')
+  @ApiOperation({
+    summary: 'Get toolbox proxy URL for a sandbox',
+    operationId: 'getToolboxProxyUrl',
+  })
+  @ApiParam({
+    name: 'sandboxId',
+    description: 'ID of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Toolbox proxy URL for the specified sandbox',
+    type: ToolboxProxyUrlDto,
+  })
+  @UseGuards(OrganizationAuthContextGuard, SandboxAccessGuard)
+  async getToolboxProxyUrl(@Param('sandboxId') sandboxId: string): Promise<ToolboxProxyUrlDto> {
+    const url = await this.sandboxService.getToolboxProxyUrl(sandboxId)
+    return new ToolboxProxyUrlDto(url)
+  }
+
+  @Get(':sandboxId/organization')
+  @ApiOperation({
+    summary: 'Get organization by sandbox ID',
+    operationId: 'getOrganizationBySandboxId',
+  })
+  @ApiParam({
+    name: 'sandboxId',
+    description: 'ID of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Organization',
+    type: OrganizationDto,
+  })
+  @AuthStrategy(AuthStrategyType.API_KEY)
+  @UseGuards(ProxyAuthContextGuard, SandboxAccessGuard)
+  async getOrganizationBySandboxId(@Param('sandboxId') sandboxId: string): Promise<OrganizationDto> {
+    const organization = await this.organizationService.findBySandboxId(sandboxId)
+    if (!organization) {
+      throw new NotFoundException(`Organization with sandbox ID ${sandboxId} not found`)
+    }
+
+    return OrganizationDto.fromOrganization(organization)
+  }
+
+  @Get(':sandboxId/region-quota')
+  @ApiOperation({
+    summary: 'Get region quota by sandbox ID',
+    operationId: 'getRegionQuotaBySandboxId',
+  })
+  @ApiParam({
+    name: 'sandboxId',
+    description: 'ID of the sandbox',
+    type: 'string',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Region quota',
+    type: RegionQuotaDto,
+  })
+  @AuthStrategy(AuthStrategyType.API_KEY)
+  @UseGuards(ProxyAuthContextGuard, SandboxAccessGuard)
+  async getRegionQuotaBySandboxId(@Param('sandboxId') sandboxId: string): Promise<RegionQuotaDto> {
+    const regionQuota = await this.organizationService.getRegionQuotaBySandboxId(sandboxId)
+    if (!regionQuota) {
+      throw new NotFoundException(`Region quota for sandbox with ID ${sandboxId} not found`)
+    }
+
+    return regionQuota
+  }
+
+  // wait up to `timeoutSeconds` for the sandbox to start; if it doesn't, return current sandbox
+  private async waitForSandboxStarted(sandbox: SandboxDto, timeoutSeconds: number): Promise<SandboxDto> {
+    let latestSandbox: Sandbox
+    const waitForStarted = new Promise<SandboxDto>((resolve, reject) => {
+      // eslint-disable-next-line
+      let timeout: NodeJS.Timeout
+      const handleStateUpdated = (event: SandboxStateUpdatedEvent) => {
+        if (event.sandbox.id !== sandbox.id) {
+          return
+        }
+        latestSandbox = event.sandbox
+        if (event.sandbox.state === SandboxState.STARTED) {
+          this.sandboxCallbacks.delete(sandbox.id)
+          clearTimeout(timeout)
+          resolve(this.sandboxService.toSandboxDto(event.sandbox))
+        }
+        if (event.sandbox.state === SandboxState.ERROR || event.sandbox.state === SandboxState.BUILD_FAILED) {
+          this.sandboxCallbacks.delete(sandbox.id)
+          clearTimeout(timeout)
+          reject(new BadRequestError(`Sandbox failed to start: ${event.sandbox.errorReason}`))
+        }
+      }
+
+      this.sandboxCallbacks.set(sandbox.id, handleStateUpdated)
+
+      timeout = setTimeout(() => {
+        this.sandboxCallbacks.delete(sandbox.id)
+        if (latestSandbox) {
+          resolve(this.sandboxService.toSandboxDto(latestSandbox))
+        } else {
+          resolve(sandbox)
+        }
+      }, timeoutSeconds * 1000)
+    })
+
+    return waitForStarted
+  }
+
+  @Get(':sandboxId/secrets')
+  @ApiOperation({
+    summary: 'Resolve sandbox secrets',
+    operationId: 'resolveSandboxSecrets',
+  })
+  @ApiParam({ name: 'sandboxId', description: 'Sandbox ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Decrypted secret key-value pairs for this sandbox',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          env: { type: 'string', example: 'ANTHROPIC_API_KEY' },
+          placeholder: { type: 'string', example: 'dtn_secret_a7f3b2c1e9d4' },
+          value: { type: 'string', example: 'sk-ant-...' },
+          hosts: { type: 'array', items: { type: 'string' }, example: ['api.anthropic.com'] },
+        },
+      },
+    },
+  })
+  @AuthStrategy(AuthStrategyType.API_KEY)
+  @UseGuards(SandboxSecretsAuthContextGuard)
+  async resolveSandboxSecrets(
+    @IsSandboxSecretsAuthContext() sandboxContext: SandboxSecretsAuthContext,
+    @Param('sandboxId') sandboxId: string,
+  ): Promise<{ env: string; placeholder: string; value: string; hosts: string[] }[]> {
+    if (sandboxContext.sandboxId !== sandboxId) {
+      throw new NotFoundException(`Sandbox with ID ${sandboxId} not found`)
+    }
+
+    return this.sandboxService.resolveSecrets(sandboxId, sandboxContext.organizationId)
+  }
+
+  private handleSandboxStateUpdated(event: SandboxStateUpdatedEvent) {
+    const callback = this.sandboxCallbacks.get(event.sandbox.id)
+    if (callback) {
+      callback(event)
+    }
+  }
+}
+
+function assertRLRegionRequirements(dto: CreateSandboxDto): void {
+  if (!RESTRICTED_REGIONS.includes(dto.target)) {
+    return
+  }
+
+  if (dto.volumes && dto.volumes.length > 0) {
+    throw new BadRequestError(`Volumes are not supported in the ${dto.target} region`)
+  }
+
+  if (dto.buildInfo) {
+    throw new BadRequestError(`Sandbox creation from build info is not supported in the ${dto.target} region`)
+  }
+
+  if (dto.autoDeleteInterval !== 0) {
+    throw new BadRequestError(
+      `Sandboxes must be ephemeral in the ${dto.target} region - pass ephemeral=True in the creation params: https://www.daytona.io/docs/sandboxes#ephemeral-sandboxes`,
+    )
+  }
+}

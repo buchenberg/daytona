@@ -1,0 +1,173 @@
+import { Module } from '@nestjs/common'
+import { DataSource } from 'typeorm'
+import { SandboxController } from './controllers/sandbox.controller'
+import { SandboxService } from './services/sandbox.service'
+import { TypeOrmModule } from '@nestjs/typeorm'
+import { Sandbox } from './entities/sandbox.entity'
+import { UserModule } from '../user/user.module'
+import { RunnerService } from './services/runner.service'
+import { Runner } from './entities/runner.entity'
+import { RunnerController } from './controllers/runner.controller'
+import { DockerRegistryModule } from '../docker-registry/docker-registry.module'
+import { SandboxManager } from './managers/sandbox.manager'
+import { Snapshot } from './entities/snapshot.entity'
+import { SnapshotController } from './controllers/snapshot.controller'
+import { SnapshotService } from './services/snapshot.service'
+import { BuildInfoService } from './services/build-info.service'
+import { SnapshotManager } from './managers/snapshot.manager'
+import { SnapshotRunner } from './entities/snapshot-runner.entity'
+import { DockerRegistry } from '../docker-registry/entities/docker-registry.entity'
+import { RedisLockProvider } from './common/redis-lock.provider'
+import { OrganizationModule } from '../organization/organization.module'
+import { SandboxWarmPoolService } from './services/sandbox-warm-pool.service'
+import { WarmPoolService } from './services/warm-pool.service'
+import { WarmPoolController } from './controllers/warm-pool.controller'
+import { WarmPool } from './entities/warm-pool.entity'
+import { PreviewController } from './controllers/preview.controller'
+import { SnapshotRepository } from './repositories/snapshot.repository'
+import { VolumeController } from './controllers/volume.controller'
+import { VolumeService } from './services/volume.service'
+import { VolumeManager } from './managers/volume.manager'
+import { Volume } from './entities/volume.entity'
+import { BuildInfo } from './entities/build-info.entity'
+import { BackupManager } from './managers/backup.manager'
+import { VolumeSubscriber } from './subscribers/volume.subscriber'
+import { RunnerSubscriber } from './subscribers/runner.subscriber'
+import { RunnerAdapterFactory } from './runner-adapter/runnerAdapter'
+import { SandboxStartAction } from './managers/sandbox-actions/sandbox-start.action'
+import { SandboxStopAction } from './managers/sandbox-actions/sandbox-stop.action'
+import { SandboxDestroyAction } from './managers/sandbox-actions/sandbox-destroy.action'
+import { SandboxArchiveAction } from './managers/sandbox-actions/sandbox-archive.action'
+import { SshAccess } from './entities/ssh-access.entity'
+import { SandboxRepository } from './repositories/sandbox.repository'
+import { ProxyCacheInvalidationService } from './services/proxy-cache-invalidation.service'
+import { RegionModule } from '../region/region.module'
+import { Region } from '../region/entities/region.entity'
+import { SnapshotRegion } from './entities/snapshot-region.entity'
+import { SandboxFork } from './entities/sandbox-fork.entity'
+import { JobController } from './controllers/job.controller'
+import { JobService } from './services/job.service'
+import { JobStateHandlerService } from './services/job-state-handler.service'
+import { Job } from './entities/job.entity'
+import { SandboxLookupCacheInvalidationService } from './services/sandbox-lookup-cache-invalidation.service'
+import { ProxyAuthContextGuard } from './guards/proxy-auth-context.guard'
+import { SshGatewayAuthContextGuard } from './guards/ssh-gateway-auth-context.guard'
+import { RunnerCleanupToolAuthContextGuard } from './guards/runner-cleanup-tool-auth-context.guard'
+import { EventEmitter2 } from '@nestjs/event-emitter'
+import { SandboxLastActivity } from './entities/sandbox-last-activity.entity'
+import { SandboxActivityService } from './services/sandbox-activity.service'
+import { OpensearchModule } from 'nestjs-opensearch'
+import { TypedConfigService } from '../config/typed-config.service'
+import { SandboxSearchAdapterProvider } from './providers/sandbox-search.provider'
+import { SecretModule } from '../secret/secret.module'
+import { SandboxAuthContextGuard } from './guards/sandbox-auth-context.guard'
+import { SandboxSecretsAuthContextGuard } from './guards/sandbox-secrets-auth-context.guard'
+import { SandboxSecret } from './entities/sandbox-secret.entity'
+import { BillingModule } from '../billing/billing.module'
+
+@Module({
+  imports: [
+    UserModule,
+    BillingModule,
+    DockerRegistryModule,
+    OrganizationModule,
+    RegionModule,
+    SecretModule,
+    TypeOrmModule.forFeature([
+      Sandbox,
+      Runner,
+      Snapshot,
+      BuildInfo,
+      SnapshotRunner,
+      SnapshotRegion,
+      DockerRegistry,
+      WarmPool,
+      Volume,
+      SshAccess,
+      Region,
+      Job,
+      SandboxLastActivity,
+      SandboxFork,
+      SandboxSecret,
+    ]),
+    OpensearchModule.forRootAsync({
+      inject: [TypedConfigService],
+      useFactory: (configService: TypedConfigService) => {
+        return configService.getOpenSearchConfig()
+      },
+    }),
+  ],
+  controllers: [
+    SandboxController,
+    RunnerController,
+    SnapshotController,
+    PreviewController,
+    VolumeController,
+    JobController,
+    WarmPoolController,
+  ],
+  providers: [
+    SandboxService,
+    SandboxManager,
+    BackupManager,
+    SandboxWarmPoolService,
+    WarmPoolService,
+    RunnerService,
+    SnapshotService,
+    BuildInfoService,
+    ProxyCacheInvalidationService,
+    SandboxLookupCacheInvalidationService,
+    SnapshotManager,
+    RedisLockProvider,
+    VolumeService,
+    VolumeManager,
+    VolumeSubscriber,
+    RunnerSubscriber,
+    RunnerAdapterFactory,
+    SandboxStartAction,
+    SandboxStopAction,
+    SandboxDestroyAction,
+    SandboxArchiveAction,
+    JobService,
+    JobStateHandlerService,
+    SandboxActivityService,
+    ProxyAuthContextGuard,
+    SandboxAuthContextGuard,
+    SandboxSecretsAuthContextGuard,
+    SshGatewayAuthContextGuard,
+    RunnerCleanupToolAuthContextGuard,
+    SandboxSearchAdapterProvider,
+    {
+      provide: SandboxRepository,
+      inject: [DataSource, EventEmitter2, SandboxLookupCacheInvalidationService],
+      useFactory: (
+        dataSource: DataSource,
+        eventEmitter: EventEmitter2,
+        sandboxLookupCacheInvalidationService: SandboxLookupCacheInvalidationService,
+      ) => new SandboxRepository(dataSource, eventEmitter, sandboxLookupCacheInvalidationService),
+    },
+    {
+      provide: SnapshotRepository,
+      inject: [DataSource, EventEmitter2],
+      useFactory: (dataSource: DataSource, eventEmitter: EventEmitter2) =>
+        new SnapshotRepository(dataSource, eventEmitter),
+    },
+  ],
+  exports: [
+    SandboxService,
+    RunnerService,
+    RedisLockProvider,
+    SnapshotService,
+    VolumeService,
+    VolumeManager,
+    SandboxRepository,
+    SnapshotRepository,
+    RunnerAdapterFactory,
+    SandboxActivityService,
+    ProxyAuthContextGuard,
+    SandboxAuthContextGuard,
+    SandboxSecretsAuthContextGuard,
+    SshGatewayAuthContextGuard,
+  ],
+})
+export class SandboxModule {}

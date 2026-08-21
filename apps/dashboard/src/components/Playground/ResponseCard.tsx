@@ -1,0 +1,17 @@
+import { ReactNode } from 'react'
+
+type ResponseCardProps = {
+  responseContent: string | ReactNode
+}
+
+const ResponseCard: React.FC<ResponseCardProps> = ({ responseContent }) => {
+  return (
+    <div className="rounded-lg h-full">
+      <pre className="max-w-full h-full p-4 rounded-lg overflow-y-auto text-sm font-mono">
+        {typeof responseContent === 'string' ? <code>{responseContent}</code> : responseContent}
+      </pre>
+    </div>
+  )
+}
+
+export default ResponseCard

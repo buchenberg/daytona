@@ -1,0 +1,69 @@
+name: '[PR] Code coverage'
+
+on:
+  push:
+    branches:
+      - prod
+
+permissions:
+  contents: read
+
+concurrency:
+  # New commit on branch cancels running workflows of the same branch
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  POETRY_VIRTUALENVS_IN_PROJECT: true
+  NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN }}
+
+jobs:
+  coverage:
+    # Coverage uploads require code-quality write access, which fork PRs do not get
+    if: github.repository == 'daytonaio/daytona-ai' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: read
+      code-quality: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-toolchain
+        with:
+          install-swag: 'false'
+
+      - name: Test API with coverage
+        run: |
+          yarn nx test api --coverage --coverageReporters=cobertura --coverageReporters=text-summary --skipNxCache
+          # jest emits filenames relative to apps/api; rewrite them repo-relative
+          sed -i "s|<source>.*</source>|<source>.</source>|" coverage/apps/daytona/cobertura-coverage.xml
+          sed -i "s|filename=\"|filename=\"apps/api/|g" coverage/apps/daytona/cobertura-coverage.xml
+
+      - name: Upload API coverage
+        uses: actions/upload-code-coverage@abb5995db9e0199b0e2bb9dbd136fce4cb1ec4d3 # v1.3.0
+        with:
+          file: coverage/apps/daytona/cobertura-coverage.xml
+          language: TypeScript
+          label: coverage/api
+          fail-on-error: false
+
+      - name: Test Go modules with coverage
+        run: |
+          for mod in apps/daemon; do
+            name=$(basename "$mod")
+            (cd "$mod" && go test -coverprofile=coverage.out ./...)
+            mkdir -p "coverage/go-$name"
+            (cd "$mod" && go run github.com/boumenot/gocover-cobertura@v1.5.0 < coverage.out > "$GITHUB_WORKSPACE/coverage/go-$name/coverage.xml")
+            # gocover-cobertura emits module-relative filenames; rewrite them repo-relative
+            sed -i "s|<source>.*</source>|<source>.</source>|" "coverage/go-$name/coverage.xml"
+            sed -i "s|filename=\"|filename=\"$mod/|g" "coverage/go-$name/coverage.xml"
+          done
+
+      - name: Upload daemon coverage
+        uses: actions/upload-code-coverage@abb5995db9e0199b0e2bb9dbd136fce4cb1ec4d3 # v1.3.0
+        with:
+          file: coverage/go-daemon/coverage.xml
+          language: Go
+          label: coverage/daemon
+          fail-on-error: false

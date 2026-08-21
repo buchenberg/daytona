@@ -1,0 +1,67 @@
+import { routes } from '@/routes/paths'
+import { queryKeys } from '@/hooks/queries/queryKeys'
+import { DaytonaConfiguration } from '@daytona/api-client'
+import { initStripe } from '@/hooks/useStripe'
+import { useSuspenseQuery } from '@tanstack/react-query'
+import { InMemoryWebStorage, WebStorageStateStore } from 'oidc-client-ts'
+import { ReactNode, useEffect, useMemo } from 'react'
+import { AuthProvider, AuthProviderProps } from 'react-oidc-context'
+import { ConfigContext } from '../contexts/ConfigContext'
+
+const apiUrl = import.meta.env.VITE_API_URL ?? window.location.origin + '/api'
+
+type Props = {
+  children: ReactNode
+}
+
+export function ConfigProvider(props: Props) {
+  const { data: config } = useSuspenseQuery({
+    queryKey: queryKeys.config.all,
+    queryFn: async () => {
+      const res = await fetch(`${apiUrl}/config`)
+      if (!res.ok) {
+        throw res
+      }
+      return res.json() as Promise<DaytonaConfiguration>
+    },
+  })
+
+  // Initialize Stripe.js for passive behavioral signal collection
+  useEffect(() => {
+    if (config.stripePublishableKey) {
+      initStripe(config.stripePublishableKey)
+    }
+  }, [config.stripePublishableKey])
+
+  const oidcConfig: AuthProviderProps = useMemo(() => {
+    const isLocalhost = window.location.hostname === 'localhost'
+    const stateStore = isLocalhost ? window.sessionStorage : new InMemoryWebStorage()
+    const oidcBlock = config.authProvider === 'workos' && config.workosOidc ? config.workosOidc : config.oidc
+
+    return {
+      authority: oidcBlock.issuer,
+      client_id: oidcBlock.clientId,
+      extraQueryParams: {
+        audience: oidcBlock.audience,
+      },
+      scope: 'openid profile email',
+      redirect_uri: window.location.origin + '/dashboard',
+      staleStateAgeInSeconds: 60,
+      accessTokenExpiringNotificationTimeInSeconds: 290,
+      userStore: new WebStorageStateStore({ store: stateStore }),
+      onSigninCallback: (user) => {
+        const state = user?.state as { returnTo?: string } | undefined
+        const targetUrl = state?.returnTo || routes.dashboard.path
+        window.history.replaceState({}, '', targetUrl)
+        window.dispatchEvent(new PopStateEvent('popstate'))
+      },
+      post_logout_redirect_uri: window.location.origin + '/dashboard',
+    }
+  }, [config])
+
+  return (
+    <ConfigContext.Provider value={{ ...config, apiUrl }}>
+      <AuthProvider {...oidcConfig}>{props.children}</AuthProvider>
+    </ConfigContext.Provider>
+  )
+}

@@ -1,0 +1,16 @@
+export enum AuditTarget {
+  API_KEY = 'api_key',
+  ORGANIZATION = 'organization',
+  ORGANIZATION_INVITATION = 'organization_invitation',
+  ORGANIZATION_ROLE = 'organization_role',
+  ORGANIZATION_USER = 'organization_user',
+  DOCKER_REGISTRY = 'docker_registry',
+  RUNNER = 'runner',
+  SANDBOX = 'sandbox',
+  SNAPSHOT = 'snapshot',
+  USER = 'user',
+  VOLUME = 'volume',
+  WARM_POOL = 'warm_pool',
+  REGION = 'region',
+  SECRET = 'secret',
+}

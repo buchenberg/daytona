@@ -1,0 +1,25 @@
+apiVersion: v2
+name: daytona-preview
+description: Helm chart for Daytona preview deployments (API, Proxy, Runner)
+type: application
+version: 0.1.0
+appVersion: '0.0.0'
+keywords:
+  - daytona
+  - preview
+  - staging
+home: https://daytona.io
+sources:
+  - https://github.com/daytonaio/daytona-ai
+maintainers:
+  - name: Daytona
+    email: engineering@daytona.io
+dependencies:
+  - name: postgresql
+    version: '16.7.27'
+    repository: 'https://charts.bitnami.com/bitnami'
+    condition: postgresql.enabled
+  - name: redis
+    version: '22.0.7'
+    repository: 'https://charts.bitnami.com/bitnami'
+    condition: redis.enabled

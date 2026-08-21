@@ -1,0 +1,1197 @@
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { BadRequestError } from '../../exceptions/bad-request.exception'
+import { InjectRepository } from '@nestjs/typeorm'
+import { EntityManager, FindOptionsWhere, IsNull, Repository } from 'typeorm'
+import { DockerRegistry } from '../entities/docker-registry.entity'
+import { CreateDockerRegistryInternalDto } from '../dto/create-docker-registry-internal.dto'
+import { UpdateDockerRegistryDto } from '../dto/update-docker-registry.dto'
+import { RegistryPushAccessDto } from '../../sandbox/dto/registry-push-access-dto'
+import {
+  DOCKER_REGISTRY_PROVIDER,
+  IDockerRegistryProvider,
+} from './../../docker-registry/providers/docker-registry.provider.interface'
+import { RegistryType } from './../../docker-registry/enums/registry-type.enum'
+import {
+  parseDockerImage,
+  checkDockerfileHasRegistryPrefix,
+  extractDockerfileFromImages,
+} from '../../common/utils/docker-image.util'
+import axios from 'axios'
+import { OnAsyncEvent } from '../../common/decorators/on-async-event.decorator'
+import { RegionEvents } from '../../region/constants/region-events.constant'
+import { RegionCreatedEvent } from '../../region/events/region-created.event'
+import { RegionDeletedEvent } from '../../region/events/region-deleted.event'
+import { RegionService } from '../../region/services/region.service'
+import {
+  RegionSnapshotManagerCredsRegeneratedEvent,
+  RegionSnapshotManagerUpdatedEvent,
+} from '../../region/events/region-snapshot-manager-creds.event'
+import { EcrCredentialsService } from './ecr-credentials.service'
+
+const AXIOS_TIMEOUT_MS = 3000
+const DOCKER_HUB_REGISTRY = 'registry-1.docker.io'
+const DOCKER_HUB_URL = 'docker.io'
+
+function isIamRoleArn(value: string): boolean {
+  return /^arn:aws:iam::\d+:role\/.+$/.test(value)
+}
+
+/**
+ * Normalizes Docker Hub URLs to 'docker.io' for storage.
+ * Empty URLs are assumed to be Docker Hub.
+ */
+function normalizeRegistryUrl(url: string): string {
+  if (!url || url.trim() === '' || url.toLowerCase().includes('docker.io')) {
+    return DOCKER_HUB_URL
+  }
+  // Strip trailing slashes for consistent matching
+  return url.trim().replace(/\/+$/, '')
+}
+
+/**
+ * Splits a scheme-stripped "host[:port]" into [host, port]; port is undefined when absent.
+ */
+function splitHostPort(hostPort: string): [string, string | undefined] {
+  const colon = hostPort.indexOf(':')
+  return colon === -1 ? [hostPort, undefined] : [hostPort.slice(0, colon), hostPort.slice(colon + 1)]
+}
+
+export interface ImageDetails {
+  digest: string
+  sizeGB: number
+  entrypoint: string[]
+  cmd: string[]
+  env: string[]
+  workingDir?: string
+  user?: string
+}
+
+@Injectable()
+export class DockerRegistryService {
+  private readonly logger = new Logger(DockerRegistryService.name)
+
+  constructor(
+    @InjectRepository(DockerRegistry)
+    private readonly dockerRegistryRepository: Repository<DockerRegistry>,
+    @Inject(DOCKER_REGISTRY_PROVIDER)
+    private readonly dockerRegistryProvider: IDockerRegistryProvider,
+    private readonly regionService: RegionService,
+    private readonly ecrCredentials: EcrCredentialsService,
+  ) {}
+
+  // used only for ECR (private + public), swap the stored role ARN for a fresh AWS:<token> pair (Redis-cached)
+  private async resolveCredentials(registry: DockerRegistry): Promise<DockerRegistry> {
+    // pre-org row (internal/transient), or empty username / legacy basic-auth
+    // (e.g. "AWS" + pre-baked token) — nothing to resolve
+    if (!registry.organizationId || !isIamRoleArn(registry.username)) {
+      return registry
+    }
+    if (this.ecrCredentials.isEcrUrl(registry.url)) {
+      const { username, password } = await this.ecrCredentials.resolveEcrCredentials(
+        registry.url,
+        registry.username,
+        registry.organizationId,
+      )
+      return { ...registry, username, password }
+    }
+    if (this.ecrCredentials.isPublicEcrUrl(registry.url)) {
+      const { username, password } = await this.ecrCredentials.resolvePublicEcrCredentials(
+        registry.username,
+        registry.organizationId,
+      )
+      return { ...registry, username, password }
+    }
+    // not an ECR URL — nothing to resolve
+    return registry
+  }
+
+  async create(
+    createDto: CreateDockerRegistryInternalDto,
+    organizationId?: string,
+    isFallback = false,
+    entityManager?: EntityManager,
+  ): Promise<DockerRegistry> {
+    const repository = entityManager ? entityManager.getRepository(DockerRegistry) : this.dockerRegistryRepository
+
+    //  set some limit to the number of registries
+    if (organizationId) {
+      const registries = await repository.find({
+        where: { organizationId },
+      })
+      if (registries.length >= 100) {
+        throw new BadRequestError('You have reached the maximum number of registries')
+      }
+    }
+
+    const registry = repository.create({
+      ...createDto,
+      url: normalizeRegistryUrl(createDto.url),
+      region: createDto.regionId,
+      organizationId,
+      isFallback,
+    })
+    return repository.save(registry)
+  }
+
+  async findAll(organizationId: string, registryType: RegistryType): Promise<DockerRegistry[]> {
+    return this.dockerRegistryRepository.find({
+      where: { organizationId, registryType },
+      order: {
+        createdAt: 'DESC',
+      },
+    })
+  }
+
+  async findOne(registryId: string): Promise<DockerRegistry | null> {
+    return this.dockerRegistryRepository.findOne({
+      where: { id: registryId },
+    })
+  }
+
+  async findOneOrFail(registryId: string): Promise<DockerRegistry> {
+    return this.dockerRegistryRepository.findOneOrFail({
+      where: { id: registryId },
+    })
+  }
+
+  async update(registryId: string, updateDto: UpdateDockerRegistryDto): Promise<DockerRegistry> {
+    const registry = await this.dockerRegistryRepository.findOne({
+      where: { id: registryId },
+    })
+
+    if (!registry) {
+      throw new NotFoundException(`Docker registry with ID ${registryId} not found`)
+    }
+
+    registry.name = updateDto.name
+    registry.url = normalizeRegistryUrl(updateDto.url)
+    registry.username = updateDto.username
+    if (updateDto.password) {
+      registry.password = updateDto.password
+    }
+    registry.project = updateDto.project
+
+    return this.dockerRegistryRepository.save(registry)
+  }
+
+  async remove(registryId: string): Promise<void> {
+    const registry = await this.dockerRegistryRepository.findOne({
+      where: { id: registryId },
+    })
+
+    if (!registry) {
+      throw new NotFoundException(`Docker registry with ID ${registryId} not found`)
+    }
+
+    await this.dockerRegistryRepository.remove(registry)
+  }
+
+  async setDefault(registryId: string): Promise<DockerRegistry> {
+    const registry = await this.dockerRegistryRepository.findOne({
+      where: { id: registryId },
+    })
+
+    if (!registry) {
+      throw new NotFoundException(`Docker registry with ID ${registryId} not found`)
+    }
+
+    await this.unsetDefaultRegistry()
+
+    registry.isDefault = true
+    return this.dockerRegistryRepository.save(registry)
+  }
+
+  private async unsetDefaultRegistry(): Promise<void> {
+    await this.dockerRegistryRepository.update({ isDefault: true }, { isDefault: false })
+  }
+
+  /**
+   * Returns an available internal registry for storing snapshots.
+   *
+   * If a snapshot manager _is_ configured for the region identified by the provided _regionId_, only an internal registry that matches the region snapshot manager can be returned.
+   * If no matching internal registry is found, _null_ will be returned.
+   *
+   * If a snapshot manager _is not_ configured for the provided region, the default internal registry will be returned (if available).
+   * If no default internal registry is found, _null_ will be returned.
+   *
+   * @param regionId - The ID of the region.
+   */
+  async getAvailableInternalRegistry(regionId: string): Promise<DockerRegistry | null> {
+    const region = await this.regionService.findOne(regionId)
+    if (!region) {
+      return null
+    }
+
+    if (region.snapshotManagerUrl) {
+      return this.dockerRegistryRepository.findOne({
+        where: { region: regionId, registryType: RegistryType.INTERNAL },
+      })
+    }
+
+    return this.dockerRegistryRepository.findOne({
+      where: { isDefault: true, registryType: RegistryType.INTERNAL },
+    })
+  }
+
+  /**
+   * Returns an available transient registry for pushing snapshots.
+   *
+   * If a snapshot manager _is_ configured for the region identified by the provided _regionId_, only a transient registry that matches the region snapshot manager can be returned.
+   * If no matching transient registry is found, _null_ will be returned.
+   *
+   * If a snapshot manager _is not_ configured for the provided region or no region is provided, the default transient registry will be returned (if available).
+   * If no default transient registry is found, _null_ will be returned.
+   *
+   * @param regionId - (Optional) The ID of the region.
+   */
+  async getAvailableTransientRegistry(regionId?: string): Promise<DockerRegistry | null> {
+    if (regionId) {
+      const region = await this.regionService.findOne(regionId)
+      if (!region) {
+        return null
+      }
+
+      if (region.snapshotManagerUrl) {
+        return this.dockerRegistryRepository.findOne({
+          where: { region: regionId, registryType: RegistryType.TRANSIENT },
+        })
+      }
+    }
+
+    return this.dockerRegistryRepository.findOne({
+      where: { isDefault: true, registryType: RegistryType.TRANSIENT },
+    })
+  }
+
+  async getDefaultDockerHubRegistry(): Promise<DockerRegistry | null> {
+    return this.dockerRegistryRepository.findOne({
+      where: {
+        organizationId: IsNull(),
+        registryType: RegistryType.INTERNAL,
+        url: DOCKER_HUB_URL,
+        project: '',
+      },
+    })
+  }
+
+  /**
+   * Builds an authenticated public.ecr.aws registry config using the API's own
+   * AWS identity. This lifts ECR Public's low anonymous pull rate limit, the
+   * same way getDefaultDockerHubRegistry does for Docker Hub — except no DB row
+   * is needed since any valid AWS identity can mint a public ECR token.
+   *
+   * Returns null when disabled or when credentials can't be resolved, so
+   * callers transparently fall back to anonymous (unauthenticated) pulls.
+   */
+  async getDefaultPublicEcrRegistry(): Promise<DockerRegistry | null> {
+    if (!this.ecrCredentials.isPublicDefaultAuthEnabled) {
+      return null
+    }
+    try {
+      const { username, password } = await this.ecrCredentials.resolvePublicEcrCredentials()
+      const registry = new DockerRegistry()
+      registry.id = 'default-public-ecr'
+      registry.name = 'Default Public ECR'
+      registry.url = 'public.ecr.aws'
+      registry.username = username
+      registry.password = password
+      registry.project = ''
+      registry.isDefault = false
+      registry.registryType = RegistryType.INTERNAL
+      return registry
+    } catch (err) {
+      this.logger.warn(
+        `Failed to resolve default public ECR credentials, falling back to anonymous pull: ${err instanceof Error ? err.message : String(err)}`,
+      )
+      return null
+    }
+  }
+
+  /**
+   * Returns the platform-wide default source registry to use for an image when
+   * no org-configured registry matches: authenticated public ECR for
+   * public.ecr.aws images, otherwise the shared Docker Hub credentials. Both
+   * exist solely to avoid registry rate limiting on otherwise-anonymous pulls.
+   */
+  async getDefaultSourceRegistryForImage(imageName: string): Promise<DockerRegistry | null> {
+    const parsedImage = parseDockerImage(imageName)
+    if (parsedImage.registry && this.ecrCredentials.isPublicEcrUrl(parsedImage.registry)) {
+      return this.getDefaultPublicEcrRegistry()
+    }
+    return this.getDefaultDockerHubRegistry()
+  }
+
+  /**
+   * Returns an available backup registry for storing snapshots.
+   *
+   * If a snapshot manager _is_ configured for the region identified by the provided _preferredRegionId_, only a backup registry that matches the region snapshot manager can be returned.
+   * If no matching backup registry is found, _null_ will be returned.
+   *
+   * If a snapshot manager _is not_ configured for the provided region, a backup registry in the preferred region will be returned (if available).
+   * If no backup registry is found in the preferred region, a fallback backup registry will be returned (if available).
+   * If no fallback backup registry is found, _null_ will be returned.
+   *
+   * @param preferredRegionId - The ID of the preferred region.
+   */
+  async getAvailableBackupRegistry(preferredRegionId: string): Promise<DockerRegistry | null> {
+    const region = await this.regionService.findOne(preferredRegionId)
+    if (!region) {
+      return null
+    }
+
+    if (region.snapshotManagerUrl) {
+      return this.dockerRegistryRepository.findOne({
+        where: { region: preferredRegionId, registryType: RegistryType.BACKUP },
+      })
+    }
+
+    const registries = await this.dockerRegistryRepository.find({
+      where: { registryType: RegistryType.BACKUP, isDefault: true },
+    })
+
+    if (registries.length === 0) {
+      return null
+    }
+
+    // Filter registries by preferred region
+    const preferredRegionRegistries = registries.filter((registry) => registry.region === preferredRegionId)
+
+    // If we have registries in the preferred region, randomly select one
+    if (preferredRegionRegistries.length > 0) {
+      const randomIndex = Math.floor(Math.random() * preferredRegionRegistries.length)
+      return preferredRegionRegistries[randomIndex]
+    }
+
+    // If no registry found in preferred region, try to find a fallback registry
+    const fallbackRegistries = registries.filter((registry) => registry.isFallback === true)
+
+    if (fallbackRegistries.length > 0) {
+      const randomIndex = Math.floor(Math.random() * fallbackRegistries.length)
+      return fallbackRegistries[randomIndex]
+    }
+
+    // If no fallback registry found either, throw an error
+    throw new Error('No backup registry available')
+  }
+
+  /**
+   * Returns an internal registry that matches the snapshot ref.
+   *
+   * If no matching internal registry is found, _null_ will be returned.
+   *
+   * @param ref - The snapshot ref.
+   * @param regionId - The ID of the region which needs access to the internal registry.
+   */
+  async findInternalRegistryBySnapshotRef(ref: string, regionId: string): Promise<DockerRegistry | null> {
+    const region = await this.regionService.findOne(regionId)
+    if (!region) {
+      return null
+    }
+
+    let registries: DockerRegistry[]
+
+    if (region.snapshotManagerUrl) {
+      registries = await this.dockerRegistryRepository.find({
+        where: {
+          region: regionId,
+          registryType: RegistryType.INTERNAL,
+        },
+      })
+    } else {
+      registries = await this.dockerRegistryRepository.find({
+        where: {
+          organizationId: IsNull(),
+          registryType: RegistryType.INTERNAL,
+        },
+      })
+    }
+
+    return this.findRegistryByUrlMatch(registries, ref)
+  }
+
+  /**
+   * Returns a source registry that matches the snapshot image name and can be used to pull the image.
+   *
+   * If no matching source registry is found, _null_ will be returned.
+   *
+   * @param imageName - The user-provided image.
+   * @param regionId - The ID of the region which needs access to the source registry.
+   */
+  async findSourceRegistryBySnapshotImageName(
+    imageName: string,
+    regionId: string,
+    organizationId?: string,
+  ): Promise<DockerRegistry | null> {
+    const region = await this.regionService.findOne(regionId)
+    if (!region) {
+      return null
+    }
+
+    const whereCondition: FindOptionsWhere<DockerRegistry>[] = []
+
+    if (region.organizationId) {
+      // registries manually added by the organization
+      whereCondition.push({
+        organizationId: region.organizationId,
+        registryType: RegistryType.ORGANIZATION,
+      })
+    }
+
+    if (organizationId) {
+      whereCondition.push({
+        organizationId: organizationId,
+        registryType: RegistryType.ORGANIZATION,
+      })
+    }
+
+    if (region.snapshotManagerUrl) {
+      // internal registry associated with region snapshot manager
+      whereCondition.push({
+        region: regionId,
+        registryType: RegistryType.INTERNAL,
+      })
+    } else {
+      // shared internal registries
+      whereCondition.push({
+        organizationId: IsNull(),
+        registryType: RegistryType.INTERNAL,
+      })
+    }
+
+    const registries = await this.dockerRegistryRepository.find({
+      where: whereCondition,
+    })
+
+    // Prioritize ORGANIZATION registries over others
+    // This ensures user-configured credentials take precedence over shared internal ones
+    const priority: Partial<Record<RegistryType, number>> = {
+      [RegistryType.ORGANIZATION]: 0,
+    }
+    const sortedRegistries = [...registries].sort(
+      (a, b) => (priority[a.registryType] ?? 1) - (priority[b.registryType] ?? 1),
+    )
+
+    const matched = this.findRegistryByUrlMatch(sortedRegistries, imageName)
+    return matched ? this.resolveCredentials(matched) : null
+  }
+
+  /**
+   * Returns a transient registry that matches the snapshot image name.
+   *
+   * If no matching transient registry is found, _null_ will be returned.
+   *
+   * @param imageName - The user-provided image.
+   * @param regionId - The ID of the region which needs access to the transient registry.
+   */
+  async findTransientRegistryBySnapshotImageName(imageName: string, regionId: string): Promise<DockerRegistry | null> {
+    const region = await this.regionService.findOne(regionId)
+    if (!region) {
+      return null
+    }
+
+    let registries: DockerRegistry[]
+
+    if (region.snapshotManagerUrl) {
+      registries = await this.dockerRegistryRepository.find({
+        where: {
+          region: regionId,
+          registryType: RegistryType.TRANSIENT,
+        },
+      })
+    } else {
+      registries = await this.dockerRegistryRepository.find({
+        where: {
+          organizationId: IsNull(),
+          registryType: RegistryType.TRANSIENT,
+        },
+      })
+    }
+
+    return this.findRegistryByUrlMatch(registries, imageName)
+  }
+
+  async getRegistryPushAccess(
+    organizationId: string,
+    userId: string,
+    regionId?: string,
+  ): Promise<RegistryPushAccessDto> {
+    const transientRegistry = await this.getAvailableTransientRegistry(regionId)
+    if (!transientRegistry) {
+      throw new Error('No default transient registry configured')
+    }
+
+    const uniqueId = crypto.randomUUID().replace(/-/g, '').slice(0, 12)
+    const robotName = `temp-push-robot-${uniqueId}`
+    const expiresAt = new Date()
+    expiresAt.setHours(expiresAt.getHours() + 1) // Token valid for 1 hour
+
+    const url = this.getRegistryUrl(transientRegistry) + '/api/v2.0/robots'
+
+    try {
+      const response = await this.dockerRegistryProvider.createRobotAccount(
+        url,
+        {
+          username: transientRegistry.username,
+          password: transientRegistry.password,
+        },
+        {
+          name: robotName,
+          description: `Temporary push access for user ${userId} in organization ${organizationId}`,
+          duration: 3600,
+          level: 'project',
+          permissions: [
+            {
+              kind: 'project',
+              namespace: transientRegistry.project,
+              access: [{ resource: 'repository', action: 'push' }],
+            },
+          ],
+        },
+      )
+
+      return {
+        username: response.name,
+        secret: response.secret,
+        registryId: transientRegistry.id,
+        registryUrl: new URL(url).host,
+        project: transientRegistry.project,
+        expiresAt: expiresAt.toISOString(),
+      }
+    } catch (error) {
+      let errorMessage = `Failed to generate push token: ${error.message}`
+      if (error.response) {
+        errorMessage += ` - ${error.response.data.message || error.response.statusText}`
+      }
+      throw new Error(errorMessage)
+    }
+  }
+
+  async removeImage(imageName: string, registryId: string): Promise<void> {
+    const registry = await this.findOne(registryId)
+    if (!registry) {
+      throw new Error('Registry not found')
+    }
+
+    const parsedImage = parseDockerImage(imageName)
+    if (!parsedImage.project) {
+      throw new Error('Invalid image name format. Expected: [registry]/project/repository[:tag]')
+    }
+
+    try {
+      await this.dockerRegistryProvider.deleteArtifact(
+        this.getRegistryUrl(registry),
+        {
+          username: registry.username,
+          password: registry.password,
+        },
+        {
+          project: parsedImage.project,
+          repository: parsedImage.repository,
+          tag: parsedImage.tag,
+        },
+      )
+    } catch (error) {
+      const message = error.response?.data?.message || error.message
+      throw new Error(`Failed to remove image ${imageName}: ${message}`)
+    }
+  }
+
+  getRegistryUrl(registry: DockerRegistry): string {
+    const url = registry.url
+
+    // Local and in-cluster dev registries are served over plain HTTP.
+    if (url.startsWith('localhost') || url.startsWith('127.0.0.1') || url.startsWith('registry:')) {
+      return `http://${url}`
+    }
+
+    // Otherwise assume HTTPS, unless the URL already carries a scheme.
+    return url.startsWith('http') ? url : `https://${url}`
+  }
+
+  public async findRegistryByImageName(
+    imageName: string,
+    regionId: string,
+    organizationId?: string,
+  ): Promise<DockerRegistry | null> {
+    // Parse the image to extract potential registry hostname
+    const parsedImage = parseDockerImage(imageName)
+
+    if (parsedImage.registry) {
+      // Image has registry prefix, try to find matching registry in database first
+      const registry = await this.findSourceRegistryBySnapshotImageName(imageName, regionId, organizationId)
+      if (registry) {
+        return registry
+      }
+      // No org-configured match. For public.ecr.aws, authenticate with the
+      // platform's AWS identity to dodge ECR Public's anonymous rate limit.
+      if (this.ecrCredentials.isPublicEcrUrl(parsedImage.registry)) {
+        const publicEcrRegistry = await this.getDefaultPublicEcrRegistry()
+        if (publicEcrRegistry) {
+          return publicEcrRegistry
+        }
+      }
+      // Not found in database, create temporary registry config for public access
+      return this.createTemporaryRegistryConfig(parsedImage.registry)
+    } else {
+      // Image has no registry prefix (e.g., "alpine:3.21")
+      // Check if organization has a Docker Hub registry configured with credentials
+      if (organizationId) {
+        const dockerHubRegistry = await this.findDockerHubRegistryForOrganization(organizationId)
+        if (dockerHubRegistry) {
+          return dockerHubRegistry
+        }
+      }
+      // Fall back to temporary Docker Hub config for public images
+      return this.createTemporaryRegistryConfig('docker.io')
+    }
+  }
+
+  /**
+   * Finds a Docker Hub registry configured for the given organization.
+   */
+  private async findDockerHubRegistryForOrganization(organizationId: string): Promise<DockerRegistry | null> {
+    const registries = await this.dockerRegistryRepository.find({
+      where: {
+        organizationId: organizationId,
+        registryType: RegistryType.ORGANIZATION,
+      },
+    })
+
+    // Look for a Docker Hub registry (url contains docker.io)
+    for (const registry of registries) {
+      const strippedUrl = registry.url.replace(/^(https?:\/\/)/, '')
+      if (strippedUrl === 'docker.io' || strippedUrl.startsWith('docker.io/')) {
+        return registry
+      }
+    }
+
+    return null
+  }
+
+  /**
+   * Finds a registry with a URL that matches the start of the target string.
+   *
+   * @param registries - The list of registries to search.
+   * @param targetString - The string to match against registry URLs.
+   * @returns The matching registry, or null if no match is found.
+   */
+  private findRegistryByUrlMatch(registries: DockerRegistry[], targetString: string): DockerRegistry | null {
+    // Prioritize ORGANIZATION registries over others
+    // This ensures user-configured credentials take precedence over shared internal ones
+    const priority: Partial<Record<RegistryType, number>> = {
+      [RegistryType.ORGANIZATION]: 0,
+    }
+    const sortedRegistries = [...registries].sort(
+      (a, b) => (priority[a.registryType] ?? 1) - (priority[b.registryType] ?? 1),
+    )
+
+    for (const registry of sortedRegistries) {
+      const strippedUrl = registry.url.replace(/^(https?:\/\/)/, '')
+      if (targetString.startsWith(strippedUrl)) {
+        // Ensure match is at a proper boundary (followed by '/', ':', or end-of-string)
+        // to prevent "registry.depot.dev" from matching "registry.depot.dev-evil.com/..."
+        const nextChar = targetString[strippedUrl.length]
+        if (nextChar === undefined || nextChar === '/' || nextChar === ':') {
+          return registry
+        }
+      }
+    }
+    return null
+  }
+
+  /**
+   * Returns true when a user-supplied image name references a Daytona built-snapshot registry —
+   * the INTERNAL registry (and its BACKUP mirrors), where built/from-sandbox snapshots live under
+   * server-generated refs. Those refs are only ever supplied to the runner by the platform, so a
+   * user-supplied `imageName` pointing there is a cross-tenant access attempt (the control plane
+   * would pull another tenant's private image with its own privileged credentials) and must be
+   * rejected. Users pull external/public images by name and reference their own snapshots by ref.
+   *
+   * Matching is host+project (mirroring findRegistryByUrlMatch's scheme-stripped prefix + boundary
+   * rule, extended by the registry's project), NOT host alone, because in prod the INTERNAL and
+   * TRANSIENT registries share a host (e.g. cr.app.daytona.io with projects `sbox` vs
+   * `sbox-transient`). TRANSIENT registries are deliberately EXCLUDED: the local image-push flow
+   * (getTransientPushAccess) legitimately has a user push to the transient project and then create a
+   * snapshot with that imageName, so `<internalHost>/sbox-transient/...` must stay allowed while
+   * `<internalHost>/sbox/...` is blocked. (Cross-tenant reads of another org's transient image are a
+   * separate, tracked issue — the transient project is org-shared by design — and cannot be closed
+   * here without breaking the push flow; it needs per-org namespacing of transient refs.)
+   *
+   * Docker Hub (stored as a shared INTERNAL row, collapsed to 'docker.io') and public ECR are
+   * legitimate public sources and are excluded by URL. Org-owned registries are single-tenant, are
+   * not in the shared (organizationId IS NULL) candidate set, and remain pullable.
+   */
+  async isSnapshotRegistryImageRef(imageName: string): Promise<boolean> {
+    if (!imageName) {
+      return false
+    }
+
+    // Parse the reference into <host>[:port]/<project>/<repo>... The first repository segment is the
+    // project, with '.'/empty segments dropped so path tricks like '/./sbox/' can't slip past the
+    // project check.
+    const target = imageName.replace(/^(https?:\/\/)/, '').toLowerCase()
+    const firstSlash = target.indexOf('/')
+    const [targetHost, targetPort] = splitHostPort(firstSlash === -1 ? target : target.slice(0, firstSlash))
+    const targetProject =
+      firstSlash === -1
+        ? undefined
+        : target
+            .slice(firstSlash + 1)
+            .split('/')
+            .find((segment) => segment !== '' && segment !== '.')
+            ?.split(':')[0]
+
+    const candidates = await this.dockerRegistryRepository.find({
+      where: [
+        { organizationId: IsNull(), registryType: RegistryType.INTERNAL },
+        { organizationId: IsNull(), registryType: RegistryType.BACKUP },
+      ],
+    })
+
+    for (const registry of candidates) {
+      const denyUrl = registry.url.replace(/^(https?:\/\/)/, '').toLowerCase()
+      const denySlash = denyUrl.indexOf('/')
+      const [denyHost, denyPort] = splitHostPort(denySlash === -1 ? denyUrl : denyUrl.slice(0, denySlash))
+
+      // Never block legitimate public sources even though Docker Hub is stored as a shared INTERNAL
+      // row; org-owned registries are already excluded by the organizationId IS NULL filter above.
+      if (denyHost === DOCKER_HUB_URL || denyHost === DOCKER_HUB_REGISTRY || denyHost === 'public.ecr.aws') {
+        continue
+      }
+      if (targetHost !== denyHost) {
+        continue
+      }
+      // Mirror the pull resolver's port behavior: a registry URL stored WITH a port matches only that
+      // exact port (registry:5000 does not match registry:6000), while a URL stored WITHOUT a port
+      // matches any port (cr.app.daytona.io also matches cr.app.daytona.io:443 — the attack variant).
+      if (denyPort !== undefined && targetPort !== denyPort) {
+        continue
+      }
+
+      // A project embedded in the stored URL path takes precedence over the project column.
+      const denyProject =
+        denySlash === -1 ? registry.project?.toLowerCase() : denyUrl.slice(denySlash + 1).split('/')[0]
+
+      // A host-only internal registry (no project) blocks the whole host; otherwise block only the
+      // built-snapshot project so the transient project (local image-push flow) stays pullable.
+      if (!denyProject || targetProject === denyProject) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  private createTemporaryRegistryConfig(registryOrigin: string): DockerRegistry {
+    const registry = new DockerRegistry()
+    registry.id = `temp-${registryOrigin}`
+    registry.name = `Temporary ${registryOrigin}`
+    registryOrigin = registryOrigin.replace(/^(https?:\/\/)/, '')
+    registry.url = `https://${registryOrigin}`
+    registry.username = ''
+    registry.password = ''
+    registry.project = ''
+    registry.isDefault = false
+    registry.registryType = RegistryType.INTERNAL
+    return registry
+  }
+
+  private async getDockerHubToken(repository: string): Promise<string | null> {
+    try {
+      const tokenUrl = `https://auth.docker.io/token?service=${DOCKER_HUB_REGISTRY}&scope=repository:${repository}:pull`
+      const response = await axios.get(tokenUrl, { timeout: 10000 })
+      return response.data.token
+    } catch (error) {
+      this.logger.warn(`Failed to get Docker Hub token: ${error.message}`)
+      return null
+    }
+  }
+
+  private async deleteRepositoryWithPrefix(
+    repository: string,
+    prefix: string,
+    registry: DockerRegistry,
+  ): Promise<void> {
+    const registryUrl = this.getRegistryUrl(registry)
+    const encodedCredentials = Buffer.from(`${registry.username}:${registry.password}`).toString('base64')
+    const repoPath = `${registry.project}/${prefix}${repository}`
+
+    try {
+      // Step 1: List all tags in the repository
+      const tagsUrl = `${registryUrl}/v2/${repoPath}/tags/list`
+
+      const tagsResponse = await axios({
+        method: 'get',
+        url: tagsUrl,
+        headers: {
+          Authorization: `Basic ${encodedCredentials}`,
+        },
+        validateStatus: (status) => status < 500,
+        timeout: AXIOS_TIMEOUT_MS,
+      })
+
+      if (tagsResponse.status === 404) {
+        return
+      }
+
+      if (tagsResponse.status >= 300) {
+        this.logger.error(`Error listing tags in repository ${repoPath}: ${tagsResponse.statusText}`)
+        throw new Error(`Failed to list tags in repository ${repoPath}: ${tagsResponse.statusText}`)
+      }
+
+      const tags = tagsResponse.data.tags || []
+
+      if (tags.length === 0) {
+        this.logger.debug(`Repository ${repoPath} has no tags to delete`)
+        return
+      }
+
+      if (tags.length > 500) {
+        this.logger.warn(`Repository ${repoPath} has more than 500 tags, skipping cleanup`)
+        return
+      }
+
+      // Step 2: Delete each tag
+      for (const tag of tags) {
+        try {
+          // Get the digest for this tag
+          const manifestUrl = `${registryUrl}/v2/${repoPath}/manifests/${tag}`
+
+          const manifestResponse = await axios({
+            method: 'head',
+            url: manifestUrl,
+            headers: {
+              Authorization: `Basic ${encodedCredentials}`,
+              Accept: 'application/vnd.docker.distribution.manifest.v2+json',
+            },
+            validateStatus: (status) => status < 500,
+            timeout: AXIOS_TIMEOUT_MS,
+          })
+
+          if (manifestResponse.status >= 300) {
+            this.logger.warn(`Couldn't get manifest for tag ${tag}: ${manifestResponse.statusText}`)
+            continue
+          }
+
+          const digest = manifestResponse.headers['docker-content-digest']
+          if (!digest) {
+            this.logger.warn(`Docker content digest not found for tag ${tag}`)
+            continue
+          }
+
+          // Delete the manifest
+          const deleteUrl = `${registryUrl}/v2/${repoPath}/manifests/${digest}`
+
+          const deleteResponse = await axios({
+            method: 'delete',
+            url: deleteUrl,
+            headers: {
+              Authorization: `Basic ${encodedCredentials}`,
+            },
+            validateStatus: (status) => status < 500,
+            timeout: AXIOS_TIMEOUT_MS,
+          })
+
+          if (deleteResponse.status < 300) {
+            this.logger.debug(`Deleted tag ${tag} from repository ${repoPath}`)
+          } else {
+            this.logger.warn(`Failed to delete tag ${tag}: ${deleteResponse.statusText}`)
+          }
+        } catch (error) {
+          this.logger.warn(`Exception when deleting tag ${tag}: ${error.message}`)
+          // Continue with other tags
+        }
+      }
+
+      this.logger.debug(`Repository ${repoPath} cleanup completed`)
+    } catch (error) {
+      this.logger.error(`Exception when deleting repository ${repoPath}: ${error.message}`)
+      throw error
+    }
+  }
+
+  async deleteSandboxRepository(repository: string, registry: DockerRegistry): Promise<void> {
+    try {
+      // Delete both backup and snapshot repositories - necessary due to renaming
+      await this.deleteRepositoryWithPrefix(repository, 'backup-', registry)
+      await this.deleteRepositoryWithPrefix(repository, 'snapshot-', registry)
+    } catch (error) {
+      this.logger.error(`Failed to delete repositories for ${repository}: ${error.message}`)
+      throw error
+    }
+  }
+
+  async deleteBackupImageFromRegistry(imageName: string, registry: DockerRegistry): Promise<void> {
+    const parsedImage = parseDockerImage(imageName)
+    if (!parsedImage.project || !parsedImage.tag) {
+      throw new Error('Invalid image name format. Expected: [registry]/project/repository:tag')
+    }
+
+    const registryUrl = this.getRegistryUrl(registry)
+    const repoPath = `${parsedImage.project}/${parsedImage.repository}`
+
+    // First, get the digest for the tag using the manifests endpoint
+    const manifestUrl = `${registryUrl}/v2/${repoPath}/manifests/${parsedImage.tag}`
+    const encodedCredentials = Buffer.from(`${registry.username}:${registry.password}`).toString('base64')
+
+    try {
+      // Get the digest from the headers
+      const manifestResponse = await axios({
+        method: 'head', // Using HEAD request to only fetch headers
+        url: manifestUrl,
+        headers: {
+          Authorization: `Basic ${encodedCredentials}`,
+          Accept: 'application/vnd.docker.distribution.manifest.v2+json',
+        },
+        validateStatus: (status) => status < 500,
+        timeout: AXIOS_TIMEOUT_MS,
+      })
+
+      if (manifestResponse.status >= 300) {
+        this.logger.error(`Error getting manifest for image ${imageName}: ${manifestResponse.statusText}`)
+        throw new Error(`Failed to get manifest for image ${imageName}: ${manifestResponse.statusText}`)
+      }
+
+      // Extract the digest from headers
+      const digest = manifestResponse.headers['docker-content-digest']
+      if (!digest) {
+        throw new Error(`Docker content digest not found for image ${imageName}`)
+      }
+
+      // Now delete the image using the digest
+      const deleteUrl = `${registryUrl}/v2/${repoPath}/manifests/${digest}`
+
+      const deleteResponse = await axios({
+        method: 'delete',
+        url: deleteUrl,
+        headers: {
+          Authorization: `Basic ${encodedCredentials}`,
+        },
+        validateStatus: (status) => status < 500,
+        timeout: AXIOS_TIMEOUT_MS,
+      })
+
+      if (deleteResponse.status < 300) {
+        this.logger.debug(`Image ${imageName} removed from the registry`)
+        return
+      }
+
+      this.logger.error(`Error removing image ${imageName} from registry: ${deleteResponse.statusText}`)
+      throw new Error(`Failed to remove image ${imageName} from registry: ${deleteResponse.statusText}`)
+    } catch (error) {
+      this.logger.error(`Exception when deleting image ${imageName}: ${error.message}`)
+      throw error
+    }
+  }
+
+  /**
+   * Gets source registries for building a Docker image from a Dockerfile
+   * If the Dockerfile has images with registry prefixes, returns all user registries
+   *
+   * @param dockerfileContent - The Dockerfile content
+   * @param organizationId - The organization ID
+   * @returns Array of source registries (private registries + default Docker Hub)
+   */
+  async getSourceRegistriesForDockerfile(dockerfileContent: string, organizationId: string): Promise<DockerRegistry[]> {
+    const sourceRegistries: DockerRegistry[] = []
+
+    // Check if Dockerfile has any images with a registry prefix
+    // If so, include all user's registries (we can't reliably match specific registries)
+    if (checkDockerfileHasRegistryPrefix(dockerfileContent)) {
+      const userRegistries = await this.findAll(organizationId, RegistryType.ORGANIZATION)
+      // Resolve each registry independently so one failing registry (e.g. an ECR
+      // role assumption that's misconfigured) can't break builds that don't depend
+      // on it. Registries that fail to resolve are skipped with a warning.
+      const settled = await Promise.allSettled(userRegistries.map((r) => this.resolveCredentials(r)))
+      settled.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          sourceRegistries.push(result.value)
+        } else {
+          const registry = userRegistries[index]
+          this.logger.warn(
+            `Skipping registry ${registry.url} (id=${registry.id}) for Dockerfile build: failed to resolve credentials: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
+          )
+        }
+      })
+    }
+
+    // Add default Docker Hub registry only if user doesn't have their own Docker Hub credentials
+    // The auth configs map is keyed by URL, so adding the default last would override user credentials
+    const userHasDockerHubCreds = sourceRegistries.some((registry) => registry.url.includes('docker.io'))
+
+    if (!userHasDockerHubCreds) {
+      const defaultDockerHubRegistry = await this.getDefaultDockerHubRegistry()
+      if (defaultDockerHubRegistry) {
+        sourceRegistries.push(defaultDockerHubRegistry)
+      }
+    }
+
+    // Add default public ECR creds if the Dockerfile pulls from public.ecr.aws
+    // and the user hasn't configured their own public ECR registry. Authenticated
+    // public ECR pulls avoid the low anonymous rate limit (429 Too Many Requests).
+    const userHasPublicEcrCreds = sourceRegistries.some((registry) => this.ecrCredentials.isPublicEcrUrl(registry.url))
+
+    if (!userHasPublicEcrCreds && this.dockerfileReferencesPublicEcr(dockerfileContent)) {
+      const defaultPublicEcrRegistry = await this.getDefaultPublicEcrRegistry()
+      if (defaultPublicEcrRegistry) {
+        sourceRegistries.push(defaultPublicEcrRegistry)
+      }
+    }
+
+    return sourceRegistries
+  }
+
+  // Whether any FROM line in the Dockerfile references a public.ecr.aws image.
+  private dockerfileReferencesPublicEcr(dockerfileContent: string): boolean {
+    return extractDockerfileFromImages(dockerfileContent).some((image) => {
+      try {
+        const parsed = parseDockerImage(image)
+        return !!parsed.registry && this.ecrCredentials.isPublicEcrUrl(parsed.registry)
+      } catch {
+        // Unparseable FROM (e.g. a build-stage alias) — not a public ECR image.
+        return false
+      }
+    })
+  }
+
+  @OnAsyncEvent({
+    event: RegionEvents.SNAPSHOT_MANAGER_CREDENTIALS_REGENERATED,
+  })
+  private async _handleRegionSnapshotManagerCredsRegenerated(
+    payload: RegionSnapshotManagerCredsRegeneratedEvent,
+  ): Promise<void> {
+    const { regionId, snapshotManagerUrl, username, password, entityManager } = payload
+
+    const em = entityManager ?? this.dockerRegistryRepository.manager
+
+    const registries = await em.count(DockerRegistry, {
+      where: { region: regionId, url: snapshotManagerUrl },
+    })
+
+    if (registries === 0) {
+      throw new NotFoundException(`No registries found for region ${regionId} with URL ${snapshotManagerUrl}`)
+    }
+
+    await em.update(DockerRegistry, { region: regionId, url: snapshotManagerUrl }, { username, password })
+  }
+
+  @OnAsyncEvent({
+    event: RegionEvents.SNAPSHOT_MANAGER_UPDATED,
+  })
+  private async _handleRegionSnapshotManagerUpdated(payload: RegionSnapshotManagerUpdatedEvent): Promise<void> {
+    const {
+      region,
+      organizationId,
+      snapshotManagerUrl,
+      prevSnapshotManagerUrl,
+      entityManager,
+      newUsername,
+      newPassword,
+    } = payload
+
+    const em = entityManager ?? this.dockerRegistryRepository.manager
+
+    if (prevSnapshotManagerUrl) {
+      // Update old registries associated with previous snapshot manager URL
+      if (snapshotManagerUrl) {
+        await em.update(
+          DockerRegistry,
+          {
+            region: region.id,
+            url: prevSnapshotManagerUrl,
+          },
+          {
+            url: snapshotManagerUrl,
+            username: newUsername,
+            password: newPassword,
+          },
+        )
+      } else {
+        // If snapshot manager URL is removed, delete associated registries
+        await em.delete(DockerRegistry, {
+          region: region.id,
+          url: prevSnapshotManagerUrl,
+        })
+      }
+
+      return
+    }
+
+    const registries = await em.count(DockerRegistry, {
+      where: { region: region.id, url: snapshotManagerUrl },
+    })
+
+    if (registries === 0) {
+      await this._handleRegionCreatedEvent(
+        new RegionCreatedEvent(entityManager, region, organizationId, newUsername, newPassword),
+      )
+    }
+  }
+
+  @OnAsyncEvent({
+    event: RegionEvents.CREATED,
+  })
+  private async _handleRegionCreatedEvent(payload: RegionCreatedEvent): Promise<void> {
+    const { entityManager, region, organizationId, snapshotManagerUsername, snapshotManagerPassword } = payload
+
+    if (!region.snapshotManagerUrl || !snapshotManagerUsername || !snapshotManagerPassword) {
+      return
+    }
+
+    await this.create(
+      {
+        name: `${region.name}-backup`,
+        url: region.snapshotManagerUrl,
+        username: snapshotManagerUsername,
+        password: snapshotManagerPassword,
+        registryType: RegistryType.BACKUP,
+        regionId: region.id,
+      },
+      organizationId ?? undefined,
+      false,
+      entityManager,
+    )
+
+    await this.create(
+      {
+        name: `${region.name}-internal`,
+        url: region.snapshotManagerUrl,
+        username: snapshotManagerUsername,
+        password: snapshotManagerPassword,
+        registryType: RegistryType.INTERNAL,
+        regionId: region.id,
+      },
+      organizationId ?? undefined,
+      false,
+      entityManager,
+    )
+
+    await this.create(
+      {
+        name: `${region.name}-transient`,
+        url: region.snapshotManagerUrl,
+        username: snapshotManagerUsername,
+        password: snapshotManagerPassword,
+        registryType: RegistryType.TRANSIENT,
+        regionId: region.id,
+      },
+      organizationId ?? undefined,
+      false,
+      entityManager,
+    )
+  }
+
+  @OnAsyncEvent({
+    event: RegionEvents.DELETED,
+  })
+  async handleRegionDeletedEvent(payload: RegionDeletedEvent): Promise<void> {
+    const { entityManager, region } = payload
+
+    if (!region.snapshotManagerUrl) {
+      return
+    }
+
+    const repository = entityManager.getRepository(DockerRegistry)
+    await repository.delete({ region: region.id })
+  }
+}

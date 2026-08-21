@@ -1,0 +1,50 @@
+package git
+
+import (
+	"errors"
+	"net/http"
+
+	common_errors "github.com/daytonaio/common-go/pkg/errors"
+	"github.com/daytonaio/daemon/internal/util"
+	"github.com/daytonaio/daemon/pkg/git"
+	"github.com/gin-gonic/gin"
+)
+
+// GetStatus godoc
+//
+//	@Summary		Get Git status
+//	@Description	Get the Git status of the repository at the specified path
+//	@Tags			git
+//	@Produce		json
+//	@Param			path	query		string	true	"Repository path"
+//	@Success		200		{object}	git.GitStatus
+//	@Failure		400		{object}	common.ErrorResponse
+//	@Failure		404		{object}	common.ErrorResponse
+//	@Failure		500		{object}	common.ErrorResponse
+//	@Router			/git/status [get]
+//
+//	@id				GetStatus
+func GetStatus(c *gin.Context) {
+	path := c.Query("path")
+	if path == "" {
+		c.Error(common_errors.NewBadRequestError(errors.New("path is required")))
+		return
+	}
+
+	gitService := git.Service{
+		WorkDir: path,
+	}
+
+	status, err := gitService.GetGitStatus()
+	if err != nil {
+		abortWithGitError(c, err)
+		return
+	}
+
+	if util.ClientRejectsUnknownResponseFields(c.Request.Header) {
+		status.Detached = false
+		status.Upstream = ""
+	}
+
+	c.JSON(http.StatusOK, status)
+}

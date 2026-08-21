@@ -1,0 +1,14 @@
+export enum RegionType {
+  /**
+   * Shared by all organizations.
+   */
+  SHARED = 'shared',
+  /**
+   * Dedicated to specific organizations.
+   */
+  DEDICATED = 'dedicated',
+  /**
+   * Created by and owned by a specific organization.
+   */
+  CUSTOM = 'custom',
+}

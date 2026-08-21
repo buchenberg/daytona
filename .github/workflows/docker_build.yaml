@@ -1,0 +1,99 @@
+name: Build Docker Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to tag the images with (start with "v", e.g. v0.1.2-rc-test)
+        required: true
+      projects:
+        description: Comma separated list of projects to build (leave empty for all)
+        required: false
+        default: ''
+      branch:
+        description: Branch to build from (leave empty for the default branch)
+        required: false
+        default: ''
+
+permissions: {}
+
+env:
+  VERSION: ${{ inputs.version }}
+  ARCH: -amd64
+  BUILDX_NO_DEFAULT_ATTESTATIONS: 1
+  GONOSUMDB: github.com/daytonaio/daytona
+
+jobs:
+  docker_build:
+    if: github.repository == 'daytonaio/daytona' || github.repository == 'daytonaio/daytona-ai'
+    runs-on: blacksmith-16vcpu-ubuntu-2404
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    env:
+      NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN }}
+      NX_DAEMON: 'false'
+
+    steps:
+      - name: Validate version format
+        run: |
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "::error::Invalid version format: $VERSION (expected vX.Y.Z or vX.Y.Z-suffix)"
+            exit 1
+          fi
+
+      - name: Checkout code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ inputs.branch }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-toolchain
+        with:
+          install-swag: 'false'
+
+      - name: Ensure go.work.sum exists
+        # The composite runs `go work sync` but does not `touch go.work.sum`.
+        # When sync has nothing to write, the file is not created, and the Go
+        # Dockerfiles' `COPY go.work go.work.sum` fails. Matches release.yaml:243.
+        run: touch go.work.sum
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@ab5c1da94f53f5cd75c1038092aa276dddfccbba # v1.9.0
+
+      - name: Build docker images
+        env:
+          PROJECTS: ${{ inputs.projects }}
+        run: |
+          if [ -n "$PROJECTS" ]; then
+            yarn nx run-many \
+              --target=docker \
+              --projects="$PROJECTS" \
+              --configuration=production \
+              --parallel=$(getconf _NPROCESSORS_ONLN) \
+              --output-style=stream \
+              --nxBail=true
+          else
+            yarn nx run-many \
+              --target=docker \
+              --all \
+              --exclude=sandbox,sandbox-slim,sandbox-gpu \
+              --configuration=production \
+              --parallel=$(getconf _NPROCESSORS_ONLN) \
+              --output-style=stream \
+              --nxBail=true
+          fi
+
+      - name: Cleanup credentials
+        if: always()
+        run: |
+          docker logout docker.io 2>/dev/null || true
+          docker logout ghcr.io 2>/dev/null || true

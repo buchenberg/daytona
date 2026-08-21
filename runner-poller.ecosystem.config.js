@@ -1,0 +1,20 @@
+module.exports = {
+  apps: [
+    {
+      name: 'daytona-runner-poller',
+      script: './dist/apps/api/main.js',
+      node_args: '--env-file /home/ubuntu/daytona-ai-saas/.env.production --dns-result-order=ipv4first',
+      instances: 1,
+      exec_mode: 'cluster',
+      watch: false,
+      env: {
+        NODE_ENV: 'production',
+        PM2_CLUSTER: 'true',
+        ONLY_RUNNER_POLLER: 'true',
+      },
+      wait_ready: true,
+      kill_timeout: 30000,
+      listen_timeout: 10000,
+    },
+  ],
+}

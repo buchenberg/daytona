@@ -1,0 +1,10 @@
+package storage
+
+import (
+	"context"
+)
+
+// ObjectStorageClient defines the interface for object storage operations
+type ObjectStorageClient interface {
+	GetObject(ctx context.Context, organizationId, hash string) ([]byte, error)
+}

@@ -1,0 +1,1095 @@
+import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common'
+import { Cron, CronExpression } from '@nestjs/schedule'
+import { Brackets, LessThan, Not, Repository } from 'typeorm'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Sandbox } from '../entities/sandbox.entity'
+import { SandboxState } from '../enums/sandbox-state.enum'
+import { RunnerService } from '../services/runner.service'
+import { RunnerState } from '../enums/runner-state.enum'
+import { BadRequestError } from '../../exceptions/bad-request.exception'
+import { DockerRegistryService } from '../../docker-registry/services/docker-registry.service'
+import { BackupState } from '../enums/backup-state.enum'
+import { SandboxDesiredState } from '../enums/sandbox-desired-state.enum'
+import { InjectRedis } from '@nestjs-modules/ioredis'
+import { Redis } from 'ioredis'
+import { BACKUP_RETRY_ERROR_SUBSTRINGS } from '../constants/errors-for-backup-retry'
+import { fromAxiosError } from '../../common/utils/from-axios-error'
+import { sanitizeSandboxError } from '../utils/sanitize-error.util'
+import { RedisLockProvider } from '../common/redis-lock.provider'
+import { OnEvent } from '@nestjs/event-emitter'
+import { SandboxEvents } from '../constants/sandbox-events.constants'
+import { SandboxDestroyedEvent } from '../events/sandbox-destroyed.event'
+import { SandboxBackupCreatedEvent } from '../events/sandbox-backup-created.event'
+import { SandboxArchivedEvent } from '../events/sandbox-archived.event'
+import { RunnerAdapterFactory } from '../runner-adapter/runnerAdapter'
+import { TypedConfigService } from '../../config/typed-config.service'
+
+import { TrackJobExecution } from '../../common/decorators/track-job-execution.decorator'
+import { TrackableJobExecutions } from '../../common/interfaces/trackable-job-executions'
+import { setTimeout } from 'timers/promises'
+import { LogExecution } from '../../common/decorators/log-execution.decorator'
+import { WithInstrumentation } from '../../common/decorators/otel.decorator'
+import { DockerRegistry } from '../../docker-registry/entities/docker-registry.entity'
+import { SandboxService } from '../services/sandbox.service'
+import { SandboxRepository } from '../repositories/sandbox.repository'
+import { BACKUP_DISABLED_REGIONS, isBackupDisabledRegion } from '../constants/dedicated-regions.constant'
+import { isVmSandboxClass } from '../utils/sandbox-class.util'
+import { getBackupRegistryOverride } from '../constants/backup-registry-overrides.constant'
+import { Job } from '../entities/job.entity'
+import { JobStatus } from '../enums/job-status.enum'
+import { JobType } from '../enums/job-type.enum'
+import { ResourceType } from '../enums/resource-type.enum'
+import { JobStateHandlerService } from '../services/job-state-handler.service'
+import { SandboxConflictError } from '../errors/sandbox-conflict.error'
+
+// Set to the nil UUID to disable dedicated-org handling (org is then treated like every other
+// org; a nil UUID never matches a real org). To re-enable, restore the org id:
+// '55717397-f840-4f5b-a829-77fd6f7cb2fc'
+const DEDICATED_BACKUP_ORG_ID = '00000000-0000-0000-0000-000000000000'
+const MAX_CONCURRENT_DEDICATED_ORG_BACKUPS_PER_RUNNER = 3
+
+@Injectable()
+export class BackupManager implements TrackableJobExecutions, OnApplicationShutdown {
+  activeJobs = new Set<string>()
+
+  private readonly logger = new Logger(BackupManager.name)
+
+  constructor(
+    private readonly sandboxRepository: SandboxRepository,
+    private readonly sandboxService: SandboxService,
+    private readonly runnerService: RunnerService,
+    private readonly runnerAdapterFactory: RunnerAdapterFactory,
+    private readonly dockerRegistryService: DockerRegistryService,
+    @InjectRedis() private readonly redis: Redis,
+    private readonly redisLockProvider: RedisLockProvider,
+    private readonly configService: TypedConfigService,
+    @InjectRepository(Job)
+    private readonly jobRepository: Repository<Job>,
+    private readonly jobStateHandlerService: JobStateHandlerService,
+  ) {}
+
+  async onApplicationShutdown() {
+    //  wait for all active jobs to finish
+    while (this.activeJobs.size > 0) {
+      this.logger.log(`Waiting for ${this.activeJobs.size} active jobs to finish`)
+      await setTimeout(1000)
+    }
+  }
+
+  /**
+   * Increments a retry counter in Redis and returns whether the operation should be retried.
+   * @param key - The Redis key for the retry counter
+   * @param maxRetries - Maximum number of retries allowed (default: 3)
+   * @param ttlSeconds - TTL for the retry counter in seconds (default: 300)
+   * @returns true if should retry, false if max retries exceeded
+   */
+  private async runnerIsDraining(sandbox: Sandbox): Promise<boolean> {
+    if (!sandbox.runnerId) return false
+    try {
+      const runner = await this.runnerService.findOne(sandbox.runnerId)
+      return runner?.draining === true
+    } catch {
+      return false
+    }
+  }
+
+  /** Route recoverable backup failures on draining runners into state=ERROR so /recover and
+   *  drain auto-recover (both gate on state=ERROR + recoverable=true) catch them. */
+  private async markErroredIfDraining(
+    sandbox: Sandbox,
+    errorReason: string | null,
+    recoverable: boolean,
+    isOnDrainingRunner: boolean,
+  ): Promise<void> {
+    if (!isOnDrainingRunner || !recoverable || sandbox.state === SandboxState.ERROR) return
+    // Mirror errorReason to backupErrorReason so the runner's DeduceRecoveryType matches either.
+    await this.sandboxRepository.updateWhere(sandbox.id, {
+      updateData: {
+        state: SandboxState.ERROR,
+        errorReason,
+      },
+      whereCondition: { state: sandbox.state },
+    })
+  }
+
+  private async shouldRetry(key: string, maxRetries = 3, ttlSeconds = 300): Promise<boolean> {
+    const retryCount = await this.redis.get(key)
+    const currentCount = retryCount ? parseInt(retryCount) : 0
+
+    if (currentCount >= maxRetries) {
+      await this.redis.del(key)
+      return false
+    }
+
+    await this.redis.setex(key, ttlSeconds, String(currentCount + 1))
+    return true
+  }
+
+  // DISABLED: the dedicated-org backup sync is turned off. To re-enable, uncomment the @Cron
+  // below and re-add the org's registry override in backup-registry-overrides.constant.ts.
+  // @Cron(CronExpression.EVERY_10_SECONDS, { name: 'check-backup-states-dedicated-org', waitForCompletion: true })
+  @TrackJobExecution()
+  @LogExecution('check-backup-states-dedicated-org')
+  @WithInstrumentation()
+  async checkBackupStatesDedicatedOrg(): Promise<void> {
+    //  lock the sync to only run one instance at a time
+    const lockKey = 'check-backup-states-dedicated-org'
+    const hasLock = await this.redisLockProvider.lock(lockKey, 10)
+    if (!hasLock) {
+      return
+    }
+
+    try {
+      const sandboxes = await this.sandboxRepository
+        .createQueryBuilder('sandbox')
+        .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
+        .where('sandbox.organizationId = :dedicatedBackupOrgId', { dedicatedBackupOrgId: DEDICATED_BACKUP_ORG_ID })
+        .andWhere('sandbox.state IN (:...states)', {
+          states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.PAUSED],
+        })
+        .andWhere('sandbox.backupState IN (:...backupStates)', {
+          backupStates: [BackupState.PENDING],
+        })
+        .andWhere('sandbox.desiredState != :destroyed', { destroyed: SandboxDesiredState.DESTROYED })
+        .andWhere('r.state = :ready', { ready: RunnerState.READY })
+        .andWhere('sandbox.region NOT IN (:...backupDisabledRegions)', {
+          backupDisabledRegions: BACKUP_DISABLED_REGIONS,
+        })
+        // Prioritize manual archival action, then auto-archive poller
+        .addSelect(
+          `
+          CASE sandbox.state
+            WHEN :archiving THEN 1
+            WHEN :stopped   THEN 2
+            ELSE 999
+          END
+          `,
+          'state_priority',
+        )
+        .setParameters({
+          archiving: SandboxState.ARCHIVING,
+          stopped: SandboxState.STOPPED,
+        })
+        .distinctOn(['sandbox.runnerId'])
+        .orderBy('sandbox.runnerId', 'ASC')
+        .addOrderBy('state_priority', 'ASC')
+        .addOrderBy('sandbox.lastBackupAt', 'ASC', 'NULLS FIRST') // Process sandboxes with no backups first
+        .take(250)
+        .getMany()
+
+      await Promise.allSettled(
+        sandboxes.map(async (s) => {
+          const lockKey = `sandbox-backup-${s.id}`
+          const hasLock = await this.redisLockProvider.lock(lockKey, 60)
+          if (!hasLock) {
+            return
+          }
+
+          try {
+            //  get the latest sandbox state
+            const sandbox = await this.sandboxRepository.findOneByOrFail({
+              id: s.id,
+            })
+
+            try {
+              switch (sandbox.backupState) {
+                case BackupState.PENDING: {
+                  await this.handlePendingBackup(sandbox)
+                  break
+                }
+              }
+            } catch (error) {
+              //  if error, retry 10 times
+              const errorRetryKey = `${lockKey}-error-retry`
+              const errorRetryCount = await this.redis.get(errorRetryKey)
+              if (!errorRetryCount) {
+                await this.redis.setex(errorRetryKey, 300, '1')
+              } else if (parseInt(errorRetryCount) > 10) {
+                this.logger.error(
+                  `Error processing backup for dedicated-org sandbox ${sandbox.id}:`,
+                  fromAxiosError(error),
+                )
+                const { recoverable, errorReason } = sanitizeSandboxError(error)
+                const isArchiveFlow = sandbox.desiredState === SandboxDesiredState.ARCHIVED
+                const isOnDrainingRunner = await this.runnerIsDraining(sandbox)
+                await this.sandboxService.updateSandboxBackupState(
+                  sandbox.id,
+                  BackupState.ERROR,
+                  undefined,
+                  undefined,
+                  errorReason,
+                  recoverable && (isArchiveFlow || isOnDrainingRunner),
+                )
+                await this.markErroredIfDraining(sandbox, errorReason, recoverable, isOnDrainingRunner)
+              } else {
+                await this.redis.setex(errorRetryKey, 300, errorRetryCount + 1)
+              }
+            }
+          } catch (error) {
+            this.logger.error(`Error processing backup for dedicated-org sandbox ${s.id}:`, error)
+          } finally {
+            await this.redisLockProvider.unlock(lockKey)
+          }
+        }),
+      )
+    } catch (error) {
+      this.logger.error(`Error processing dedicated-org backups: `, error)
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'check-backup-states', waitForCompletion: true })
+  @TrackJobExecution()
+  @LogExecution('check-backup-states')
+  @WithInstrumentation()
+  async checkBackupStates(): Promise<void> {
+    const lockKey = 'check-backup-states'
+    const hasLock = await this.redisLockProvider.lock(lockKey, 10)
+    if (!hasLock) {
+      return
+    }
+
+    try {
+      const maxConcurrentBackups = this.configService.getOrThrow('maxConcurrentBackupsPerRunner')
+
+      // In-progress backups per (ready) runner for non-dedicated orgs. Drives free-slot count.
+      const inProgressRows = await this.sandboxRepository
+        .createQueryBuilder('sandbox')
+        .select('sandbox.runnerId', 'runnerId')
+        .addSelect('COUNT(*)', 'count')
+        .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
+        .where('sandbox.backupState = :inProgress', { inProgress: BackupState.IN_PROGRESS })
+        .andWhere('sandbox.organizationId != :dedicated', { dedicated: DEDICATED_BACKUP_ORG_ID })
+        .andWhere('r.state = :ready', { ready: RunnerState.READY })
+        .groupBy('sandbox.runnerId')
+        .getRawMany<{ runnerId: string; count: string }>()
+
+      const inProgressByRunner = new Map<string, number>()
+      for (const row of inProgressRows) {
+        inProgressByRunner.set(row.runnerId, parseInt(row.count, 10))
+      }
+
+      // PENDING candidates ranked per runner (rn = priority order within the runner), capped at
+      // maxConcurrentBackups per runner so we never fetch more than a runner could ever dispatch.
+      const candidates = await this.sandboxRepository.manager
+        .createQueryBuilder()
+        .select('ranked.id', 'id')
+        // Quote runnerId so Postgres preserves the camelCase derived-table column name (an
+        // unquoted ranked.runnerId folds to "runnerid" and fails to resolve).
+        .addSelect('ranked."runnerId"', 'runnerId')
+        .addSelect('ranked.rn', 'rn')
+        .from((qb) => {
+          return (
+            qb
+              .select('sandbox.id', 'id')
+              .addSelect('sandbox."runnerId"', 'runnerId')
+              .addSelect(
+                `ROW_NUMBER() OVER (
+                PARTITION BY sandbox."runnerId"
+                ORDER BY
+                  CASE sandbox.state
+                    WHEN :archiving THEN 1
+                    WHEN :stopped   THEN 2
+                    ELSE 999
+                  END ASC,
+                  sandbox."lastBackupAt" ASC NULLS FIRST,
+                  sandbox."createdAt" ASC
+              )`,
+                'rn',
+              )
+              .from(Sandbox, 'sandbox')
+              .innerJoin('runner', 'r', 'r.id = sandbox."runnerId"')
+              .where('sandbox.state IN (:...states)')
+              .andWhere('sandbox.backupState IN (:...backupStates)')
+              .andWhere('sandbox.desiredState != :destroyed')
+              .andWhere('r.state = :ready')
+              .andWhere('sandbox.region NOT IN (:...backupDisabledRegions)')
+              .andWhere('sandbox.organizationId != :dedicated')
+              // Set the params referenced inside this subquery on the subquery builder itself so
+              // array expansion (IN (:...x)) resolves here before merging into the outer query.
+              .setParameters({
+                states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.PAUSED],
+                backupStates: [BackupState.PENDING],
+                destroyed: SandboxDesiredState.DESTROYED,
+                ready: RunnerState.READY,
+                backupDisabledRegions: BACKUP_DISABLED_REGIONS,
+                dedicated: DEDICATED_BACKUP_ORG_ID,
+                archiving: SandboxState.ARCHIVING,
+                stopped: SandboxState.STOPPED,
+              })
+          )
+        }, 'ranked')
+        .where('ranked.rn <= :maxConcurrentBackups', { maxConcurrentBackups })
+        // rn-first ordering distributes the LIMIT round-robin across runners: every runner's
+        // rn=1 first, then every runner's rn=2, etc. Ordering by runnerId first would instead
+        // fill the lowest-UUID runners completely and (when demand exceeds the limit) permanently
+        // starve the rest. runnerId is the tiebreaker only to keep ordering deterministic.
+        .orderBy('ranked.rn', 'ASC')
+        .addOrderBy('ranked."runnerId"', 'ASC')
+        .limit(1000)
+        .getRawMany<{ id: string; runnerId: string; rn: string }>()
+
+      // Trim each runner's ranked candidates to its actual free slots (cap - in-progress).
+      const sandboxIds: string[] = []
+      for (const candidate of candidates) {
+        const inProgress = inProgressByRunner.get(candidate.runnerId) ?? 0
+        const freeSlots = maxConcurrentBackups - inProgress
+        if (parseInt(candidate.rn, 10) <= freeSlots) {
+          sandboxIds.push(candidate.id)
+        }
+      }
+
+      await Promise.allSettled(
+        sandboxIds.map(async (id) => {
+          const sandboxLockKey = `sandbox-backup-${id}`
+          const hasSandboxLock = await this.redisLockProvider.lock(sandboxLockKey, 60)
+          if (!hasSandboxLock) {
+            return
+          }
+
+          try {
+            //  get the latest sandbox state
+            const sandbox = await this.sandboxRepository.findOneByOrFail({
+              id,
+            })
+
+            try {
+              switch (sandbox.backupState) {
+                case BackupState.PENDING: {
+                  await this.handlePendingBackup(sandbox)
+                  break
+                }
+              }
+            } catch (error) {
+              //  if error, retry 10 times
+              const errorRetryKey = `${sandboxLockKey}-error-retry`
+              const errorRetryCount = await this.redis.get(errorRetryKey)
+              if (!errorRetryCount) {
+                await this.redis.setex(errorRetryKey, 300, '1')
+              } else if (parseInt(errorRetryCount) > 10) {
+                this.logger.error(`Error processing backup for sandbox ${sandbox.id}:`, fromAxiosError(error))
+                const { recoverable, errorReason } = sanitizeSandboxError(error)
+                const isArchiveFlow = sandbox.desiredState === SandboxDesiredState.ARCHIVED
+                const isOnDrainingRunner = await this.runnerIsDraining(sandbox)
+                await this.sandboxService.updateSandboxBackupState(
+                  sandbox.id,
+                  BackupState.ERROR,
+                  undefined,
+                  undefined,
+                  errorReason,
+                  recoverable && (isArchiveFlow || isOnDrainingRunner),
+                )
+                await this.markErroredIfDraining(sandbox, errorReason, recoverable, isOnDrainingRunner)
+              } else {
+                await this.redis.setex(errorRetryKey, 300, errorRetryCount + 1)
+              }
+            }
+          } catch (error) {
+            this.logger.error(`Error processing backup for sandbox ${id}:`, error)
+          } finally {
+            await this.redisLockProvider.unlock(sandboxLockKey)
+          }
+        }),
+      )
+    } catch (error) {
+      this.logger.error(`Error processing backups: `, error)
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'check-backup-states-in-progress', waitForCompletion: true })
+  @TrackJobExecution()
+  @WithInstrumentation()
+  @LogExecution('check-backup-states-in-progress')
+  async checkBackupStatesInProgress(): Promise<void> {
+    //  lock the sync to only run one instance at a time
+    const lockKey = 'check-backup-states-in-progress'
+    const hasLock = await this.redisLockProvider.lock(lockKey, 10)
+    if (!hasLock) {
+      return
+    }
+
+    try {
+      // Random ordering avoids head-of-line blocking on a slow runner repeatedly
+      // returning the same in-progress sandboxes.
+      const sandboxes = await this.sandboxRepository
+        .createQueryBuilder('sandbox')
+        .addSelect('RANDOM()', 'rand')
+        .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
+        .where('sandbox.state IN (:...states)', {
+          states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.PAUSED],
+        })
+        .andWhere('sandbox.backupState IN (:...backupStates)', {
+          backupStates: [BackupState.IN_PROGRESS],
+        })
+        .andWhere('sandbox.desiredState != :destroyed', { destroyed: SandboxDesiredState.DESTROYED })
+        .andWhere('r.state = :ready', { ready: RunnerState.READY })
+        .orderBy('rand')
+        .take(200)
+        .getMany()
+
+      await Promise.allSettled(
+        sandboxes.map(async (s) => {
+          const lockKey = `sandbox-backup-${s.id}`
+          const hasLock = await this.redisLockProvider.lock(lockKey, 60)
+          if (!hasLock) {
+            return
+          }
+
+          try {
+            //  get the latest sandbox state
+            const sandbox = await this.sandboxRepository.findOneByOrFail({
+              id: s.id,
+            })
+
+            try {
+              switch (sandbox.backupState) {
+                case BackupState.IN_PROGRESS: {
+                  await this.checkBackupProgress(sandbox)
+                  break
+                }
+              }
+            } catch (error) {
+              //  if error, retry 10 times
+              const errorRetryKey = `${lockKey}-error-retry`
+              const errorRetryCount = await this.redis.get(errorRetryKey)
+              if (!errorRetryCount) {
+                await this.redis.setex(errorRetryKey, 300, '1')
+              } else if (parseInt(errorRetryCount) > 10) {
+                this.logger.error(`Error processing backup for sandbox ${sandbox.id}:`, fromAxiosError(error))
+                const { recoverable, errorReason } = sanitizeSandboxError(error)
+                const isArchiveFlow = sandbox.desiredState === SandboxDesiredState.ARCHIVED
+                const isOnDrainingRunner = await this.runnerIsDraining(sandbox)
+                await this.sandboxService.updateSandboxBackupState(
+                  sandbox.id,
+                  BackupState.ERROR,
+                  undefined,
+                  undefined,
+                  errorReason,
+                  recoverable && (isArchiveFlow || isOnDrainingRunner),
+                )
+                await this.markErroredIfDraining(sandbox, errorReason, recoverable, isOnDrainingRunner)
+              } else {
+                await this.redis.setex(errorRetryKey, 300, errorRetryCount + 1)
+              }
+            }
+          } catch (error) {
+            this.logger.error(`Error processing backup for sandbox ${s.id}:`, error)
+          } finally {
+            await this.redisLockProvider.unlock(lockKey)
+          }
+        }),
+      )
+    } catch (error) {
+      this.logger.error(`Error processing backups: `, error)
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'check-backup-states-errored-draining' })
+  @TrackJobExecution()
+  @LogExecution('check-backup-states-errored-draining')
+  @WithInstrumentation()
+  async checkBackupStatesForErroredDraining(): Promise<void> {
+    const lockKey = 'check-backup-states-errored-draining'
+    const hasLock = await this.redisLockProvider.lock(lockKey, 10)
+    if (!hasLock) {
+      return
+    }
+
+    try {
+      const sandboxes = await this.sandboxRepository
+        .createQueryBuilder('sandbox')
+        .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
+        .where('sandbox.state = :error', { error: SandboxState.ERROR })
+        .andWhere('sandbox.backupState IN (:...backupStates)', {
+          backupStates: [BackupState.PENDING, BackupState.IN_PROGRESS],
+        })
+        .andWhere('r.state = :ready', { ready: RunnerState.READY })
+        .andWhere('r."draining" = true')
+        .addOrderBy('sandbox.lastBackupAt', 'ASC', 'NULLS FIRST')
+        .addOrderBy('sandbox.createdAt', 'ASC')
+        .take(100)
+        .getMany()
+
+      await Promise.allSettled(
+        sandboxes.map(async (s) => {
+          const lockKey = `sandbox-backup-${s.id}`
+          const hasLock = await this.redisLockProvider.lock(lockKey, 60)
+          if (!hasLock) {
+            return
+          }
+
+          try {
+            const sandbox = await this.sandboxRepository.findOneByOrFail({
+              id: s.id,
+            })
+
+            try {
+              switch (sandbox.backupState) {
+                case BackupState.PENDING: {
+                  await this.handlePendingBackup(sandbox)
+                  break
+                }
+                case BackupState.IN_PROGRESS: {
+                  await this.checkBackupProgress(sandbox)
+                  break
+                }
+              }
+            } catch (error) {
+              const errorRetryKey = `${lockKey}-error-retry`
+              const errorRetryCount = await this.redis.get(errorRetryKey)
+              if (!errorRetryCount) {
+                await this.redis.setex(errorRetryKey, 300, '1')
+              } else if (parseInt(errorRetryCount) > 10) {
+                this.logger.error(
+                  `Error processing backup for errored sandbox ${sandbox.id} on draining runner:`,
+                  fromAxiosError(error),
+                )
+                const { recoverable, errorReason } = sanitizeSandboxError(error)
+                const isArchiveFlow = sandbox.desiredState === SandboxDesiredState.ARCHIVED
+                const isOnDrainingRunner = await this.runnerIsDraining(sandbox)
+                await this.sandboxService.updateSandboxBackupState(
+                  sandbox.id,
+                  BackupState.ERROR,
+                  undefined,
+                  undefined,
+                  errorReason,
+                  recoverable && (isArchiveFlow || isOnDrainingRunner),
+                )
+                await this.markErroredIfDraining(sandbox, errorReason, recoverable, isOnDrainingRunner)
+              } else {
+                await this.redis.setex(errorRetryKey, 300, errorRetryCount + 1)
+              }
+            }
+          } catch (error) {
+            this.logger.error(`Error processing backup for errored sandbox ${s.id} on draining runner:`, error)
+          } finally {
+            await this.redisLockProvider.unlock(lockKey)
+          }
+        }),
+      )
+    } catch (error) {
+      this.logger.error(`Error processing backups for errored sandboxes on draining runners: `, error)
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_SECONDS, { name: 'sync-stop-state-create-backups' })
+  @TrackJobExecution()
+  @LogExecution('sync-stop-state-create-backups')
+  @WithInstrumentation()
+  async syncStopStateCreateBackups(): Promise<void> {
+    const lockKey = 'sync-stop-state-create-backups'
+    const hasLock = await this.redisLockProvider.lock(lockKey, 10)
+    if (!hasLock) {
+      return
+    }
+
+    try {
+      const sandboxes = await this.sandboxRepository
+        .createQueryBuilder('sandbox')
+        .innerJoin('runner', 'r', 'r.id = sandbox.runnerId')
+        .where('sandbox.state IN (:...states)', {
+          states: [SandboxState.ARCHIVING, SandboxState.STOPPED, SandboxState.PAUSED],
+        })
+        .andWhere('sandbox.backupState = :none', { none: BackupState.NONE })
+        .andWhere('sandbox.region NOT IN (:...backupDisabledRegions)', {
+          backupDisabledRegions: BACKUP_DISABLED_REGIONS,
+        })
+        .andWhere('sandbox.desiredState != :destroyed', { destroyed: SandboxDesiredState.DESTROYED })
+        .andWhere('r.state = :ready', { ready: RunnerState.READY })
+        .take(100)
+        .getMany()
+
+      await Promise.allSettled(
+        sandboxes
+          .filter((sandbox) => sandbox.runnerId !== null)
+          .map(async (sandbox) => {
+            const lockKey = `sandbox-backup-${sandbox.id}`
+            const hasLock = await this.redisLockProvider.lock(lockKey, 30)
+            if (!hasLock) {
+              return
+            }
+
+            try {
+              await this.setBackupPending(sandbox)
+            } catch (error) {
+              this.logger.error(`Error processing backup for sandbox ${sandbox.id}:`, error)
+            } finally {
+              await this.redisLockProvider.unlock(lockKey)
+            }
+          }),
+      )
+    } catch (error) {
+      this.logger.error(`Error processing backups: `, error)
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_MINUTES, { name: 'check-stale-in-progress-backups' })
+  @TrackJobExecution()
+  @LogExecution('check-stale-in-progress-backups')
+  @WithInstrumentation()
+  async checkStaleInProgressBackups(): Promise<void> {
+    const lockKey = 'check-stale-in-progress-backups'
+    const lockTtlSeconds = 5 * 60
+    const hasLock = await this.redisLockProvider.lock(lockKey, lockTtlSeconds)
+    if (!hasLock) {
+      return
+    }
+
+    try {
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000)
+
+      const staleSandboxes = await this.sandboxRepository.find({
+        where: {
+          backupState: BackupState.IN_PROGRESS,
+          desiredState: Not(SandboxDesiredState.DESTROYED),
+          updatedAt: LessThan(twoHoursAgo),
+        },
+        order: {
+          updatedAt: 'ASC',
+        },
+        take: 100,
+      })
+
+      for (const sandbox of staleSandboxes) {
+        try {
+          await this.sandboxRepository.updateWhere(sandbox.id, {
+            updateData: {
+              backupState: BackupState.ERROR,
+              backupErrorReason: 'Backup timed out after 2 hours',
+            },
+            whereCondition: {
+              backupState: BackupState.IN_PROGRESS,
+              desiredState: Not(SandboxDesiredState.DESTROYED),
+              updatedAt: LessThan(twoHoursAgo),
+            },
+          })
+          this.logger.warn(`Backup for sandbox ${sandbox.id} timed out after 2 hours`)
+        } catch (error) {
+          this.logger.error(`Failed to mark stale backup as errored for sandbox ${sandbox.id}:`, error)
+        }
+      }
+    } catch (error) {
+      this.logger.error('Error checking for stale in-progress backups:', error)
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  async setBackupPending(sandbox: Sandbox): Promise<void> {
+    if (isBackupDisabledRegion(sandbox.region)) {
+      return
+    }
+
+    if (sandbox.backupState === BackupState.COMPLETED) {
+      return
+    }
+
+    // Allow backups for STARTED sandboxes, STOPPED/PAUSED/ERROR sandboxes with runnerId, or ARCHIVING sandboxes
+    if (
+      !(
+        sandbox.state === SandboxState.STARTED ||
+        sandbox.state === SandboxState.ARCHIVING ||
+        (sandbox.state === SandboxState.STOPPED && sandbox.runnerId) ||
+        (sandbox.state === SandboxState.PAUSED && sandbox.runnerId) ||
+        (sandbox.state === SandboxState.ERROR && sandbox.runnerId)
+      )
+    ) {
+      throw new BadRequestError(
+        'Sandbox must be started, stopped, paused, or errored with assigned runner to create a backup',
+      )
+    }
+
+    if (sandbox.backupState === BackupState.IN_PROGRESS || sandbox.backupState === BackupState.PENDING) {
+      return
+    }
+
+    // VM-backed classes (linux-vm, windows) manage their own backup storage on the runner. We don't
+    // resolve a registry or build a registry/image/tag ref for them - just a sandbox-id + timestamp
+    // snapshot name (the runner uses/infers the rest), and no registry is associated with the backup.
+    if (isVmSandboxClass(sandbox.sandboxClass)) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const backupSnapshot = `${sandbox.id}:${timestamp}`
+      await this.sandboxService.updateSandboxBackupState(sandbox.id, BackupState.PENDING, backupSnapshot, null)
+      return
+    }
+
+    let registry: DockerRegistry | null = null
+
+    const overrideRegistryId = getBackupRegistryOverride(sandbox.organizationId)
+
+    if (overrideRegistryId) {
+      registry = await this.dockerRegistryService.findOne(overrideRegistryId)
+      if (!registry) {
+        this.logger.error(
+          `Backup registry override ${overrideRegistryId} for organization ${sandbox.organizationId} not found`,
+        )
+      }
+    } else if (sandbox.backupRegistryId) {
+      registry = await this.dockerRegistryService.findOne(sandbox.backupRegistryId)
+    } else {
+      registry = await this.dockerRegistryService.getAvailableBackupRegistry(sandbox.region)
+    }
+
+    if (!registry) {
+      throw new BadRequestError('No backup registry configured')
+    }
+    // Generate backup snapshot name
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const backupSnapshot = `${registry.url.replace('https://', '').replace('http://', '')}/${registry.project || 'daytona'}/backup-${sandbox.id}:${timestamp}`
+
+    await this.sandboxService.updateSandboxBackupState(sandbox.id, BackupState.PENDING, backupSnapshot, registry.id)
+  }
+
+  /**
+   * Reconcile an in-progress backup on a v2 runner from its CREATE_BACKUP job.
+   *
+   * On v2 runners backup completion is driven by the job-state handler, which is invoked
+   * once (fire-and-forget) when the runner reports the job terminal. If that invocation is
+   * lost (e.g. a transient error, or it raced with the PENDING->IN_PROGRESS write), the
+   * sandbox is stranded in InProgress while its job is already Completed/Failed - the
+   * stale-job sweep ignores terminal jobs and the runner has nothing left to report.
+   *
+   * Re-running the authoritative completion handler here is idempotent and resolves the
+   * sandbox to Completed/Error. The v2 RunnerAdapter's `sandboxInfo` only echoes the DB
+   * backupState, so the runner-polling path below would otherwise be a no-op for v2.
+   */
+  private async reconcileV2BackupFromJob(sandbox: Sandbox): Promise<void> {
+    const job = await this.jobRepository.findOne({
+      where: {
+        resourceType: ResourceType.SANDBOX,
+        resourceId: sandbox.id,
+        type: JobType.CREATE_BACKUP,
+      },
+      order: { createdAt: 'DESC' },
+    })
+
+    if (!job) {
+      return
+    }
+
+    if (job.status === JobStatus.COMPLETED || job.status === JobStatus.FAILED) {
+      // handleJobCompletion -> handleCreateBackupJobCompletion swallows its own errors,
+      // so this won't throw and won't trip the caller's error-retry/ERROR path.
+      await this.jobStateHandlerService.handleJobCompletion(job)
+    }
+  }
+
+  private async checkBackupProgress(sandbox: Sandbox): Promise<void> {
+    try {
+      const runner = await this.runnerService.findOneOrFail(sandbox.runnerId)
+
+      // v2+ runners don't expose live backup state via the runner API - completion is
+      // tracked through the CREATE_BACKUP job. Reconcile from the job instead of polling.
+      if (runner.apiVersion !== '0') {
+        await this.reconcileV2BackupFromJob(sandbox)
+        return
+      }
+
+      const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+
+      // Get sandbox info from runner
+      const sandboxInfo = await runnerAdapter.sandboxInfo(sandbox.id)
+
+      switch (sandboxInfo.backupState) {
+        case BackupState.COMPLETED: {
+          // Only accept completion if the runner-reported snapshot matches the DB snapshot
+          if (sandboxInfo.backupSnapshot && sandboxInfo.backupSnapshot !== sandbox.backupSnapshot) {
+            this.logger.warn(
+              `Ignoring stale backup completion for sandbox ${sandbox.id}: runner snapshot ${sandboxInfo.backupSnapshot} does not match DB snapshot ${sandbox.backupSnapshot}`,
+            )
+            break
+          }
+          await this.sandboxService.updateSandboxBackupState(sandbox.id, BackupState.COMPLETED)
+          break
+        }
+        case BackupState.ERROR: {
+          // Only accept failure if the runner-reported snapshot matches the DB snapshot
+          if (sandboxInfo.backupSnapshot && sandboxInfo.backupSnapshot !== sandbox.backupSnapshot) {
+            this.logger.warn(
+              `Ignoring stale backup failure for sandbox ${sandbox.id}: runner snapshot ${sandboxInfo.backupSnapshot} does not match DB snapshot ${sandbox.backupSnapshot}`,
+            )
+            break
+          }
+          // Surface recoverable=true for archive flows or any backup error on a draining runner.
+          const isArchiveFlow = sandbox.desiredState === SandboxDesiredState.ARCHIVED
+          const isOnDrainingRunner = runner.draining === true
+          const recoverable = sandboxInfo.recoverable ?? false
+          await this.sandboxService.updateSandboxBackupState(
+            sandbox.id,
+            BackupState.ERROR,
+            undefined,
+            undefined,
+            sandboxInfo.backupErrorReason,
+            recoverable && (isArchiveFlow || isOnDrainingRunner),
+          )
+          await this.markErroredIfDraining(
+            sandbox,
+            sandboxInfo.backupErrorReason ?? null,
+            recoverable,
+            isOnDrainingRunner,
+          )
+          break
+        }
+        // If backup state is none, retry the backup process by setting the backup state to pending
+        // This can happen if the runner is restarted or the operation is cancelled.
+        // Bound the retries so a runner stuck reporting NONE doesn't loop forever.
+        case BackupState.NONE: {
+          const noneRetryKey = `sandbox-backup-${sandbox.id}-none-retry`
+          if (await this.shouldRetry(noneRetryKey)) {
+            await this.sandboxService.updateSandboxBackupState(sandbox.id, BackupState.PENDING)
+          } else {
+            this.logger.error(`Backup for sandbox ${sandbox.id} failed: runner repeatedly reports no backup state`)
+            await this.sandboxService.updateSandboxBackupState(
+              sandbox.id,
+              BackupState.ERROR,
+              undefined,
+              undefined,
+              'Backup failed: runner repeatedly reports no backup state',
+            )
+          }
+          break
+        }
+        // If still in progress or any other state, do nothing and wait for next sync
+      }
+    } catch (error) {
+      const { recoverable, errorReason } = sanitizeSandboxError(error)
+      const isArchiveFlow = sandbox.desiredState === SandboxDesiredState.ARCHIVED
+      const isOnDrainingRunner = await this.runnerIsDraining(sandbox)
+      await this.sandboxService.updateSandboxBackupState(
+        sandbox.id,
+        BackupState.ERROR,
+        undefined,
+        undefined,
+        errorReason,
+        recoverable && (isArchiveFlow || isOnDrainingRunner),
+      )
+      await this.markErroredIfDraining(sandbox, errorReason, recoverable, isOnDrainingRunner)
+      throw error
+    }
+  }
+
+  private async deleteSandboxBackupRepositoryFromRegistry(sandbox: Sandbox): Promise<void> {
+    // VM-backed classes (linux-vm, windows) store backups in runner-managed storage with no registry ref,
+    // so there's no registry repository to delete.
+    if (isVmSandboxClass(sandbox.sandboxClass) || !sandbox.backupRegistryId) {
+      return
+    }
+
+    const registry = await this.dockerRegistryService.findOne(sandbox.backupRegistryId)
+    if (!registry) {
+      this.logger.warn(`Registry ${sandbox.backupRegistryId} not found for backup repository ${sandbox.id}`)
+      return
+    }
+
+    try {
+      await this.dockerRegistryService.deleteSandboxRepository(sandbox.id, registry)
+    } catch (error) {
+      this.logger.error(
+        `Failed to delete backup repository ${sandbox.id} from registry ${registry.id}:`,
+        fromAxiosError(error),
+      )
+    }
+  }
+
+  /**
+   * Transition a backup from PENDING to IN_PROGRESS without clobbering a terminal state
+   * that a concurrent completion may have already written.
+   *
+   * On v2 runners a CREATE_BACKUP job can be claimed and completed (or fail fast, e.g.
+   * "No such container") within milliseconds of being created. The fire-and-forget job
+   * completion handler then writes Completed/Error. An unconditional write here would
+   * overwrite that terminal state back to InProgress and strand the sandbox forever
+   * (the job is already terminal, so neither the stale-job sweep nor the in-progress
+   * poller would ever resolve it). The guarded update is a no-op once the sandbox has
+   * left PENDING.
+   */
+  private async markBackupInProgressIfPending(sandboxId: string): Promise<void> {
+    try {
+      await this.sandboxRepository.updateWhere(sandboxId, {
+        updateData: { backupState: BackupState.IN_PROGRESS },
+        whereCondition: { backupState: BackupState.PENDING },
+      })
+    } catch (error) {
+      if (error instanceof SandboxConflictError) {
+        // Backup already left PENDING (e.g. completion handler set Completed/Error). Don't clobber it.
+        this.logger.debug(`Skipping InProgress transition for sandbox ${sandboxId}: backup no longer PENDING`)
+        return
+      }
+      throw error
+    }
+  }
+
+  private async handlePendingBackup(sandbox: Sandbox): Promise<void> {
+    const lockKey = `runner-${sandbox.runnerId}-backup-lock`
+    try {
+      await this.redisLockProvider.waitForLock(lockKey, 10)
+
+      const isDedicatedOrg = sandbox.organizationId === DEDICATED_BACKUP_ORG_ID
+      const backupsInProgress = await this.sandboxRepository.count({
+        where: {
+          runnerId: sandbox.runnerId,
+          backupState: BackupState.IN_PROGRESS,
+          organizationId: isDedicatedOrg ? DEDICATED_BACKUP_ORG_ID : Not(DEDICATED_BACKUP_ORG_ID),
+        },
+      })
+      const maxConcurrentBackups = isDedicatedOrg
+        ? MAX_CONCURRENT_DEDICATED_ORG_BACKUPS_PER_RUNNER
+        : this.configService.getOrThrow('maxConcurrentBackupsPerRunner')
+      if (backupsInProgress >= maxConcurrentBackups) {
+        return
+      }
+
+      // VM-backed classes back up to runner-managed storage, so there's no registry to look up or send.
+      let registry: DockerRegistry | undefined
+      if (!isVmSandboxClass(sandbox.sandboxClass)) {
+        const found = await this.dockerRegistryService.findOne(sandbox.backupRegistryId)
+        if (!found) {
+          throw new Error('Registry not found')
+        }
+        registry = found
+      }
+
+      const runner = await this.runnerService.findOneOrFail(sandbox.runnerId)
+      const runnerAdapter = await this.runnerAdapterFactory.create(runner)
+
+      //  check if backup is already in progress on the runner
+      const runnerSandbox = await runnerAdapter.sandboxInfo(sandbox.id)
+      if (runnerSandbox.backupState === BackupState.IN_PROGRESS) {
+        await this.markBackupInProgressIfPending(sandbox.id)
+        return
+      }
+
+      // Initiate backup on runner
+      await runnerAdapter.createBackup(sandbox, sandbox.backupSnapshot, registry)
+
+      await this.markBackupInProgressIfPending(sandbox.id)
+    } catch (error) {
+      if (error.response?.status === 400 && error.response?.data?.message.includes('A backup is already in progress')) {
+        await this.markBackupInProgressIfPending(sandbox.id)
+        return
+      }
+      const { recoverable, errorReason } = sanitizeSandboxError(error)
+      const isArchiveFlow = sandbox.desiredState === SandboxDesiredState.ARCHIVED
+      const isOnDrainingRunner = await this.runnerIsDraining(sandbox)
+      await this.sandboxService.updateSandboxBackupState(
+        sandbox.id,
+        BackupState.ERROR,
+        undefined,
+        undefined,
+        errorReason,
+        recoverable && (isArchiveFlow || isOnDrainingRunner),
+      )
+      await this.markErroredIfDraining(sandbox, errorReason, recoverable, isOnDrainingRunner)
+      throw error
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @Cron(CronExpression.EVERY_10_MINUTES, { name: 'retry-errored-backups', waitForCompletion: true })
+  @TrackJobExecution()
+  @LogExecution('retry-errored-backups')
+  @WithInstrumentation()
+  async retryErroredBackups(): Promise<void> {
+    const retryIntervalHours = this.configService.getOrThrow('backupRetryIntervalHours')
+    if (retryIntervalHours <= 0) {
+      return
+    }
+
+    const lockKey = 'retry-errored-backups'
+    const hasLock = await this.redisLockProvider.lock(lockKey, 5 * 60)
+    if (!hasLock) {
+      return
+    }
+
+    try {
+      const cutoff = new Date(Date.now() - retryIntervalHours * 60 * 60 * 1000)
+
+      // Filter eligible (transient) errors in SQL so each run only selects retryable sandboxes
+      // instead of pulling a random batch that might be mostly non-retryable.
+      const sandboxes = await this.sandboxRepository
+        .createQueryBuilder('sandbox')
+        .addSelect('RANDOM()', 'rand')
+        .where('sandbox.backupState = :error', { error: BackupState.ERROR })
+        .andWhere('sandbox.desiredState != :destroyed', { destroyed: SandboxDesiredState.DESTROYED })
+        .andWhere('sandbox.updatedAt < :cutoff', { cutoff })
+        .andWhere(
+          new Brackets((qb) => {
+            BACKUP_RETRY_ERROR_SUBSTRINGS.forEach((substring, index) => {
+              const param = `retrySubstring${index}`
+              qb.orWhere(`sandbox.backupErrorReason ILIKE :${param}`, { [param]: `%${substring}%` })
+            })
+          }),
+        )
+        // Random ordering avoids head-of-line blocking on the same sandboxes that keep failing.
+        .orderBy('rand')
+        .take(100)
+        .getMany()
+
+      const results = await Promise.allSettled(
+        sandboxes.map(async (s) => {
+          // Take the same per-sandbox lock used by the rest of the backup workflows to avoid
+          // racing with in-flight backup processing and causing state flapping.
+          const sandboxLockKey = `sandbox-backup-${s.id}`
+          const hasSandboxLock = await this.redisLockProvider.lock(sandboxLockKey, 60)
+          if (!hasSandboxLock) {
+            return
+          }
+
+          try {
+            // Re-fetch the latest state inside the lock; only reset if it is still errored.
+            const sandbox = await this.sandboxRepository.findOneByOrFail({ id: s.id })
+            if (sandbox.backupState !== BackupState.ERROR) {
+              return
+            }
+
+            this.logger.log(`Retrying backup for sandbox ${sandbox.id} (error: ${sandbox.backupErrorReason})`)
+            await this.sandboxService.updateSandboxBackupState(sandbox.id, BackupState.NONE)
+          } finally {
+            await this.redisLockProvider.unlock(sandboxLockKey)
+          }
+        }),
+      )
+
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          this.logger.error(
+            `Failed to reset backup state for sandbox ${sandboxes[index].id}:`,
+            fromAxiosError(result.reason),
+          )
+        }
+      })
+    } catch (error) {
+      this.logger.error('Error retrying errored backups:', error)
+    } finally {
+      await this.redisLockProvider.unlock(lockKey)
+    }
+  }
+
+  @OnEvent(SandboxEvents.ARCHIVED)
+  @TrackJobExecution()
+  private async handleSandboxArchivedEvent(event: SandboxArchivedEvent) {
+    this.setBackupPending(event.sandbox)
+  }
+
+  @OnEvent(SandboxEvents.DESTROYED)
+  @TrackJobExecution()
+  private async handleSandboxDestroyedEvent(event: SandboxDestroyedEvent) {
+    // this.deleteSandboxBackupRepositoryFromRegistry(event.sandbox)
+  }
+
+  @OnEvent(SandboxEvents.BACKUP_CREATED)
+  @TrackJobExecution()
+  private async handleSandboxBackupCreatedEvent(event: SandboxBackupCreatedEvent) {
+    this.setBackupPending(event.sandbox)
+  }
+}

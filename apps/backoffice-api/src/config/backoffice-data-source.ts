@@ -1,0 +1,45 @@
+import { DataSource } from 'typeorm'
+import { join } from 'path'
+import { config } from './env'
+
+import { AuditLog } from '../backoffice-db/entities/audit-log.entity'
+import { BackofficeUser } from '../backoffice-db/entities/backoffice-user.entity'
+import { QuotaRequest } from '../backoffice-db/entities/quota-request.entity'
+import { FleetRunner } from '../backoffice-db/entities/fleet-runner.entity'
+import { MaintenanceRequest } from '../backoffice-db/entities/maintenance-request.entity'
+import { RunnerEvent } from '../backoffice-db/entities/runner-event.entity'
+import { Conversation } from '../chat/entities/conversation.entity'
+import { Message } from '../chat/entities/message.entity'
+import { UserSettings } from '../chat/entities/user-settings.entity'
+import { ThreadCollaborator } from '../chat/entities/thread-collaborator.entity'
+import { Memory } from '../chat/entities/memory.entity'
+
+export const BackofficeDataSource = new DataSource({
+  type: 'postgres',
+  host: config.backofficeDb.host,
+  port: config.backofficeDb.port,
+  username: config.backofficeDb.username,
+  password: config.backofficeDb.password,
+  database: config.backofficeDb.database,
+  entities: [
+    AuditLog,
+    BackofficeUser,
+    QuotaRequest,
+    FleetRunner,
+    MaintenanceRequest,
+    RunnerEvent,
+    Conversation,
+    Message,
+    UserSettings,
+    ThreadCollaborator,
+    Memory,
+  ],
+  migrations: [join(__dirname, '../migrations-backoffice/**/*{.ts,.js}')],
+  synchronize: false,
+  migrationsRun: config.backofficeDb.migrationsRun,
+  logging: config.backofficeDb.logging,
+  ssl: config.backofficeDb.tls.enabled,
+  extra: config.backofficeDb.tls.enabled
+    ? { ssl: { rejectUnauthorized: config.backofficeDb.tls.rejectUnauthorized } }
+    : undefined,
+})

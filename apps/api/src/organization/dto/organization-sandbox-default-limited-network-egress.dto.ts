@@ -1,0 +1,11 @@
+import { ApiProperty, ApiSchema } from '@nestjs/swagger'
+import { IsBoolean } from 'class-validator'
+
+@ApiSchema({ name: 'OrganizationSandboxDefaultLimitedNetworkEgress' })
+export class OrganizationSandboxDefaultLimitedNetworkEgressDto {
+  @ApiProperty({
+    description: 'Sandbox default limited network egress',
+  })
+  @IsBoolean()
+  sandboxDefaultLimitedNetworkEgress: boolean
+}

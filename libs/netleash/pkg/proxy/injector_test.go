@@ -1,0 +1,273 @@
+package proxy
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestGeneratePlaceholder_Format(t *testing.T) {
+	p := GeneratePlaceholder()
+	if !strings.HasPrefix(p, placeholderPrefix) {
+		t.Fatalf("placeholder should start with %q, got %q", placeholderPrefix, p)
+	}
+	if !strings.HasSuffix(p, "__") {
+		t.Fatalf("placeholder should end with __, got %q", p)
+	}
+	// __LEASH_SECRET_ (15) + 32 hex chars + __ (2) = 49
+	if len(p) != 49 {
+		t.Fatalf("expected length 49, got %d: %q", len(p), p)
+	}
+}
+
+func TestGeneratePlaceholder_Unique(t *testing.T) {
+	seen := make(map[string]bool)
+	for i := 0; i < 100; i++ {
+		p := GeneratePlaceholder()
+		if seen[p] {
+			t.Fatalf("duplicate placeholder generated: %q", p)
+		}
+		seen[p] = true
+	}
+}
+
+func TestInjector_HasSecrets(t *testing.T) {
+	empty := NewInjector(nil)
+	if empty.HasSecrets() {
+		t.Fatal("empty injector should return false")
+	}
+
+	withSecrets := NewInjector([]SecretConfig{{Name: "KEY", Value: "val", Hosts: []string{"h"}}})
+	if !withSecrets.HasSecrets() {
+		t.Fatal("injector with secrets should return true")
+	}
+}
+
+func TestInjector_TargetsHost(t *testing.T) {
+	inj := NewInjector([]SecretConfig{{
+		Name: "K", Placeholder: "__ph__", Value: "v", Hosts: []string{"api.openai.com", "*.github.com"},
+	}})
+
+	// The proxy uses TargetsHost to choose MITM (true) vs splice (false).
+	if !inj.TargetsHost("api.openai.com") {
+		t.Error("exact host should be a MITM target")
+	}
+	if !inj.TargetsHost("api.openai.com:443") {
+		t.Error("host with port should be a MITM target")
+	}
+	if !inj.TargetsHost("sub.github.com") {
+		t.Error("wildcard-matched host should be a MITM target")
+	}
+	if inj.TargetsHost("example.com") {
+		t.Error("unrelated host must be spliced, not MITM'd")
+	}
+
+	// Empty injector never targets any host → everything splices.
+	if NewInjector(nil).TargetsHost("api.openai.com") {
+		t.Error("empty injector should target no host")
+	}
+
+	// An unrestricted ("*") secret makes every host a MITM target.
+	star := NewInjector([]SecretConfig{{Name: "K", Placeholder: "__ph__", Value: "v", Hosts: []string{MatchAllHosts}}})
+	if !star.TargetsHost("anything.example") {
+		t.Error("unrestricted secret should target every host")
+	}
+
+	// A secret with no real value can't be injected, so it isn't a MITM target.
+	novalue := NewInjector([]SecretConfig{{Name: "K", Placeholder: "__ph__", Value: "", Hosts: []string{"api.openai.com"}}})
+	if novalue.TargetsHost("api.openai.com") {
+		t.Error("secret with empty value should not force MITM")
+	}
+}
+
+func TestInjector_ReplaceBody_AllowedHost(t *testing.T) {
+	inj := NewInjector([]SecretConfig{{
+		Name:        "API_KEY",
+		Placeholder: "PLACEHOLDER_123",
+		Value:       "real-secret",
+		Hosts:       []string{"api.example.com"},
+	}})
+
+	body := []byte("Authorization: Bearer PLACEHOLDER_123")
+	got := inj.ReplaceBody("api.example.com", body)
+	want := "Authorization: Bearer real-secret"
+	if string(got) != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestInjector_ReplaceBody_DisallowedHost(t *testing.T) {
+	inj := NewInjector([]SecretConfig{{
+		Name:        "API_KEY",
+		Placeholder: "PLACEHOLDER_123",
+		Value:       "real-secret",
+		Hosts:       []string{"api.example.com"},
+	}})
+
+	body := []byte("Authorization: Bearer PLACEHOLDER_123")
+	got := inj.ReplaceBody("evil.com", body)
+	if string(got) != string(body) {
+		t.Fatalf("body should be unchanged for disallowed host, got %q", got)
+	}
+}
+
+func TestInjector_ReplaceBody_HostWithPort(t *testing.T) {
+	inj := NewInjector([]SecretConfig{{
+		Name:        "API_KEY",
+		Placeholder: "PLACEHOLDER_123",
+		Value:       "real-secret",
+		Hosts:       []string{"api.example.com"},
+	}})
+
+	body := []byte("key=PLACEHOLDER_123")
+	got := inj.ReplaceBody("api.example.com:443", body)
+	if string(got) != "key=real-secret" {
+		t.Fatalf("should strip port and match, got %q", got)
+	}
+}
+
+func TestInjector_ReplaceBody_MultipleSecrets(t *testing.T) {
+	inj := NewInjector([]SecretConfig{
+		{Placeholder: "PH_A", Value: "secret_a", Hosts: []string{"host.com"}},
+		{Placeholder: "PH_B", Value: "secret_b", Hosts: []string{"host.com"}},
+	})
+
+	body := []byte("a=PH_A&b=PH_B")
+	got := inj.ReplaceBody("host.com", body)
+	if string(got) != "a=secret_a&b=secret_b" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestInjector_ReplaceBody_MultipleOccurrences(t *testing.T) {
+	inj := NewInjector([]SecretConfig{
+		{Placeholder: "PH_X", Value: "real", Hosts: []string{"h.com"}},
+	})
+
+	body := []byte("PH_X and PH_X again")
+	got := inj.ReplaceBody("h.com", body)
+	if string(got) != "real and real again" {
+		t.Fatalf("should replace all occurrences, got %q", got)
+	}
+}
+
+func TestInjector_ReplaceString_AllowedHost(t *testing.T) {
+	inj := NewInjector([]SecretConfig{{
+		Placeholder: "PH_TOKEN",
+		Value:       "sk-real-token",
+		Hosts:       []string{"api.openai.com"},
+	}})
+
+	got := inj.ReplaceString("api.openai.com", "Bearer PH_TOKEN")
+	if got != "Bearer sk-real-token" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestInjector_ReplaceString_DisallowedHost(t *testing.T) {
+	inj := NewInjector([]SecretConfig{{
+		Placeholder: "PH_TOKEN",
+		Value:       "sk-real-token",
+		Hosts:       []string{"api.openai.com"},
+	}})
+
+	got := inj.ReplaceString("evil.com", "Bearer PH_TOKEN")
+	if got != "Bearer PH_TOKEN" {
+		t.Fatalf("should not replace for disallowed host, got %q", got)
+	}
+}
+
+func TestInjector_ReplaceString_CaseInsensitiveHost(t *testing.T) {
+	inj := NewInjector([]SecretConfig{{
+		Placeholder: "PH",
+		Value:       "real",
+		Hosts:       []string{"Api.Example.COM"},
+	}})
+
+	got := inj.ReplaceString("api.example.com", "PH")
+	if got != "real" {
+		t.Fatalf("host matching should be case-insensitive, got %q", got)
+	}
+}
+
+func TestHostAllowed(t *testing.T) {
+	tests := []struct {
+		host    string
+		allowed []string
+		want    bool
+	}{
+		{"example.com", []string{"example.com"}, true},
+		{"example.com", []string{"other.com"}, false},
+		{"Example.COM", []string{"example.com"}, true},
+		{"example.com", []string{"EXAMPLE.COM"}, true},
+		{"example.com", nil, false},
+		{"example.com", []string{}, false},
+		// "*" (MatchAllHosts) matches every host; empty still matches nothing.
+		{"example.com", []string{"*"}, true},
+		{"anything.internal", []string{"*"}, true},
+		{"api.openai.com", []string{"other.com", "*"}, true},
+	}
+
+	for _, tt := range tests {
+		got := hostAllowed(tt.host, tt.allowed)
+		if got != tt.want {
+			t.Errorf("hostAllowed(%q, %v) = %v, want %v", tt.host, tt.allowed, got, tt.want)
+		}
+	}
+}
+
+// A secret scoped to "*" is injected for any host, in both headers and body.
+func TestInjector_MatchAllHosts(t *testing.T) {
+	inj := NewInjector([]SecretConfig{{
+		Placeholder: "PH_TOKEN",
+		Value:       "real-secret",
+		Hosts:       []string{MatchAllHosts},
+	}})
+	for _, host := range []string{"api.openai.com", "anything.example.com", "localhost"} {
+		if got := inj.ReplaceString(host, "Bearer PH_TOKEN"); got != "Bearer real-secret" {
+			t.Errorf("ReplaceString(%q): got %q, want injected value", host, got)
+		}
+		if got := inj.ReplaceBody(host, []byte(`{"k":"PH_TOKEN"}`)); string(got) != `{"k":"real-secret"}` {
+			t.Errorf("ReplaceBody(%q): got %q, want injected value", host, got)
+		}
+	}
+}
+
+func TestHostAllowed_Wildcard(t *testing.T) {
+	tests := []struct {
+		host    string
+		allowed []string
+		want    bool
+	}{
+		{"api.example.com", []string{"*.example.com"}, true},
+		{"deep.api.example.com", []string{"*.example.com"}, true},
+		{"example.com", []string{"*.example.com"}, true}, // base domain matches too
+		{"example.com.evil.com", []string{"*.example.com"}, false},
+		{"notexample.com", []string{"*.example.com"}, false},
+		{"API.Example.COM", []string{"*.example.com"}, true}, // case-insensitive
+		{"api.example.com", []string{"*.EXAMPLE.COM"}, true},
+	}
+	for _, tt := range tests {
+		if got := hostAllowed(tt.host, tt.allowed); got != tt.want {
+			t.Errorf("hostAllowed(%q, %v) = %v, want %v", tt.host, tt.allowed, got, tt.want)
+		}
+	}
+}
+
+func TestStripPort(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"example.com:443", "example.com"},
+		{"example.com:80", "example.com"},
+		{"example.com", "example.com"},
+		{"[::1]:443", "[::1]"},
+	}
+
+	for _, tt := range tests {
+		got := stripPort(tt.input)
+		if got != tt.want {
+			t.Errorf("stripPort(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
